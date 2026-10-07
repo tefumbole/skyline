@@ -1,0 +1,907 @@
+@extends('layout.main')
+
+@section('content')
+@php
+    $anTab = 'announcements.compose';
+    $clone = $clone ?? null;
+    $defaultHeader = old('header', $clone['header'] ?? '');
+@endphp
+<section class="forms">
+    <div class="container-fluid an-shell">
+        @include('announcement_manager.partials.tabs')
+        <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap" style="gap:12px;">
+            <div>
+                <h1 class="an-title"><i class="fa fa-bullhorn"></i> Compose Announcement</h1>
+                <p class="an-subtitle">Create and send WhatsApp messages to customers and staff. No action required from recipients.</p>
+            </div>
+            <div class="an-page-card py-2 px-3 mb-0">
+                <small class="text-muted d-block">Selected Recipients</small>
+                <strong id="an-count" style="color:#0b3f90;font-size:1.25rem;">0</strong>
+            </div>
+        </div>
+
+        @if(session('message'))
+            <div class="alert alert-success">{{ session('message') }}</div>
+        @endif
+        @if(session('not_permitted'))
+            <div class="alert alert-danger">{{ session('not_permitted') }}</div>
+        @endif
+
+<style>
+    .an-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    @media (max-width: 992px) { .an-layout { grid-template-columns: 1fr; } }
+    .an-label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; }
+    .an-field { width:100%; border:1px solid #d7deea; border-radius:8px; padding:9px 12px; font-size:14px; }
+    .an-field:focus { outline:none; border-color:#0b3f90; box-shadow:0 0 0 3px rgba(11,63,144,.12); }
+    textarea.an-field { min-height:140px; resize:vertical; }
+    .an-ph {
+        display:inline-block; border:1px solid #9bb6e0; color:#0b3f90; border-radius:999px;
+        padding:2px 10px; font-size:12px; margin:2px 2px 0 0; cursor:pointer; background:#f0f6ff; font-weight:600;
+    }
+    .an-pill {
+        border:0; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:600;
+        background:#f1f5f9; color:#334155; cursor:pointer; margin:0 4px 6px 0;
+    }
+    .an-pill.active { background:#0b3f90; color:#fff; }
+    .an-user-list { max-height:220px; overflow:auto; border:1px solid #e3e9f4; border-radius:10px; background:#fff; }
+    .an-user-item { display:block; width:100%; text-align:left; padding:10px 12px; border:0; border-bottom:1px solid #f0f3f8; background:#fff; cursor:pointer; }
+    .an-user-item:hover, .an-user-item.selected { background:#f0f6ff; }
+    .an-user-item .meta { color:#6b7280; font-size:12px; }
+    .an-chip {
+        display:inline-flex; align-items:center; gap:6px; border:1px solid #0b3f90; color:#0b3f90;
+        background:#eef4ff; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; margin:2px;
+    }
+    .an-chip button { border:0; background:transparent; color:#0b3f90; font-weight:800; cursor:pointer; }
+    .an-send-opt {
+        border:1px solid #d7deea; border-radius:10px; padding:10px 12px; cursor:pointer;
+        font-size:13px; font-weight:600; margin-bottom:8px; background:#fff;
+    }
+    .an-send-opt.active { border-color:#0b3f90; background:#eef4ff; color:#0b3f90; }
+    .an-info { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; border-radius:8px; padding:8px 10px; font-size:12px; margin-top:8px; }
+    .an-drop {
+        border:1px dashed #94a3b8; border-radius:10px; padding:16px; text-align:center; color:#64748b; font-size:13px;
+    }
+    .an-add-recipient-panel {
+        border:1px dashed #0b3f90; border-radius:12px; background:#f8fbff; padding:12px 14px;
+    }
+</style>
+
+        <form method="POST" action="{{ route('announcements.store') }}" enctype="multipart/form-data" id="an-form">
+            @csrf
+            <input type="hidden" name="cloned_from_id" value="{{ $clone['cloned_from_id'] ?? '' }}">
+            <input type="hidden" name="send_mode" id="an-send-mode" value="now">
+            <input type="hidden" name="send_whatsapp" value="1">
+            <input type="hidden" name="audience" id="an-audience" value="people">
+
+            <div class="an-layout">
+                <div class="an-page-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap" style="gap:8px;">
+                        <h5 class="mb-0" style="color:#0b3f90;font-weight:700;">Message Content</h5>
+                        <div>
+                            <label class="an-label mb-0">Template</label>
+                            <select class="an-field" id="an-template-pick" style="min-width:180px;">
+                                <option value="">Blank Message</option>
+                                @foreach($templates as $tpl)
+                                    <option value="{{ $tpl->id }}"
+                                        data-subject="{{ e($tpl->subject) }}"
+                                        data-header="{{ e($tpl->header) }}"
+                                        data-body="{{ e($tpl->body) }}"
+                                        data-category="{{ $tpl->category_id }}">{{ $tpl->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <label class="an-label">Category</label>
+                            <select name="category_id" class="an-field" id="an-category">
+                                <option value="">General</option>
+                                @foreach($categories as $cat)
+                                    <option value="{{ $cat->id }}" {{ (string)old('category_id', $clone['category_id'] ?? '') === (string)$cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-8 form-group">
+                            <label class="an-label">Subject</label>
+                            <input type="text" name="subject" class="an-field" required placeholder="Internal tracking title" value="{{ old('subject', $clone['subject'] ?? '') }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="an-label">Header (WhatsApp opening line)</label>
+                        <input type="text" name="header" class="an-field" value="{{ $defaultHeader }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="an-label">Message Body</label>
+                        <div class="mb-2" style="font-size:12px;color:#9ca3af;">
+                            Insert:
+                            @foreach(['{name}','{email}','{phone}','{address}','{date}','{institution_name}','{reference}'] as $tok)
+                                <span class="an-ph" data-token="{{ $tok }}">{{ $tok }}</span>
+                            @endforeach
+                        </div>
+                        <textarea name="body" id="an-body" class="an-field" rows="8" required placeholder="Dear {name},">{{ old('body', $clone['body'] ?? "Dear {name},\n\n") }}</textarea>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap mb-2" style="gap:8px;">
+                            <label class="an-label mb-0" style="color:#0b3f90;font-weight:700;font-size:15px;">Send to *</label>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" class="an-pill active an-audience" data-audience="people">Selected people</button>
+                            <button type="button" class="an-pill an-audience" data-audience="group">WhatsApp group</button>
+                            <button type="button" class="an-pill an-audience" data-audience="contacts">All WhatsApp contacts</button>
+                        </div>
+                        <div id="an-group-box" class="mb-3" style="display:none;">
+                            <label class="an-label">Groups</label>
+                            <input type="search" id="an-group-search" class="an-field mb-2" placeholder="Search a group, for example NBC Praise Team">
+                            <div class="d-flex mb-2" style="gap:8px;">
+                                <button type="button" class="an-btn-outline" id="an-group-visible">Add shown</button>
+                                <button type="button" class="an-btn-outline" id="an-group-clear">Clear</button>
+                            </div>
+                            <div id="an-group-chips" class="mt-1 mb-2"></div>
+                            <p id="an-group-progress" class="text-muted small mb-2" style="display:none"></p>
+                            <div id="an-group-list" class="an-user-list" style="max-height:280px;">
+                                @forelse(($waGroups ?? []) as $group)
+                                    <label class="an-user-item an-group-row" data-jid="{{ $group['jid'] }}" data-known="{{ !empty($group['known']) ? '1' : '0' }}" data-sent="{{ (int) ($group['last_sent'] ?? 0) }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" name="group_jids[]" value="{{ $group['jid'] }}">
+                                        <span>
+                                            <span class="an-group-label">{{ !empty($group['known']) ? $group['name'] : 'Loading name…' }}</span>
+                                            @if($group['members'] !== null)
+                                                <span class="meta an-group-count"> · {{ number_format($group['members']) }} contacts</span>
+                                            @else
+                                                <span class="meta an-group-count"></span>
+                                            @endif
+                                            @if(!empty($group['last_sent']))
+                                                <span class="meta"> · recent</span>
+                                            @endif
+                                        </span>
+                                    </label>
+                                @empty
+                                    <div class="p-3 text-muted small">No WhatsApp groups were returned for this account.</div>
+                                @endforelse
+                            </div>
+                            <div class="an-info" id="an-group-info">Search a group and tick it. Added groups stay listed above so you can add more. With Personalize on, each member gets their own message.</div>
+                        </div>
+                        <div id="an-contacts-box" class="mb-3" style="display:none;">
+                            <div class="an-info">A personal WhatsApp message is sent to every contact saved on the connected WhatsApp account.</div>
+                        </div>
+                        <div id="an-people-box">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap mb-2" style="gap:8px;">
+                            <label class="an-label mb-0" style="color:#0b3f90;font-weight:700;font-size:15px;">Select Recipients *</label>
+                            <button type="button" class="an-btn-outline" id="an-add-recipient-btn" style="white-space:nowrap;">
+                                <i class="dripicons-plus"></i> Add new recipient
+                            </button>
+                        </div>
+                        <div id="an-add-recipient-panel" class="an-add-recipient-panel mb-3" style="display:none;">
+                            <p class="text-muted small mb-2">Add someone who is not in the list yet. They are saved as a customer and selected automatically.</p>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="small font-weight-bold">WhatsApp / Phone *</label>
+                                    <input type="tel" class="an-field js-phone-holder" id="an-new-phone" placeholder="675321739 or +237…">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="small font-weight-bold">Name *</label>
+                                    <input type="text" class="an-field" id="an-new-name" placeholder="Full name">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="small font-weight-bold">Email (optional)</label>
+                                    <input type="email" class="an-field" id="an-new-email" placeholder="email@example.com">
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="small font-weight-bold">Address (optional)</label>
+                                    <input type="text" class="an-field" id="an-new-address" placeholder="City / address">
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap" style="gap:8px;">
+                                <button type="button" class="an-btn-primary" id="an-new-save"><i class="dripicons-checkmark"></i> Save &amp; select</button>
+                                <button type="button" class="an-btn-outline" id="an-new-cancel">Cancel</button>
+                                <span class="small text-muted align-self-center" id="an-new-status"></span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <button type="button" class="an-pill active an-rf" data-role="customers">Customers</button>
+                            <button type="button" class="an-pill an-rf" data-role="staff">System Users</button>
+                            <button type="button" class="an-pill an-rf" data-role="applicants">Applicants</button>
+                            <button type="button" class="an-pill an-rf" data-role="all">All</button>
+                        </div>
+                        <div class="d-flex mb-2" style="gap:8px;">
+                            <input type="search" class="an-field an-rsearch" placeholder="Search name, email, phone…">
+                            <button type="button" class="an-btn-outline an-rselect-all" style="white-space:nowrap;">Select all</button>
+                        </div>
+                        <div class="an-user-list an-rlist"></div>
+                        <div class="an-rchips mt-2"></div>
+                        <div class="an-rhiddens"></div>
+
+                        <hr>
+                        <h6 style="font-weight:700;">CC (no action required)</h6>
+                        <p class="text-muted small">Copied recipients also receive the WhatsApp message.</p>
+                        <div class="mb-2">
+                            <button type="button" class="an-pill active an-cf" data-role="all">All</button>
+                            <button type="button" class="an-pill an-cf" data-role="staff">Staff</button>
+                            <button type="button" class="an-pill an-cf" data-role="customers">Customers</button>
+                            <button type="button" class="an-pill an-cf" data-role="applicants">Applicants</button>
+                        </div>
+                        <input type="search" class="an-field an-csearch mb-2" placeholder="Search CC…">
+                        <div class="an-user-list an-clist" style="max-height:140px;"></div>
+                        <div class="an-cchips mt-2"></div>
+                        <div class="an-chiddens"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label class="an-label">Footer (optional)</label>
+                        <input type="text" name="footer" id="an-footer" class="an-field" value="{{ old('footer', $clone['footer'] ?? '') }}" data-system="{{ \App\Support\WhatsAppMessage::companyName() }}" placeholder="For example Nkwen Praise Team">
+                        <p class="text-muted small mb-0">If you type a footer, that is the only sign-off. Leave it blank to use {{ \App\Support\WhatsAppMessage::companyName() }}.</p>
+                    </div>
+
+                    <div class="an-drop">
+                        <div class="mb-2">Attachments (max 10MB)</div>
+                        <input type="file" name="attachment" accept=".pdf,image/*" class="an-field">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="an-page-card">
+                        <h5 style="color:#0b3f90;font-weight:700;">Sending Options</h5>
+                        <label class="d-flex align-items-center" style="gap:8px;font-weight:600;">
+                            <input type="checkbox" checked disabled> Send via WhatsApp
+                        </label>
+                        <button type="button" class="an-pill mt-3" id="an-personalize-btn">Personalize each message</button>
+                        <input type="checkbox" name="personalized" id="an-personalized" value="1" class="d-none">
+                        <div class="an-info" id="an-personalize-help">Turn this on to greet each person by name. Add a title in the preview, for example Pastor John or Dr. Bolla. A selected group then sends a separate message to each member.</div>
+                        <div class="an-info">Messages go out one person every 5 seconds so WhatsApp does not block the account.</div>
+                        <button type="button" class="an-btn-outline mt-2" id="an-preview-btn" style="display:none;">Preview messages</button>
+                        <div class="mt-3">
+                            <div class="an-send-opt active" data-mode="now">✈ Send immediately</div>
+                            <div class="an-send-opt" data-mode="schedule"><i class="dripicons-clock"></i> Schedule for later</div>
+                            <input type="datetime-local" name="schedule_at" id="an-schedule-at" class="an-field d-none mt-2">
+                        </div>
+                        <div class="mt-3">
+                            <label class="an-label">Reminders</label>
+                            <div id="an-reminders"></div>
+                            <button type="button" class="an-btn-outline mt-1" id="an-add-reminder">+ Add reminder</button>
+                        </div>
+                        <div class="mt-3">
+                            <label class="d-flex align-items-center" style="gap:8px;">
+                                <input type="checkbox" name="save_as_template" value="1"> Save as template
+                            </label>
+                            <input type="text" name="template_name" class="an-field mt-1" placeholder="Template name (optional)">
+                        </div>
+                        <div class="mt-3 d-flex flex-column" style="gap:8px;">
+                            <button type="submit" class="an-btn-primary" style="justify-content:center;padding:12px;"><i class="dripicons-rocket"></i> Send Now</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="an-preview" class="an-page-card mt-3" style="display:none;">
+                <h5 style="color:#0b3f90;font-weight:700;">Preview</h5>
+                <p class="text-muted small">Edit the message and each name. Add a title in the name, such as Pastor, Dr., or Engr.</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="an-label">Message</label>
+                        <textarea id="an-preview-body" class="an-field" rows="8"></textarea>
+                        <input type="search" id="an-preview-search" class="an-field mt-2" placeholder="Search a name or phone number">
+                        <div id="an-preview-list" class="an-user-list mt-2" style="max-height:360px;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="an-label">How this person will receive it</label>
+                        <pre id="an-preview-sample" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:16px;min-height:220px;font-family:inherit;"></pre>
+                    </div>
+                </div>
+                <div id="an-name-overrides"></div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+window.AN_USERS = @json($users);
+window.AN_USERS_SEARCH = @json(route('announcements.users.search'));
+window.AN_QUICK_RECIPIENT = @json(route('announcements.quick_recipient'));
+window.AN_PRESELECT = @json([
+    'recipients' => $clone['recipient_ids'] ?? [],
+    'cc' => $clone['cc_ids'] ?? [],
+]);
+(function () {
+    var recipients = (window.AN_PRESELECT.recipients || []).slice();
+    var ccs = (window.AN_PRESELECT.cc || []).slice();
+    var rRole = 'customers', cRole = 'all';
+    var searchTimers = {};
+    var csrf = document.querySelector('meta[name="csrf-token"]')
+        ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        : (document.querySelector('#an-form input[name="_token"]') || {}).value;
+
+    function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, function (c) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+        });
+    }
+
+    function mergeUsers(list) {
+        var map = {};
+        (window.AN_USERS || []).forEach(function (u) { map[u.id] = u; });
+        (list || []).forEach(function (u) { map[u.id] = u; });
+        window.AN_USERS = Object.keys(map).map(function (k) { return map[k]; });
+    }
+
+    function filterUsersLocal(query, roleFilter) {
+        var q = (query || '').toLowerCase();
+        return (window.AN_USERS || []).filter(function (u) {
+            var role = (u.role || '').toLowerCase();
+            var source = (u.source || '').toLowerCase();
+            if (roleFilter === 'staff' && (source === 'customer' || source === 'applicant' || role === 'customer' || role === 'client' || role === 'applicant')) return false;
+            if (roleFilter === 'customers' && source !== 'customer' && role !== 'customer' && role !== 'client') return false;
+            if (roleFilter === 'applicants' && source !== 'applicant' && role !== 'applicant') return false;
+            if (!q) return true;
+            return (u.name||'').toLowerCase().indexOf(q) !== -1
+                || (u.email||'').toLowerCase().indexOf(q) !== -1
+                || (u.phone||'').toLowerCase().indexOf(q) !== -1;
+        });
+    }
+
+    function searchUsers(query, roleFilter, done) {
+        var q = (query || '').trim();
+        if (!q || q.length < 2 || !window.AN_USERS_SEARCH) {
+            done(filterUsersLocal(query, roleFilter));
+            return;
+        }
+        var filter = roleFilter === 'staff' ? 'staff'
+            : (roleFilter === 'customers' ? 'customers'
+            : (roleFilter === 'applicants' ? 'applicants' : 'all'));
+        fetch(window.AN_USERS_SEARCH + '?q=' + encodeURIComponent(q) + '&filter=' + encodeURIComponent(filter), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (rows) {
+            mergeUsers(rows);
+            done(filterUsersLocal(query, roleFilter));
+        }).catch(function () {
+            done(filterUsersLocal(query, roleFilter));
+        });
+    }
+
+    function filterUsers(query, roleFilter) {
+        return filterUsersLocal(query, roleFilter);
+    }
+
+    function renderList(el, users, selected, onToggle) {
+        el.innerHTML = users.map(function (u) {
+            var sel = selected.indexOf(u.id) !== -1 ? ' selected' : '';
+            return '<button type="button" class="an-user-item'+sel+'" data-id="'+esc(u.id)+'">'
+                + '<div class="font-weight-bold">'+esc(u.name||'Untitled')+'</div>'
+                + '<div class="meta">'+esc(u.email||'')+' · '+esc(u.phone||'')+'</div>'
+                + '</button>';
+        }).join('') || '<div class="p-3 text-muted small text-center">No people found.</div>';
+        el.querySelectorAll('.an-user-item').forEach(function (item) {
+            item.addEventListener('click', function () { onToggle(item.getAttribute('data-id')); });
+        });
+    }
+
+    function renderChips(el, selected, onRemove, prefix) {
+        var map = {};
+        (window.AN_USERS || []).forEach(function (u) { map[u.id] = u; });
+        el.innerHTML = selected.map(function (id) {
+            var u = map[id] || { name: id };
+            return '<span class="an-chip" data-id="'+esc(id)+'">'+esc((prefix?prefix+' ':'')+(u.name||id))
+                + ' <button type="button">×</button></span>';
+        }).join('');
+        el.querySelectorAll('.an-chip button').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                onRemove(btn.parentNode.getAttribute('data-id'));
+            });
+        });
+    }
+
+    function syncHiddens(el, selected, name) {
+        el.innerHTML = selected.map(function (id) {
+            return '<input type="hidden" name="'+name+'[]" value="'+esc(id)+'">';
+        }).join('');
+        document.getElementById('an-count').textContent = String(recipients.length + ccs.length);
+    }
+
+    function refreshRecipients() {
+        var q = document.querySelector('.an-rsearch').value;
+        searchUsers(q, rRole, function (users) {
+            renderList(document.querySelector('.an-rlist'), users, recipients, function (id) {
+                var i = recipients.indexOf(id);
+                if (i === -1) recipients.push(id); else recipients.splice(i, 1);
+                refreshRecipients();
+            });
+            renderChips(document.querySelector('.an-rchips'), recipients, function (id) {
+                recipients = recipients.filter(function (x) { return x !== id; });
+                refreshRecipients();
+            });
+            syncHiddens(document.querySelector('.an-rhiddens'), recipients, 'recipient_ids');
+        });
+    }
+
+    function refreshCc() {
+        var q = document.querySelector('.an-csearch').value;
+        searchUsers(q, cRole, function (users) {
+            renderList(document.querySelector('.an-clist'), users, ccs, function (id) {
+                var i = ccs.indexOf(id);
+                if (i === -1) ccs.push(id); else ccs.splice(i, 1);
+                refreshCc();
+            });
+            renderChips(document.querySelector('.an-cchips'), ccs, function (id) {
+                ccs = ccs.filter(function (x) { return x !== id; });
+                refreshCc();
+            }, 'CC:');
+            syncHiddens(document.querySelector('.an-chiddens'), ccs, 'cc_ids');
+        });
+    }
+
+    document.querySelector('.an-rsearch').addEventListener('input', function () {
+        clearTimeout(searchTimers.r);
+        searchTimers.r = setTimeout(refreshRecipients, 250);
+    });
+    document.querySelector('.an-csearch').addEventListener('input', function () {
+        clearTimeout(searchTimers.c);
+        searchTimers.c = setTimeout(refreshCc, 250);
+    });
+    document.querySelectorAll('.an-rf').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            rRole = btn.getAttribute('data-role');
+            document.querySelectorAll('.an-rf').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            refreshRecipients();
+        });
+    });
+    document.querySelectorAll('.an-cf').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            cRole = btn.getAttribute('data-role');
+            document.querySelectorAll('.an-cf').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            refreshCc();
+        });
+    });
+    document.querySelector('.an-rselect-all').addEventListener('click', function () {
+        filterUsers(document.querySelector('.an-rsearch').value, rRole).forEach(function (u) {
+            if (recipients.indexOf(u.id) === -1) recipients.push(u.id);
+        });
+        refreshRecipients();
+    });
+
+    var addPanel = document.getElementById('an-add-recipient-panel');
+    var addBtn = document.getElementById('an-add-recipient-btn');
+    var addStatus = document.getElementById('an-new-status');
+    if (addBtn && addPanel) {
+        addBtn.addEventListener('click', function () {
+            if (addPanel.style.display === 'none') {
+                addPanel.style.display = 'block';
+                document.getElementById('an-new-name').focus();
+            } else {
+                addPanel.style.display = 'none';
+            }
+        });
+        document.getElementById('an-new-cancel').addEventListener('click', function () {
+            addPanel.style.display = 'none';
+            if (addStatus) addStatus.textContent = '';
+        });
+        document.getElementById('an-new-save').addEventListener('click', function () {
+            var name = (document.getElementById('an-new-name').value || '').trim();
+            var phone = (document.getElementById('an-new-phone').value || '').trim();
+            var email = (document.getElementById('an-new-email').value || '').trim();
+            var address = (document.getElementById('an-new-address').value || '').trim();
+            if (!name || !phone) {
+                alert('Name and WhatsApp / phone are required.');
+                return;
+            }
+            var btn = document.getElementById('an-new-save');
+            btn.disabled = true;
+            if (addStatus) addStatus.textContent = 'Saving…';
+            fetch(window.AN_QUICK_RECIPIENT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrf || ''
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ name: name, phone: phone, email: email, address: address })
+            }).then(function (r) {
+                return r.json().then(function (body) {
+                    if (!r.ok) {
+                        var msg = (body && body.message) ? body.message : 'Could not save recipient.';
+                        if (body && body.errors) {
+                            var first = Object.keys(body.errors)[0];
+                            if (first && body.errors[first] && body.errors[first][0]) {
+                                msg = body.errors[first][0];
+                            }
+                        }
+                        throw new Error(msg);
+                    }
+                    return body;
+                });
+            }).then(function (body) {
+                var u = body.user;
+                if (!u || !u.id) throw new Error('Invalid response.');
+                mergeUsers([u]);
+                if (recipients.indexOf(u.id) === -1) recipients.push(u.id);
+                rRole = 'customers';
+                document.querySelectorAll('.an-rf').forEach(function (b) {
+                    b.classList.toggle('active', b.getAttribute('data-role') === 'customers');
+                });
+                document.getElementById('an-new-name').value = '';
+                document.getElementById('an-new-phone').value = '';
+                document.getElementById('an-new-email').value = '';
+                document.getElementById('an-new-address').value = '';
+                addPanel.style.display = 'none';
+                if (addStatus) {
+                    addStatus.textContent = body.created ? 'Recipient added.' : 'Existing customer selected.';
+                }
+                refreshRecipients();
+            }).catch(function (err) {
+                alert(err.message || 'Could not save recipient.');
+                if (addStatus) addStatus.textContent = '';
+            }).finally(function () {
+                btn.disabled = false;
+            });
+        });
+    }
+
+    document.querySelectorAll('.an-ph').forEach(function (ph) {
+        ph.addEventListener('click', function () {
+            var ta = document.getElementById('an-body');
+            ta.value = (ta.value || '') + ph.getAttribute('data-token');
+            ta.focus();
+        });
+    });
+
+    document.querySelectorAll('.an-send-opt').forEach(function (opt) {
+        opt.addEventListener('click', function () {
+            document.querySelectorAll('.an-send-opt').forEach(function (o) { o.classList.remove('active'); });
+            opt.classList.add('active');
+            var mode = opt.getAttribute('data-mode');
+            document.getElementById('an-send-mode').value = mode;
+            document.getElementById('an-schedule-at').classList.toggle('d-none', mode !== 'schedule');
+            var submit = document.querySelector('#an-form button[type=submit]');
+            submit.innerHTML = mode === 'schedule'
+                ? '<i class="dripicons-clock"></i> Schedule'
+                : '<i class="dripicons-rocket"></i> Send Now';
+        });
+    });
+
+    document.getElementById('an-add-reminder').addEventListener('click', function () {
+        var box = document.getElementById('an-reminders');
+        var row = document.createElement('div');
+        row.className = 'd-flex mb-2';
+        row.style.gap = '8px';
+        row.innerHTML = '<input type="datetime-local" name="reminders[]" class="an-field">'
+            + '<button type="button" class="an-btn-outline text-danger">×</button>';
+        row.querySelector('button').addEventListener('click', function () { row.remove(); });
+        box.appendChild(row);
+    });
+
+    document.getElementById('an-template-pick').addEventListener('change', function () {
+        var opt = this.options[this.selectedIndex];
+        if (!opt || !opt.value) return;
+        document.querySelector('[name=subject]').value = opt.getAttribute('data-subject') || '';
+        document.querySelector('[name=header]').value = opt.getAttribute('data-header') || '';
+        document.getElementById('an-body').value = opt.getAttribute('data-body') || '';
+        var cat = opt.getAttribute('data-category');
+        if (cat) document.getElementById('an-category').value = cat;
+    });
+
+    document.getElementById('an-form').addEventListener('submit', function (e) {
+        var previewBodyField = document.getElementById('an-preview-body');
+        var previewPanel = document.getElementById('an-preview');
+        if (previewBodyField && previewPanel && previewPanel.style.display !== 'none') {
+            document.getElementById('an-body').value = previewBodyField.value;
+        }
+        if (typeof writeOverrides === 'function') {
+            writeOverrides();
+        }
+        var audience = document.getElementById('an-audience').value;
+        if (audience === 'group') {
+            if (!document.querySelectorAll('#an-group-list input:checked').length) {
+                e.preventDefault();
+                alert('Choose at least one WhatsApp group.');
+            }
+            return;
+        }
+        if (audience === 'contacts') {
+            return;
+        }
+        if (!recipients.length) {
+            e.preventDefault();
+            alert('Select at least one recipient.');
+        }
+    });
+
+    document.querySelectorAll('.an-audience').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.an-audience').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            var audience = btn.getAttribute('data-audience');
+            document.getElementById('an-audience').value = audience;
+            document.getElementById('an-people-box').style.display = audience === 'people' ? '' : 'none';
+            document.getElementById('an-group-box').style.display = audience === 'group' ? '' : 'none';
+            document.getElementById('an-contacts-box').style.display = audience === 'contacts' ? '' : 'none';
+            var count = document.getElementById('an-count');
+            if (audience === 'contacts') {
+                count.textContent = 'All';
+            } else if (audience === 'group') {
+                count.textContent = String(document.querySelectorAll('#an-group-list input:checked').length);
+            } else {
+                count.textContent = String(recipients.length);
+            }
+        });
+    });
+    var groupList = document.getElementById('an-group-list');
+    var groupSearch = document.getElementById('an-group-search');
+    function groupRows() {
+        return groupList ? Array.prototype.slice.call(groupList.querySelectorAll('.an-group-row')) : [];
+    }
+    function updateGroupCount() {
+        renderGroupChips();
+        if (document.getElementById('an-audience').value !== 'group') return;
+        document.getElementById('an-count').textContent = String(document.querySelectorAll('#an-group-list input:checked').length);
+    }
+    function renderGroupChips() {
+        var chips = document.getElementById('an-group-chips');
+        if (!chips) return;
+        var checked = groupRows().filter(function (row) {
+            var box = row.querySelector('input');
+            return box && box.checked;
+        });
+        chips.innerHTML = checked.map(function (row) {
+            var name = row.querySelector('.an-group-label') ? row.querySelector('.an-group-label').textContent : 'Group';
+            return '<span class="an-chip" data-jid="'+esc(row.getAttribute('data-jid'))+'">'+esc(name)+' <button type="button">×</button></span>';
+        }).join('');
+        chips.querySelectorAll('button').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var jid = btn.parentNode.getAttribute('data-jid');
+                var row = groupList.querySelector('.an-group-row[data-jid="' + String(jid).replace(/"/g, '\\"') + '"]');
+                var box = row && row.querySelector('input');
+                if (box) box.checked = false;
+                updateGroupCount();
+            });
+        });
+    }
+    var personalizeBtn = document.getElementById('an-personalize-btn');
+    var personalizeBox = document.getElementById('an-personalized');
+    var previewBtn = document.getElementById('an-preview-btn');
+    var previewPeople = [];
+    var previewFocus = '';
+    function syncPersonalize() {
+        var on = !!(personalizeBox && personalizeBox.checked);
+        if (personalizeBtn) personalizeBtn.classList.toggle('active', on);
+        if (previewBtn) previewBtn.style.display = on ? '' : 'none';
+        var info = document.getElementById('an-group-info');
+        if (info) {
+            info.textContent = on
+                ? 'Added groups stay listed above. You can add more. Personalize sends a separate message to each member. Use Preview to edit the message and add titles to names.'
+                : 'Search a group and tick it. Added groups stay listed above so you can add more. The same message is posted in each group.';
+        }
+    }
+    if (personalizeBtn && personalizeBox) {
+        personalizeBtn.addEventListener('click', function () {
+            personalizeBox.checked = !personalizeBox.checked;
+            syncPersonalize();
+        });
+        syncPersonalize();
+    }
+    function displayName(person) {
+        var name = person && person.name ? String(person.name).trim() : '';
+        var phone = person && person.phone ? String(person.phone).replace(/\D/g, '') : '';
+        var digits = name.replace(/\D/g, '');
+        if (!name || /^\d{6,}$/.test(name.replace(/[\s+\-()]/g, '')) || (phone && digits === phone)) return '';
+        return name;
+    }
+    function previewHtml(person) {
+        var header = (document.querySelector('[name=header]').value || '').trim();
+        var footerInput = document.getElementById('an-footer');
+        var footer = footerInput ? footerInput.value.trim() : '';
+        if (!footer && footerInput) footer = (footerInput.getAttribute('data-system') || '').trim();
+        var name = displayName(person);
+        var phone = person && person.phone ? person.phone : '';
+        var body = esc(document.getElementById('an-preview-body').value || '');
+        var shownName = name ? '<strong>'+esc(name)+'</strong>' : '';
+        body = body.replace(/\{name\}/ig, shownName).replace(/\{phone\}/ig, esc(phone)).replace(/\{date\}/ig, new Date().toLocaleDateString());
+        body = body.replace(/^\s*Dear\s+[^,\n]*,\s*/i, '').trim();
+        var html = '';
+        if (header) html += '<div style="font-size:17px;font-weight:700;margin-bottom:12px;">📢 '+esc(header)+'</div>';
+        html += '<div style="margin-bottom:12px;">'+(name ? 'Dear <strong>'+esc(name)+'</strong>,' : 'Hello,')+'</div>';
+        html += '<div style="white-space:pre-wrap;line-height:1.5;">'+body+'</div>';
+        if (footer) html += '<div style="margin-top:14px;color:#64748b;font-style:italic;">'+esc(footer)+'</div>';
+        return html;
+    }
+    function paintSample() {
+        var sample = document.getElementById('an-preview-sample');
+        if (!sample) return;
+        var person = previewPeople.filter(function (p) { return p.phone === previewFocus; })[0] || previewPeople[0];
+        sample.innerHTML = person ? previewHtml(person) : 'Add a group, then open preview.';
+    }
+    function writeOverrides() {
+        var box = document.getElementById('an-name-overrides');
+        if (!box) return;
+        box.innerHTML = previewPeople.filter(function (p) {
+            return String(p.name || '').trim() !== String(p.original || '').trim();
+        }).map(function (p) {
+            return '<input type="hidden" name="name_overrides['+esc(p.phone)+']" value="'+esc(p.name)+'">';
+        }).join('');
+    }
+    function renderPreviewList() {
+        var list = document.getElementById('an-preview-list');
+        var search = document.getElementById('an-preview-search');
+        if (!list) return;
+        var q = search ? search.value.toLowerCase().trim() : '';
+        var qDigits = q.replace(/\D+/g, '');
+        var shown = previewPeople.filter(function (p) {
+            if (!q) return true;
+            var name = (p.name || '').toLowerCase();
+            var phone = (p.phone || '').toLowerCase();
+            return name.indexOf(q) !== -1 || phone.indexOf(q) !== -1 || (qDigits && phone.indexOf(qDigits) !== -1);
+        });
+        list.innerHTML = shown.map(function (p) {
+            return '<label class="an-user-item" style="display:block;">'
+                + '<input class="an-field an-name-edit" data-phone="'+esc(p.phone)+'" value="'+esc(p.name)+'" placeholder="Add a title, for example Pastor John">'
+                + '<div class="meta">'+esc(p.phone)+(p.group ? ' · '+esc(p.group) : '')+'</div></label>';
+        }).join('') || '<div class="p-3 text-muted small">No contacts match that search.</div>';
+        list.querySelectorAll('.an-name-edit').forEach(function (input) {
+            input.addEventListener('focus', function () {
+                previewFocus = input.getAttribute('data-phone');
+                paintSample();
+            });
+            input.addEventListener('input', function () {
+                var phone = input.getAttribute('data-phone');
+                previewPeople.forEach(function (p) {
+                    if (p.phone === phone) p.name = input.value;
+                });
+                previewFocus = phone;
+                writeOverrides();
+                paintSample();
+            });
+        });
+        paintSample();
+    }
+    var previewBody = document.getElementById('an-preview-body');
+    if (previewBody) {
+        previewBody.addEventListener('input', function () {
+            document.getElementById('an-body').value = previewBody.value;
+            paintSample();
+        });
+    }
+    var footerInput = document.getElementById('an-footer');
+    if (footerInput) footerInput.addEventListener('input', paintSample);
+    var previewSearch = document.getElementById('an-preview-search');
+    if (previewSearch) previewSearch.addEventListener('input', renderPreviewList);
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function () {
+            var audience = document.getElementById('an-audience').value;
+            var jids = groupRows().filter(function (row) {
+                var box = row.querySelector('input');
+                return box && box.checked;
+            }).map(function (row) { return row.getAttribute('data-jid'); });
+            if (audience === 'group' && !jids.length) {
+                alert('Add at least one WhatsApp group first.');
+                return;
+            }
+            if (audience !== 'group' && !recipients.length) {
+                alert('Select at least one person first.');
+                return;
+            }
+            previewBtn.disabled = true;
+            previewBtn.textContent = 'Loading names…';
+            fetch(@json(route('announcements.preview')), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ audience: audience, group_jids: jids, recipient_ids: recipients })
+            }).then(function (response) { return response.json().then(function (payload) { return { ok: response.ok, payload: payload }; }); }).then(function (result) {
+                var payload = result.payload || {};
+                if (!result.ok) {
+                    alert(payload.error || 'The names could not be loaded.');
+                    return;
+                }
+                previewPeople = (payload.people || []).map(function (person) {
+                    person.original = person.name || '';
+                    return person;
+                });
+                previewFocus = previewPeople.length ? previewPeople[0].phone : '';
+                document.getElementById('an-preview-body').value = document.getElementById('an-body').value;
+                document.getElementById('an-preview').style.display = '';
+                renderPreviewList();
+                writeOverrides();
+                document.getElementById('an-preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }).catch(function () {
+                alert('The names could not be loaded. Add the group again and open Preview.');
+            }).then(function () {
+                previewBtn.disabled = false;
+                previewBtn.textContent = 'Preview messages';
+            });
+        });
+    }
+    if (groupList) {
+        groupList.addEventListener('change', updateGroupCount);
+    }
+    if (groupSearch) {
+        groupSearch.addEventListener('input', function () {
+            var q = groupSearch.value.toLowerCase().trim();
+            groupRows().forEach(function (row) {
+                var name = (row.querySelector('.an-group-label') ? row.querySelector('.an-group-label').textContent : '').toLowerCase();
+                row.style.display = !q || name.indexOf(q) !== -1 ? 'flex' : 'none';
+            });
+        });
+    }
+    var selectShown = document.getElementById('an-group-visible');
+    if (selectShown) {
+        selectShown.addEventListener('click', function () {
+            groupRows().forEach(function (row) {
+                if (row.style.display === 'none') return;
+                var box = row.querySelector('input');
+                if (box) box.checked = true;
+            });
+            updateGroupCount();
+        });
+    }
+    var clearGroups = document.getElementById('an-group-clear');
+    if (clearGroups) {
+        clearGroups.addEventListener('click', function () {
+            groupRows().forEach(function (row) {
+                var box = row.querySelector('input');
+                if (box) box.checked = false;
+            });
+            updateGroupCount();
+        });
+    }
+    (function loadGroupNames() {
+        var progress = document.getElementById('an-group-progress');
+        var lookupUrl = @json(route('announcements.groups.lookup'));
+        function pending() {
+            return groupRows().filter(function (row) {
+                return row.getAttribute('data-known') !== '1';
+            }).map(function (row) { return row.getAttribute('data-jid'); });
+        }
+        function paint(group) {
+            var row = groupList.querySelector('.an-group-row[data-jid="' + String(group.jid).replace(/"/g, '\\"') + '"]');
+            if (!row || !group.name) return;
+            row.setAttribute('data-known', '1');
+            var label = row.querySelector('.an-group-label');
+            if (label) label.textContent = group.name;
+            var count = row.querySelector('.an-group-count');
+            if (count && group.members !== null && group.members !== undefined) {
+                count.textContent = ' · ' + Number(group.members).toLocaleString() + ' contacts';
+            }
+            renderGroupChips();
+        }
+        function tick() {
+            var jids = pending();
+            if (!jids.length) {
+                if (progress) progress.style.display = 'none';
+                return;
+            }
+            if (progress) {
+                progress.style.display = '';
+                progress.textContent = 'Resolving every group into contacts (' + (groupRows().length - jids.length) + ' of ' + groupRows().length + '). Groups you use stay at the top. Search works as each name appears.';
+            }
+            fetch(lookupUrl + '?jids=' + encodeURIComponent(jids.slice(0, 8).join(',')), {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            }).then(function (response) { return response.json(); }).then(function (payload) {
+                (payload && payload.groups ? payload.groups : []).forEach(paint);
+                if (groupSearch && groupSearch.value) groupSearch.dispatchEvent(new Event('input'));
+                if (pending().length) setTimeout(tick, Math.max(5, (payload && payload.retry_after) ? payload.retry_after : 60) * 1000);
+                else if (progress) progress.style.display = 'none';
+            }).catch(function () {
+                if (pending().length) setTimeout(tick, 60000);
+            });
+        }
+        if (pending().length) tick();
+    })();
+
+    refreshRecipients();
+    refreshCc();
+})();
+</script>
+@endsection

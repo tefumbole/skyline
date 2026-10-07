@@ -1,0 +1,1525 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+
+
+Route::get('/send-whatsapp', 'WhatsAppController@send');
+
+Route::get('/donation/payment/check', 'CartController@placeDonationAfterPayment')->name('donation.payment.check');
+Route::get('/donation/payment/check/display', 'CartController@placeDonationAfterPaymentDisplay')->name('donation.payment.check.display');
+Route::get('/service/payment/check', 'CartController@placeServiceAfterPayment')->name('service.payment.check');
+Route::get('/service/payment/check/display', 'CartController@placeServiceAfterPaymentDisplay')->name('service.payment.check.display');
+Route::get('/order/payment/check', 'CartController@placeOrderAfterPayment')->name('order.payment.check');
+Route::get('/order/payment/check/display', 'CartController@placeOrderAfterPaymentDisplay')->name('order.payment.check.display');
+Route::get('/booking/payment/check', 'CartController@placeBookingAfterPayment')->name('booking.payment.check');
+Route::get('/booking/payment/check/display', 'CartController@placeBookingAfterPaymentDisplay')->name('booking.payment.check.display');
+
+Route::get('/quotation-approval/{token}', 'QuotationApprovalController@show')->name('quotation.client.show');
+Route::post('/quotation-approval/{token}/approve', 'QuotationApprovalController@approve')->name('quotation.client.approve');
+Route::post('/quotation-approval/{token}/reject', 'QuotationApprovalController@reject')->name('quotation.client.reject');
+Route::post('/quotation-approval/{token}/quote', 'QuotationApprovalController@quote')->name('quotation.client.quote');
+
+Route::get('/delivery-sign/{token}', 'DeliverySignatureController@show')->name('delivery.client.show');
+Route::post('/delivery-sign/{token}/sign', 'DeliverySignatureController@sign')->name('delivery.client.sign');
+Route::get('/verify/delivery/{id}/{token}', 'DeliveryVerifyController@show')->name('delivery.verify');
+
+Route::get('/rental-agreement/{token}', 'RentalContractController@show')->name('rental.agreement');
+Route::post('/rental-agreement/{token}/sign', 'RentalContractController@sign')->name('rental.agreement.sign');
+
+// Public user signature request (WhatsApp link from People → Users → Edit)
+Route::get('/user-sign/{token}', 'UserSignatureController@publicShow')->name('user.public.sign');
+Route::post('/user-sign/{token}', 'UserSignatureController@publicStore')->name('user.public.sign.store');
+Route::get('/rental-portal/{token}', 'RentalContractController@portal')->name('rental.portal');
+Route::post('/rental-portal/{token}/credentials', 'RentalContractController@updateCredentials')->name('rental.portal.credentials');
+Route::get('/rental/scan/{token}', 'RentalContractController@rentalScan')->name('rental.scan');
+
+Route::get('/goods-received/{token}', 'BookingGoodsReceiptController@show')->name('goods.received.show');
+Route::post('/goods-received/{token}/sign', 'BookingGoodsReceiptController@sign')->name('goods.received.sign');
+
+Route::get('/event-contract/{token}', 'EventContractSigningController@show')->name('event.contract.sign');
+Route::post('/event-contract/{token}/sign', 'EventContractSigningController@sign')->name('event.contract.sign.submit');
+
+Route::get('/contracts/sign/{token}', 'ContractSignController@show')->name('contracts.sign.show');
+Route::post('/contracts/sign/{token}', 'ContractSignController@submit')->name('contracts.sign.submit');
+Route::post('/contracts/sign/{token}/decline', 'ContractSignController@decline')->name('contracts.sign.decline');
+
+
+Route::get('/', 'BeyondController@home')->name('beyond.home');
+Route::get('/about', 'BeyondController@about')->name('beyond.about');
+Route::get('/services', 'BeyondController@services')->name('beyond.services');
+Route::get('/projects', 'BeyondController@projects')->name('beyond.projects');
+Route::get('/gallery', 'BeyondController@gallery')->name('beyond.gallery');
+Route::get('/contact', 'BeyondController@contact')->name('beyond.contact');
+Route::post('/contact', 'PublicContactController@store')->middleware('throttle:12,1')->name('beyond.contact.store');
+
+Route::prefix('api/website-chat')->group(function () {
+    Route::get('/config', 'WebsiteChatController@config')->middleware('throttle:60,1');
+    Route::post('/session', 'WebsiteChatController@session')->middleware('throttle:30,1');
+    Route::get('/messages', 'WebsiteChatController@messages')->middleware('throttle:120,1');
+    Route::post('/messages', 'WebsiteChatController@postMessage')->middleware('throttle:40,1');
+    Route::post('/minimize', 'WebsiteChatController@minimize')->middleware('throttle:30,1');
+});
+
+Route::get('/events', 'PublicEventController@index')->name('beyond.events');
+Route::get('/events/{slug}', 'PublicEventController@show')->name('beyond.event.detail');
+Route::get('/api/public/events', 'PublicEventController@apiList');
+Route::get('/api/public/events/{slug}', 'PublicEventController@apiShow');
+Route::get('/trainings', 'TrainingController@trainings')->name('beyond.trainings');
+Route::get('/directory/phone-lookup', 'PublicPhoneLookupController@lookup')->middleware('throttle:40,1')->name('directory.phone-lookup');
+Route::get('/register-now', 'TrainingController@registerNow')->name('beyond.register');
+Route::post('/register-now', 'TrainingController@storeRegistration')->name('training.register');
+Route::get('/registration-confirmation/{reference}', 'TrainingController@registered')->name('training.registered');
+Route::redirect('/registration', '/register-now');
+
+// Legacy upload URLs (missing /public/) → correct static path
+Route::get('/uploads/applications/{file}', function ($file) {
+    $safe = basename($file);
+    $path = base_path('public/uploads/applications/'.$safe);
+    if (! is_file($path)) {
+        abort(404);
+    }
+
+    return response()->file($path);
+})->where('file', '[A-Za-z0-9._-]+');
+
+Route::get('/rentals', 'PublicRentalController@index')->name('beyond.rentals');
+Route::get('/subscriptions', 'BeyondController@subscriptions')->name('beyond.subscriptions');
+Route::post('/rentals', 'PublicRentalController@store')->name('beyond.rentals.store');
+Route::get('/rentals/confirmation/{reference}', 'PublicRentalController@confirmation')->name('beyond.rentals.confirmation');
+
+Route::get('/permissions', 'PublicPermissionController@index')->name('beyond.permissions');
+Route::get('/permissions/account-lookup', 'PublicPermissionController@lookupAccount')->name('beyond.permissions.lookup');
+Route::post('/permissions', 'PublicPermissionController@store')->name('beyond.permissions.store');
+Route::post('/permissions/verify', 'PublicPermissionController@verify')->name('beyond.permissions.verify');
+Route::post('/permissions/resend-otp', 'PublicPermissionController@resendOtp')->name('beyond.permissions.resend');
+Route::get('/permissions/confirmation/{reference}', 'PublicPermissionController@confirmation')->name('beyond.permissions.confirmation');
+
+Route::get('/pangwayu', 'PublicFuneralPledgeController@index')->name('funeral.pangwayu');
+Route::get('/pangwayu/remember', 'PublicFuneralPledgeController@remember')->name('funeral.pangwayu.remember');
+Route::get('/pangwayu/biography', 'PublicFuneralPledgeController@biography')->name('funeral.pangwayu.biography');
+Route::get('/pangwayu/gallery', 'PublicFuneralPledgeController@gallery')->name('funeral.pangwayu.gallery');
+Route::get('/pangwayu/program', 'PublicFuneralPledgeController@program')->name('funeral.pangwayu.program');
+Route::get('/pangwayu/hymns', 'PublicFuneralPledgeController@hymns')->name('funeral.pangwayu.hymns');
+Route::get('/pangwayu/eulogies', 'PublicFuneralPledgeController@eulogies')->name('funeral.pangwayu.eulogies');
+Route::get('/pangwayu/lookup', 'PublicFuneralPledgeController@lookup')->name('funeral.pangwayu.lookup');
+Route::post('/pangwayu/pledge', 'PublicFuneralPledgeController@store')->name('funeral.pangwayu.store');
+Route::post('/pangwayu/eulogy', 'PublicFuneralPledgeController@storeEulogy')->name('funeral.pangwayu.eulogy');
+Route::get('/pangwayu/payment/check', 'PublicFuneralPledgeController@payment')->name('funeral.pangwayu.payment');
+Route::get('/pangwayu/stripe/check', 'PublicFuneralPledgeController@stripeReturn')->name('funeral.pangwayu.stripe');
+
+Route::get('/nbc', 'NbcPublicController@home')->name('nbc.home');
+Route::get('/nbc/program', 'NbcPublicController@program')->name('nbc.program');
+Route::get('/nbc/events', 'NbcPublicController@events')->name('nbc.events');
+Route::get('/nbc/announcements', 'NbcPublicController@announcements')->name('nbc.announcements');
+Route::get('/nbc/announcements/{id}', 'NbcPublicController@announcement')->name('nbc.announcement');
+Route::get('/nbc/join', 'NbcPublicController@join')->name('nbc.join');
+Route::post('/nbc/join', 'NbcPublicController@storeJoin')->middleware('throttle:8,10')->name('nbc.join.store');
+Route::get('/nbc/login', 'NbcPublicController@showLogin')->name('nbc.login');
+Route::post('/nbc/login', 'NbcPublicController@login')->middleware('throttle:10,10')->name('nbc.login.submit');
+Route::get('/nbc/logout', 'NbcPublicController@logout')->name('nbc.logout');
+
+Route::group(['prefix' => 'nbc', 'middleware' => ['nbc.member']], function () {
+    Route::get('/portal', 'NbcPortalController@home')->name('nbc.portal');
+    Route::get('/profile', 'NbcPortalController@profile')->name('nbc.profile');
+    Route::post('/profile', 'NbcPortalController@saveProfile')->name('nbc.profile.save');
+    Route::get('/attendance', 'NbcPortalController@attendance')->name('nbc.attendance');
+    Route::post('/attendance/in', 'NbcPortalController@clockIn')->name('nbc.attendance.in');
+    Route::post('/attendance/out', 'NbcPortalController@clockOut')->name('nbc.attendance.out');
+    Route::get('/people', 'NbcPortalController@people')->name('nbc.people');
+    Route::post('/people/{id}', 'NbcPortalController@savePerson')->name('nbc.people.save');
+    Route::get('/bylaws', 'NbcPortalController@bylaws')->name('nbc.bylaws');
+    Route::post('/bylaws', 'NbcPortalController@saveBylaws')->name('nbc.bylaws.save');
+    Route::get('/manage/events', 'NbcPortalController@events')->name('nbc.events.manage');
+    Route::post('/manage/events', 'NbcPortalController@storeEvent')->name('nbc.events.store');
+    Route::get('/manage/announcements', 'NbcPortalController@announcements')->name('nbc.announcements.manage');
+    Route::post('/manage/announcements', 'NbcPortalController@storeAnnouncement')->name('nbc.announcements.store');
+    Route::get('/tasks', 'NbcPortalController@tasks')->name('nbc.tasks');
+    Route::post('/tasks', 'NbcPortalController@storeTask')->name('nbc.tasks.store');
+    Route::post('/tasks/{id}/close', 'NbcPortalController@closeTask')->name('nbc.tasks.close');
+    Route::get('/letters', 'NbcPortalController@letters')->name('nbc.letters');
+    Route::post('/letters', 'NbcPortalController@storeLetter')->name('nbc.letters.store');
+    Route::get('/quotations', 'NbcPortalController@quotations')->name('nbc.quotations');
+    Route::post('/quotations', 'NbcPortalController@storeQuotation')->name('nbc.quotations.store');
+    Route::get('/whatsapp', 'NbcPortalController@whatsapp')->name('nbc.whatsapp');
+    Route::post('/whatsapp', 'NbcPortalController@storeWhatsapp')->name('nbc.whatsapp.store');
+});
+
+Route::get('/mambole', 'BirthdayFlyerController@index')->name('birthday.mambole');
+Route::get('/mambole/lookup', 'BirthdayFlyerController@lookup')->middleware('throttle:40,1')->name('birthday.mambole.lookup');
+Route::post('/mambole/submit', 'BirthdayFlyerController@submit')->middleware('throttle:20,1')->name('birthday.mambole.submit');
+Route::get('/mambole/flyer/{id}', 'BirthdayFlyerController@show')->name('birthday.mambole.show');
+
+Route::get('/yong', 'YongInvitationController@index')->name('yong.index');
+Route::get('/yong/lookup', 'YongInvitationController@lookup')->middleware('throttle:40,1')->name('yong.lookup');
+Route::post('/yong/submit', 'YongInvitationController@submit')->middleware('throttle:20,1')->name('yong.submit');
+Route::get('/yong/card/{id}', 'YongInvitationController@card')->name('yong.card');
+Route::get('/yong/card/{id}/download', 'YongInvitationController@downloadCard')->name('yong.card.download');
+Route::get('/yong/card/{id}/food', 'YongInvitationController@downloadFood')->name('yong.card.food');
+Route::get('/yong/pass/{id}', 'YongInvitationController@pass')->name('yong.pass');
+Route::get('/yong/donate/{id}', 'YongInvitationController@donate')->name('yong.donate');
+Route::get('/yong/donate/{id}/start', 'YongInvitationController@startPayment')->name('yong.donate.start');
+Route::get('/yong/payment/check', 'YongInvitationController@payment')->name('yong.payment');
+Route::get('/yong/stripe/check', 'YongInvitationController@stripeReturn')->name('yong.stripe');
+Route::get('/yong/ticket/{code}', 'YongInvitationController@ticket')->name('yong.ticket');
+Route::post('/yong/ticket/{code}/eat', 'YongInvitationController@eat')->middleware('throttle:30,1')->name('yong.ticket.eat');
+Route::post('/yong/ticket/{code}/attend', 'YongInvitationController@attend')->middleware('throttle:20,1')->name('yong.ticket.attend');
+Route::get('/yong/meals', 'YongInvitationController@meals')->name('yong.meals');
+Route::post('/yong/meals/thanks', 'YongInvitationController@sendThanks')->middleware('throttle:3,10')->name('yong.meals.thanks');
+Route::post('/yong/reviews', 'YongInvitationController@storeReview')->middleware('throttle:12,1')->name('yong.reviews.store');
+Route::post('/yong/gallery', 'YongInvitationController@storeGallery')->middleware('throttle:8,1')->name('yong.gallery.store');
+
+// Student portal (training) — requires Beyond auth + OTP
+Route::middleware(['beyond.auth', 'beyond.otp'])->group(function () {
+    Route::get('/student/dashboard', 'StudentDashboardController@dashboard')->name('student.dashboard');
+    Route::get('/student/progress', 'StudentDashboardController@progress')->name('student.progress');
+    Route::post('/student/feedback', 'StudentDashboardController@submitFeedback')->name('student.feedback');
+});
+
+// Job board / Apply Now (public)
+Route::get('/apply-now', 'ApplyController@index')->name('apply.index');
+Route::get('/apply-now/{id}', 'ApplyController@show')->name('apply.show');
+Route::get('/apply-now/{id}/apply', 'ApplyController@form')->name('apply.form');
+Route::post('/apply-now/{id}', 'ApplyController@store')->name('apply.store');
+Route::get('/application-confirmation/{reference}', 'ApplyController@confirmation')->name('apply.confirmation');
+Route::get('/application-agreement/{token}', 'ApplicationAgreementController@show')->name('apply.agreement');
+Route::post('/application-agreement/{token}', 'ApplicationAgreementController@sign')->name('apply.agreement.sign');
+Route::get('/offer/{token}', 'ApplicationAgreementController@show')->name('apply.offer');
+Route::post('/offer/{token}', 'ApplicationAgreementController@sign')->name('apply.offer.sign');
+Route::get('/application-documents/{token}', 'ApplicationDocumentsController@show')->name('apply.documents');
+Route::post('/application-documents/{token}', 'ApplicationDocumentsController@store')->name('apply.documents.store');
+
+// Applicant portal — requires Beyond auth + OTP
+Route::middleware(['beyond.auth', 'beyond.otp'])->group(function () {
+    Route::get('/applicant/dashboard', 'ApplicantDashboardController@dashboard')->name('applicant.dashboard');
+    Route::get('/applicant/cv/{id}', 'ApplicantDashboardController@downloadCv')->name('applicant.cv');
+});
+
+// Task assignee portal — requires Beyond auth + OTP
+Route::middleware(['beyond.auth', 'beyond.otp'])->group(function () {
+    Route::get('/user/tasks', 'UserTaskController@index')->name('user.tasks');
+    Route::get('/user/tasks/my-tasks', 'UserTaskController@index');
+    Route::get('/user/tasks/pending-acceptances', 'UserTaskController@pending')->name('user.tasks.pending');
+    Route::post('/user/tasks/{assignment}/accept', 'UserTaskController@accept')->name('user.tasks.accept');
+    Route::post('/user/tasks/{assignment}/decline', 'UserTaskController@decline')->name('user.tasks.decline');
+    Route::post('/user/tasks/{assignment}/update', 'UserTaskController@update')->name('user.tasks.update');
+    Route::post('/user/tasks/{assignment}/remove', 'UserTaskController@remove')->name('user.tasks.remove');
+});
+
+// Public task invite (actions require login, enforced in controller)
+Route::get('/task-invite/{token}', 'TaskInviteController@show')->name('task.invite');
+Route::post('/task-invite/{token}/setup-otp', 'TaskInviteController@sendSetupOtp')->name('task.invite.setup.otp');
+Route::post('/task-invite/{token}/access-verify', 'TaskInviteController@verifyAccess')->name('task.invite.access.verify');
+Route::post('/task-invite/{token}/setup', 'TaskInviteController@storeSetup')->name('task.invite.setup');
+Route::post('/task-invite/{token}/accept', 'TaskInviteController@accept')->name('task.invite.accept');
+Route::post('/task-invite/{token}/decline', 'TaskInviteController@decline')->name('task.invite.decline');
+
+Route::get('/internship/supervisor-reply/{token}', 'Internship\InternshipSupervisorReplyController@show')->name('internship.supervisor.reply');
+Route::post('/internship/supervisor-reply/{token}', 'Internship\InternshipSupervisorReplyController@store')->name('internship.supervisor.reply.store');
+
+Route::get('/shareholders', 'ShareholderController@landing')->name('shareholders.landing');
+Route::post('/shareholders/accept', 'ShareholderController@acceptTerms')->name('shareholders.accept');
+Route::get('/shares', 'ShareholderController@shares')->name('shareholders.shares');
+Route::post('/shares', 'ShareholderController@store')->name('shareholders.store');
+Route::get('/shareholder-confirmation/{reference}', 'ShareholderController@confirmation')->name('shareholders.confirmation');
+Route::get('/verify/agreement/{id}', 'ShareholderController@verify')->name('shareholders.verify');
+Route::redirect('/share-purchase', '/shares');
+
+// Public payslip verification (QR / reference lookup)
+Route::get('/verify/payslip/{code}', 'PayslipVerifyController@show')->name('payslip.verify');
+
+// Public internship timesheet report verification (QR on printed report)
+Route::get('/verify/internship/{token}', 'InternshipReportVerifyController@show')
+    ->where('token', '[A-Za-z0-9._\-]+')
+    ->name('internship.report.verify');
+
+// Public sales invoice verification (QR scan)
+Route::get('/verify/invoice/{id}/{token}', 'SaleInvoiceVerifyController@show')->name('sale.invoice.verify');
+
+// Staff self-service timesheet — requires Beyond auth + OTP
+Route::middleware(['beyond.auth', 'beyond.otp'])->group(function () {
+    Route::get('/staff/timesheet', 'StaffTimesheetController@index')->name('staff.timesheet');
+    Route::post('/staff/timesheet', 'StaffTimesheetController@store')->name('staff.timesheet.store');
+    Route::patch('/staff/timesheet/{id}', 'StaffTimesheetController@update')->name('staff.timesheet.update');
+    Route::delete('/staff/timesheet/{id}', 'StaffTimesheetController@destroy')->name('staff.timesheet.destroy');
+    Route::get('/staff/my-events', 'StaffEventTimesheetController@myEvents')->name('staff.my-events');
+    Route::get('/staff/events/{assignmentId}/timesheet', 'StaffEventTimesheetController@show')->name('staff.event-timesheet');
+    Route::post('/staff/events/{assignmentId}/timesheet', 'StaffEventTimesheetController@storeEntry')->name('staff.event-timesheet.entry');
+    Route::post('/staff/events/{assignmentId}/timesheet/submit', 'StaffEventTimesheetController@submit')->name('staff.event-timesheet.submit');
+});
+
+// Beyond public portal auth (otp, forgot-password, profile — login registered after Auth::routes)
+Route::get('/otp-verification', 'BeyondAuthController@showOtp')->name('beyond.otp');
+Route::post('/otp-verification', 'BeyondAuthController@verifyOtp');
+Route::post('/otp-verification/resend', 'BeyondAuthController@resendOtp');
+Route::get('/forgot-password', 'BeyondAuthController@showForgotPassword')->name('beyond.forgot');
+Route::post('/forgot-password', 'BeyondAuthController@requestPasswordReset');
+Route::post('/forgot-password/confirm', 'BeyondAuthController@confirmPasswordReset');
+Route::get('/staff-otp-login', 'StaffPhoneAuthController@show')->name('staff.otp.login');
+Route::post('/staff-otp-login', 'StaffPhoneAuthController@requestOtp');
+Route::post('/staff-otp-login/verify', 'StaffPhoneAuthController@verifyOtp');
+Route::post('/staff-otp-login/resend', 'StaffPhoneAuthController@resendOtp');
+Route::get('/phone-login', 'PhoneOtpLoginController@show')->name('phone.otp.login');
+Route::post('/phone-login', 'PhoneOtpLoginController@requestOtp');
+Route::post('/phone-login/verify', 'PhoneOtpLoginController@verifyOtp');
+Route::post('/phone-login/resend', 'PhoneOtpLoginController@resendOtp');
+Route::get('/staff-set-password', 'StaffPhoneAuthController@showSetPassword')->name('staff.set-password');
+Route::post('/staff-set-password', 'StaffPhoneAuthController@storeSetPassword');
+Route::get('/complete-profile', 'BeyondAuthController@showCompleteProfile')->middleware('beyond.auth');
+Route::post('/complete-profile', 'BeyondAuthController@completeProfile')->middleware('beyond.auth');
+Route::get('/user/profile', 'BeyondAuthController@showProfile')->middleware(['beyond.auth', 'beyond.otp']);
+Route::patch('/user/profile', 'BeyondAuthController@updateProfile')->middleware(['beyond.auth', 'beyond.otp']);
+Route::get('/store', 'FrontendController@index')->name('frontend.home');
+Route::get('/shop/logout', 'FrontendController@logout')->name('shop.logout');
+Route::get('/shop/login', 'FrontendController@login')->name('shop.login');
+Route::get('/shop/signup', 'FrontendController@signup')->name('shop.signup');
+Route::post('/shop/signup', 'FrontendController@signupStore')->name('shop.signup');
+Route::get('/shop/create', 'FrontendController@createShop')->name('create.shop');
+Route::post('/shop/create', 'FrontendController@createShopStore')->name('create.shop');
+Route::post('/shop/password/change', 'FrontendController@forgotPasswordCheckStore')->name('shop.password.change');
+Route::get('/shop/{products}/{category?}/{brand?}', 'FrontendController@shop')->name('shop');
+Route::get('/vendor/products/{id}', 'FrontendController@vendorProducts')->name('vendor.products');
+Route::get('/donation/{products}', 'FrontendController@donation')->name('donation');
+Route::get('/vendors/{vendors}', 'FrontendController@vendors')->name('vendors');
+Route::get('/rent/{products}', 'FrontendController@rent')->name('rent');
+Route::get('/service/{products}', 'FrontendController@service')->name('service');
+Route::get('/donate/{id}', 'FrontendController@donate')->name('donate');
+Route::get('/single-service/{id}', 'FrontendController@singleService')->name('single.service');
+Route::get('/donate/detail/{id}', 'FrontendController@donateDetail')->name('donate.detail');
+Route::get('/service/detail/{id}', 'FrontendController@serviceDetail')->name('service.detail');
+Route::post('/donate/store', 'CartController@donateStore')->name('donate.store');
+Route::post('/service/store', 'CartController@serviceStore')->name('service.store');
+Route::get('/product/price', 'FrontendController@shopProductSearchByPrice')->name('product.search.price');
+Route::get('/product/{id}', 'FrontendController@product')->name('product');
+Route::get('/addToCart','CartController@addToCart')->name('addToCart');
+Route::get('/addToRentCart','CartController@addToRentCart')->name('addToRentCart');
+Route::get('/cart','CartController@cart')->name('cart');
+Route::get('/rent-cart','CartController@rentCart')->name('rent.cart');
+Route::post('/order','CartController@order')->name('order');
+Route::post('/rent/order','CartController@rentOrder')->name('rent.order');
+Route::get('/order/received/{id}','CartController@orderRceived')->name('order.received');
+Route::get('/order/payment/{id}','CartController@orderPayment')->name('order.payment');
+Route::get('/service/payment/{id}','CartController@servicePayment')->name('service.payment');
+Route::get('/otp/resend','CartController@otpResend')->name('otp.resend');
+Route::get('/otp_screen','CartController@otpScreen')->name('otp_screen');
+Route::post('/otp/verify','CartController@otpVerify')->name('otp_verify');
+Route::get('/cart/update','CartController@updateQuantityyNumber')->name('cart.update');
+Route::get('/cart/plus','CartController@updateQuantityy')->name('cart.plus');
+Route::get('/cart/minus','CartController@updateQuantityyminus')->name('cart.minus');
+Route::get('/cart/delete','CartController@deleteItem')->name('rent.cart.delete');
+Route::get('/rent/cart/update','CartController@updateQuantityyNumberRent')->name('rent.cart.update');
+Route::get('/rent/cart/plus','CartController@updateQuantityyRent')->name('rent.cart.plus');
+Route::get('/rent/cart/minus','CartController@updateQuantityyminusRent')->name('rent.cart.minus');
+Route::get('/rent/cart/delete','CartController@deleteItemRent')->name('rent.cart.delete');
+Route::get('/rent/cart/lims_product_search_by_duration/', 'CartController@getProductPriceByDuration')->name('frontend.booking.search_by_duration');
+
+Route::get('/checkout','CartController@checkout')->name('checkout');
+Route::get('rent//checkout','CartController@rentCheckout')->name('rent.checkout');
+Route::get('frontend/product/search', 'FrontendController@productSearch')->name('frontend.product.search');
+Route::get('frontend/product/rent/search', 'FrontendController@productSearchRent')->name('frontend.product.search.rent');
+Route::get('frontend/product/donation/search', 'FrontendController@productSearchDonation')->name('frontend.product.search.donation');
+Route::get('frontend/product/vendor/search', 'FrontendController@productSearchVendor')->name('frontend.product.search.vendor');
+
+Route::get('/forgot/password','FrontendController@forgotPassword')->name('forgot.password');
+Route::post('/forgot/password','FrontendController@forgotPasswordStore')->name('forgot.password');
+Route::post('/forgot/password/verify','FrontendController@forgotPasswordCheck')->name('otp.verify.password');
+
+Route::get('/service/variant/{id}', 'FrontendController@serviceVarient')->name('service.variant');
+Route::post('/service/order', 'FrontendController@serviceOrder')->name('service.order');
+
+Route::get('/order/invoice/{id}', 'OrderController@generateInvoice')->name('order.invoice');
+Route::get('/booking/invoice/{id}', 'OrderController@bookingGenerateInvoice')->name('booking.genInvoice');
+
+
+Route::get('/sale/scan/{id}', 'QRController@saleScan')->name('sale.scan');
+Route::get('/quotation/scan/{id}', 'QRController@quotationScan')->name('quotation.scan');
+Route::get('/letters/scan/{id}', 'QRController@letterScan')->name('letters.scan');
+
+// Digital Invitations — public invite + self-request (no auth)
+Route::get('/online-invitation/invite/{token}', 'OnlineInvitationInvitationController@showByToken')->name('online_invitation.invite.show');
+Route::get('/online-invitation/invite/{token}/pdf', 'OnlineInvitationInvitationController@pdfByToken')->name('online_invitation.invite.pdf');
+Route::get('/online-invitation/invite/{token}/png', 'OnlineInvitationInvitationController@pngByToken')->name('online_invitation.invite.png');
+Route::post('/online-invitation/invite/{token}/rsvp-accept', 'OnlineInvitationInvitationController@rsvpAccept')->name('online_invitation.invite.rsvp_accept');
+Route::post('/online-invitation/invite/{token}/rsvp-decline', 'OnlineInvitationInvitationController@rsvpDecline')->name('online_invitation.invite.rsvp_decline');
+Route::get('/online-invitation/request/{token}', 'OnlineInvitationRequestLinkController@showPublic')->name('online_invitation.request.show');
+Route::post('/online-invitation/request/{token}', 'OnlineInvitationRequestLinkController@submitPublic')->name('online_invitation.request.submit');
+
+Auth::routes(['register' => false, 'reset' => false, 'verify' => false]);
+// GET/POST /login are registered by Auth::routes → LoginController, which delegates
+// to BeyondAuthController (unified staff-first then customer routing).
+
+// Legacy /admin/login → same unified portal
+Route::get('/admin/login', function () {
+    $qs = request()->getQueryString();
+
+    return redirect('/login'.($qs ? '?'.$qs : ''));
+})->name('admin.login');
+Route::post('/admin/login', function (\Illuminate\Http\Request $request) {
+    if (! $request->filled('identifier') && $request->filled('name')) {
+        $request->merge(['identifier' => $request->input('name')]);
+    }
+
+    return app(\App\Http\Controllers\BeyondAuthController::class)->login($request);
+});
+
+// GET/POST /login stay on Auth::routes → LoginController (delegates to BeyondAuthController).
+// Do not re-register /login under another name — that removed route('login') and caused 500s.
+Route::get('/beyond/login', function () {
+    return redirect('/login');
+})->name('beyond.login');
+
+Route::post('/signup', 'BeyondAuthController@register')->name('beyond.signup');
+// Portal logout must NOT share POST /logout with Auth::routes (admin POS logout).
+// GET is allowed so a clipped/JS-blocked Sign Out link still signs the student out.
+Route::match(['get', 'post'], '/portal/logout', 'BeyondAuthController@logout')->name('beyond.logout');
+Route::get('/logout', 'Auth\LoginController@logout');
+
+Route::post('/cloud/company', 'CloudCompanyController@switchCompany')->middleware('auth')->name('cloud.company.switch');
+Route::get('/cloud/login', 'CloudPortalController@showLogin')->name('cloud.login');
+Route::post('/cloud/login', 'CloudPortalController@login')->name('cloud.login.submit');
+Route::get('/cloud/register', 'CloudPortalController@showRegister')->name('cloud.register');
+Route::post('/cloud/register/identity', 'CloudSubscribeController@identity')->middleware('throttle:10,10')->name('cloud.register.identity');
+Route::post('/cloud/register/otp', 'CloudSubscribeController@sendSignupCode')->middleware('throttle:5,10')->name('cloud.register.otp');
+Route::post('/cloud/register/otp/verify', 'CloudSubscribeController@verifySignupCode')->middleware('throttle:10,10')->name('cloud.register.otp.verify');
+Route::post('/cloud/register', 'CloudPortalController@register')->middleware('throttle:30,10')->name('cloud.register.submit');
+Route::get('/cloud/hero/{uuid}', 'CloudPortalController@hero')->name('cloud.hero');
+Route::get('/cloud/logo/{uuid}', 'CloudPortalController@logo')->name('cloud.logo');
+Route::get('/c/{slug}', 'CloudPublicPageController@show')->where('slug', '[a-z0-9\-]+')->name('cloud.public.company');
+Route::post('/cloud/billing/webhook/{provider}', 'CloudBillingWebhookController@handle')->name('cloud.billing.webhook');
+
+Route::group(['middleware' => 'auth'], function() {
+	Route::get('/dashboard', 'HomeController@dashboard');
+});
+
+Route::group(['middleware' => ['auth', 'cloud.member']], function () {
+    Route::post('/cloud/logout', 'CloudPortalController@logout')->name('cloud.logout');
+    Route::get('/cloud', 'CloudPortalController@home')->name('cloud.home');
+    Route::get('/cloud/subscribe', 'CloudPortalController@subscribe')->name('cloud.subscribe');
+    Route::get('/cloud/billing', 'CloudBillingController@index')->name('cloud.billing');
+    Route::post('/cloud/billing/checkout', 'CloudBillingController@checkout')->middleware('throttle:5,10')->name('cloud.billing.checkout');
+    Route::get('/cloud/billing/{payment}/receipt', 'CloudBillingController@receipt')->name('cloud.billing.receipt');
+    Route::post('/cloud/billing/self-activate', 'CloudBillingController@selfActivate')->name('cloud.billing.self');
+    Route::post('/cloud/subscribe/{plan}/trial', 'CloudPortalController@startTrial')->name('cloud.trial');
+    Route::post('/cloud/subscribe/{subscription}/pay', 'CloudPortalController@pay')->middleware('throttle:5,10')->name('cloud.pay');
+    Route::get('/cloud/pay/{payment}/return', 'CloudPortalController@payReturn')->name('cloud.pay.return');
+    Route::get('/cloud/settings', 'CloudPortalController@settings')->name('cloud.settings');
+    Route::post('/cloud/settings', 'CloudPortalController@saveSettings')->name('cloud.settings.save');
+    Route::get('/cloud/messaging', 'CloudPortalController@messaging')->name('cloud.messaging');
+    Route::post('/cloud/messaging/whatsapp/connect', 'CloudWhatsAppConnectController@connect')->middleware('throttle:3,10')->name('cloud.whatsapp.connect');
+    Route::get('/cloud/messaging/whatsapp/{connection}/qr', 'CloudWhatsAppConnectController@qr')->middleware('throttle:30,1')->name('cloud.whatsapp.qr');
+    Route::post('/cloud/messaging/whatsapp/{connection}/refresh', 'CloudWhatsAppConnectController@refresh')->middleware('throttle:30,1')->name('cloud.whatsapp.refresh');
+    Route::post('/cloud/messaging/whatsapp/{connection}/disconnect', 'CloudWhatsAppConnectController@disconnect')->middleware('throttle:5,10')->name('cloud.whatsapp.disconnect');
+    Route::post('/cloud/companies', 'CloudPortalController@addCompany')->name('cloud.companies.store');
+});
+
+Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function() {
+
+    // Auth::routes already registers POST /logout → LoginController@logout (overridden).
+	Route::get('/otp/screen', 'HomeController@otpCheck')->name('check.otp');
+	Route::post('/otp/screen/store', 'HomeController@otpCheckStore')->name('check.otp.store');
+	Route::post('/otp/screen/resend', 'HomeController@otpResend')->name('check.otp.resend');
+    Route::get('/admin', 'HomeController@index');
+
+    // Site Content management (Admin/Owner) — reorder public + side menus
+    Route::get('/admin/site-content', 'SiteContentController@index')->name('site-content.index');
+    Route::post('/admin/site-content/landing-menu', 'SiteContentController@saveLandingMenu')->name('site-content.landing-menu');
+    Route::post('/admin/site-content/side-menu', 'SiteContentController@saveSideMenu')->name('site-content.side-menu');
+    Route::post('/admin/site-content/settings-menu', 'SiteContentController@saveSettingsMenu')->name('site-content.settings-menu');
+    Route::post('/admin/site-content/people-menu', 'SiteContentController@savePeopleMenu')->name('site-content.people-menu');
+    Route::post('/admin/site-content/whatsapp-menu', 'SiteContentController@saveWhatsappMenu')->name('site-content.whatsapp-menu');
+    Route::post('/admin/site-content/content-tabs', 'SiteContentController@saveContentTabs')->name('site-content.content-tabs');
+    Route::post('/admin/site-content/content/{page}', 'SiteContentController@saveContent')->name('site-content.content');
+    Route::post('/admin/site-content/gallery/items', 'SiteContentController@storeGalleryItem')->name('site-content.gallery.store');
+    Route::post('/admin/site-content/gallery/items/{id}', 'SiteContentController@updateGalleryItem')->name('site-content.gallery.update');
+    Route::post('/admin/site-content/gallery/items/{id}/delete', 'SiteContentController@deleteGalleryItem')->name('site-content.gallery.delete');
+    Route::post('/admin/site-content/gallery/reorder', 'SiteContentController@reorderGalleryItems')->name('site-content.gallery.reorder');
+
+    // About Us — Leaders (Alpha Bridge Members equivalent)
+    Route::get('/admin/subscriptions', 'CloudAdminController@index')->name('cloud.admin');
+    Route::get('/admin/subscriptions/payments', 'CloudBillingController@adminIndex')->name('cloud.admin.billing');
+    Route::get('/admin/subscriptions/whatsapp', 'CloudWhatsAppCapacityController@index')->name('cloud.admin.whatsapp');
+    Route::post('/admin/subscriptions/payments/manual', 'CloudBillingController@manual')->name('cloud.admin.billing.manual');
+    Route::post('/admin/subscriptions/plans/{id}', 'CloudAdminController@updatePrice')->name('cloud.admin.price');
+    Route::post('/admin/subscriptions/tenants/{tenant}/grant-trial', 'CloudAdminController@grantTrial')->name('cloud.admin.grant-trial');
+    Route::post('/admin/subscriptions/{subscription}/extend', 'CloudAdminController@extendSubscription')->name('cloud.admin.extend');
+    Route::post('/admin/subscriptions/{subscription}/suspend', 'CloudAdminController@suspend')->name('cloud.admin.suspend');
+    Route::post('/admin/subscriptions/{subscription}/reactivate', 'CloudAdminController@reactivate')->name('cloud.admin.reactivate');
+    Route::post('/admin/subscriptions/{subscription}/cancel', 'CloudAdminController@cancel')->name('cloud.admin.cancel');
+    Route::post('/admin/subscriptions/companies/{id}/suspend', 'CloudAdminController@suspendCompany')->name('cloud.admin.company.suspend');
+    Route::post('/admin/subscriptions/companies/{id}/reactivate', 'CloudAdminController@reactivateCompany')->name('cloud.admin.company.reactivate');
+    Route::post('/admin/subscriptions/signup', 'CloudAdminController@setPublicSignup')->name('cloud.admin.signup');
+
+    Route::get('/admin/leaders', 'LeaderController@index')->name('leaders.index');
+    Route::post('/admin/leaders', 'LeaderController@store')->name('leaders.store');
+    Route::post('/admin/leaders/reorder', 'LeaderController@reorder')->name('leaders.reorder');
+    Route::post('/admin/leaders/{id}', 'LeaderController@update')->name('leaders.update');
+    Route::post('/admin/leaders/{id}/delete', 'LeaderController@destroy')->name('leaders.destroy');
+
+    // Task Manager (admin)
+    Route::get('/admin/tasks', 'TaskManagerController@dashboard')->name('tasks.dashboard');
+    Route::get('/admin/tasks/create', 'TaskManagerController@create')->name('tasks.create');
+    Route::post('/admin/tasks', 'TaskManagerController@store')->name('tasks.store');
+    Route::get('/admin/tasks/list', 'TaskManagerController@index')->name('tasks.index');
+    Route::get('/admin/tasks/scheduled', 'TaskManagerController@scheduled')->name('tasks.scheduled');
+    Route::get('/admin/tasks/reminders', 'TaskManagerController@reminders')->name('tasks.reminders');
+    Route::post('/admin/tasks/reminders/delete-selected', 'TaskManagerController@deleteReminders')->name('tasks.reminders.delete_selected');
+    Route::post('/admin/tasks/reminders/{id}/delete', 'TaskManagerController@deleteReminder')->name('tasks.reminders.delete');
+    Route::get('/admin/tasks/pending-acceptances', 'TaskManagerController@pendingAcceptances')->name('tasks.pending');
+    Route::post('/admin/tasks/{id}/resend', 'TaskManagerController@resend')->name('tasks.resend');
+    Route::post('/admin/tasks/{id}/delete', 'TaskManagerController@destroy')->name('tasks.destroy');
+    Route::get('/admin/tasks/settings', 'TaskManagerController@settings')->name('tasks.settings');
+    Route::post('/admin/tasks/settings/categories', 'TaskManagerController@storeCategory')->name('tasks.settings.categories.store');
+    Route::post('/admin/tasks/settings/categories/{id}/delete', 'TaskManagerController@destroyCategory')->name('tasks.settings.categories.destroy');
+    Route::post('/admin/tasks/settings/templates', 'TaskManagerController@storeTemplate')->name('tasks.settings.templates.store');
+    Route::post('/admin/tasks/settings/templates/{id}/delete', 'TaskManagerController@destroyTemplate')->name('tasks.settings.templates.destroy');
+    Route::get('/admin/tasks/users/search', 'TaskManagerController@searchUsers')->name('tasks.users.search');
+    Route::post('/admin/tasks/users/quick', 'TaskManagerController@quickAssignee')->name('tasks.users.quick');
+
+    // Job Board admin
+    Route::get('/admin/funeral-pledges', 'AdminFuneralPledgeController@index')->name('funeral.pledges.admin');
+    Route::get('/admin/funeral-biography', 'AdminFuneralPledgeController@biography')->name('funeral.biography.admin');
+    Route::post('/admin/funeral-biography', 'AdminFuneralPledgeController@saveBiography')->name('funeral.biography.save');
+
+    Route::get('/admin/permissions', 'StaffPermissionAdminController@index')->name('permissions.index');
+    Route::get('/admin/permissions/requests', 'StaffPermissionAdminController@requests')->name('permissions.requests');
+    Route::get('/admin/permissions/approved', 'StaffPermissionAdminController@approved')->name('permissions.approved');
+    Route::get('/admin/permissions/denied', 'StaffPermissionAdminController@denied')->name('permissions.denied');
+    Route::get('/admin/permissions/{id}', 'StaffPermissionAdminController@show')->name('permissions.show');
+    Route::post('/admin/permissions/{id}', 'StaffPermissionAdminController@update')->name('permissions.update');
+
+    // Contracts Module
+    Route::get('/admin/contracts', 'ContractController@index')->name('contracts.index');
+    Route::get('/admin/contracts/dashboard', 'ContractDashboardController@index')->name('contracts.dashboard');
+    Route::get('/admin/contracts/report', 'ContractDashboardController@report')->name('contracts.report');
+    Route::get('/admin/contracts/awaiting-client', 'ContractController@awaitingClient')->name('contracts.awaiting_client');
+    Route::get('/admin/contracts/awaiting-admin', 'ContractController@awaitingAdmin')->name('contracts.awaiting_admin');
+    Route::get('/admin/contracts/signed', 'ContractController@signed')->name('contracts.signed');
+    Route::get('/admin/contracts/create', 'ContractController@create')->name('contracts.create');
+    Route::post('/admin/contracts', 'ContractController@store')->name('contracts.store');
+    Route::get('/admin/contracts/people-search', 'ContractController@peopleSearch')->name('contracts.people_search');
+    Route::post('/admin/contracts/quick-customer', 'ContractController@quickCustomer')->name('contracts.quick_customer');
+    Route::get('/admin/contracts/link-meta', 'ContractController@linkMeta')->name('contracts.link_meta');
+    Route::get('/admin/contracts/templates/{id}/body', 'ContractController@templateBody')->name('contracts.templates.body');
+    Route::get('/admin/contracts/templates', 'ContractTemplateController@index')->name('contracts.templates');
+    Route::get('/admin/contracts/templates/create', 'ContractTemplateController@create')->name('contracts.templates.create');
+    Route::post('/admin/contracts/templates', 'ContractTemplateController@store')->name('contracts.templates.store');
+    Route::post('/admin/contracts/templates/preview', 'ContractTemplateController@preview')->name('contracts.templates.preview');
+    Route::get('/admin/contracts/templates/{id}/edit', 'ContractTemplateController@edit')->name('contracts.templates.edit');
+    Route::get('/admin/contracts/templates/{id}/preview', 'ContractTemplateController@preview')->name('contracts.templates.preview.show');
+    Route::post('/admin/contracts/templates/{id}', 'ContractTemplateController@update')->name('contracts.templates.update');
+    Route::post('/admin/contracts/templates/{id}/publish', 'ContractTemplateController@publish')->name('contracts.templates.publish');
+    Route::get('/admin/contracts/clauses', 'ContractClauseController@index')->name('contracts.clauses');
+    Route::get('/admin/contracts/clauses/json', 'ContractClauseController@json')->name('contracts.clauses.json');
+    Route::get('/admin/contracts/clauses/create', 'ContractClauseController@create')->name('contracts.clauses.create');
+    Route::post('/admin/contracts/clauses', 'ContractClauseController@store')->name('contracts.clauses.store');
+    Route::get('/admin/contracts/clauses/{id}/edit', 'ContractClauseController@edit')->name('contracts.clauses.edit');
+    Route::post('/admin/contracts/clauses/{id}', 'ContractClauseController@update')->name('contracts.clauses.update');
+    Route::post('/admin/contracts/clauses/{id}/delete', 'ContractClauseController@destroy')->name('contracts.clauses.destroy');
+    Route::get('/admin/contracts/settings', 'ContractSettingsController@edit')->name('contracts.settings');
+    Route::post('/admin/contracts/settings', 'ContractSettingsController@update')->name('contracts.settings.update');
+    Route::post('/admin/events/{id}/contracts/bulk-enterprise', 'ContractController@bulkEngineerEngagements')->name('contracts.bulk_engineer');
+    Route::get('/admin/contracts/{id}', 'ContractController@show')->name('contracts.show');
+    Route::get('/admin/contracts/{id}/edit', 'ContractController@edit')->name('contracts.edit');
+    Route::post('/admin/contracts/{id}', 'ContractController@update')->name('contracts.update');
+    Route::get('/admin/contracts/{id}/preview', 'ContractController@preview')->name('contracts.preview');
+    Route::post('/admin/contracts/{id}/ready', 'ContractController@ready')->name('contracts.ready');
+    Route::post('/admin/contracts/{id}/send', 'ContractController@send')->name('contracts.send');
+    Route::post('/admin/contracts/{id}/resend/{signatoryId}', 'ContractController@resend')->name('contracts.resend');
+    Route::post('/admin/contracts/{id}/sign-admin', 'ContractController@signAdmin')->name('contracts.sign_admin');
+    Route::post('/admin/contracts/{id}/cancel', 'ContractController@cancel')->name('contracts.cancel');
+    Route::post('/admin/contracts/{id}/supersede', 'ContractController@supersede')->name('contracts.supersede');
+    Route::post('/admin/contracts/{id}/attach', 'ContractController@attach')->name('contracts.attach');
+    Route::post('/admin/contracts/{id}/reminders', 'ContractController@storeReminder')->name('contracts.reminders.store');
+    Route::post('/admin/contracts/{id}/reminders/{reminderId}/delete', 'ContractController@destroyReminder')->name('contracts.reminders.destroy');
+    Route::get('/admin/contracts/{id}/documents/{docId}', 'ContractController@download')->name('contracts.download');
+
+    Route::get('/admin/jobs', 'JobBoardController@index')->name('jobs.index');
+    Route::get('/admin/jobs/create', 'JobBoardController@create')->name('jobs.create');
+    Route::get('/admin/jobs/create-internship', 'JobBoardController@createInternship')->name('jobs.createInternship');
+    Route::post('/admin/jobs', 'JobBoardController@store')->name('jobs.store');
+    Route::get('/admin/jobs/applications', 'JobBoardController@applications')->name('jobs.applications');
+    Route::get('/admin/jobs/applicants', 'JobBoardController@applicants')->name('jobs.applicants');
+    Route::get('/admin/jobs/people/search', 'JobBoardController@searchPeople')->name('jobs.people.search');
+    Route::post('/admin/jobs/supervisors/quick', 'JobBoardController@quickSupervisor')->name('jobs.supervisors.quick');
+    Route::post('/admin/jobs/applicants/assign-internship', 'JobBoardController@assignInternship')->name('jobs.applicants.assign');
+    Route::post('/admin/jobs/applicants/notify', 'JobBoardController@notifyInterns')->name('jobs.applicants.notify');
+    Route::get('/admin/jobs/applicants/{id}/placement', 'JobBoardController@editApplicantPlacement')->name('jobs.applicants.placement.edit');
+    Route::post('/admin/jobs/applicants/{id}/placement', 'JobBoardController@updateApplicantPlacement')->name('jobs.applicants.placement.update');
+    Route::get('/admin/jobs/awaiting-approval', 'JobBoardController@awaiting')->name('jobs.awaiting');
+    Route::get('/admin/jobs/selected', 'JobBoardController@selected')->name('jobs.selected');
+    Route::get('/admin/jobs/rejected', 'JobBoardController@rejected')->name('jobs.rejected');
+    Route::post('/admin/jobs/applications/delete', 'JobBoardController@deleteApplications')->name('jobs.applications.delete');
+    Route::get('/admin/jobs/applications/{id}/edit', 'JobBoardController@editApplication')->name('jobs.applications.edit');
+    Route::post('/admin/jobs/applications/{id}/details', 'JobBoardController@saveApplicationDetails')->name('jobs.applications.details');
+    Route::get('/admin/jobs/applications/{id}', 'JobBoardController@showApplication')->name('jobs.applications.show');
+    Route::get('/admin/jobs/applications/{id}/document/{type}', 'JobBoardController@document')->name('jobs.applications.document')
+        ->where('type', 'cv|student_id|student_id_back|letter|employment_letter|official_badge|selfie');
+    Route::post('/admin/jobs/applications/{id}', 'JobBoardController@updateApplication')->name('jobs.applications.update');
+    Route::post('/admin/jobs/applications/{id}/request-documents', 'JobBoardController@requestDocuments')->name('jobs.applications.request_documents');
+    Route::get('/admin/jobs/{id}/edit', 'JobBoardController@edit')->name('jobs.edit');
+    Route::post('/admin/jobs/{id}', 'JobBoardController@update')->name('jobs.update');
+    Route::post('/admin/jobs/{id}/clone', 'JobBoardController@clone')->name('jobs.clone');
+    Route::post('/admin/jobs/{id}/delete', 'JobBoardController@destroy')->name('jobs.destroy');
+
+    // WhatsApp Announcements Manager (AlphaBridge-style)
+    Route::get('/admin/announcements/compose', 'AnnouncementManagerController@compose')->name('announcements.compose');
+    Route::get('/admin/announcements/groups/lookup', 'AnnouncementManagerController@lookupGroups')->name('announcements.groups.lookup');
+    Route::post('/admin/announcements/preview', 'AnnouncementManagerController@previewRecipients')->name('announcements.preview');
+    Route::get('/admin/announcements/users/search', 'AnnouncementManagerController@searchUsers')->name('announcements.users.search');
+    Route::post('/admin/announcements/quick-recipient', 'AnnouncementManagerController@quickRecipient')->name('announcements.quick_recipient');
+    Route::post('/admin/announcements', 'AnnouncementManagerController@store')->name('announcements.store');
+    Route::get('/admin/announcements/list', 'AnnouncementManagerController@index')->name('announcements.index');
+    Route::get('/admin/announcements/scheduled', 'AnnouncementManagerController@scheduled')->name('announcements.scheduled');
+    Route::get('/admin/announcements/reminders', 'AnnouncementManagerController@reminders')->name('announcements.reminders');
+    Route::post('/admin/announcements/reminders/{id}/delete', 'AnnouncementManagerController@deleteReminder')->name('announcements.reminders.delete');
+    Route::post('/admin/announcements/{id}/delete', 'AnnouncementManagerController@destroy')->name('announcements.destroy');
+    Route::get('/admin/announcements/templates', 'AnnouncementManagerController@templates')->name('announcements.templates');
+    Route::post('/admin/announcements/templates', 'AnnouncementManagerController@storeTemplate')->name('announcements.templates.store');
+    Route::post('/admin/announcements/templates/{id}/delete', 'AnnouncementManagerController@destroyTemplate')->name('announcements.templates.destroy');
+    Route::get('/admin/announcements/categories', 'AnnouncementManagerController@categories')->name('announcements.categories');
+    Route::post('/admin/announcements/categories', 'AnnouncementManagerController@storeCategory')->name('announcements.categories.store');
+    Route::post('/admin/announcements/categories/{id}/delete', 'AnnouncementManagerController@destroyCategory')->name('announcements.categories.destroy');
+    Route::get('/admin/announcements/settings', 'AnnouncementManagerController@settings')->name('announcements.settings');
+    Route::post('/admin/announcements/settings', 'AnnouncementManagerController@updateSettings')->name('announcements.settings.update');
+
+    Route::get('/admin/whatsapp', 'WhatsApp\WhatsAppHubController@index')->name('whatsapp.index');
+    Route::get('/admin/whatsapp/link', 'WhatsApp\WhatsAppHubController@linkStatus')->name('whatsapp.link.status');
+    Route::post('/admin/whatsapp/link', 'WhatsApp\WhatsAppHubController@startLink')->name('whatsapp.link.start');
+    Route::post('/admin/whatsapp/link/disconnect', 'WhatsApp\WhatsAppHubController@disconnectLink')->name('whatsapp.link.disconnect');
+    Route::get('/admin/whatsapp/people', 'WhatsApp\WhatsAppHubController@people')->name('whatsapp.people');
+    Route::get('/admin/mai-voice', 'MaiVoiceController@index')->name('mai.voice');
+    Route::get('/admin/mai-voice/{id}', 'MaiVoiceController@show')->where('id', '[0-9]+')->name('mai.voice.show');
+    Route::post('/admin/mai-voice/switch', 'MaiVoiceController@switchVoice')->name('mai.voice.switch');
+    Route::post('/admin/whatsapp/contacts/{id}/voice', 'WhatsApp\WhatsAppHubController@saveContactVoice')->name('whatsapp.contact.voice');
+    Route::get('/admin/whatsapp/conversations', 'WhatsApp\WhatsAppHubController@conversations')->name('whatsapp.conversations');
+    Route::post('/admin/whatsapp/conversations/delete', 'WhatsApp\WhatsAppHubController@destroyConversations')->name('whatsapp.conversations.delete');
+    Route::post('/admin/whatsapp/conversations/{id}/delete', 'WhatsApp\WhatsAppHubController@destroyConversation')->name('whatsapp.conversation.delete');
+    Route::get('/admin/whatsapp/conversations/{id}', 'WhatsApp\WhatsAppHubController@conversation')->name('whatsapp.conversation');
+    Route::post('/admin/whatsapp/conversations/{id}/reply', 'WhatsApp\WhatsAppHubController@reply')->name('whatsapp.conversation.reply');
+    Route::post('/admin/whatsapp/conversations/{id}/assign', 'WhatsApp\WhatsAppHubController@assignConversation')->name('whatsapp.conversation.assign');
+    Route::post('/admin/whatsapp/conversations/{id}/takeover', 'WhatsApp\WhatsAppHubController@takeover')->name('whatsapp.conversation.takeover');
+    Route::post('/admin/whatsapp/conversations/{id}/release', 'WhatsApp\WhatsAppHubController@release')->name('whatsapp.conversation.release');
+    Route::post('/admin/whatsapp/conversations/{id}/pause', 'WhatsApp\WhatsAppHubController@pause')->name('whatsapp.conversation.pause');
+    Route::post('/admin/whatsapp/conversations/{id}/close', 'WhatsApp\WhatsAppHubController@close')->name('whatsapp.conversation.close');
+    Route::post('/admin/whatsapp/conversations/{id}/reopen', 'WhatsApp\WhatsAppHubController@reopen')->name('whatsapp.conversation.reopen');
+    Route::post('/admin/whatsapp/conversations/{id}/note', 'WhatsApp\WhatsAppHubController@note')->name('whatsapp.conversation.note');
+    Route::post('/admin/whatsapp/conversations/{id}/document', 'WhatsApp\WhatsAppHubController@sendDocument')->name('whatsapp.conversation.document');
+    Route::post('/admin/whatsapp/conversations/{id}/lead', 'WhatsApp\WhatsAppLeadController@createFromConversation')->name('whatsapp.conversation.lead');
+    Route::get('/admin/whatsapp/leads', 'WhatsApp\WhatsAppLeadController@index')->name('whatsapp.leads');
+    Route::get('/admin/whatsapp/leads/create', 'WhatsApp\WhatsAppLeadController@create')->name('whatsapp.leads.create');
+    Route::post('/admin/whatsapp/leads', 'WhatsApp\WhatsAppLeadController@store')->name('whatsapp.leads.store');
+    Route::get('/admin/whatsapp/leads/{id}', 'WhatsApp\WhatsAppLeadController@show')->name('whatsapp.leads.show');
+    Route::post('/admin/whatsapp/leads/{id}/assign', 'WhatsApp\WhatsAppLeadController@assign')->name('whatsapp.leads.assign');
+    Route::post('/admin/whatsapp/leads/{id}/status', 'WhatsApp\WhatsAppLeadController@status')->name('whatsapp.leads.status');
+    Route::post('/admin/whatsapp/leads/{id}/follow-up', 'WhatsApp\WhatsAppLeadController@followUp')->name('whatsapp.leads.followup');
+    Route::post('/admin/whatsapp/leads/{id}/note', 'WhatsApp\WhatsAppLeadController@note')->name('whatsapp.leads.note');
+    Route::post('/admin/whatsapp/leads/{id}/convert', 'WhatsApp\WhatsAppLeadController@convert')->name('whatsapp.leads.convert');
+    Route::get('/admin/whatsapp/tracking', 'WhatsApp\WhatsAppHubController@tracking')->name('whatsapp.tracking');
+    Route::get('/admin/whatsapp/calls', 'WhatsApp\WhatsAppHubController@calls')->name('whatsapp.calls');
+    Route::post('/admin/whatsapp/calls/{id}', 'WhatsApp\WhatsAppHubController@updateCall')->name('whatsapp.calls.update');
+    Route::post('/admin/whatsapp/calls/{id}/follow-up', 'WhatsApp\WhatsAppHubController@followUpCall')->name('whatsapp.calls.followup');
+    Route::get('/admin/whatsapp/diagnostics', 'WhatsApp\WhatsAppHubController@diagnostics')->name('whatsapp.diagnostics');
+    Route::post('/admin/whatsapp/diagnostics/test-openai', 'WhatsApp\WhatsAppHubController@testOpenAi')->name('whatsapp.diagnostics.test_openai');
+    Route::get('/admin/whatsapp/settings', 'WhatsApp\WhatsAppHubController@settings')->name('whatsapp.settings');
+    Route::get('/admin/whatsapp/appointments', 'WhatsApp\WhatsAppHubController@appointments')->name('whatsapp.appointments');
+    Route::post('/admin/whatsapp/appointments/availability', 'WhatsApp\WhatsAppHubController@storeAvailability')->name('whatsapp.appointments.availability');
+    Route::get('/admin/whatsapp/groups', 'WhatsApp\WhatsAppHubController@groups')->name('whatsapp.groups');
+    Route::post('/admin/whatsapp/groups/fetch', 'WhatsApp\WhatsAppHubController@fetchGroups')->name('whatsapp.groups.fetch');
+    Route::post('/admin/whatsapp/groups/fetch-contacts', 'WhatsApp\WhatsAppHubController@fetchGroupContacts')->name('whatsapp.groups.fetch_contacts');
+    Route::post('/admin/whatsapp/groups/resolve', 'WhatsApp\WhatsAppHubController@resolveGroup')->name('whatsapp.groups.resolve');
+    Route::post('/admin/whatsapp/groups/fetch-member', 'WhatsApp\WhatsAppHubController@fetchGroupMember')->name('whatsapp.groups.fetch_member');
+    Route::post('/admin/whatsapp/groups/exclude', 'WhatsApp\WhatsAppHubController@excludeGroupMember')->name('whatsapp.groups.exclude');
+    Route::post('/admin/whatsapp/groups/include', 'WhatsApp\WhatsAppHubController@includeGroupMember')->name('whatsapp.groups.include');
+    Route::post('/admin/whatsapp/groups/remove', 'WhatsApp\WhatsAppHubController@deleteGroupMember')->name('whatsapp.groups.remove');
+    Route::get('/admin/whatsapp/groups/lookup', 'WhatsApp\WhatsAppHubController@lookupGroups')->name('whatsapp.groups.lookup');
+    Route::get('/admin/whatsapp/groups/show', 'WhatsApp\WhatsAppHubController@showGroup')->name('whatsapp.groups.show');
+    Route::get('/admin/whatsapp/groups/names', 'WhatsApp\WhatsAppHubController@groupContactNames')->name('whatsapp.groups.names');
+    Route::post('/admin/whatsapp/groups/display-name', 'WhatsApp\WhatsAppHubController@saveGroupDisplayName')->name('whatsapp.groups.display_name');
+    Route::get('/admin/whatsapp/groups/contacts.csv', 'WhatsApp\WhatsAppHubController@exportGroupContacts')->name('whatsapp.groups.export');
+    Route::post('/admin/whatsapp/groups/{id}/mode', 'WhatsApp\WhatsAppHubController@updateGroupMode')->name('whatsapp.groups.mode');
+    Route::post('/admin/whatsapp/settings', 'WhatsApp\WhatsAppHubController@updateSettings')->name('whatsapp.settings.update');
+    Route::post('/admin/whatsapp/settings/switch-ai', 'WhatsApp\WhatsAppHubController@switchEligibleToAi')->name('whatsapp.settings.switch_ai');
+    Route::get('/admin/whatsapp/internship', 'WhatsApp\WhatsAppHubController@internship')->name('whatsapp.internship');
+    Route::get('/admin/whatsapp/attendance', 'WhatsApp\WhatsAppHubController@attendance')->name('whatsapp.attendance');
+    Route::post('/admin/whatsapp/attendance/corrections/{id}/approve', 'WhatsApp\WhatsAppHubController@approveCorrection')->name('whatsapp.attendance.corrections.approve');
+    Route::get('/admin/whatsapp/documents', 'WhatsApp\WhatsAppHubController@documents')->name('whatsapp.documents');
+    Route::get('/admin/whatsapp/tenants', 'WhatsApp\WhatsAppHubController@tenants')->name('whatsapp.tenants');
+    Route::get('/admin/whatsapp/bills', 'WhatsApp\WhatsAppHubController@bills')->name('whatsapp.bills');
+    Route::get('/admin/properties', 'Property\PropertyController@index')->name('property.index');
+    Route::post('/admin/properties', 'Property\PropertyController@storeProperty')->name('property.store');
+    Route::post('/admin/properties/units', 'Property\PropertyController@storeUnit')->name('property.units.store');
+    Route::post('/admin/properties/tenancies', 'Property\PropertyController@storeTenancy')->name('property.tenancies.store');
+    Route::post('/admin/properties/rent-payments', 'Property\PropertyController@storeRentPayment')->name('property.rent.payment');
+    Route::get('/admin/properties/maintenance', 'Property\PropertyController@maintenance')->name('property.maintenance');
+    Route::post('/admin/properties/maintenance/{id}/assign', 'Property\PropertyController@assignMaintenance')->name('property.maintenance.assign');
+    Route::post('/admin/properties/maintenance/{id}/status', 'Property\PropertyController@maintenanceStatus')->name('property.maintenance.status');
+    Route::get('/admin/properties/bills', 'Property\PropertyController@bills')->name('property.bills');
+    Route::post('/admin/whatsapp/documents/{id}/retry', 'WhatsApp\WhatsAppHubController@retryDocument')->name('whatsapp.documents.retry');
+    Route::post('/admin/whatsapp/verification/{id}/invalidate', 'WhatsApp\WhatsAppHubController@invalidateVerification')->name('whatsapp.verification.invalidate');
+    Route::get('/admin/whatsapp/rentals', 'WhatsApp\WhatsAppRentalController@index')->name('whatsapp.rentals');
+    Route::post('/admin/whatsapp/rentals/{id}/approve', 'WhatsApp\WhatsAppRentalController@approve')->name('whatsapp.rentals.approve');
+    Route::post('/admin/whatsapp/rentals/{id}/reject', 'WhatsApp\WhatsAppRentalController@reject')->name('whatsapp.rentals.reject');
+    Route::get('/admin/whatsapp/brief', 'WhatsApp\WhatsAppAssistantController@brief')->name('whatsapp.brief');
+    Route::post('/admin/whatsapp/brief', 'WhatsApp\WhatsAppAssistantController@storeBrief')->name('whatsapp.brief.store');
+    Route::post('/admin/whatsapp/brief/{id}', 'WhatsApp\WhatsAppAssistantController@updateBrief')->name('whatsapp.brief.update');
+    Route::post('/admin/whatsapp/brief/{id}/delete', 'WhatsApp\WhatsAppAssistantController@destroyBrief')->name('whatsapp.brief.delete');
+    Route::get('/admin/whatsapp/assistant', 'WhatsApp\WhatsAppAssistantController@index')->name('whatsapp.assistant');
+    Route::post('/admin/whatsapp/assistant/enabled', 'WhatsApp\WhatsAppAssistantController@updateEnabled')->name('whatsapp.assistant.enabled');
+    Route::post('/admin/whatsapp/assistant/knowledge', 'WhatsApp\WhatsAppAssistantController@storeKnowledge')->name('whatsapp.assistant.knowledge.store');
+    Route::post('/admin/whatsapp/assistant/knowledge/{id}', 'WhatsApp\WhatsAppAssistantController@updateKnowledge')->name('whatsapp.assistant.knowledge.update');
+    Route::post('/admin/whatsapp/conversations/{id}/enable-ai', 'WhatsApp\WhatsAppAssistantController@enableAi')->name('whatsapp.conversation.enable_ai');
+    Route::post('/admin/whatsapp/conversations/{id}/suggest', 'WhatsApp\WhatsAppAssistantController@suggest')->name('whatsapp.conversation.suggest');
+
+    Route::get('/admin/event-packages', 'EventPackageAdminController@index')->name('event-packages.index');
+    Route::post('/admin/event-packages/{id}', 'EventPackageAdminController@updatePackage')->name('event-packages.update');
+    Route::post('/admin/event-packages/rules/{id}', 'EventPackageAdminController@updateRule')->name('event-packages.rules.update');
+    Route::post('/admin/event-packages/{id}/components', 'EventPackageAdminController@storeComponent')->name('event-packages.components.store');
+
+    // Course Manager (AlphaBridge-style)
+    Route::get('/admin/courses', 'CourseManagerController@index')->name('courses.index');
+    Route::get('/admin/courses/create', 'CourseManagerController@create')->name('courses.create');
+    Route::post('/admin/courses', 'CourseManagerController@store')->name('courses.store');
+    Route::post('/admin/courses/reorder', 'CourseManagerController@reorder')->name('courses.reorder');
+    Route::get('/admin/courses/{id}/edit', 'CourseManagerController@edit')->name('courses.edit');
+    Route::post('/admin/courses/{id}', 'CourseManagerController@update')->name('courses.update');
+    Route::post('/admin/courses/{id}/delete', 'CourseManagerController@destroy')->name('courses.destroy');
+    Route::post('/admin/courses/{id}/move', 'CourseManagerController@move')->name('courses.move');
+    Route::post('/admin/courses/{id}/clone', 'CourseManagerController@cloneCourse')->name('courses.clone');
+    Route::get('/admin/courses/{id}/feedback', 'CourseManagerController@courseFeedback')->name('courses.course-feedback');
+    Route::get('/admin/course-registrations', 'CourseManagerController@registrations')->name('courses.registrations');
+    Route::post('/admin/course-registrations/{id}', 'CourseManagerController@updateRegistration')->name('courses.registrations.update');
+    Route::get('/admin/course-invoices', 'CourseManagerController@invoices')->name('courses.invoices');
+    Route::get('/admin/course-certificates', 'CourseManagerController@certificates')->name('courses.certificates');
+    Route::post('/admin/course-certificates/{id}/revoke', 'CourseManagerController@revokeCertificate')->name('courses.certificates.revoke');
+    Route::get('/admin/course-progress', 'CourseManagerController@progress')->name('courses.progress');
+    Route::post('/admin/course-progress/{id}', 'CourseManagerController@updateProgress')->name('courses.progress.update');
+    Route::get('/admin/course-feedback', 'CourseManagerController@feedback')->name('courses.feedback');
+    Route::post('/admin/course-feedback/{id}/delete', 'CourseManagerController@destroyFeedback')->name('courses.feedback.destroy');
+
+    // Timesheet — Employee
+    Route::get('/admin/timesheet/activities', 'TimesheetEmployeeController@activities')->name('timesheet.activities');
+    Route::post('/admin/timesheet/activities', 'TimesheetEmployeeController@storeActivity')->name('timesheet.activities.store');
+    Route::post('/admin/timesheet/activities/{id}', 'TimesheetEmployeeController@updateActivity')->name('timesheet.activities.update');
+    Route::post('/admin/timesheet/activities/{id}/delete', 'TimesheetEmployeeController@destroyActivity')->name('timesheet.activities.destroy');
+    Route::get('/admin/timesheet/fill', 'TimesheetEmployeeController@fill')->name('timesheet.fill');
+    Route::post('/admin/timesheet/entries', 'TimesheetEmployeeController@storeEntry')->name('timesheet.entries.store');
+    Route::post('/admin/timesheet/entries/{id}', 'TimesheetEmployeeController@updateEntry')->name('timesheet.entries.update');
+    Route::post('/admin/timesheet/entries/{id}/delete', 'TimesheetEmployeeController@destroyEntry')->name('timesheet.entries.destroy');
+    Route::get('/admin/timesheet/working-week', 'TimesheetEmployeeController@workingWeek')->name('timesheet.working-week');
+    Route::post('/admin/timesheet/working-week', 'TimesheetEmployeeController@saveWorkingWeek')->name('timesheet.working-week.save');
+
+    // Timesheet — Admin
+    Route::get('/admin/timesheet-admin/report', 'TimesheetAdminController@report')->name('timesheet.admin.report');
+    Route::get('/admin/timesheet-admin/report/print', 'TimesheetAdminController@reportPrint')->name('timesheet.admin.report.print');
+    Route::get('/admin/timesheet-admin/overtime', 'TimesheetAdminController@overtime')->name('timesheet.admin.overtime');
+    Route::get('/admin/timesheet-admin/manage', 'TimesheetAdminController@manage')->name('timesheet.admin.manage');
+    Route::post('/admin/timesheet-admin/entries/{id}/status', 'TimesheetAdminController@updateEntryStatus')->name('timesheet.admin.entries.status');
+    Route::post('/admin/timesheet-admin/entries/{id}/delete', 'TimesheetAdminController@destroyEntry')->name('timesheet.admin.entries.destroy');
+    Route::get('/admin/timesheet-admin/categories', 'TimesheetAdminController@categories')->name('timesheet.admin.categories');
+    Route::post('/admin/timesheet-admin/categories', 'TimesheetAdminController@storeCategory')->name('timesheet.admin.categories.store');
+    Route::post('/admin/timesheet-admin/categories/{id}', 'TimesheetAdminController@updateCategory')->name('timesheet.admin.categories.update');
+    Route::post('/admin/timesheet-admin/categories/{id}/delete', 'TimesheetAdminController@destroyCategory')->name('timesheet.admin.categories.destroy');
+
+    // 180-day Internship Program (additive)
+    Route::get('/admin/internship', 'Internship\InternshipAdminController@dashboard')->name('internship.dashboard');
+    Route::get('/admin/internship/interns', 'Internship\InternshipAdminController@interns')->name('internship.interns');
+    Route::post('/admin/internship/interns/{id}/request-week', 'Internship\InternshipAdminController@requestWorkingWeek')->name('internship.interns.request_week');
+    Route::get('/admin/internship/interns/{id}/working-week', 'Internship\InternshipAdminController@showWorkingWeek')->name('internship.interns.working_week');
+    Route::delete('/admin/internship/interns/{id}', 'Internship\InternshipAdminController@destroyIntern')->name('internship.interns.destroy');
+    Route::get('/admin/internship/supervisors', 'Internship\InternshipAdminController@supervisors')->name('internship.supervisors');
+    Route::get('/admin/internship/programs', 'Internship\InternshipAdminController@programs')->name('internship.programs');
+    Route::get('/admin/internship/programs/{id}', 'Internship\InternshipAdminController@programShow')->name('internship.programs.show');
+    Route::post('/admin/internship/programs/{id}', 'Internship\InternshipAdminController@programUpdate')->name('internship.programs.update');
+    Route::post('/admin/internship/programs/{id}/tasks/{taskId}', 'Internship\InternshipAdminController@taskUpdate')->name('internship.programs.tasks.update');
+    Route::get('/admin/internship/programs/{id}/tasks/{taskId}/handbook', 'Internship\InternshipAdminController@downloadTaskHandbook')->name('internship.programs.tasks.handbook');
+    Route::get('/admin/internship/import', 'Internship\InternshipAdminController@importForm')->name('internship.import');
+    Route::post('/admin/internship/import', 'Internship\InternshipAdminController@importRun')->name('internship.import.run');
+    Route::get('/admin/internship/enrolments', 'Internship\InternshipAdminController@enrolments')->name('internship.enrolments');
+    Route::get('/admin/internship/enrolments/create', 'Internship\InternshipAdminController@enrolCreate')->name('internship.enrol.create');
+    Route::post('/admin/internship/enrolments', 'Internship\InternshipAdminController@enrolStore')->name('internship.enrol.store');
+    Route::get('/admin/internship/enrolments/{id}/edit', 'Internship\InternshipAdminController@enrolEdit')->name('internship.enrol.edit');
+    Route::post('/admin/internship/enrolments/{id}', 'Internship\InternshipAdminController@enrolUpdate')->name('internship.enrol.update');
+    Route::post('/admin/internship/enrolments/{id}/pause', 'Internship\InternshipAdminController@enrolPause')->name('internship.enrol.pause');
+    Route::post('/admin/internship/enrolments/{id}/resume', 'Internship\InternshipAdminController@enrolResume')->name('internship.enrol.resume');
+    Route::get('/admin/internship/reports', 'Internship\InternshipAdminController@reports')->name('internship.reports');
+    Route::get('/admin/internship/tasks', 'Internship\InternshipAdminController@taskManager')->name('internship.tasks');
+    Route::post('/admin/internship/tasks/{id}/resend', 'Internship\InternshipAdminController@resendTask')->name('internship.tasks.resend');
+    Route::get('/admin/internship/student', 'Internship\InternshipStudentController@dashboard')->name('internship.student.dashboard');
+    Route::post('/admin/internship/student/request-task', 'Internship\InternshipStudentController@requestTask')->name('internship.student.request');
+    Route::get('/admin/internship/student/upload', 'Internship\InternshipStudentController@upload')->name('internship.student.upload');
+    Route::get('/admin/internship/student/messages', 'Internship\InternshipStudentController@messages')->name('internship.student.messages');
+    Route::post('/admin/internship/student/messages', 'Internship\InternshipStudentController@sendMessage')->name('internship.student.messages.send');
+    Route::get('/admin/internship/student/portfolio', 'Internship\InternshipStudentController@portfolio')->name('internship.student.portfolio');
+    Route::get('/admin/internship/student/task/{id}', 'Internship\InternshipStudentController@task')->name('internship.student.task');
+    Route::get('/admin/internship/student/task/{id}/handbook', 'Internship\InternshipStudentController@downloadHandbook')->name('internship.student.handbook');
+    Route::post('/admin/internship/student/task/{id}/start', 'Internship\InternshipStudentController@start')->name('internship.student.start');
+    Route::post('/admin/internship/student/task/{id}/steps', 'Internship\InternshipStudentController@updateStepProgress')->name('internship.student.steps');
+    Route::post('/admin/internship/student/task/{id}/submit', 'Internship\InternshipStudentController@submit')->name('internship.student.submit');
+    Route::post('/admin/internship/student/task/{id}/draft', 'Internship\InternshipStudentController@storeDraft')->name('internship.student.draft.store');
+    Route::post('/admin/internship/student/task/{id}/draft/{draftId}', 'Internship\InternshipStudentController@updateDraft')->name('internship.student.draft.update');
+    Route::delete('/admin/internship/student/task/{id}/draft/{draftId}', 'Internship\InternshipStudentController@destroyDraft')->name('internship.student.draft.destroy');
+    Route::get('/admin/internship/student/drafts/{draftId}', 'Internship\InternshipStudentController@downloadDraft')->name('internship.student.draft');
+    Route::get('/admin/internship/student/files/{fileId}', 'Internship\InternshipStudentController@downloadFile')->name('internship.student.file');
+    Route::get('/admin/internship/supervisor', 'Internship\InternshipSupervisorController@dashboard')->name('internship.supervisor.dashboard');
+    Route::get('/admin/internship/supervisor/queue', 'Internship\InternshipSupervisorController@index')->name('internship.supervisor.index');
+    Route::get('/admin/internship/supervisor/students', 'Internship\InternshipSupervisorController@students')->name('internship.supervisor.students');
+    Route::get('/admin/internship/supervisor/students/{id}/working-week', 'Internship\InternshipSupervisorController@showWorkingWeek')->name('internship.supervisor.working_week');
+    Route::delete('/admin/internship/supervisor/students/{id}', 'Internship\InternshipSupervisorController@destroyIntern')->name('internship.supervisor.destroy');
+    Route::get('/admin/internship/supervisor/students/{id}/place', 'Internship\InternshipSupervisorController@placeEdit')->name('internship.supervisor.place');
+    Route::post('/admin/internship/supervisor/students/{id}/place', 'Internship\InternshipSupervisorController@placeUpdate')->name('internship.supervisor.place.update');
+    Route::get('/admin/internship/supervisor/submissions/{id}', 'Internship\InternshipSupervisorController@show')->name('internship.supervisor.show');
+    Route::post('/admin/internship/supervisor/submissions/{id}/grade', 'Internship\InternshipSupervisorController@grade')->name('internship.supervisor.grade');
+    Route::get('/admin/internship/supervisor/files/{fileId}', 'Internship\InternshipSupervisorController@downloadFile')->name('internship.supervisor.file');
+
+    // Digital Invitations (Online Invitation module)
+    Route::name('online_invitation.')->prefix('online-invitation')->group(function () {
+        Route::resource('categories', 'OnlineInvitationCategoryController');
+        Route::resource('templates', 'OnlineInvitationTemplateController');
+        Route::resource('events', 'OnlineInvitationEventController');
+
+        Route::get('invitations', 'OnlineInvitationInvitationController@index')->name('invitations.index');
+        Route::get('invitations/attending', 'OnlineInvitationInvitationController@attending')->name('invitations.attending');
+        Route::get('invitations/create', 'OnlineInvitationInvitationController@create')->name('invitations.create');
+        Route::post('invitations', 'OnlineInvitationInvitationController@store')->name('invitations.store');
+        Route::post('invitations/bulk-send', 'OnlineInvitationInvitationController@bulkSend')->name('invitations.bulk_send');
+        Route::post('invitations/bulk-delete', 'OnlineInvitationInvitationController@bulkDelete')->name('invitations.bulk_delete');
+        Route::post('invitations/{id}/send', 'OnlineInvitationInvitationController@send')->name('invitations.send');
+        Route::post('invitations/{id}/guest-apply-link', 'OnlineInvitationInvitationController@guestApplyLink')->name('invitations.guest_apply_link');
+        Route::delete('invitations/{id}', 'OnlineInvitationInvitationController@destroy')->name('invitations.destroy');
+        Route::post('invite/{token}/accept-use', 'OnlineInvitationInvitationController@acceptAndUse')->name('invite.accept_use');
+
+        Route::get('request-links', 'OnlineInvitationRequestLinkController@index')->name('request_links.index');
+        Route::get('request-links/create', 'OnlineInvitationRequestLinkController@create')->name('request_links.create');
+        Route::post('request-links', 'OnlineInvitationRequestLinkController@store')->name('request_links.store');
+        Route::delete('request-links/{id}', 'OnlineInvitationRequestLinkController@destroy')->name('request_links.destroy');
+
+        Route::get('reminders', 'OnlineInvitationReminderController@index')->name('reminders.index');
+        Route::post('reminders', 'OnlineInvitationReminderController@store')->name('reminders.store');
+        Route::post('reminders/{id}/cancel', 'OnlineInvitationReminderController@cancel')->name('reminders.cancel');
+
+        Route::get('queued-messages', function () {
+            return redirect()->route('message.delivery.index', ['module' => 'invitations']);
+        })->name('queued');
+    });
+
+    // Legacy stub routes → new module
+    Route::get('/admin/invitations', function () {
+        return redirect()->route('online_invitation.invitations.index');
+    })->name('invitations.index');
+    Route::get('/admin/invitations/create', function () {
+        return redirect()->route('online_invitation.invitations.create');
+    })->name('invitations.create');
+    Route::get('/admin/invitations/check-in', function () {
+        return redirect()->route('online_invitation.invitations.index', ['status' => 'sent']);
+    })->name('invitations.check_in');
+
+    Route::get('/admin/events', 'EventDashboardController@index')->name('events.dashboard');
+    Route::get('/admin/events/list', 'EventController@index')->name('events.index');
+    Route::get('/admin/events/create', 'EventController@create')->name('events.create');
+    Route::post('/admin/events', 'EventController@store')->name('events.store');
+    Route::get('/admin/events/calendar', 'EventController@calendar')->name('events.calendar');
+    Route::get('/admin/events/settings/categories', 'EventWorkerCategoryController@index')->name('events.settings.categories');
+    Route::post('/admin/events/settings/categories', 'EventWorkerCategoryController@store')->name('events.settings.categories.store');
+    Route::post('/admin/events/settings/categories/{id}', 'EventWorkerCategoryController@update')->name('events.settings.categories.update');
+    Route::post('/admin/events/settings/categories/{id}/delete', 'EventWorkerCategoryController@destroy')->name('events.settings.categories.destroy');
+    Route::get('/admin/events/workforce/profiles', 'EventWorkforceController@profiles')->name('events.workforce.profiles');
+    Route::post('/admin/events/workforce/profiles', 'EventWorkforceController@storeProfile')->name('events.workforce.profiles.store');
+    Route::get('/admin/events/workforce/search', 'EventWorkforceController@search')->name('events.workforce.search');
+    Route::get('/admin/events/timesheets', 'EventTimesheetController@index')->name('events.timesheets.index');
+    Route::post('/admin/events/timesheets/{id}/approve', 'EventTimesheetController@approve')->name('events.timesheets.approve');
+    Route::post('/admin/events/timesheets/{id}/reject', 'EventTimesheetController@reject')->name('events.timesheets.reject');
+    Route::get('/admin/events/payments', 'EventPaymentController@index')->name('events.payments.index');
+    Route::post('/admin/events/payments/{paymentId}/mark-paid', 'EventPaymentController@markPaid')->name('events.payments.mark-paid');
+    Route::get('/admin/events/reminders', 'EventReminderController@index')->name('events.reminders.index');
+    Route::get('/admin/events/settings/contract-templates', 'EventContractTemplateController@index')->name('events.settings.contract-templates');
+    Route::post('/admin/events/settings/contract-templates', 'EventContractTemplateController@store')->name('events.settings.contract-templates.store');
+    Route::post('/admin/events/settings/contract-templates/{id}', 'EventContractTemplateController@update')->name('events.settings.contract-templates.update');
+    Route::get('/admin/event-contracts/{contractId}/review', 'EventContractController@review')->name('events.contracts.review');
+    Route::post('/admin/event-contracts/{contractId}/approve', 'EventContractController@approve')->name('events.contracts.approve');
+    Route::get('/admin/event-contracts/{contractId}/preview', 'EventContractController@preview')->name('events.contracts.preview');
+    Route::get('/admin/events/{id}', 'EventController@show')->name('events.show');
+    Route::get('/admin/events/{id}/edit', 'EventController@edit')->name('events.edit');
+    Route::put('/admin/events/{id}', 'EventController@update')->name('events.update');
+    Route::delete('/admin/events/{id}', 'EventController@destroy')->name('events.destroy');
+    Route::post('/admin/events/{id}/publication', 'EventPublicationController@update')->name('events.publication.update');
+    Route::post('/admin/events/{id}/publish', 'EventPublicationController@publish')->name('events.publish');
+    Route::post('/admin/events/{id}/unpublish', 'EventPublicationController@unpublish')->name('events.unpublish');
+    Route::post('/admin/events/{id}/workforce/assign', 'EventWorkforceController@assign')->name('events.workforce.assign');
+    Route::post('/admin/events/{id}/workforce/{assignmentId}/remove', 'EventWorkforceController@removeAssignment')->name('events.workforce.remove');
+    Route::post('/admin/events/{id}/labour-budget', 'EventWorkforceController@saveBudget')->name('events.labour-budget.save');
+    Route::post('/admin/events/{id}/contracts/generate', 'EventContractController@generate')->name('events.contracts.generate');
+    Route::post('/admin/events/{id}/contracts/{contractId}/send', 'EventContractController@send')->name('events.contracts.send');
+    Route::post('/admin/events/{id}/reminders', 'EventReminderController@storeForEvent')->name('events.reminders.store');
+    Route::delete('/admin/events/reminders/{id}', 'EventReminderController@destroy')->name('events.reminders.destroy');
+    Route::post('/admin/events/{id}/payments', 'EventPaymentController@createForAssignment')->name('events.payments.create');
+
+	Route::get('/wp', 'HomeController@whatsapp');
+	Route::get('/mmt', 'HomeController@mobileMoneyToken');
+	Route::get('/mmr', 'HomeController@mobileMoneyRequest');
+	Route::get('/mms', 'HomeController@mobileMoneyStatus');
+	Route::get('/dashboard-filter/{start_date}/{end_date}', 'HomeController@dashboardFilter');
+	Route::get('check-batch-availability/{product_id}/{batch_no}/{warehouse_id}', 'ProductController@checkBatchAvailability');
+
+	Route::get('language_switch/{locale}', 'LanguageController@switchLanguage');
+
+	Route::get('role/permission/{id}', 'RoleController@permission')->name('role.permission');
+	Route::post('role/set_permission', 'RoleController@setPermission')->name('role.setPermission');
+	Route::resource('role', 'RoleController');
+
+	Route::post('importunit', 'UnitController@importUnit')->name('unit.import');
+	Route::post('unit/deletebyselection', 'UnitController@deleteBySelection');
+	Route::get('unit/lims_unit_search', 'UnitController@limsUnitSearch')->name('unit.search');
+	Route::resource('unit', 'UnitController');
+
+	Route::post('category/import', 'CategoryController@import')->name('category.import');
+	Route::post('category/deletebyselection', 'CategoryController@deleteBySelection');
+	Route::post('category/category-data', 'CategoryController@categoryData');
+	Route::resource('category', 'CategoryController');
+
+	Route::post('importbrand', 'BrandController@importBrand')->name('brand.import');
+	Route::post('brand/deletebyselection', 'BrandController@deleteBySelection');
+	Route::get('brand/lims_brand_search', 'BrandController@limsBrandSearch')->name('brand.search');
+	Route::resource('brand', 'BrandController');
+
+	Route::post('importsupplier', 'SupplierController@importSupplier')->name('supplier.import');
+	Route::post('supplier/deletebyselection', 'SupplierController@deleteBySelection');
+	Route::get('supplier/lims_supplier_search', 'SupplierController@limsSupplierSearch')->name('supplier.search');
+	Route::resource('supplier', 'SupplierController');
+
+	Route::post('importwarehouse', 'WarehouseController@importWarehouse')->name('warehouse.import');
+	Route::post('warehouse/deletebyselection', 'WarehouseController@deleteBySelection');
+	Route::get('warehouse/lims_warehouse_search', 'WarehouseController@limsWarehouseSearch')->name('warehouse.search');
+	Route::resource('warehouse', 'WarehouseController');
+
+	Route::post('importtax', 'TaxController@importTax')->name('tax.import');
+	Route::post('tax/deletebyselection', 'TaxController@deleteBySelection');
+	Route::get('tax/lims_tax_search', 'TaxController@limsTaxSearch')->name('tax.search');
+	Route::resource('tax', 'TaxController');
+
+	//Route::get('products/getbarcode', 'ProductController@getBarcode');
+	Route::post('products/product-data', 'ProductController@productData');
+	Route::post('products/inline-update', 'ProductController@inlineUpdate')->name('products.inline-update');
+	Route::post('products/product-data/vendor', 'ProductController@productDataVendor');
+	Route::get('products/gencode', 'ProductController@generateCode');
+	Route::get('products/search', 'ProductController@search');
+	Route::get('products/saleunit/{id}', 'ProductController@saleUnit');
+	Route::get('products/getdata/{id}', 'ProductController@getData');
+	Route::get('products/product_warehouse/{id}', 'ProductController@productWarehouseData');
+	Route::post('importproduct', 'ProductController@importProduct')->name('product.import');
+	Route::post('exportproduct', 'ProductController@exportProduct')->name('product.export');
+	Route::get('products/print_barcode','ProductController@printBarcode')->name('product.printBarcode');
+
+	Route::get('products/lims_product_search', 'ProductController@limsProductSearch')->name('product.search');
+	Route::post('products/deletebyselection', 'ProductController@deleteBySelection');
+    Route::get('/editbyselection/warehouse/products', 'ProductController@warehouseProducts')->name('edit.by.selection.warehouse.products');
+	Route::get('products/editbyselection', 'ProductController@editBySelection')->name('product.edit.by.selection');
+    Route::get('products/editbyselection/page', 'ProductController@editBySelectionPage')->name('product.edit.by.selection.page');
+	Route::post('products/updatebyselection', 'ProductController@updateBySelection')->name('product.update.by.selection');
+	Route::post('products/update', 'ProductController@updateProduct');
+	Route::get('products/store/model', 'SaleController@storeModel')->name('product.store.model');
+	Route::resource('products', 'ProductController');
+
+	Route::post('importcustomer_group', 'CustomerGroupController@importCustomerGroup')->name('customer_group.import');
+	Route::post('customer_group/deletebyselection', 'CustomerGroupController@deleteBySelection');
+	Route::get('customer_group/lims_customer_group_search', 'CustomerGroupController@limsCustomerGroupSearch')->name('customer_group.search');
+	Route::resource('customer_group', 'CustomerGroupController');
+
+    Route::get('customer/payment_check', 'CustomerController@CustomerPayemntCheck')->name('customer.payment_check');
+	Route::post('importcustomer', 'CustomerController@importCustomer')->name('customer.import');
+    Route::get('people/phone-lookup', 'PeoplePhoneLookupController@lookup')->name('people.phone-lookup');
+    Route::get('people/transfer', 'PeopleTransferController@index')->name('people.transfer');
+    Route::get('people/export/customers', 'PeopleTransferController@exportCustomers')->name('people.export.customers');
+    Route::get('people/export/users', 'PeopleTransferController@exportUsers')->name('people.export.users');
+    Route::get('people/sample/customers', 'PeopleTransferController@sampleCustomers')->name('people.sample.customers');
+    Route::get('people/sample/users', 'PeopleTransferController@sampleUsers')->name('people.sample.users');
+    Route::post('people/import/customers', 'PeopleTransferController@importCustomers')->name('people.import.customers');
+    Route::post('people/import/users', 'PeopleTransferController@importUsers')->name('people.import.users');
+	Route::get('customer/getDeposit/{id}', 'CustomerController@getDeposit');
+	Route::post('customer/add_deposit', 'CustomerController@addDeposit')->name('customer.addDeposit');
+	Route::post('customer/update_deposit', 'CustomerController@updateDeposit')->name('customer.updateDeposit');
+	Route::post('customer/deleteDeposit', 'CustomerController@deleteDeposit')->name('customer.deleteDeposit');
+	Route::post('customer/deletebyselection', 'CustomerController@deleteBySelection');
+	Route::get('customer/lims_customer_search', 'CustomerController@limsCustomerSearch')->name('customer.search');
+    Route::post('/customer/inline-update', 'CustomerController@inlineUpdate')->name('customer.inlineUpdate');
+	Route::resource('customer', 'CustomerController');
+    Route::get('/customer/gen_payment_invoice/{id}', 'CustomerController@genInvoice')->name('customer.gen_payment_invoice');
+    Route::get('/customer_group/gen_payment_invoice/{id}', 'CustomerGroupController@genInvoice')->name('customer_group.gen_payment_invoice');
+    Route::get('customer_group/customers/{id}', 'CustomerController@CustomerGroupCustomers')->name('customer_group.customers');
+    Route::get('customer_group/deposits/{id}', 'CustomerGroupController@Deposits')->name('customer_group.deposits');
+    Route::get('customer_group/payments/{id}', 'CustomerGroupController@Payments')->name('customer_group.payments');
+    Route::post('customer_group/add_deposit', 'CustomerGroupController@addDeposit')->name('customer_group.addDeposit');
+
+	Route::post('importbiller', 'BillerController@importBiller')->name('biller.import');
+	Route::post('biller/deletebyselection', 'BillerController@deleteBySelection');
+	Route::get('biller/lims_biller_search', 'BillerController@limsBillerSearch')->name('biller.search');
+	Route::resource('biller', 'BillerController');
+
+    Route::get('/customer/payments/{id}', 'PaymentController@AwaitingPayments')->name('customer.awaiting.payments');
+    Route::get('sales/payment_check', 'SaleController@addPaymentMTN')->name('sale.payment_check');
+    Route::get('/pos/payment_check', 'SaleController@addPaymentMTNPOS')->name('pos.payment_check');
+	Route::get('sales/category/associate', 'SaleController@addCategoryIdInSale');
+	Route::post('sales/sale-data', 'SaleController@saleData');
+	Route::post('sales/sendmail', 'SaleController@sendMail')->name('sale.sendmail');
+	Route::get('sales/sale_by_csv', 'SaleController@saleByCsv');
+	Route::get('sales/product_sale/{id}','SaleController@productSaleData');
+	Route::post('importsale', 'SaleController@importSale')->name('sale.import');
+	Route::get('pos', 'SaleController@posSale')->name('sale.pos');
+	Route::get('sales/lims_product_search', 'SaleController@limsProductSearch')->name('product_sale.search');
+	Route::get('sales/pos_product_suggest', 'SaleController@posProductSuggest')->name('sale.pos.product.suggest');
+	Route::get('sales/getcustomergroup/{id}', 'SaleController@getCustomerGroup')->name('sale.getcustomergroup');
+	Route::get('sales/getproduct/{id}', 'SaleController@getProduct')->name('sale.getproduct');
+	Route::get('sales/searchAllProducts', 'SaleController@searchAllProducts')->name('sale.search.all.products');
+	Route::get('sales/searchQuickProducts', 'SaleController@searchQuickProducts')->name('sale.search.quick.products');
+	Route::get('sales/get-batch-products/{id}', 'SaleController@getBatchProduct')->name('sale.getBatchProducts');
+	Route::get('sales/getproduct/{category_id}/{brand_id}', 'SaleController@getProductByFilter');
+	Route::get('sales/getfeatured', 'SaleController@getFeatured');
+	Route::get('sales/get_gift_card', 'SaleController@getGiftCard');
+	Route::get('sales/paypalSuccess', 'SaleController@paypalSuccess');
+	Route::get('sales/paypalPaymentSuccess/{id}', 'SaleController@paypalPaymentSuccess');
+	Route::get('sales/gen_invoice/{id}', 'SaleController@genInvoice')->name('sale.invoice');
+	Route::get('sales/barcode/{ref}', 'SaleController@barcodePng')->name('sale.barcode');
+	Route::get('sales/qrcode/{id}', 'SaleController@qrcodePng')->name('sale.qrcode');
+	Route::post('sales/add_payment', 'SaleController@addPayment')->name('sale.add-payment');
+	Route::get('sales/getpayment/{id}', 'SaleController@getPayment')->name('sale.get-payment');
+	Route::post('sales/updatepayment', 'SaleController@updatePayment')->name('sale.update-payment');
+	Route::post('sales/deletepayment', 'SaleController@deletePayment')->name('sale.delete-payment');
+	Route::get('sales/{id}/create', 'SaleController@createSale');
+	Route::post('sales/deletebyselection', 'SaleController@deleteBySelection');
+	Route::get('sales/print-last-reciept', 'SaleController@printLastReciept')->name('sales.printLastReciept');
+	Route::get('sales/today-sale', 'SaleController@todaySale');
+	Route::get('sales/today-profit/{warehouse_id}', 'SaleController@todayProfit');
+	Route::resource('sales', 'SaleController');
+    Route::post('sales/sendwhatsapp', 'SaleController@sendWhatsapp')->name('sale.sendwhatsapp');
+
+	Route::get('delivery', 'DeliveryController@index')->name('delivery.index');
+	Route::get('delivery/product_delivery/{id}','DeliveryController@productDeliveryData');
+	Route::get('delivery/create/{id}', 'DeliveryController@create');
+	Route::post('delivery/store', 'DeliveryController@store')->name('delivery.store');
+	Route::post('delivery/sendmail', 'DeliveryController@sendMail')->name('delivery.sendMail');
+	Route::post('delivery/sendwhatsapp', 'DeliveryController@sendWhatsapp')->name('delivery.sendWhatsapp');
+	Route::post('delivery/{id}/resend-signature', 'DeliveryController@resendSignature')->name('delivery.resend_signature');
+	Route::get('delivery/{id}/edit', 'DeliveryController@edit');
+	Route::post('delivery/update', 'DeliveryController@update')->name('delivery.update');
+	Route::post('delivery/deletebyselection', 'DeliveryController@deleteBySelection');
+	Route::post('delivery/delete/{id}', 'DeliveryController@delete')->name('delivery.delete');
+
+	Route::get('quotations/product_quotation/{id}','QuotationController@productQuotationData');
+	Route::get('quotations/lims_product_search', 'QuotationController@limsProductSearch')->name('product_quotation.search');
+	Route::get('quotations/getcustomergroup/{id}', 'QuotationController@getCustomerGroup')->name('quotation.getcustomergroup');
+	Route::get('quotations/getproduct/{id}', 'QuotationController@getProduct')->name('quotation.getproduct');
+	Route::get('quotations/{id}/create_sale', 'QuotationController@createSale')->name('quotation.create_sale');
+	Route::get('quotations/{id}/create_purchase', 'QuotationController@createPurchase')->name('quotation.create_purchase');
+	Route::get('quotations/{id}/clone', 'QuotationController@cloneQuotation')->name('quotation.clone');
+	Route::post('quotations/quick-product', 'QuotationController@quickStoreProduct')->name('quotation.quick_product');
+	Route::post('quotations/sendmail', 'QuotationController@sendMail')->name('quotation.sendmail');
+	Route::post('quotations/sendwhatsapp', 'QuotationController@sendWhatsapp')->name('quotation.sendwhatsapp');
+	Route::post('quotations/{id}/resend-approval', 'QuotationController@resendApproval')->name('quotation.resend_approval');
+	Route::get('quotations/{id}/quote', 'QuotationController@quoteReview')->name('quotation.quote_review');
+	Route::post('quotations/{id}/quote/accept', 'QuotationController@acceptClientQuote')->name('quotation.quote_accept');
+	Route::post('quotations/{id}/quote/reject', 'QuotationController@rejectClientQuote')->name('quotation.quote_reject');
+	Route::post('quotations/deletebyselection', 'QuotationController@deleteBySelection');
+	Route::get('quotations', 'QuotationController@index')->name('quotations.index');
+	Route::resource('quotations', 'QuotationController')->except(['index']);
+
+	Route::post('purchases/purchase-data', 'PurchaseController@purchaseData')->name('purchases.data');
+	Route::get('purchases/product_purchase/{id}','PurchaseController@productPurchaseData');
+	Route::get('purchases/lims_product_search', 'PurchaseController@limsProductSearch')->name('product_purchase.search');
+	Route::post('purchases/add_payment', 'PurchaseController@addPayment')->name('purchase.add-payment');
+	Route::get('purchases/getpayment/{id}', 'PurchaseController@getPayment')->name('purchase.get-payment');
+	Route::post('purchases/updatepayment', 'PurchaseController@updatePayment')->name('purchase.update-payment');
+	Route::post('purchases/deletepayment', 'PurchaseController@deletePayment')->name('purchase.delete-payment');
+	Route::get('purchases/purchase_by_csv', 'PurchaseController@purchaseByCsv');
+	Route::post('importpurchase', 'PurchaseController@importPurchase')->name('purchase.import');
+	Route::post('purchases/deletebyselection', 'PurchaseController@deleteBySelection');
+	Route::resource('purchases', 'PurchaseController');
+
+	Route::get('transfers/product_transfer/{id}','TransferController@productTransferData');
+	Route::get('transfers/transfer_by_csv', 'TransferController@transferByCsv');
+	Route::post('importtransfer', 'TransferController@importTransfer')->name('transfer.import');
+	Route::get('transfers/getproduct/{id}', 'TransferController@getProduct')->name('transfer.getproduct');
+	Route::get('transfers/lims_product_search', 'TransferController@limsProductSearch')->name('product_transfer.search');
+	Route::post('transfers/deletebyselection', 'TransferController@deleteBySelection');
+	Route::resource('transfers', 'TransferController');
+
+	Route::get('qty_adjustment/getproduct/{id}', 'AdjustmentController@getProduct')->name('adjustment.getproduct');
+	Route::get('qty_adjustment/lims_product_search', 'AdjustmentController@limsProductSearch')->name('product_adjustment.search');
+	Route::post('qty_adjustment/deletebyselection', 'AdjustmentController@deleteBySelection');
+	Route::resource('qty_adjustment', 'AdjustmentController');
+
+	Route::get('return-sale/getcustomergroup/{id}', 'ReturnController@getCustomerGroup')->name('return-sale.getcustomergroup');
+	Route::post('return-sale/sendmail', 'ReturnController@sendMail')->name('return-sale.sendmail');
+	Route::get('return-sale/getproduct/{id}', 'ReturnController@getProduct')->name('return-sale.getproduct');
+	Route::get('return-sale/lims_product_search', 'ReturnController@limsProductSearch')->name('product_return-sale.search');
+	Route::get('return-sale/product_return/{id}','ReturnController@productReturnData');
+	Route::post('return-sale/deletebyselection', 'ReturnController@deleteBySelection');
+	Route::resource('return-sale', 'ReturnController');
+
+	Route::get('return-purchase/getcustomergroup/{id}', 'ReturnPurchaseController@getCustomerGroup')->name('return-purchase.getcustomergroup');
+	Route::post('return-purchase/sendmail', 'ReturnPurchaseController@sendMail')->name('return-purchase.sendmail');
+	Route::get('return-purchase/getproduct/{id}', 'ReturnPurchaseController@getProduct')->name('return-purchase.getproduct');
+	Route::get('return-purchase/lims_product_search', 'ReturnPurchaseController@limsProductSearch')->name('product_return-purchase.search');
+	Route::get('return-purchase/product_return/{id}','ReturnPurchaseController@productReturnData');
+	Route::post('return-purchase/deletebyselection', 'ReturnPurchaseController@deleteBySelection');
+	Route::resource('return-purchase', 'ReturnPurchaseController');
+
+	Route::get('report/average_sale', 'ReportController@averageSale')->name('report.averageSale');
+    Route::post('report/average_sale_data', 'ReportController@averageSaleData')->name('report.average.sale');
+    Route::get('report/JE', 'ReportController@JE')->name('report.JE');
+    Route::post('report/JE_data', 'ReportController@JEData')->name('report.JEData');
+    Route::get('report/product_quantity_alert', 'ReportController@productQuantityAlert')->name('report.qtyAlert');
+	Route::get('report/warehouse_stock', 'ReportController@warehouseStock')->name('report.warehouseStock');
+	Route::post('report/warehouse_stock', 'ReportController@warehouseStockById')->name('report.warehouseStock');
+	Route::get('report/daily_sale/{year}/{month}', 'ReportController@dailySale');
+	Route::post('report/daily_sale/{year}/{month}', 'ReportController@dailySaleByWarehouse')->name('report.dailySaleByWarehouse');
+	Route::get('report/monthly_sale/{year}', 'ReportController@monthlySale');
+	Route::post('report/monthly_sale/{year}', 'ReportController@monthlySaleByWarehouse')->name('report.monthlySaleByWarehouse');
+	Route::get('report/daily_purchase/{year}/{month}', 'ReportController@dailyPurchase');
+	Route::post('report/daily_purchase/{year}/{month}', 'ReportController@dailyPurchaseByWarehouse')->name('report.dailyPurchaseByWarehouse');
+	Route::get('report/monthly_purchase/{year}', 'ReportController@monthlyPurchase');
+	Route::post('report/monthly_purchase/{year}', 'ReportController@monthlyPurchaseByWarehouse')->name('report.monthlyPurchaseByWarehouse');
+	Route::get('report/best_seller', 'ReportController@bestSeller');
+	Route::post('report/best_seller', 'ReportController@bestSellerByWarehouse')->name('report.bestSellerByWarehouse');
+	Route::post('report/profit_loss', 'ReportController@profitLoss')->name('report.profitLoss');
+	Route::get('report/product_report', 'ReportController@productReport')->name('report.product');
+	Route::get('report/category_report', 'ReportController@categoryReport')->name('report.category');
+	Route::post('report/product_report_data', 'ReportController@productReportData');
+	Route::post('report/category_report_data', 'ReportController@categoryReportData')->name('report.category.data');
+	Route::post('report/purchase', 'ReportController@purchaseReport')->name('report.purchase');
+	Route::post('report/sale_report', 'ReportController@saleReport')->name('report.sale');
+	Route::post('report/payment_report_by_date', 'ReportController@paymentReportByDate')->name('report.paymentByDate');
+	Route::post('report/warehouse_report', 'ReportController@warehouseReport')->name('report.warehouse');
+	Route::post('report/user_report', 'ReportController@userReport')->name('report.user');
+	Route::post('report/customer_report', 'ReportController@customerReport')->name('report.customer');
+	Route::post('report/supplier', 'ReportController@supplierReport')->name('report.supplier');
+	Route::post('report/due_report_by_date', 'ReportController@dueReportByDate')->name('report.dueByDate');
+    Route::get('report/due_customer_data', 'ReportController@DueCustomerReport')->name('due-customer-report');
+
+	Route::get('user/profile/{id}', 'UserController@profile')->name('user.profile');
+	Route::put('user/update_profile/{id}', 'UserController@profileUpdate')->name('user.profileUpdate');
+	Route::put('user/changepass/{id}', 'UserController@changePassword')->name('user.password');
+	Route::get('user/genpass', 'UserController@generatePassword');
+	Route::post('user/deletebyselection', 'UserController@deleteBySelection');
+	Route::post('user/applicants/delete', 'UserController@deleteApplicants')->name('user.applicants.delete');
+	Route::get('user/applicants/{applicationId}/edit', 'UserController@editApplicant')->name('user.applicants.edit');
+	Route::post('user/applicants/{applicationId}', 'UserController@updateApplicant')->name('user.applicants.update');
+	Route::post('user/{id}/signature/pad', 'UserSignatureController@savePad')->name('user.signature.pad');
+	Route::post('user/{id}/signature/request', 'UserSignatureController@requestLink')->name('user.signature.request');
+	Route::post('user/{id}/signature/delete', 'UserSignatureController@destroy')->name('user.signature.delete');
+	Route::resource('user','UserController');
+
+	Route::get('setting/activity-logs', 'ActivityLogController@index')->name('activity-logs.index');
+	Route::post('setting/activity-logs/clicks', 'ActivityLogController@storeClicks')->name('activity-logs.clicks');
+	Route::post('setting/activity-logs/delete', 'ActivityLogController@destroy')->name('activity-logs.destroy');
+
+	Route::get('setting/general_setting', 'SettingController@generalSetting')->name('setting.general');
+	Route::post('setting/general_setting_store', 'SettingController@generalSettingStore')->name('setting.generalStore');
+	Route::get('setting/env_setting', 'SettingController@envSetting')->name('setting.env');
+	Route::post('setting/env_setting_store', 'SettingController@envSettingStore')->name('setting.envStore');
+
+	Route::get('setting/reward-point-setting', 'SettingController@rewardPointSetting')->name('setting.rewardPoint');
+	Route::post('setting/reward-point-setting_store', 'SettingController@rewardPointSettingStore')->name('setting.rewardPointStore');
+
+	Route::get('backup', 'SettingController@backup')->name('setting.backup');
+	Route::get('setting/general_setting/change-theme/{theme}', 'SettingController@changeTheme');
+	Route::get('setting/mail_setting', 'SettingController@mailSetting')->name('setting.mail');
+	Route::get('setting/messaging', 'SettingController@messagingSetting')->name('setting.messaging');
+	Route::post('setting/messaging_store', 'SettingController@messagingSettingStore')->name('setting.messagingStore');
+	Route::get('setting/sms_setting', 'SettingController@smsSetting')->name('setting.sms');
+	Route::get('setting/createsms', 'SettingController@createSms')->name('setting.createSms');
+	Route::post('setting/sendsms', 'SettingController@sendSms')->name('setting.sendSms');
+	Route::get('setting/hrm_setting', 'SettingController@hrmSetting')->name('setting.hrm');
+	Route::post('setting/hrm_setting_store', 'SettingController@hrmSettingStore')->name('setting.hrmStore');
+	Route::post('setting/mail_setting_store', 'SettingController@mailSettingStore')->name('setting.mailStore');
+	Route::post('setting/sms_setting_store', 'SettingController@smsSettingStore')->name('setting.smsStore');
+	Route::get('setting/pos_setting', 'SettingController@posSetting')->name('setting.pos');
+	Route::post('setting/pos_setting_store', 'SettingController@posSettingStore')->name('setting.posStore');
+	Route::get('setting/empty-database', 'SettingController@emptyDatabase')->name('setting.emptyDatabase');
+
+	Route::get('expense_categories/gencode', 'ExpenseCategoryController@generateCode');
+	Route::post('expense_categories/import', 'ExpenseCategoryController@import')->name('expense_category.import');
+	Route::post('expense_categories/deletebyselection', 'ExpenseCategoryController@deleteBySelection');
+	Route::resource('expense_categories', 'ExpenseCategoryController');
+
+	Route::get('wealth', 'Wealth\WealthOverviewController@index')->name('wealth.overview');
+	Route::get('wealth/api/overview', 'Wealth\WealthOverviewController@apiOverview')->name('wealth.api.overview');
+	Route::get('wealth/api/financial-health', 'Wealth\WealthOverviewController@apiHealth')->name('wealth.api.health');
+	Route::post('wealth/api/income/sync', 'Wealth\WealthOverviewController@syncIncome')->name('wealth.income.sync');
+	Route::get('wealth/financial-health', 'Wealth\WealthHealthController@index')->name('wealth.health');
+	Route::get('wealth/income', 'Wealth\WealthIncomeController@index')->name('wealth.income');
+	Route::post('wealth/income', 'Wealth\WealthIncomeController@store')->name('wealth.income.store');
+	Route::get('wealth/income/{id}', 'Wealth\WealthIncomeController@show')->name('wealth.income.show');
+	Route::post('wealth/income/{id}', 'Wealth\WealthIncomeController@update')->name('wealth.income.update');
+	Route::get('wealth/expenses', 'Wealth\WealthExpensePageController@index')->name('wealth.expenses');
+	Route::post('wealth/expenses', 'Wealth\WealthExpensePageController@store')->name('wealth.expenses.store');
+	Route::post('wealth/expenses/classify', 'Wealth\WealthExpensePageController@classify')->name('wealth.expenses.classify');
+	Route::get('wealth/programs', 'Wealth\WealthProgramController@index')->name('wealth.programs');
+	Route::post('wealth/programs', 'Wealth\WealthProgramController@store')->name('wealth.programs.store');
+	Route::post('wealth/programs/{id}/budget', 'Wealth\WealthProgramController@storeBudget')->name('wealth.programs.budget.store');
+	Route::post('wealth/programs/budget/{id}/delete', 'Wealth\WealthProgramController@destroyBudget')->name('wealth.programs.budget.destroy');
+	Route::get('wealth/programs/{id}', 'Wealth\WealthProgramController@show')->name('wealth.programs.show');
+	Route::post('wealth/programs/{id}', 'Wealth\WealthProgramController@update')->name('wealth.programs.update');
+	Route::get('wealth/allocations', 'Wealth\WealthAllocationController@index')->name('wealth.allocations');
+	Route::get('wealth/investments', 'Wealth\WealthInvestmentController@index')->name('wealth.investments');
+	Route::post('wealth/investments', 'Wealth\WealthInvestmentController@store')->name('wealth.investments.store');
+	Route::post('wealth/investments/{id}', 'Wealth\WealthInvestmentController@update')->name('wealth.investments.update');
+	Route::get('wealth/charity', 'Wealth\WealthCharityController@index')->name('wealth.charity');
+	Route::post('wealth/charity', 'Wealth\WealthCharityController@store')->name('wealth.charity.store');
+	Route::get('wealth/reports', 'Wealth\WealthReportController@index')->name('wealth.reports');
+	Route::get('wealth/reports/pdf', 'Wealth\WealthReportController@pdf')->name('wealth.reports.pdf');
+	Route::get('wealth/reports/csv', 'Wealth\WealthReportController@csv')->name('wealth.reports.csv');
+	Route::get('wealth/settings', 'Wealth\WealthSettingsController@index')->name('wealth.settings');
+	Route::post('wealth/settings/rules', 'Wealth\WealthSettingsController@saveRules')->name('wealth.settings.rules');
+	Route::post('wealth/settings/health', 'Wealth\WealthSettingsController@saveHealth')->name('wealth.settings.health');
+	Route::post('wealth/settings/category', 'Wealth\WealthSettingsController@saveCategory')->name('wealth.settings.category');
+	Route::get('wealth/help', 'Wealth\WealthHelpController@index')->name('wealth.help');
+
+	Route::post('expenses/deletebyselection', 'ExpenseController@deleteBySelection');
+	Route::resource('expenses', 'ExpenseController');
+	Route::get('/expense/asset', 'ExpenseController@asset')->name('asset.expense');
+	Route::get('/activity/asset', 'ExpenseController@assetActivity')->name('asset.activity');
+	Route::get('/activity/repair', 'ExpenseController@assetActivityRepair')->name('asset.activity.repair');
+	Route::post('assets/expense/store', 'ExpenseController@assetStore')->name('expense_asset.store');
+	Route::put('assets/expense/update/{id}', 'ExpenseController@updateAsset')->name('expense_asset.update');
+	Route::delete('assets/expense/delete/{id}', 'ExpenseController@destroyAsset')->name('expense_asset.destroy');
+	Route::get('expense/assets/edit/{id}', 'ExpenseController@editAsset')->name('expense_asset.edit');
+    Route::get('activity/assets/edit/{id}', 'ExpenseController@editAsset')->name('activity_asset.edit');
+	Route::get('expense/assets/show/{id}', 'ExpenseController@showAsset')->name('expense_asset.show');
+	Route::get('activity/assets/show/{id}', 'ExpenseController@showAsset')->name('activity_asset.show');
+    Route::resource('activity', 'ActivityController');
+
+	Route::get('gift_cards/gencode', 'GiftCardController@generateCode');
+	Route::post('gift_cards/recharge/{id}', 'GiftCardController@recharge')->name('gift_cards.recharge');
+	Route::post('gift_cards/deletebyselection', 'GiftCardController@deleteBySelection');
+	Route::resource('gift_cards', 'GiftCardController');
+
+	Route::get('coupons/gencode', 'CouponController@generateCode');
+	Route::post('coupons/deletebyselection', 'CouponController@deleteBySelection');
+	Route::resource('coupons', 'CouponController');
+	//accounting routes
+	Route::get('accounts/make-default/{id}', 'AccountsController@makeDefault');
+	Route::get('accounts/balancesheet', 'AccountsController@balanceSheet')->name('accounts.balancesheet');
+	Route::post('accounts/account-statement', 'AccountsController@accountStatement')->name('accounts.statement');
+	Route::resource('accounts', 'AccountsController');
+	Route::resource('money-transfers', 'MoneyTransferController');
+    Route::post('accounts/import', 'AccountsController@import')->name('account.import');
+	//HRM routes
+	Route::post('departments/deletebyselection', 'DepartmentController@deleteBySelection');
+	Route::resource('departments', 'DepartmentController');
+    Route::post('departments/import', 'DepartmentController@import')->name('departments.import');
+
+	Route::post('employees/deletebyselection', 'EmployeeController@deleteBySelection');
+	Route::post('employees/store/letter', 'EmployeeController@storeLetter')->name('employees.store.letter');
+	Route::resource('employees', 'EmployeeController');
+
+	Route::post('payroll/deletebyselection', 'PayrollController@deleteBySelection');
+	Route::resource('payroll', 'PayrollController');
+
+	Route::post('attendance/deletebyselection', 'AttendanceController@deleteBySelection');
+	Route::resource('attendance', 'AttendanceController');
+
+	Route::resource('stock-count', 'StockCountController');
+	Route::post('stock-count/finalize', 'StockCountController@finalize')->name('stock-count.finalize');
+	Route::get('stock-count/stockdif/{id}', 'StockCountController@stockDif');
+	Route::get('stock-count/{id}/qty_adjustment', 'StockCountController@qtyAdjustment')->name('stock-count.adjustment');
+
+	Route::post('holidays/deletebyselection', 'HolidayController@deleteBySelection');
+	Route::get('approve-holiday/{id}', 'HolidayController@approveHoliday')->name('approveHoliday');
+	Route::get('holidays/my-holiday/{year}/{month}', 'HolidayController@myHoliday')->name('myHoliday');
+	Route::resource('holidays', 'HolidayController');
+
+	Route::get('cash-register', 'CashRegisterController@index')->name('cashRegister.index');
+	Route::get('cash-register/check-availability/{warehouse_id}', 'CashRegisterController@checkAvailability')->name('cashRegister.checkAvailability');
+	Route::post('cash-register/store', 'CashRegisterController@store')->name('cashRegister.store');
+	Route::get('cash-register/getDetails/{id}', 'CashRegisterController@getDetails');
+	Route::get('cash-register/showDetails/{warehouse_id}', 'CashRegisterController@showDetails');
+	Route::post('cash-register/close', 'CashRegisterController@close')->name('cashRegister.close');
+
+	Route::post('notifications/store', 'NotificationController@store')->name('notifications.store');
+	Route::get('notifications/mark-as-read', 'NotificationController@markAsRead');
+
+	Route::resource('currency', 'CurrencyController');
+
+	Route::get('/home', 'HomeController@index')->name('home');
+	Route::get('my-transactions/{year}/{month}', 'HomeController@myTransaction');
+
+
+    Route::resource('region', 'RegionController');
+    Route::resource('station', 'StationController');
+    Route::resource('donor', 'DonorController');
+    Route::resource('assetCategory', 'AssetCategoryController');
+    Route::resource('asset', 'AssetController');
+
+    Route::get('/assets/dispose/form/{id}', 'AssetController@destroyAsset')->name('asset.dispose.form');
+    Route::get('/assets/dispose/form/all', 'AssetController@destroyAssetAll')->name('asset.dispose.form.all');
+    Route::post('/assets/dispose/update', 'AssetController@destroyAssetUpdate')->name('asset.dispose.update');
+    Route::post('/assets/dispose', 'AssetController@destroyAssetData')->name('asset.dispose');
+    Route::get('/assets/dispose/edit/{id}', 'AssetController@destroyAssetEdit')->name('asset.dispose.edit');
+    Route::get('/assets/dispose/list', 'AssetController@destroyAssetList')->name('asset.dispose.list');
+
+    Route::get('/assets/transfer/list', 'AssetController@transferAssetList')->name('asset.transfer.list');
+    Route::get('/assets/transfer/search/{id}', 'AssetController@transferAssetSearch')->name('asset.transfer.search');
+    Route::get('/assets/transfer/form/single/{id}', 'AssetController@transferAsset')->name('asset.transfer.form');
+    Route::get('/assets/transfer/letter/{id}', 'AssetController@transferLetterAsset')->name('asset.transfer.letter');
+    Route::get('/assets/transfer/form/all', 'AssetController@transferAssetAll')->name('asset.transfer.all');
+    Route::get('/assets/transfer/edit/{id}', 'AssetController@transferAssetEdit')->name('asset.transfer.edit');
+    Route::post('/assets/transfer/update', 'AssetController@transferAssetUpdate')->name('asset.transfer.update');
+    Route::post('/assets/transfer', 'AssetController@transferAssetData')->name('asset.transfer');
+
+    Route::get('/assets/sale/list', 'AssetController@saleAssetList')->name('asset.sale.list');
+    Route::get('/assets/sale/search/{id}', 'AssetController@saleAssetSearch')->name('asset.sale.search');
+    Route::get('/assets/sale/form/single/{id}', 'AssetController@saleAsset')->name('asset.sale.form');
+    Route::get('/assets/sale/letter/{id}', 'AssetController@saleLetterAsset')->name('asset.sale.letter');
+    Route::get('/assets/sale/form/all', 'AssetController@saleAssetAll')->name('asset.sale.all');
+    Route::post('/assets/sale', 'AssetController@saleAssetData')->name('asset.sale');
+    Route::post('/assets/sale/update', 'AssetController@saleAssetDataUpdate')->name('asset.sale.update');
+    Route::get('/assets/sale/show/{id}', 'AssetController@saleAssetShow')->name('asset.sale.show');
+    Route::get('/assets/sale/edit/{id}', 'AssetController@saleAssetEdit')->name('asset.sale.edit');
+
+    Route::get('/asset/images/delete/{id}', 'AssetController@AssetImageDelete')->name('asset.image.delete');
+    Route::get('/asset/department/{id}', 'AssetController@DepartmentSearch')->name('asset.department.search');
+    Route::match(['get', 'post'], 'asset/category/dashboard', 'AssetController@Dashboard')->name('asset.dashboard');
+    Route::get('asset.dashboard.category/{id}', 'AssetController@DashboardCategory')->name('asset.dashboard.category');
+    Route::get('asset/report/dashboard', 'AssetController@Report')->name('asset.report.dashboard');
+    Route::get('asset/report/category', 'AssetController@Category')->name('asset.report.category');
+    Route::get('asset/report/department', 'AssetController@Department')->name('asset.report.department');
+    Route::get('asset/report/donor', 'AssetController@Donor')->name('asset.report.donor');
+    Route::get('asset/report/region', 'AssetController@Region')->name('asset.report.region');
+    Route::get('asset/report/station', 'AssetController@Station')->name('asset.report.station');
+    Route::post('asset/report/category', 'AssetController@CategoryData')->name('asset.report.category');
+    Route::post('asset/report/department', 'AssetController@DepartmentData')->name('asset.report.department');
+    Route::post('asset/report/donor', 'AssetController@DonorData')->name('asset.report.donor');
+    Route::post('asset/report/region', 'AssetController@RegionData')->name('asset.report.region');
+    Route::post('asset/report/station', 'AssetController@StationData')->name('asset.report.station');
+    Route::get('asset/report/expense', 'AssetController@expenseReport')->name('asset.report.expense');
+    Route::post('asset/report/expense', 'AssetController@ExpenseData')->name('asset.report.expense');
+    Route::get('asset/report/photocopy', 'AssetController@photocopy')->name('asset.report.photocopy');
+    Route::post('asset/report/photocopy', 'AssetController@photocopyData')->name('asset.report.photocopy');
+    Route::get('asset/report/repair', 'AssetController@repair')->name('asset.report.repair');
+    Route::post('asset/report/repair', 'AssetController@repairData')->name('asset.report.repair');
+    Route::get('asset/report/general', 'AssetController@general')->name('asset.report.general');
+    Route::post('asset/report/general', 'AssetController@generalData')->name('asset.report.general');
+    Route::get('asset/report/dispose', 'AssetController@dispose')->name('asset.report.dispose');
+    Route::post('asset/report/dispose', 'AssetController@disposeData')->name('asset.report.dispose');
+    Route::get('asset/report/transfer', 'AssetController@transfer')->name('asset.report.transfer');
+    Route::post('asset/report/transfer', 'AssetController@transferData')->name('asset.report.transfer');
+
+    Route::get('asset/report/category/new', 'AssetController@CategoryNew')->name('asset.report.category.new');
+    Route::post('asset/report/category/new', 'AssetController@CategoryDataNew')->name('asset.report.category.new');
+
+    Route::get('/bookings/create', 'BookingController@create')->name('booking.create');
+    Route::get('/bookings/clone/{id}', 'BookingController@cloneBooking')->name('booking.clone');
+    Route::post('/bookings/store', 'BookingController@store')->name('booking.store');
+    Route::post('/bookings/quick-customer', 'BookingController@quickStoreCustomer')->name('booking.quick-customer');
+    Route::post('/bookings/quick-product', 'BookingController@quickStoreProduct')->name('booking.quick-product');
+    Route::DELETE('/bookings/destroy/{id}', 'BookingController@destroy')->name('booking.destroy');
+    Route::get('/bookings/{id}/edit', 'BookingController@edit')->name('booking.edit');
+    Route::PUT('/bookings/update/{id}', 'BookingController@update')->name('booking.update');
+
+    Route::get('bookings/category/associate', 'BookingController@addCategoryIdInSale');
+    Route::get('bookings/index', 'BookingController@index')->name('booking.index');
+    Route::get('bookings/reminders', 'BookingReminderController@index')->name('booking.reminders');
+    Route::post('bookings/reminders', 'BookingReminderController@store')->name('booking.reminders.store');
+    Route::delete('bookings/reminders/{id}', 'BookingReminderController@destroy')->name('booking.reminders.destroy');
+    Route::get('bookings/awaiting-signature', 'RentalContractController@awaitingIndex')->name('booking.awaiting-signature');
+    Route::get('bookings/pending-review', 'RentalContractController@pendingReviewIndex')->name('booking.pending-review');
+    Route::get('bookings/signed-contracts', 'RentalContractController@signedIndex')->name('booking.signed-contracts');
+    Route::get('bookings/contract/{id}/id-card', 'RentalContractController@viewIdCard')->name('booking.contract.id-card');
+    Route::get('bookings/contract/{id}/view', 'RentalContractController@viewContract')->name('booking.contract.view');
+    Route::get('bookings/contract/{id}/review', 'RentalContractController@reviewShow')->name('booking.contract.review');
+    Route::get('bookings/contract/{id}/approve', 'RentalContractController@approveReviewRedirect')->name('booking.contract.approve.redirect');
+    Route::post('bookings/contract/{id}/approve', 'RentalContractController@approveContract')->name('booking.contract.approve');
+    Route::post('bookings/contract/{id}/resend', 'RentalContractController@resend')->name('booking.contract.resend');
+    Route::delete('bookings/contract/{id}', 'RentalContractController@destroyContract')->name('booking.contract.destroy');
+    Route::get('bookings/goods-received', 'BookingGoodsReceiptController@index')->name('booking.goods-received');
+    Route::get('bookings/goods-received/generate/{bookingId}', 'BookingGoodsReceiptController@generate')->name('booking.goods-received.generate');
+    Route::get('bookings/goods-received/{id}/delivery-note', 'BookingGoodsReceiptController@deliveryNote')->name('booking.goods-received.delivery-note');
+    Route::post('bookings/goods-received/{id}/send-signature', 'BookingGoodsReceiptController@sendSignature')->name('booking.goods-received.send-signature');
+    Route::post('bookings/goods-received/{id}/resend', 'BookingGoodsReceiptController@resend')->name('booking.goods-received.resend');
+    Route::get('bookings/goods-received/{id}/signed-pdf', 'BookingGoodsReceiptController@signedPdf')->name('booking.goods-received.signed-pdf');
+    Route::get('online/bookings/index', 'BookingController@onlineIndex')->name('online.booking.index');
+    Route::get('bookings/requests', 'BookingController@bookingRequests')->name('booking.requests');
+    Route::get('bookings/gen_invoice/{id}', 'BookingController@genInvoice')->name('booking.invoice');
+    Route::get('bookings/returns/{id}', 'BookingController@return')->name('booking.return');
+    Route::post('/bookings/return/data/{id}', 'BookingController@returnData')->name('booking.return.data');
+    Route::get('bookings/products', 'BookingController@bookedproducts')->name('booking.product');
+    Route::post('/bookings/product/report', 'BookingController@bookedproductsReport')->name('booking.product.report');
+
+    Route::post('bookings/add_payment', 'BookingController@addPayment')->name('booking.add-payment');
+    Route::get('/bookings/getpayment/{id}', 'BookingController@getPayment')->name('booking.get-payment');
+    Route::post('/bookings/updatepayment', 'BookingController@updatePayment')->name('booking.update-payment');
+    Route::post('/bookings/deletepayment', 'BookingController@deletePayment')->name('booking.delete-payment');
+    Route::post('bookings/sale-data', 'BookingController@saleData');
+    Route::post('bookings/sale-data-online', 'BookingController@saleDataOnline');
+    Route::post('bookings/sendmail', 'BookingController@sendMail')->name('booking.sendmail');
+    Route::get('bookings/product_sale/{id}','BookingController@productSaleData');
+    Route::get('bookings/barcode/{ref}', 'BookingController@barcodePng')->name('booking.barcode');
+    Route::get('bookings/qrcode/{ref}', 'BookingController@qrcodePng')->name('booking.qrcode');
+    Route::get('bookings/lims_sale_search', 'BookingController@limsSaleSearch')->name('sale.search');
+    Route::get('bookings/lims_product_search', 'BookingController@limsProductSearch')->name('product_sale.search');
+    Route::get('bookings/getcustomergroup/{id}', 'BookingController@getCustomerGroup')->name('sale.getcustomergroup');
+    Route::get('bookings/getproduct/{id}', 'BookingController@getProduct')->name('sale.getproduct');
+    Route::get('bookings/get-batch-products/{id}', 'BookingController@getBatchProduct')->name('sale.getBatchProducts');
+    Route::get('bookings/getproduct/{category_id}/{brand_id}', 'BookingController@getProductByFilter');
+    Route::get('bookings/lims_product_search_by_duration/', 'BookingController@getProductPriceByDuration')->name('booking.search_by_duration');
+    Route::get('bookings/lims_product_search_qty_by_duration/', 'BookingController@getProductQtyByDuration')->name('booking.search_qty_by_duration');
+    Route::post('bookings/sendwhatsapp', 'BookingController@sendWhatsapp')->name('booking.sendwhatsapp');
+
+    Route::get('report/daily_booking/{year}/{month}', 'ReportController@dailyBooking');
+    Route::post('report/daily_booking/{year}/{month}', 'ReportController@dailyBookingByWarehouse')->name('report.dailyBookingByWarehouse');
+
+
+
+    Route::get('/letter/attachment/delete/{id}', 'LetterController@letterAttachmentDelete')->name('letter.attachment.delete');
+    Route::get('/letter/attachment/delete/first/{id}', 'LetterController@letterAttachmentDeleteFirst')->name('letter.attachment.delete.first');
+    Route::get('/letters/next/{id}', 'LetterController@next')->name('letter.next');
+    Route::get('/letters/prev/{id}', 'LetterController@prev')->name('letter.prev');
+    Route::get('/letters/create', 'LetterController@create')->name('letter.create');
+    Route::get('/letters/people/search', 'LetterController@searchPeople')->name('letter.people.search');
+    Route::get('/letters/clone/{id}', 'LetterController@cloneLetter')->name('letter.clone');
+    Route::get('/letters/index', 'LetterController@index')->name('letter.index');
+    Route::get('/letters/all', 'LetterController@all')->name('letter.all');
+    Route::get('/letters/approved', 'LetterController@approved')->name('letter.index.approved');
+    Route::get('/letters/rejected', 'LetterController@rejected')->name('letter.index.rejected');
+    Route::get('/letters/edited', 'LetterController@edited')->name('letter.index.edited');
+    Route::get('/letters/signed', 'LetterController@signed')->name('letter.index.signed');
+    Route::get('/letters/sent', 'LetterController@sent')->name('letter.index.sent');
+    Route::get('/letters/sent/print', 'LetterController@sentPrint')->name('letter.index.sent.print');
+    Route::get('/letters/sent/download', 'LetterController@sentDownload')->name('letter.index.sent.download');
+    Route::get('/letters/queued-messages', 'MessageDeliveryController@index')->name('message.delivery.index');
+    Route::get('/letters/queued-messages/status', 'MessageDeliveryController@status')->name('message.delivery.status');
+    Route::post('/letters/queued-messages/bulk-delete', 'MessageDeliveryController@bulkDestroy')->name('message.delivery.bulk_destroy');
+    Route::post('/letters/queued-messages/{id}/resend', 'MessageDeliveryController@resendFailed')->name('message.delivery.resend');
+    Route::delete('/letters/queued-messages/{id}', 'MessageDeliveryController@destroy')->name('message.delivery.destroy');
+    Route::get('/letters/queued-messages/{id}', 'MessageDeliveryController@show')->name('message.delivery.show');
+    Route::get('/letters/queued-messages/{id}/status', 'MessageDeliveryController@itemStatus')->name('message.delivery.item-status');
+    Route::get('/letters/show/{id}', 'LetterController@show')->name('letter.show');
+    Route::post('/letters/store', 'LetterController@store')->name('letter.store');
+    Route::delete('/letters/destroy/{id}', 'LetterController@destroy')->name('letter.destroy');
+    Route::get('/letters/delete/{id}', 'LetterController@destroy')->name('letter.delete');
+    Route::get('/letters/approve/{id}', 'LetterController@approve')->name('letter.approve');
+    Route::POST('/letters/approve/store/{id}', 'LetterController@approveStore')->name('letter.approve.store');
+    Route::get('/letters/reject/{id}', 'LetterController@reject')->name('letter.reject');
+    Route::POST('/letters/reject/store/{id}', 'LetterController@rejectStore')->name('letter.reject.store');
+    Route::get('/letters/{id}/edit', 'LetterController@edit')->name('letter.edit');
+    Route::get('/letters/{id}/edit/last', 'LetterController@editLast')->name('letter.edit.last');
+    Route::get('/letters/{id}/edit/ok', 'LetterController@editOk')->name('letter.edit.ok');
+    Route::POST('/letters/{id}/edit/ok/store', 'LetterController@editOkStore')->name('letter.edit.ok.store');
+    Route::get('/letters/{id}/sign', 'LetterController@sign')->name('letter.sign');
+    Route::get('/letters/{id}/sign/send', 'LetterController@signSend')->name('letter.sign.send');
+    Route::POST('/letters/{id}/sign/send/store', 'LetterController@signSendStore')->name('letter.sign.send.store');
+    Route::POST('/letters/sign/store/{id}', 'LetterController@signStore')->name('letter.sign.store');
+    Route::get('/letters/{id}/send', 'LetterController@send')->name('letter.send');
+    Route::get('/letters/{id}/send/whatsapp', 'LetterController@sendWhatsapp')->name('letter.send.whatsapp');
+    Route::get('/letters/{id}/send/mail', 'LetterController@sendEmail')->name('letter.send.mail');
+    Route::get('/letters/{id}/download', 'LetterController@download')->name('letter.send.download');
+    Route::get('/letters/{id}/print', 'LetterController@print')->name('letter.send.print');
+    Route::POST('/letters/send/store/{id}', 'LetterController@sendStore')->name('letter.send.store');
+    Route::post('/letters/update/{id}', 'LetterController@update')->name('letter.update');
+    Route::post('/letters/update/last/{id}', 'LetterController@updateLast')->name('letter.update.last');
+    Route::get('/letters/template/info/{id}', 'LetterController@templateInfo')->name('letter.template.info');
+    Route::post('/letters/upload/image', 'App\Http\Controllers\LetterController@imageUpload')->name('letter.upload.image');
+
+
+    Route::POST('/letters/multiple/ok', 'LetterController@multipleOk')->name('letter.multiple.ok');
+    Route::POST('/letters/multiple/ok/store', 'LetterController@multipleOkStore')->name('letter.multiple.ok.store');
+    Route::POST('/letters/multiple/approve', 'LetterController@multipleApprove')->name('letter.multiple.approve');
+    Route::POST('/letters/multiple/approve/store', 'LetterController@multipleApproveStore')->name('letter.multiple.approve.store');
+    Route::POST('/letters/multiple/sign', 'LetterController@multipleSign')->name('letter.multiple.sign');
+    Route::POST('/letters/multiple/sign/store', 'LetterController@multipleSignStore')->name('letter.multiple.sign.store');
+    Route::POST('/letters/multiple/send', 'LetterController@multipleSend')->name('letter.multiple.send');
+    Route::POST('/letters/multiple/send/store', 'LetterController@multipleSendStore')->name('letter.multiple.send.store');
+    Route::POST('/letters/multiple/download/store', 'LetterController@multipleDownloadStore')->name('letter.multiple.download.store');
+    Route::POST('/letters/multiple/print/store', 'LetterController@multiplePrintStore')->name('letter.multiple.print.store');
+    Route::POST('/letters/multiple/delete', 'LetterController@multipleDelete')->name('letter.multiple.delete');
+
+
+    Route::get('/letters/category/create', 'LetterCategoryController@create')->name('letter.category.create');
+    Route::get('/letters/category', 'LetterCategoryController@index')->name('letter.category');
+    Route::post('/letters/category/store', 'LetterCategoryController@store')->name('letter.category.store');
+    Route::delete('/letters/category/destroy/{id}', 'LetterCategoryController@destroy')->name('letter.category.destroy');
+    Route::PUT('/letters/category/update/{id}', 'LetterCategoryController@update')->name('letter.category.update');
+    Route::get('/letters/category/edit/{id}', 'LetterCategoryController@edit')->name('letter.category.edit');
+
+    Route::get('/letters/template/index', 'LetterTemplateController@index')->name('letter.template.index');
+    Route::delete('/letters/template/delete/{id}', 'LetterTemplateController@destroy')->name('letter.template.delete');
+    Route::get('/letters/template/edit/{id}', 'LetterTemplateController@edit')->name('letter.template.edit');
+    Route::post('/letters/template/update/{id}', 'LetterTemplateController@update')->name('letter.template.update');
+    Route::get('/letters/template/show/{id}', 'LetterTemplateController@show')->name('letter.template.show');
+
+
+    Route::get('/orders/index', 'OrderController@index')->name('order.index');
+    Route::get('/donations/list', 'OrderController@donationList')->name('donation.list');
+    Route::get('/services/list', 'OrderController@serviceList')->name('services.list');
+    Route::get('/orders/show/{id}', 'OrderController@show')->name('order.show');
+    Route::get('/donations/show/{id}', 'OrderController@donationShow')->name('donation.show');
+    Route::get('/services/show/{id}', 'OrderController@serviceShow')->name('service.show');
+    Route::get('/services/delete/{id}', 'OrderController@serviceDelete')->name('service.delete');
+    Route::get('/donation/delete/{id}', 'OrderController@donationDelete')->name('donation.delete');
+    Route::get('/orders/edit/{id}', 'OrderController@edit')->name('order.edit');
+    Route::post('/orders/update/{id}', 'OrderController@update')->name('order.update');
+    Route::post('/orders/service/update', 'OrderController@serviceUpdate')->name('service.update');
+    Route::get('/orders/delete/{id}', 'OrderController@delete')->name('order.delete');
+    Route::get('/orders/delete/doc/{id}', 'OrderController@deleteDoc')->name('order.delete.doc');
+    Route::get('/orders/withdraw/{id}', 'OrderController@withdraw')->name('order.withdraw');
+
+
+    Route::get('/shops/orders/{id}', 'OrderController@shopOrders')->name('shop.orders');
+
+    Route::get('payment/index', 'PaymentController@index')->name('payment.index');
+    Route::get('payment/desposits', 'PaymentController@Desposit')->name('deposit.index');
+    Route::post('payment/desposits', 'PaymentController@storeDeposit')->name('deposit.store');
+    Route::get('/payment/list', 'OrderController@paymentList')->name('payment.list');
+    Route::get('/shops/payment/list/{id}', 'OrderController@paymentListShop')->name('shop.payments');
+    Route::get('/payment/delete/{id}', 'OrderController@paymentDelete')->name('payment.delete');
+    Route::get('/payment/edit/{id}', 'OrderController@paymentEdit')->name('payment.edit');
+    Route::post('/payment/update/{id}', 'OrderController@paymentUpdate')->name('payment.update');
+
+    Route::get('/shops', 'ShopController@index')->name('shop.index');
+    Route::get('/shops/delete/{id}', 'ShopController@delete')->name('shop.delete');
+    Route::get('/shops/products/{id}', 'ShopController@products')->name('shop.products');
+    Route::get('/shops/show/{id}', 'ShopController@show')->name('shop.show');
+    Route::get('/shops/edit/{id}', 'ShopController@edit')->name('shop.edit');
+    Route::post('/shops/update/{id}', 'ShopController@update')->name('shop.update');
+
+
+    Route::get('frontend/orders/index', 'OrderController@frontendOrderIndex')->name('frontend.order.index');
+    Route::get('frontend/books/index', 'OrderController@frontendBookIndex')->name('frontend.book.index');
+    Route::get('frontend/donations/index', 'OrderController@frontendDonationIndex')->name('frontend.donation.index');
+    Route::get('frontend/services/index', 'OrderController@frontendServiceIndex')->name('frontend.service.index');
+    Route::get('frontend/orders/track', 'OrderController@frontendOrderTrack')->name('frontend.order.track');
+    Route::post('frontend/orders/track', 'OrderController@orderStatus')->name('order.status');
+    Route::get('frontend/user/account', 'UserController@frontendUserAccount')->name('frontend.user.account');
+    Route::post('frontend/user/account', 'UserController@frontendUserAccountUpdate')->name('frontend.user.account.update');
+    Route::post('frontend/user/password', 'UserController@frontendChangePassword')->name('frontend.user.password.update');
+
+    Route::resource('review', 'ReviewController');
+
+    Route::get('/announcement/index', 'AnnouncementController@index')->name('announcement.index');
+    Route::get('/announcement/create', 'AnnouncementController@create')->name('announcement.create');
+    Route::get('/announcement/show/{id}', 'AnnouncementController@show')->name('announcement.show');
+    Route::post('/announcement/store', 'AnnouncementController@store')->name('announcement.store');
+    Route::get('/announcement/{announcement}/edit', 'AnnouncementController@edit')->name('announcement.edit');
+    Route::put('/announcement/{announcement}', 'AnnouncementController@update')->name('announcement.update');
+    Route::post('/announcement/update/{id}', 'AnnouncementController@update')->name('announcement.update');
+    Route::get('/announcement/delete/{id}', 'AnnouncementController@destroy')->name('announcement.destroy');
+
+    Route::post('/announcement/upload/image', 'AnnouncementController@imageUpload')->name('announcement.upload.image');
+    Route::get('/announcement/{id}/send', 'AnnouncementController@send')->name('announcement.send');
+    Route::get('/announcement/{id}/send/whatsapp', 'AnnouncementController@sendWhatsapp')->name('announcement.send.whatsapp');
+    Route::get('/announcement/{id}/send/mail', 'AnnouncementController@sendEmail')->name('announcement.send.mail');
+    Route::get('/announcement/{id}/download', 'AnnouncementController@download')->name('announcement.send.download');
+    Route::get('/announcement/{id}/print', 'AnnouncementController@print')->name('announcement.send.print');
+    Route::get('/announcement/attachment/delete/{id}', 'AnnouncementController@announcementAttachmentDelete')->name('announcement.attachment.delete');
+    Route::get('/announcement/attachment/delete/first/{id}', 'AnnouncementController@announcementAttachmentDeleteFirst')->name('announcement.attachment.delete.first');
+
+});
+

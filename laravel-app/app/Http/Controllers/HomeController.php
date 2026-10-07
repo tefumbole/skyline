@@ -1,0 +1,844 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Booking;
+use App\Product;
+use App\Product_Warehouse;
+use App\ProductBatch;
+use App\ProductVariant;
+use App\Unit;
+use Illuminate\Http\Request;
+use App\Sale;
+use App\Returns;
+use App\ReturnPurchase;
+use App\ProductPurchase;
+use App\Purchase;
+use App\Expense;
+use App\Payroll;
+use App\Quotation;
+use App\Payment;
+use App\Account;
+use App\Product_Sale;
+use App\Customer;
+use App\InternshipEnrolment;
+use App\InternshipTaskAssignment;
+use App\Task;
+use App\Services\TaskService;
+use Illuminate\Support\Facades\Schema;
+use DB;
+use Auth;
+use Printing;
+use Rawilk\Printing\Contracts\Printer;
+use Spatie\Permission\Models\Role;
+use Twilio\Rest\Client;
+
+/*use vendor\autoload;
+use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
+use Mike42\Escpos\Printer;*/
+
+class HomeController extends Controller
+{
+//    public function __construct()
+//    {
+//        $this->middleware('auth');
+//    }
+
+    public function dashboard()
+    {
+        if (Auth::user()->otp_verify == 0 && ! \App\Support\LocalDevAuth::skipStaffOtp()) {
+            return redirect()->route('check.otp');
+        }
+        if (\App\Support\LocalDevAuth::skipStaffOtp() && Auth::user()->otp_verify == 0) {
+            Auth::user()->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
+        }
+        $role = Role::find(Auth::user()->role_id);
+        return view('home');
+    }
+
+    public function logout() {
+        $user = Auth::user();
+        $user->update(['otp_verify' => '0']);
+        Auth::logout();
+        return redirect()->route('login');
+    }
+
+    public function otpCheck(){
+        $user = Auth::user();
+
+        // Local: skip WhatsApp OTP entirely and enter admin.
+        if (\App\Support\LocalDevAuth::skipStaffOtp()) {
+            $user->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
+
+            return $this->redirectAfterStaffOtp($user);
+        }
+
+        try {
+            $this->sendOTP($user);
+        } catch (\Exception $e) {
+            return view('otp_screen', $this->otpScreenData($user, $e->getMessage()));
+        }
+
+        $user->refresh();
+
+        return view('otp_screen', $this->otpScreenData($user, session('whatsapp_error')));
+    }
+
+    public function otpResend(Request $request)
+    {
+        $user = Auth::user();
+        $remaining = $this->otpResendSecondsRemaining($user);
+
+        if ($remaining > 0) {
+            return redirect()->back()->with(
+                'not_permitted',
+                'You can resend the code in '.$remaining.' seconds.'
+            );
+        }
+
+        try {
+            $this->forceSendOTP($user);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('not_permitted', $e->getMessage());
+        }
+
+        return redirect()->back()->with('message', 'A new code has been sent to your WhatsApp '.$this->maskedOtpPhone($user).'.');
+    }
+
+    protected function otpScreenData($user, $whatsappError = null)
+    {
+        return [
+            'resend_seconds' => $this->otpResendSecondsRemaining($user),
+            'expiry_seconds' => $this->otpExpirySecondsRemaining($user),
+            'masked_phone' => $this->maskedOtpPhone($user),
+            'whatsapp_error' => $whatsappError,
+            'local_otp_code' => session('local_otp_code'),
+        ];
+    }
+
+    protected function maskedOtpPhone($user)
+    {
+        $digits = preg_replace('/\D/', '', (string) $user->phone);
+        if (strlen($digits) < 4) {
+            return 'on your account';
+        }
+
+        return 'ending '.substr($digits, -4);
+    }
+
+    public function otpCheckStore(Request $request) {
+        $user = Auth::user();
+
+        if ($request->otp == $user->otp && $user->otp_time > date('Y-m-d H:i:s', strtotime('-5 minutes'))) {
+            $user->update(['otp' => null, 'otp_time' => null, 'otp_verify' => '1']);
+            \App\Services\ActivityLogService::log([
+                'action' => 'login',
+                'entity' => 'auth',
+                'summary' => 'OTP verified — session active',
+                'method' => 'POST',
+                'path' => '/otp/screen/store',
+            ], $request);
+
+            return $this->redirectAfterStaffOtp($user);
+        }
+
+        \App\Services\ActivityLogService::log([
+            'action' => 'failed_login',
+            'entity' => 'auth',
+            'summary' => 'Invalid or expired OTP',
+            'method' => 'POST',
+            'path' => '/otp/screen/store',
+        ], $request);
+
+        return redirect()->back()->with('not_permitted', 'Invalid or expired OTP');
+    }
+
+    protected function redirectAfterStaffOtp($user)
+    {
+        return redirect(\App\Support\AuthIntended::afterLogin($user));
+    }
+
+    protected function otpResendSecondsRemaining($user)
+    {
+        if (empty($user->otp_time)) {
+            return 0;
+        }
+
+        $elapsed = time() - strtotime($user->otp_time);
+
+        return max(0, 60 - $elapsed);
+    }
+
+    protected function otpExpirySecondsRemaining($user)
+    {
+        if (empty($user->otp_time)) {
+            return 300;
+        }
+
+        $elapsed = time() - strtotime($user->otp_time);
+
+        return max(0, 300 - $elapsed);
+    }
+
+    public function sendOTP($user) {
+        if (!empty($user->otp_time) && $user->otp_time >= date('Y-m-d H:i:s', strtotime('-5 minutes'))) {
+            return null;
+        }
+
+        return $this->forceSendOTP($user);
+    }
+
+    protected function forceSendOTP($user)
+    {
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $phone = trim((string) $user->phone);
+        if ($phone === '') {
+            throw new \Exception('No phone number on this account for WhatsApp OTP.');
+        }
+
+        $result = app(\App\Services\Messaging\NotificationRouter::class)
+            ->sendWhatsAppOtp($phone, $otp, 'login', 10);
+
+        if (empty($result['success'])) {
+            // Local/dev: still issue the OTP so admins can continue when WhatsApp is down.
+            if (config('app.env') === 'local' || config('app.debug')) {
+                $user->update(['otp' => $otp, 'otp_time' => date('Y-m-d H:i:s')]);
+                \Log::warning('[otp] WhatsApp send failed in local — OTP available on screen', [
+                    'user_id' => $user->id,
+                    'error' => $result['error'] ?? null,
+                ]);
+                session()->flash('local_otp_code', $otp);
+                session()->flash('whatsapp_error', 'Could not send OTP via WhatsApp: '.($result['error'] ?? 'unknown error'));
+
+                return $otp;
+            }
+
+            throw new \Exception('Could not send OTP via WhatsApp: '.($result['error'] ?? 'unknown error'));
+        }
+
+        $user->update(['otp' => $otp, 'otp_time' => date('Y-m-d H:i:s')]);
+
+        return $otp;
+    }
+
+    public function whatsapp()
+    {
+        $sid = getenv("ACCOUNT_SID");
+        $token = getenv("AUTH_TOKEN");
+        $twilio = new Client($sid, $token);
+
+        $message = $twilio->messages->create(
+            'whatsapp:+237675321739',
+            array(
+                'from' => getenv("TWILIO_FROM"),
+                'body' => 'hi twilio here'
+            )
+        );
+
+        print($message->sid);
+    }
+
+
+    public function mobileMoneyToken(){
+        $curl = curl_init();
+
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://demo.campay.net/api/token/',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS =>'{
+                                "username": "tzTGYFo9eF9d4E8VdQ6G_WnCmOtTQSlZKbY5bJaoeSZpUhD5Z6hMTzaZ8of39L0-FvHBS6YMyZyDxtclpsEcnw",
+                                "password": "EpER_6cr-YQjIDqlee4-6yVSG1KpB2zL4VTy1tROoE_f6YNYxCl_llU-h43QqBrfI9JwkKx-XT5RUXx2AnNOOw"
+                                }',
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        echo $response;
+    }
+
+    public function mobileMoneyRequest(){
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://demo.campay.net/api/collect/',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS =>'{"amount":"2","from":"237675321739","description":"Test","external_reference": ""}',
+            CURLOPT_HTTPHEADER => array(
+                'Authorization: Token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsInVpZCI6MjIxN30.eyJpYXQiOjE2OTA2MjM2ODgsIm5iZiI6MTY5MDYyMzY4OCwiZXhwIjoxNjkwNjI3Mjg4fQ.buVJrXG2oI-UKUfmrTDro4Q7HguqKWAsyKe6T481nNM',
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+echo $response;
+
+    }
+
+    public function mobileMoneyStatus(){
+
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://demo.campay.net/api/transaction/ebf4cd4f-1809-4b30-9117-11bcc9c38387',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'Authorization: Token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsInVpZCI6MjIxN30.eyJpYXQiOjE2ODY4MzM0MzEsIm5iZiI6MTY4NjgzMzQzMSwiZXhwIjoxNjg2ODM3MDMxfQ.0XBGJhHUgUFuIaNbBVIZhSMmzDx7OZIpt88Hh84ciC4',
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        echo $response;
+
+    }
+
+    public function manageBooking(){
+        $pendingBooking = Booking::join('booking_products', 'booking_products.booking_id', '=', 'bookings.id')
+                        ->select('product_id', 'qty', 'booking_id')
+                        ->whereDate('booking_products.start', '<=', date('y-m-d H:i:s'))
+                        ->whereDate('booking_products.end', '>=', date('y-m-d H:i:s'))
+                        ->where('bookings.is_frontend', 1)
+                        ->where('bookings.payment_status', 4)
+                        ->where('bookings.booking_status', 2)
+                        ->get();
+
+        $completeBooking = Booking::join('booking_products', 'booking_products.booking_id', '=', 'bookings.id')
+                        ->select('product_id', 'qty', 'booking_id')
+                        ->whereDate('booking_products.start', '<=', date('y-m-d H:i:s'))
+                        ->whereDate('booking_products.end', '<=', date('y-m-d H:i:s'))
+                        ->where('bookings.is_frontend', 1)
+                        ->where('bookings.payment_status', 4)
+                        ->where('bookings.booking_status', 1)
+                        ->get();
+
+        foreach ($pendingBooking as $product_sale_data) {
+            $lims_product_data = Product::find($product_sale_data->product_id);
+
+            if ($lims_product_data->type == 'standard') {
+                $old_product_qty = $product_sale_data->qty;
+                $lims_product_warehouse_data = Product_Warehouse::FindProductWithoutVariant($product_sale_data->product_id, 1)
+                    ->first();
+                $lims_product_data->qty -= $old_product_qty;
+                $lims_product_warehouse_data->qty -= $old_product_qty;
+                $this->stockDurationSave($lims_product_data->id, $lims_product_data->qty);
+                $lims_product_data->save();
+                $lims_product_warehouse_data->save();
+            }
+
+            Booking::where('id', $product_sale_data->booking_id)->update(['booking_status' => 1]);
+        }
+
+        foreach ($completeBooking as $product_sale_data) {
+            $lims_product_data = Product::find($product_sale_data->product_id);
+
+            if ($lims_product_data->type == 'standard') {
+                $old_product_qty = $product_sale_data->qty;
+                $lims_product_warehouse_data = Product_Warehouse::FindProductWithoutVariant($product_sale_data->product_id, 1)
+                    ->first();
+                $lims_product_data->qty += $old_product_qty;
+                $lims_product_warehouse_data->qty += $old_product_qty;
+                $this->stockDurationSave($lims_product_data->id, $lims_product_data->qty);
+                $lims_product_data->save();
+                $lims_product_warehouse_data->save();
+            }
+
+            Booking::where('id', $product_sale_data->booking_id)->update(['booking_status' => 3]);
+        }
+
+    }
+
+    public function index()
+    {
+        $this->manageBooking();
+        $role = Role::find(Auth::user()->role_id);
+        // Admin / Owner / sales-dashboard roles stay on the ERP board.
+        if (Auth::user() && \App\Support\InternCompliance::shouldUseInternHome(Auth::user())) {
+            try {
+                return app(\App\Http\Controllers\Internship\InternshipStudentController::class)
+                    ->renderHome(Auth::user());
+            } catch (\Throwable $e) {
+                \Log::warning('Intern dashboard failed: '.$e->getMessage(), ['user' => Auth::id()]);
+
+                return app(\App\Http\Controllers\Internship\InternshipStudentController::class)
+                    ->renderHomeSafe(Auth::user());
+            }
+        }
+        if (Auth::user() && \App\Support\InternCompliance::shouldUseSupervisorHome(Auth::user())) {
+            return app(\App\Http\Controllers\Internship\InternshipSupervisorController::class)
+                ->renderPersonalHome(Auth::user());
+        }
+        if (! $role) {
+            abort(403, 'Your account has no role assigned. Ask an administrator to set it.');
+        }
+        try {
+            $role->revokePermissionTo('search_all_products');
+        } catch (\Throwable $e) {
+        }
+        if (! \App\Support\LocalDevAuth::skipStaffOtp() && $role->hasPermissionTo('one_time_otp')) {
+            if (Auth::user()->otp_verify == 0) {
+                return redirect()->route('check.otp');
+            }
+        }
+
+        if(Auth::user()->role_id == 7) {
+            return redirect()->route('asset.dashboard');
+        }
+        if(Auth::user()->role_id == 5) {
+            $customer = Customer::select('id', 'points')->where('user_id', Auth::id())->first();
+            $points = $customer->points;
+            $lims_sale_data = Sale::with('warehouse')->where('customer_id', $customer->id)->orderBy('created_at', 'desc')->get();
+            $lims_payment_data = DB::table('payments')
+                           ->join('sales', 'payments.sale_id', '=', 'sales.id')
+                           ->where('customer_id', $customer->id)
+                           ->select('payments.*', 'sales.reference_no as sale_reference')
+                           ->orderBy('payments.created_at', 'desc')
+                           ->get();
+            $lims_quotation_data = Quotation::with('biller', 'customer', 'supplier', 'user')->orderBy('id', 'desc')->where('customer_id', $customer->id)->orderBy('created_at', 'desc')->get();
+
+            $lims_return_data = Returns::with('warehouse', 'customer', 'biller')->where('customer_id', $customer->id)->orderBy('created_at', 'desc')->get();
+            return view('customer_index', compact('lims_sale_data', 'lims_payment_data', 'lims_quotation_data', 'lims_return_data', 'points'));
+        }
+
+        $company = app(\App\Services\Cloud\CloudTenantContext::class)->tenant();
+        if ($company && $company->type === \App\Cloud\CloudTenantType::CUSTOMER) {
+            return view('cloud.company_dashboard', app(\App\Services\Cloud\CloudCompanyDashboard::class)->snapshot());
+        }
+
+        try {
+        $start_date = date("Y").'-'.date("m").'-'.'01';
+        $end_date = date("Y").'-'.date("m").'-'.date('t', mktime(0, 0, 0, date("m"), 1, date("Y")));
+        $yearly_sale_amount = [];
+
+        $general_setting = DB::table('general_settings')->latest()->first();
+        if(Auth::user()->role_id > 2 && $general_setting->staff_access == 'own') {
+            $product_sale_data = Sale::join('product_sales', 'sales.id','=', 'product_sales.sale_id')
+                ->select(DB::raw('product_sales.product_id, product_sales.product_batch_id, sum(product_sales.qty) as sold_qty, sum(product_sales.total) as sold_amount'))
+                ->where('sales.user_id', Auth::id())
+                ->whereDate('product_sales.created_at', '>=' , $start_date)
+                ->whereDate('product_sales.created_at', '<=' , $end_date)
+                ->groupBy('product_sales.product_id', 'product_sales.product_batch_id')
+                ->get();
+
+            $product_revenue = 0;
+            $product_cost = 0;
+            $profit = 0;
+            foreach ($product_sale_data as $key => $product_sale) {
+                if($product_sale->product_batch_id)
+                    $product_purchase_data = ProductPurchase::where([
+                        ['product_id', $product_sale->product_id],
+                        ['product_batch_id', $product_sale->product_batch_id]
+                    ])->get();
+                else
+                    $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)->get();
+
+                $purchased_qty = 0;
+                $purchased_amount = 0;
+                $sold_qty = $product_sale->sold_qty;
+                $product_revenue += $product_sale->sold_amount;
+                foreach ($product_purchase_data as $key => $product_purchase) {
+                    $purchased_qty += $product_purchase->qty;
+                    $purchased_amount += $product_purchase->total;
+                    if($purchased_qty >= $sold_qty) {
+                        $qty_diff = $purchased_qty - $sold_qty;
+                        $unit_cost = $product_purchase->total / $product_purchase->qty;
+                        $purchased_amount -= ($qty_diff * $unit_cost);
+                        break;
+                    }
+                }
+
+                $product_cost += $purchased_amount;
+            }
+
+            $revenue = Sale::whereDate('created_at', '>=' , $start_date)->where('user_id', Auth::id())->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $return = Returns::whereDate('created_at', '>=' , $start_date)->where('user_id', Auth::id())->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $purchase_return = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->where('user_id', Auth::id())->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $revenue = $revenue - $return;
+            $purchase = Purchase::whereDate('created_at', '>=' , $start_date)->where('user_id', Auth::id())->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $profit = $revenue + $purchase_return - $product_cost;
+            $expense = Expense::whereDate('created_at', '>=' , $start_date)->where('user_id', Auth::id())->whereDate('created_at', '<=' , $end_date)->sum('amount');
+            $recent_sale = Sale::orderBy('id', 'desc')->where('user_id', Auth::id())->take(5)->get();
+            $recent_purchase = Purchase::orderBy('id', 'desc')->where('user_id', Auth::id())->take(5)->get();
+            $recent_quotation = Quotation::orderBy('id', 'desc')->where('user_id', Auth::id())->take(5)->get();
+            $recent_payment = Payment::orderBy('id', 'desc')->where('user_id', Auth::id())->take(5)->get();
+        }
+        else {
+            $product_sale_data = Product_Sale::select(DB::raw('product_id, product_batch_id, sum(qty) as sold_qty, sum(total) as sold_amount'))->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->groupBy('product_id', 'product_batch_id')->get();
+
+            $product_revenue = 0;
+            $product_cost = 0;
+            $profit = 0;
+            foreach ($product_sale_data as $key => $product_sale) {
+                if($product_sale->product_batch_id)
+                    $product_purchase_data = ProductPurchase::where([
+                        ['product_id', $product_sale->product_id],
+                        ['product_batch_id', $product_sale->product_batch_id]
+                    ])->get();
+                else
+                    $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)->get();
+
+                $purchased_qty = 0;
+                $purchased_amount = 0;
+                $sold_qty = $product_sale->sold_qty;
+                $product_revenue += $product_sale->sold_amount;
+                foreach ($product_purchase_data as $key => $product_purchase) {
+                    $purchased_qty += $product_purchase->qty;
+                    $purchased_amount += $product_purchase->total;
+                    if($purchased_qty >= $sold_qty) {
+                        $qty_diff = $purchased_qty - $sold_qty;
+                        $unit_cost = $product_purchase->total / $product_purchase->qty;
+                        $purchased_amount -= ($qty_diff * $unit_cost);
+                        break;
+                    }
+                }
+
+                $product_cost += $purchased_amount;
+            }
+
+            $revenue = Sale::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $return = Returns::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $purchase_return = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $revenue = $revenue - $return;
+            $purchase = Purchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $profit = $revenue + $purchase_return - $product_cost;
+            $expense = Expense::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('amount');
+            $recent_sale = Sale::orderBy('id', 'desc')->take(5)->get();
+            $recent_purchase = Purchase::orderBy('id', 'desc')->take(5)->get();
+            $recent_quotation = Quotation::orderBy('id', 'desc')->take(5)->get();
+            $recent_payment = Payment::orderBy('id', 'desc')->take(5)->get();
+        }
+
+        $best_selling_qty = Product_Sale::select(DB::raw('product_id, sum(qty) as sold_qty'))->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->groupBy('product_id')->orderBy('sold_qty', 'desc')->take(5)->get();
+
+        $yearly_best_selling_qty = Product_Sale::select(DB::raw('product_id, sum(qty) as sold_qty'))->whereDate('created_at', '>=' , date("Y").'-01-01')->whereDate('created_at', '<=' , date("Y").'-12-31')->groupBy('product_id')->orderBy('sold_qty', 'desc')->take(5)->get();
+
+        $yearly_best_selling_price = Product_Sale::select(DB::raw('product_id, sum(total) as total_price'))->whereDate('created_at', '>=' , date("Y").'-01-01')->whereDate('created_at', '<=' , date("Y").'-12-31')->groupBy('product_id')->orderBy('total_price', 'desc')->take(5)->get();
+
+        //cash flow of last 6 months
+        $start = strtotime(date('Y-m-01', strtotime('-6 month', strtotime(date('Y-m-d') ))));
+        $end = strtotime(date('Y-m-'.date('t', mktime(0, 0, 0, date("m"), 1, date("Y")))));
+
+        while($start < $end)
+        {
+            $start_date = date("Y-m", $start).'-'.'01';
+            $end_date = date("Y-m", $start).'-'.date('t', mktime(0, 0, 0, date("m", $start), 1, date("Y", $start)));
+
+            if(Auth::user()->role_id > 2 && $general_setting->staff_access == 'own') {
+                $recieved_amount = DB::table('payments')->whereNotNull('sale_id')->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('amount');
+                $sent_amount = DB::table('payments')->whereNotNull('purchase_id')->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('amount');
+                $return_amount = Returns::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+                $purchase_return_amount = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+                $expense_amount = Expense::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('amount');
+                $payroll_amount = Payroll::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('amount');
+            }
+            else {
+                $recieved_amount = DB::table('payments')->whereNotNull('sale_id')->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('amount');
+                $sent_amount = DB::table('payments')->whereNotNull('purchase_id')->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('amount');
+                $return_amount = Returns::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+                $purchase_return_amount = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+                $expense_amount = Expense::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('amount');
+                $payroll_amount = Payroll::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('amount');
+            }
+            $sent_amount = $sent_amount + $return_amount + $expense_amount + $payroll_amount;
+
+            $payment_recieved[] = number_format((float)($recieved_amount + $purchase_return_amount), 2, '.', '');
+            $payment_sent[] = number_format((float)$sent_amount, 2, '.', '');
+            $month[] = date("F", strtotime($start_date));
+            $start = strtotime("+1 month", $start);
+        }
+        // yearly report
+        $start = strtotime(date("Y") .'-01-01');
+        $end = strtotime(date("Y") .'-12-31');
+        while($start < $end)
+        {
+            $start_date = date("Y").'-'.date('m', $start).'-'.'01';
+            $end_date = date("Y").'-'.date('m', $start).'-'.date('t', mktime(0, 0, 0, date("m", $start), 1, date("Y", $start)));
+            if(Auth::user()->role_id > 2 && $general_setting->staff_access == 'own') {
+                $sale_amount = Sale::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+                $purchase_amount = Purchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+            }
+            else{
+                $sale_amount = Sale::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+                $purchase_amount = Purchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            }
+            $yearly_sale_amount[] = number_format((float)$sale_amount, 2, '.', '');
+            $yearly_purchase_amount[] = number_format((float)$purchase_amount, 2, '.', '');
+            $start = strtotime("+1 month", $start);
+        }
+        $workOps = $this->workOpsSnapshot();
+        return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps'));
+        } catch (\Throwable $e) {
+            \Log::warning('Sales dashboard failed: '.$e->getMessage(), ['user' => Auth::id()]);
+            $workOps = $this->workOpsSnapshot();
+            $revenue = $purchase = $expense = $return = $purchase_return = $profit = 0;
+            $payment_recieved = $payment_sent = $month = $yearly_sale_amount = $yearly_purchase_amount = [];
+            $recent_sale = $recent_purchase = $recent_quotation = $recent_payment = collect();
+            $best_selling_qty = $yearly_best_selling_qty = $yearly_best_selling_price = collect();
+
+            return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps'));
+        }
+    }
+
+    /**
+     * Live operations snapshot: tasks, internships, quotations awaiting signature.
+     */
+    protected function workOpsSnapshot()
+    {
+        $snapshot = [
+            'tasks' => [
+                'total' => 0, 'pending' => 0, 'in_progress' => 0, 'completed' => 0,
+                'overdue' => 0, 'open' => 0, 'recent' => [],
+            ],
+            'interns' => [
+                'active' => 0, 'paused' => 0, 'pending' => 0, 'completed' => 0,
+                'review' => 0, 'recent' => [],
+            ],
+            'quotes' => [
+                'awaiting' => 0, 'awaiting_value' => 0, 'approved' => 0,
+                'rejected' => 0, 'quoted' => 0, 'recent' => [],
+            ],
+        ];
+
+        try {
+            if (Schema::hasTable('tasks') && Schema::hasTable('task_assignments')) {
+                $stats = app(TaskService::class)->dashboardStats();
+                $snapshot['tasks'] = array_merge($snapshot['tasks'], $stats);
+                $snapshot['tasks']['recent'] = Task::query()
+                    ->orderByDesc('created_at')
+                    ->take(6)
+                    ->get()
+                    ->map(function ($task) {
+                        return [
+                            'id' => $task->id,
+                            'title' => $task->title,
+                            'status' => $task->status ?: 'Open',
+                            'deadline' => $task->deadline ? $task->deadline->format('d-m-Y') : '—',
+                            'priority' => $task->priority ?: '',
+                        ];
+                    })
+                    ->all();
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Dashboard task snapshot failed: '.$e->getMessage());
+        }
+
+        try {
+            if (Schema::hasTable('internship_enrolments')) {
+                $snapshot['interns']['active'] = InternshipEnrolment::where('status', 'active')->count();
+                $snapshot['interns']['paused'] = InternshipEnrolment::where('status', 'paused')->count();
+                $snapshot['interns']['pending'] = InternshipEnrolment::where('status', 'pending')->count();
+                $snapshot['interns']['completed'] = InternshipEnrolment::where('status', 'completed')->count();
+                if (Schema::hasTable('internship_task_assignments')) {
+                    $snapshot['interns']['review'] = InternshipTaskAssignment::where('status', 'submitted')->count();
+                }
+                $snapshot['interns']['recent'] = InternshipEnrolment::with(['student', 'program'])
+                    ->whereIn('status', ['active', 'paused', 'pending'])
+                    ->orderByDesc('id')
+                    ->take(6)
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => $row->id,
+                            'application_id' => $row->application_id,
+                            'name' => optional($row->student)->name ?: 'Intern',
+                            'program' => optional($row->program)->name ?: 'Program',
+                            'status' => $row->status,
+                            'completed' => (int) $row->completed_count,
+                        ];
+                    })
+                    ->all();
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Dashboard intern snapshot failed: '.$e->getMessage());
+        }
+
+        try {
+            if (Schema::hasTable('quotations')) {
+                if (method_exists(Quotation::class, 'promoteSignedAwaitingToApproved')) {
+                    Quotation::promoteSignedAwaitingToApproved();
+                }
+                $awaitingQuery = Quotation::awaitingClientSignature();
+                $snapshot['quotes']['awaiting'] = (clone $awaitingQuery)->count();
+                $snapshot['quotes']['awaiting_value'] = (float) (clone $awaitingQuery)->sum('grand_total');
+                $snapshot['quotes']['approved'] = Quotation::whereIn('quotation_status', Quotation::saleReadyStatuses())->count();
+                $snapshot['quotes']['rejected'] = Quotation::where('quotation_status', Quotation::STATUS_REJECTED)->count();
+                $snapshot['quotes']['quoted'] = Quotation::where('quotation_status', Quotation::STATUS_CLIENT_QUOTE)->count();
+                $snapshot['quotes']['recent'] = (clone $awaitingQuery)->with('customer')
+                    ->orderByDesc('id')
+                    ->take(6)
+                    ->get()
+                    ->map(function ($q) {
+                        return [
+                            'id' => $q->id,
+                            'reference' => $q->reference_no,
+                            'customer' => optional($q->customer)->name ?: 'Client',
+                            'total' => number_format((float) $q->grand_total, 2),
+                            'date' => $q->created_at ? $q->created_at->format('d-m-Y') : '',
+                        ];
+                    })
+                    ->all();
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Dashboard quotation snapshot failed: '.$e->getMessage());
+        }
+
+        return $snapshot;
+    }
+
+    public function dashboardFilter($start_date, $end_date)
+    {
+        $general_setting = DB::table('general_settings')->latest()->first();
+        if(Auth::user()->role_id > 2 && $general_setting->staff_access == 'own') {
+            $product_sale_data = Sale::join('product_sales', 'sales.id','=', 'product_sales.sale_id')
+                ->select(DB::raw('product_sales.product_id, product_sales.product_batch_id, sum(product_sales.qty) as sold_qty, sum(product_sales.total) as sold_amount'))
+                ->where('sales.user_id', Auth::id())
+                ->whereDate('product_sales.created_at', '>=' , $start_date)
+                ->whereDate('product_sales.created_at', '<=' , $end_date)
+                ->groupBy('product_sales.product_id', 'product_sales.product_batch_id')
+                ->get();
+
+            $product_revenue = 0;
+            $product_cost = 0;
+            $profit = 0;
+            foreach ($product_sale_data as $key => $product_sale) {
+                if($product_sale->product_batch_id)
+                    $product_purchase_data = ProductPurchase::where([
+                        ['product_id', $product_sale->product_id],
+                        ['product_batch_id', $product_sale->product_batch_id]
+                    ])->get();
+                else
+                    $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)->get();
+
+                $purchased_qty = 0;
+                $purchased_amount = 0;
+                $sold_qty = $product_sale->sold_qty;
+                $product_revenue += $product_sale->sold_amount;
+                foreach ($product_purchase_data as $key => $product_purchase) {
+                    $purchased_qty += $product_purchase->qty;
+                    $purchased_amount += $product_purchase->total;
+                    if($purchased_qty >= $sold_qty) {
+                        $qty_diff = $purchased_qty - $sold_qty;
+                        $unit_cost = $product_purchase->total / $product_purchase->qty;
+                        $purchased_amount -= ($qty_diff * $unit_cost);
+                        break;
+                    }
+                }
+
+                $product_cost += $purchased_amount;
+            }
+
+            $revenue = Sale::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+            $return = Returns::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+            $purchase_return = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+            $revenue -= $return;
+            $purchase = Purchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->where('user_id', Auth::id())->sum('grand_total');
+            $profit = $revenue + $purchase_return - $product_cost;
+
+            $data[0] = $revenue;
+            $data[1] = $return;
+            $data[2] = $profit;
+            $data[3] = $purchase_return;
+        }
+        else{
+            $product_sale_data = Product_Sale::select(DB::raw('product_id, product_batch_id, sum(qty) as sold_qty, sum(total) as sold_amount'))->whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->groupBy('product_id', 'product_batch_id')->get();
+
+            $product_revenue = 0;
+            $product_cost = 0;
+            $profit = 0;
+            foreach ($product_sale_data as $key => $product_sale) {
+                if($product_sale->product_batch_id)
+                    $product_purchase_data = ProductPurchase::where([
+                        ['product_id', $product_sale->product_id],
+                        ['product_batch_id', $product_sale->product_batch_id]
+                    ])->get();
+                else
+                    $product_purchase_data = ProductPurchase::where('product_id', $product_sale->product_id)->get();
+
+                $purchased_qty = 0;
+                $purchased_amount = 0;
+                $sold_qty = $product_sale->sold_qty;
+                $product_revenue += $product_sale->sold_amount;
+                foreach ($product_purchase_data as $key => $product_purchase) {
+                    $purchased_qty += $product_purchase->qty;
+                    $purchased_amount += $product_purchase->total;
+                    if($purchased_qty >= $sold_qty) {
+                        $qty_diff = $purchased_qty - $sold_qty;
+                        $unit_cost = $product_purchase->total / $product_purchase->qty;
+                        $purchased_amount -= ($qty_diff * $unit_cost);
+                        break;
+                    }
+                }
+
+                $product_cost += $purchased_amount;
+            }
+
+            $revenue = Sale::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $return = Returns::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $purchase_return = ReturnPurchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $revenue -= $return;
+            $purchase = Purchase::whereDate('created_at', '>=' , $start_date)->whereDate('created_at', '<=' , $end_date)->sum('grand_total');
+            $profit = $revenue + $purchase_return - $product_cost;
+
+            $data[0] = $revenue;
+            $data[1] = $return;
+            $data[2] = $profit;
+            $data[3] = $purchase_return;
+        }
+
+        return $data;
+    }
+
+    public function myTransaction($year, $month)
+    {
+        $start = 1;
+        $number_of_day = date('t', mktime(0, 0, 0, $month, 1, $year));
+        while($start <= $number_of_day)
+        {
+            if($start < 10)
+                $date = $year.'-'.$month.'-0'.$start;
+            else
+                $date = $year.'-'.$month.'-'.$start;
+            $sale_generated[$start] = Sale::whereDate('created_at', $date)->where('user_id', Auth::id())->count();
+            $sale_grand_total[$start] = Sale::whereDate('created_at', $date)->where('user_id', Auth::id())->sum('grand_total');
+            $purchase_generated[$start] = Purchase::whereDate('created_at', $date)->where('user_id', Auth::id())->count();
+            $purchase_grand_total[$start] = Purchase::whereDate('created_at', $date)->where('user_id', Auth::id())->sum('grand_total');
+            $quotation_generated[$start] = Quotation::whereDate('created_at', $date)->where('user_id', Auth::id())->count();
+            $quotation_grand_total[$start] = Quotation::whereDate('created_at', $date)->where('user_id', Auth::id())->sum('grand_total');
+            $start++;
+        }
+        $start_day = date('w', strtotime($year.'-'.$month.'-01')) + 1;
+        $prev_year = date('Y', strtotime('-1 month', strtotime($year.'-'.$month.'-01')));
+        $prev_month = date('m', strtotime('-1 month', strtotime($year.'-'.$month.'-01')));
+        $next_year = date('Y', strtotime('+1 month', strtotime($year.'-'.$month.'-01')));
+        $next_month = date('m', strtotime('+1 month', strtotime($year.'-'.$month.'-01')));
+        return view('user.my_transaction', compact('start_day', 'year', 'month', 'number_of_day', 'prev_year', 'prev_month', 'next_year', 'next_month', 'sale_generated', 'sale_grand_total','purchase_generated', 'purchase_grand_total','quotation_generated', 'quotation_grand_total'));
+    }
+}

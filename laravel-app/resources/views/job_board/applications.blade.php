@@ -1,0 +1,360 @@
+@extends('layout.main')
+
+@section('content')
+<section class="forms jb-apps-page">
+    <div class="container-fluid jb-shell">
+        @include('job_board.partials.tabs')
+
+        <div class="mb-4 d-flex justify-content-between align-items-start flex-wrap" style="gap:12px;">
+            <div>
+                <h1 class="jb-title">{{ $pageTitle ?? 'Applications' }}</h1>
+                <p class="jb-subtitle mb-0">Click anywhere on a row (except checkbox / Actions / Docs) to open the full application. Status changes notify candidates on WhatsApp.</p>
+            </div>
+            <div class="d-flex flex-wrap" style="gap:8px;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="jb-app-select-all">Select all</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="jb-app-clear-all">Clear</button>
+                <button type="submit" form="jb-apps-delete-form" class="btn btn-danger btn-sm" id="jb-app-delete-btn" disabled>
+                    <i class="dripicons-trash"></i> Delete selected
+                </button>
+            </div>
+        </div>
+
+        @if(session('message'))
+            <div class="alert alert-success">{{ session('message') }}</div>
+        @endif
+        @if(session('not_permitted'))
+            <div class="alert alert-danger">{{ session('not_permitted') }}</div>
+        @endif
+
+        <form method="GET" class="jb-card">
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-2">
+                    <label class="jb-label">Job / Internship</label>
+                    <select name="job_id" class="jb-field">
+                        <option value="all" @if(($jobId ?? 'all')==='all') selected @endif>All</option>
+                        @foreach($jobs as $j)
+                            <option value="{{ $j->id }}" @if(($jobId ?? '')==$j->id) selected @endif>
+                                {{ $j->title }} {{ ($j->posting_type ?? '') === 'internship' ? '(Internship)' : '(Job)' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                @if(!empty($showStatusFilter))
+                    <div class="col-md-3 mb-2">
+                        <label class="jb-label">Status</label>
+                        <select name="status" class="jb-field">
+                            @foreach([
+                                'all' => 'All',
+                                'awaiting_approval' => 'Awaiting Approval',
+                                'selected' => 'Selected',
+                                'rejected' => 'Rejected',
+                                'hired' => 'Hired',
+                            ] as $val => $label)
+                                <option value="{{ $val }}" @if(($status ?? 'all')===$val) selected @endif>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div class="col-md-{{ !empty($showStatusFilter) ? '3' : '4' }} mb-2">
+                    <label class="jb-label">Search</label>
+                    <input type="search" name="q" value="{{ $q }}" class="jb-field" placeholder="Name, email, WhatsApp, school, reference…">
+                </div>
+                <div class="col-md-2 mb-2">
+                    <button type="submit" class="jb-btn" style="width:100%;justify-content:center;">Filter</button>
+                </div>
+            </div>
+        </form>
+
+        {{-- Outside the table so status forms are not nested --}}
+        <form id="jb-apps-delete-form" method="POST" action="{{ route('jobs.applications.delete') }}" class="d-none">
+            @csrf
+        </form>
+
+        <div class="jb-card jb-apps-card">
+            <div class="table-responsive jb-apps-table-wrap">
+                <table class="table mb-0 jb-apps-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;" class="jb-no-nav">
+                                <input type="checkbox" id="jb-app-check-all" title="Select all">
+                            </th>
+                            <th>Student Name</th>
+                            <th>Contact</th>
+                            <th>Education</th>
+                            <th>Role</th>
+                            <th>Reference</th>
+                            <th>Submitted</th>
+                            <th>Docs</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($items as $app)
+                            @php $showUrl = route('jobs.applications.show', $app->id); @endphp
+                            <tr class="jb-row-click" data-href="{{ $showUrl }}">
+                                <td class="jb-no-nav jb-check-cell">
+                                    <input type="checkbox" class="jb-app-row-check" form="jb-apps-delete-form" name="application_ids[]" value="{{ $app->id }}">
+                                </td>
+                                <td class="jb-nav-cell">
+                                    <strong>{{ $app->full_name }}</strong>
+                                </td>
+                                <td class="jb-nav-cell">
+                                    <span class="text-muted small">{{ $app->email }}</span><br>
+                                    <span class="text-muted small">WA: {{ $app->whatsapp_number ?: $app->phone ?: '—' }}</span>
+                                </td>
+                                <td class="jb-nav-cell small">
+                                    @if($app->school || $app->level_of_study || $app->education_status || $app->is_academic_required !== null)
+                                        <strong>{{ $app->school ?: '—' }}</strong><br>
+                                        <span class="text-muted">{{ $app->level_of_study ?: '—' }}</span><br>
+                                        <span>{{ $app->educationStatusLabel() }}</span><br>
+                                        <span class="jb-badge">{{ $app->applicantTypeLabel() }}</span>
+                                        @if($app->isStudentApplicant())
+                                            <br><span class="jb-badge">{{ $app->academicRequiredLabel() }}</span>
+                                        @endif
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="jb-nav-cell">
+                                    {{ optional($app->job)->title ?: '—' }}
+                                    @if(optional($app->job)->isInternship())
+                                        <br><span class="jb-badge">Internship</span>
+                                    @endif
+                                </td>
+                                <td class="jb-nav-cell"><code>{{ $app->reference_number }}</code></td>
+                                <td class="jb-nav-cell">{{ $app->submitted_at ? \Carbon\Carbon::parse($app->submitted_at)->format('M j, Y') : '—' }}</td>
+                                <td class="small jb-no-nav jb-docs-cell">
+                                    @if($app->hasIncompleteDocuments())
+                                        <span class="jb-badge jb-badge--warn" title="{{ implode(', ', $app->missingDocumentKeys()) }}">{{ $app->documentsStatusLabel() }}</span>
+                                    @endif
+                                    @if($app->cv_url || $app->cv_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'cv']) }}" target="_blank" rel="noopener">CV</a>
+                                    @endif
+                                    @if($app->student_id_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'student_id']) }}" target="_blank" rel="noopener">ID Front</a>
+                                    @else
+                                        <span class="text-danger">ID Front missing</span>
+                                    @endif
+                                    @if($app->student_id_back_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'student_id_back']) }}" target="_blank" rel="noopener">ID Back</a>
+                                    @endif
+                                    @if($app->internship_letter_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'letter']) }}" target="_blank" rel="noopener">School letter</a>
+                                    @elseif($app->isStudentApplicant() && in_array('internship_letter', $app->deferredDocumentKeys(), true))
+                                        <span class="text-warning">School letter later</span>
+                                    @endif
+                                    @if($app->employment_letter_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'employment_letter']) }}" target="_blank" rel="noopener">Employment letter</a>
+                                    @elseif($app->isWorkerApplicant() && in_array('employment_letter', $app->deferredDocumentKeys(), true))
+                                        <span class="text-warning">Employment letter later</span>
+                                    @endif
+                                    @if($app->official_badge_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'official_badge']) }}" target="_blank" rel="noopener">Badge</a>
+                                    @elseif($app->isWorkerApplicant() && in_array('official_badge', $app->deferredDocumentKeys(), true))
+                                        <span class="text-warning">Badge later</span>
+                                    @endif
+                                    @if($app->selfie_path)
+                                        <a href="{{ route('jobs.applications.document', [$app->id, 'selfie']) }}" target="_blank" rel="noopener">Selfie</a>
+                                    @endif
+                                    @if($app->agreement_signed_at)<span class="text-success">Signed</span>@endif
+                                    @if(!$app->cv_url && !$app->cv_path && !$app->student_id_path && !$app->student_id_back_path && !$app->internship_letter_path && !$app->employment_letter_path && !$app->official_badge_path && !$app->selfie_path)
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="jb-nav-cell"><span class="jb-badge {{ $app->statusBadgeClass() }}">{{ $app->statusLabel() }}</span></td>
+                                <td class="text-right jb-no-nav jb-actions-cell">
+                                    <form method="POST" action="{{ route('jobs.applications.update', $app->id) }}" class="jb-status-form" style="display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:210px;">
+                                        @csrf
+                                        <select name="status" class="jb-native-select jb-status-select" autocomplete="off">
+                                            @foreach([
+                                                'awaiting_approval' => 'Awaiting Approval',
+                                                'selected' => 'Selected (send agreement)',
+                                                'rejected' => 'Rejected',
+                                                'hired' => 'Hired (admin admits)',
+                                            ] as $st => $label)
+                                                <option value="{{ $st }}" @if(in_array($app->status, [$st], true) || ($st==='awaiting_approval' && in_array($app->status, ['new','reviewed','interview'], true)) || ($st==='selected' && $app->status==='shortlisted')) selected @endif>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                        <input type="text" name="status_reason" class="jb-field jb-reason-input" placeholder="Note / reason (optional)" value="{{ $app->rejection_reason }}">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="submit" name="notify" value="0" class="btn btn-sm btn-outline-secondary" style="flex:1;">Save</button>
+                                            <button type="submit" name="notify" value="1" class="btn btn-sm btn-primary" style="flex:1;">Save &amp; Notify</button>
+                                        </div>
+                                    </form>
+                                    <div class="d-flex flex-wrap justify-content-end mt-1" style="gap:8px;">
+                                        <a href="{{ $showUrl }}" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a href="{{ route('jobs.applications.edit', $app->id) }}" class="btn btn-sm btn-primary">Edit</a>
+                                        <button type="button" class="btn btn-sm btn-link text-danger jb-app-delete-one" data-id="{{ $app->id }}">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="10" class="text-center text-muted py-4">No applications found.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if(method_exists($items, 'links'))
+                <div class="mt-3">{{ $items->appends(request()->query())->links() }}</div>
+            @endif
+        </div>
+    </div>
+</section>
+<style>
+    .jb-apps-page .jb-shell { max-width: none; }
+    .jb-apps-card { overflow: hidden; }
+    .jb-apps-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .jb-apps-table { position: relative; min-width: 1180px; }
+    .jb-docs-cell { max-width: 180px; }
+    .jb-docs-cell a, .jb-docs-cell span { display: inline-block; margin: 0 6px 4px 0; white-space: nowrap; }
+    tr.jb-row-click td.jb-nav-cell { cursor: pointer; }
+    tr.jb-row-click:hover td.jb-nav-cell { background: #f8fafc; }
+    td.jb-no-nav, td.jb-actions-cell, td.jb-check-cell { cursor: default; position: relative; z-index: 20; }
+    td.jb-check-cell { vertical-align: middle; }
+    .jb-native-select {
+        display: block;
+        width: 100%;
+        min-height: 38px;
+        padding: 8px 10px;
+        border: 1px solid #0b3f90;
+        border-radius: 8px;
+        background: #fff;
+        color: #0b3f90;
+        font-weight: 600;
+        font-size: 13px;
+        appearance: auto;
+        -webkit-appearance: menulist;
+        -moz-appearance: menulist;
+        pointer-events: auto !important;
+        position: relative;
+        z-index: 30;
+    }
+    .jb-actions-cell .jb-field,
+    .jb-actions-cell .btn {
+        pointer-events: auto !important;
+        position: relative;
+        z-index: 30;
+    }
+    /* Prevent bootstrap-select / theme from hijacking these */
+    .jb-native-select.bootstrap-select,
+    .jb-actions-cell .bootstrap-select { display: none !important; }
+</style>
+@endsection
+
+@section('scripts')
+<script>
+(function () {
+    function reasonPlaceholder(status) {
+        if (status === 'selected') return 'Selection reason (optional)';
+        if (status === 'hired') return 'Hired reason (optional)';
+        if (status === 'rejected') return 'Rejection reason (optional)';
+        return 'Note / reason (optional)';
+    }
+    function syncReason($form) {
+        var status = $form.find('.jb-status-select').val();
+        $form.find('.jb-reason-input').attr('placeholder', reasonPlaceholder(status));
+    }
+
+    // Destroy bootstrap-select if theme auto-wrapped these selects
+    if ($.fn.selectpicker) {
+        $('.jb-status-select').each(function () {
+            var $el = $(this);
+            if ($el.parent().hasClass('bootstrap-select') || $el.data('selectpicker')) {
+                try { $el.selectpicker('destroy'); } catch (e) {}
+            }
+            $el.removeClass('selectpicker form-control');
+        });
+    }
+
+    $(document).on('mousedown click touchstart change', '.jb-actions-cell, .jb-status-form, .jb-native-select, .jb-reason-input, .jb-check-cell, .jb-app-row-check', function (e) {
+        e.stopPropagation();
+    });
+
+    $(document).on('change', '.jb-status-select', function () {
+        syncReason($(this).closest('.jb-status-form'));
+    });
+    $('.jb-status-form').each(function () { syncReason($(this)); });
+
+    $(document).on('click', 'tr.jb-row-click td.jb-nav-cell', function () {
+        var href = $(this).closest('tr').data('href');
+        if (href) window.location.href = href;
+    });
+
+    var deleteForm = document.getElementById('jb-apps-delete-form');
+    var checkAll = document.getElementById('jb-app-check-all');
+    var deleteBtn = document.getElementById('jb-app-delete-btn');
+
+    function rowChecks() {
+        return Array.prototype.slice.call(document.querySelectorAll('.jb-app-row-check'));
+    }
+
+    function syncDeleteBtn() {
+        if (!deleteBtn) return;
+        var checks = rowChecks();
+        var any = checks.some(function (c) { return c.checked; });
+        deleteBtn.disabled = !any;
+        if (checkAll) {
+            checkAll.checked = checks.length > 0 && checks.every(function (c) { return c.checked; });
+            checkAll.indeterminate = any && !checkAll.checked;
+        }
+    }
+
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            rowChecks().forEach(function (c) { c.checked = checkAll.checked; });
+            syncDeleteBtn();
+        });
+    }
+    var selectAllBtn = document.getElementById('jb-app-select-all');
+    var clearAllBtn = document.getElementById('jb-app-clear-all');
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function () {
+            rowChecks().forEach(function (c) { c.checked = true; });
+            syncDeleteBtn();
+        });
+    }
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function () {
+            rowChecks().forEach(function (c) { c.checked = false; });
+            syncDeleteBtn();
+        });
+    }
+    rowChecks().forEach(function (c) {
+        c.addEventListener('change', syncDeleteBtn);
+    });
+
+    if (deleteForm) {
+        deleteForm.addEventListener('submit', function (e) {
+            var n = rowChecks().filter(function (c) { return c.checked; }).length;
+            if (!n) {
+                e.preventDefault();
+                alert('Select at least one application to delete.');
+                return;
+            }
+            if (!confirm('Delete ' + n + ' selected application' + (n === 1 ? '' : 's') + '? This cannot be undone.')) {
+                e.preventDefault();
+            }
+        });
+    }
+
+    $(document).on('click', '.jb-app-delete-one', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var id = String($(this).data('id') || '');
+        if (!id || !deleteForm) return;
+        if (!confirm('Delete this application? This cannot be undone.')) return;
+        rowChecks().forEach(function (c) { c.checked = false; });
+        var existing = deleteForm.querySelector('input[name="application_ids[]"][data-single="1"]');
+        if (existing) existing.remove();
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'application_ids[]';
+        hidden.value = id;
+        hidden.setAttribute('data-single', '1');
+        deleteForm.appendChild(hidden);
+        deleteForm.submit();
+    });
+})();
+</script>
+@endsection

@@ -1,0 +1,245 @@
+<?php
+
+namespace App\Http\Controllers\WhatsApp;
+
+use App\Assistant\AssistantActivity;
+use App\Assistant\AssistantBrief;
+use App\Assistant\AssistantKnowledge;
+use App\Assistant\IntentCatalog;
+use App\Http\Controllers\Controller;
+use App\Services\Assistant\AssistantBriefService;
+use App\Services\Assistant\AssistantPolicyService;
+use App\Services\Assistant\AssistantToolRegistry;
+use App\Services\Assistant\BeyondAssistantService;
+use App\Services\WhatsApp\WhatsAppConversationService;
+use App\WhatsApp\WhatsAppConversation;
+use App\WhatsApp\WhatsAppSetting;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Spatie\Permission\Models\Role;
+
+class WhatsAppAssistantController extends Controller
+{
+    public function brief()
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.ai.manage', 'whatsapp.manage', 'whatsapp.ai.knowledge'])) {
+            return $deny;
+        }
+        $briefs = app(AssistantBriefService::class)->visible()->get();
+
+        return view('whatsapp_hub.brief', compact('briefs'));
+    }
+
+    public function storeBrief(Request $request)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.ai.manage', 'whatsapp.manage', 'whatsapp.ai.knowledge'])) {
+            return $deny;
+        }
+        $data = $this->briefInput($request);
+        if ($data['ends_at'] && $data['ends_at']->lt(now())) {
+            return redirect()->route('whatsapp.brief')->with('message', 'That end time has already passed, so the note was not kept.');
+        }
+        AssistantBrief::create([
+            'cloud_tenant_id' => app(AssistantBriefService::class)->tenantIdForSave(),
+            'title' => $data['title'],
+            'starts_at' => $data['starts_at'],
+            'ends_at' => $data['ends_at'],
+            'details' => $data['details'],
+            'enabled' => true,
+            'updated_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('whatsapp.brief')->with('message', 'The assistant will use this from now on.');
+    }
+
+    public function updateBrief(Request $request, $id)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.ai.manage', 'whatsapp.manage', 'whatsapp.ai.knowledge'])) {
+            return $deny;
+        }
+        $brief = app(AssistantBriefService::class)->visible()->where('id', $id)->first();
+        if (! $brief) {
+            abort(404);
+        }
+        $data = $this->briefInput($request);
+        $brief->title = $data['title'];
+        $brief->starts_at = $data['starts_at'];
+        $brief->ends_at = $data['ends_at'];
+        $brief->details = $data['details'];
+        $brief->enabled = $request->has('enabled');
+        $brief->updated_by = Auth::id();
+        $brief->save();
+        if ($brief->ends_at && $brief->ends_at->lt(now())) {
+            $brief->delete();
+
+            return redirect()->route('whatsapp.brief')->with('message', 'That end time has passed, so the note was removed.');
+        }
+
+        return redirect()->route('whatsapp.brief')->with('message', 'Updated. The assistant will use the new details.');
+    }
+
+    public function destroyBrief($id)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.ai.manage', 'whatsapp.manage', 'whatsapp.ai.knowledge'])) {
+            return $deny;
+        }
+        $brief = app(AssistantBriefService::class)->visible()->where('id', $id)->first();
+        if ($brief) {
+            $brief->delete();
+        }
+
+        return redirect()->route('whatsapp.brief')->with('message', 'Removed from the assistant.');
+    }
+
+    protected function briefInput(Request $request)
+    {
+        $data = $request->validate([
+            'title' => 'required|string|max:191',
+            'details' => 'required|string|max:4000',
+            'starts_at' => 'nullable|date',
+            'ends_at' => $request->has('timed') ? 'required|date' : 'nullable|date',
+        ]);
+        $data['starts_at'] = ! empty($data['starts_at']) ? Carbon::parse($data['starts_at']) : null;
+        $data['ends_at'] = ! empty($data['ends_at']) ? Carbon::parse($data['ends_at']) : null;
+        if ($request->has('brief_form') && ! $request->has('timed')) {
+            $data['starts_at'] = null;
+            $data['ends_at'] = null;
+        }
+
+        return $data;
+    }
+
+    public function index(Request $request)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.ai.manage', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        $tab = $request->get('tab', 'conversations');
+        $policy = app(AssistantPolicyService::class);
+        $enabled = $policy->globallyEnabled();
+        $configured = trim((string) config('assistant.api_key')) !== '';
+        $knowledge = AssistantKnowledge::orderBy('category')->orderBy('title')->get();
+        $intents = IntentCatalog::all();
+        $tools = app(AssistantToolRegistry::class)->all();
+        $from = $request->get('from') ? Carbon::parse($request->get('from'))->startOfDay() : Carbon::now()->subDays(6)->startOfDay();
+        $to = $request->get('to') ? Carbon::parse($request->get('to'))->endOfDay() : Carbon::now()->endOfDay();
+        $activities = AssistantActivity::with('conversation.contact')->orderByDesc('id')->paginate(30)->appends($request->query());
+        $failures = AssistantActivity::where('status', AssistantActivity::FAILED)->orderByDesc('id')->limit(20)->get();
+        $usage = [
+            'requests' => AssistantActivity::whereBetween('created_at', [$from, $to])->count(),
+            'input_tokens' => (int) AssistantActivity::whereBetween('created_at', [$from, $to])->sum('input_tokens'),
+            'output_tokens' => (int) AssistantActivity::whereBetween('created_at', [$from, $to])->sum('output_tokens'),
+        ];
+        $usage['total_tokens'] = $usage['input_tokens'] + $usage['output_tokens'];
+        $aiConversations = WhatsAppConversation::with(['contact', 'assignee'])
+            ->where('mode', WhatsAppConversation::MODE_AI)
+            ->orderByDesc('last_activity_at')
+            ->paginate(40)
+            ->appends($request->query());
+
+        return view('whatsapp_hub.assistant', compact(
+            'tab', 'enabled', 'configured', 'knowledge', 'intents', 'tools', 'activities', 'failures', 'usage', 'from', 'to', 'aiConversations'
+        ));
+    }
+
+    public function updateEnabled(Request $request)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai.manage', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        $on = (bool) $request->input('assistant_enabled');
+        WhatsAppSetting::putValue('assistant_enabled', $on ? '1' : '0');
+        if (! $on) {
+            WhatsAppSetting::putValue('default_conversation_mode', 'HUMAN');
+            WhatsAppSetting::putValue('ai_first', '0');
+            $held = app(\App\Services\WhatsApp\ConversationAiSwitchService::class)->holdOpenConversations(Auth::id());
+
+            return back()->with('message', 'Beyond Assistant is off. '.$held.' chat(s) are with a person.');
+        }
+
+        return back()->with('message', 'Beyond Assistant enabled.');
+    }
+
+    public function storeKnowledge(Request $request)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai.knowledge', 'whatsapp.ai.manage', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        AssistantKnowledge::create([
+            'title' => $request->input('title'),
+            'category' => $request->input('category', 'general'),
+            'content' => $request->input('content'),
+            'enabled' => (bool) $request->input('enabled', 1),
+            'updated_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('whatsapp.assistant', ['tab' => 'knowledge'])->with('message', 'Knowledge saved.');
+    }
+
+    public function updateKnowledge(Request $request, $id)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai.knowledge', 'whatsapp.ai.manage', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        $row = AssistantKnowledge::findOrFail($id);
+        $row->title = $request->input('title', $row->title);
+        $row->category = $request->input('category', $row->category);
+        $row->content = $request->input('content', $row->content);
+        $row->enabled = $request->has('enabled') ? (bool) $request->input('enabled') : $row->enabled;
+        $row->updated_by = Auth::id();
+        $row->save();
+
+        return redirect()->route('whatsapp.assistant', ['tab' => 'knowledge'])->with('message', 'Knowledge updated.');
+    }
+
+    public function enableAi(Request $request, $id)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai', 'whatsapp.takeover', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        $conversation = WhatsAppConversation::findOrFail($id);
+        $note = trim((string) $request->input('handoff_note', ''));
+        if ($note !== '') {
+            app(WhatsAppConversationService::class)->addNote($conversation, $note, Auth::id());
+        }
+        app(WhatsAppConversationService::class)->enableAi($conversation, Auth::id());
+        if (strtoupper((string) $conversation->fresh()->mode) !== WhatsAppConversation::MODE_AI) {
+            return back()->with('not_permitted', 'AI is off for every number. Send AI On before handing a chat to AI.');
+        }
+
+        return back()->with('message', 'Handed to AI. It will read this conversation and continue without a new greeting.');
+    }
+
+    public function suggest($id)
+    {
+        if ($deny = $this->denyUnless(['whatsapp.ai.suggest', 'whatsapp.ai', 'whatsapp.manage'])) {
+            return $deny;
+        }
+        $conversation = WhatsAppConversation::with('contact')->findOrFail($id);
+        $draft = app(BeyondAssistantService::class)->suggest($conversation);
+
+        return back()->with('suggested_reply', $draft);
+    }
+
+    protected function denyUnless(array $names)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->guest(url('/login'));
+        }
+        $role = Role::find($user->role_id);
+        if ($role) {
+            foreach ($names as $name) {
+                try {
+                    if ($role->hasPermissionTo($name)) {
+                        return null;
+                    }
+                } catch (\Exception $e) {
+                }
+            }
+        }
+
+        return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access Beyond Assistant.');
+    }
+}

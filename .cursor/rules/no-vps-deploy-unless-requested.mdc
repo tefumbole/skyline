@@ -1,0 +1,28 @@
+---
+description: Do not deploy or access VPS unless the user explicitly asks
+alwaysApply: true
+---
+
+# VPS and production deployment
+
+The user **does not have VPS access** at this time. Treat production/VPS as off-limits by default.
+
+## Never do unless the user explicitly asks
+
+- SSH into the VPS (e.g. `ssh myvps`, `ssh root@…`)
+- Run deploy or VPS scripts: `npm run vps:deploy`, `tools/deploy-alphabridge-vps.sh`, `tools/deploy-beyondtechworld-laravel.sh`, `tools/migrate-hostinger.sh`, `tools/vps-fix-alphabridge.sh`, `tools/pull-production-db.sh`, etc.
+- Push, rsync, scp, or copy code or builds to the VPS or production server
+- Run remote commands on production (PM2 restart, nginx reload, `npm run db:migrate` on VPS, etc.)
+- Git push to a production/deploy remote if that would update the live server
+
+## Allowed without asking
+
+- Local development: `npm run dev`, `npm run dev:api`, local `npm run db:migrate`, local Docker MySQL
+- Edit deploy scripts and docs in the repo (do not execute them on VPS)
+- Explain deployment steps for the user to run manually later
+
+## When the user explicitly requests VPS work
+
+Only then may you SSH, deploy, or push to production — and only what they asked for (nothing extra).
+
+If deployment is needed but they did not ask to touch the VPS, give **local-only** steps or written instructions instead of running remote commands.

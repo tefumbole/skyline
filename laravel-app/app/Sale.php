@@ -1,0 +1,69 @@
+<?php
+
+namespace App;
+
+use App\Services\Cloud\BelongsToCloudTenant;
+use Illuminate\Database\Eloquent\Model;
+
+class Sale extends Model
+{
+    use BelongsToCloudTenant;
+    protected $fillable =[
+        "reference_no", "user_id", "cash_register_id", "paid_by_id",
+        "customer_id", "customer_group_id", "department_id", "warehouse_id",
+        "biller_id", "item", "total_qty", "total_discount", "total_tax", "total_price",
+        "order_tax_rate", "order_tax", "order_discount","coupon_id", "coupon_discount",
+        "shipping_cost", "grand_total", "sale_status", "payment_status", "paid_amount",
+        "document", "sale_note", "staff_note", "is_premium", "lab_id", "xray_id"
+    ];
+
+    public function biller()
+    {
+        return $this->belongsTo('App\Biller');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo('App\Customer');
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo('App\Warehouse');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo('App\User');
+    }
+
+    public function products()
+    {
+        return $this->hasMany('App\Product_Sale', 'sale_id', 'id');
+    }
+
+    public function cloudTenantRelations()
+    {
+        return [
+            'customer_id' => Customer::class,
+            'warehouse_id' => Warehouse::class,
+        ];
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+        static::saved(function ($sale) {
+            try {
+                app(\App\Services\Wealth\WealthIncomeSync::class)->syncSale($sale);
+            } catch (\Throwable $e) {
+            }
+        });
+        static::deleted(function ($sale) {
+            try {
+                app(\App\Services\Wealth\WealthIncomeSync::class)->reverseSale($sale->id);
+            } catch (\Throwable $e) {
+            }
+        });
+    }
+}

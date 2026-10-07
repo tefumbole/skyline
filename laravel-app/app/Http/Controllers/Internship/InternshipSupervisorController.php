@@ -1,0 +1,363 @@
+<?php
+
+namespace App\Http\Controllers\Internship;
+
+use App\Http\Controllers\Controller;
+use App\InternshipEnrolment;
+use App\InternshipSubmission;
+use App\InternshipTaskAssignment;
+use App\Services\Internship\InternshipProgramService;
+use App\Services\TimesheetService;
+use App\TimesheetEntry;
+use App\Support\InternCompliance;
+use App\Support\InternshipRubric;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
+
+class InternshipSupervisorController extends Controller
+{
+    protected $service;
+    protected $all_permission = [];
+
+    public function __construct(InternshipProgramService $service)
+    {
+        $this->service = $service;
+        $this->middleware(function ($request, $next) {
+            if (Auth::check()) {
+                $role = Role::find(Auth::user()->role_id);
+                if ($role) {
+                    foreach ($role->permissions as $permission) {
+                        $this->all_permission[] = $permission->name;
+                    }
+                }
+            }
+
+            return $next($request);
+        });
+    }
+
+    protected function allow()
+    {
+        if (in_array('internship.supervise', $this->all_permission, true)
+            || in_array('internship.submissions.grade', $this->all_permission, true)
+            || Auth::user()->role_id <= 2) {
+            return;
+        }
+        if (InternCompliance::shouldUseInternHome(Auth::user())
+            || in_array('internship.student', $this->all_permission, true)) {
+            throw new \Illuminate\Http\Exceptions\HttpResponseException(
+                redirect()->route('internship.student.dashboard')
+                    ->with('not_permitted', 'Use your intern workspace for your own tasks.')
+            );
+        }
+        abort(403, 'Supervisor access denied.');
+    }
+
+    /**
+     * Personal /admin home for supervisors (not the intern-management Supervisor module).
+     */
+    public function renderPersonalHome(\App\User $user)
+    {
+        $enrolmentQ = InternshipEnrolment::whereIn('status', ['pending', 'active', 'paused']);
+        $allowed = $this->service->supervisedEnrolmentIds($user);
+        if ($allowed !== null) {
+            $enrolmentQ->whereIn('id', $allowed->isEmpty() ? [0] : $allowed);
+        }
+        $internCount = (clone $enrolmentQ)->count();
+        $activeCount = (clone $enrolmentQ)->where('status', 'active')->count();
+
+        $pendingGrades = $this->service->pendingGradeCount($user);
+
+        $timesheet = app(TimesheetService::class);
+        $weekScore = $timesheet->weekScore($user->id);
+        $dayBalance = $timesheet->dayBalance($user->id, date('Y-m-d'));
+        $totalHours = round((float) TimesheetEntry::where('user_id', $user->id)->sum('hours'), 2);
+
+        return view('internship.supervisor.personal_home', compact(
+            'internCount',
+            'activeCount',
+            'pendingGrades',
+            'weekScore',
+            'dayBalance',
+            'totalHours'
+        ));
+    }
+
+    public function dashboard()
+    {
+        $this->allow();
+        $allowed = $this->service->supervisedEnrolmentIds(Auth::user());
+
+        $enrolmentQ = InternshipEnrolment::with(['student', 'program', 'assignments.task'])
+            ->whereIn('status', ['pending', 'active', 'paused'])
+            ->orderByDesc('id');
+        if ($allowed !== null) {
+            $enrolmentQ->whereIn('id', $allowed->isEmpty() ? [0] : $allowed);
+        }
+        $enrolments = $enrolmentQ->limit(50)->get();
+
+        $internRows = $enrolments->map(function (InternshipEnrolment $e) {
+            $open = $e->currentOpenAssignment();
+
+            return [
+                'enrolment' => $e,
+                'open_assignment' => $open,
+            ];
+        });
+
+        $pendingGradeCount = $this->service->pendingGradeCount(Auth::user());
+        $recentSubmissions = $this->service->pendingGradeQuery(Auth::user())->limit(8)->get();
+
+        $openTaskQ = InternshipTaskAssignment::with(['task', 'enrolment.student'])
+            ->whereIn('status', ['available', 'in_progress', 'revision_required', 'submitted'])
+            ->orderByDesc('scheduled_work_date')
+            ->orderByDesc('id');
+        if ($allowed !== null) {
+            $openTaskQ->whereIn('enrolment_id', $allowed->isEmpty() ? [0] : $allowed);
+        }
+        $openTaskCount = (clone $openTaskQ)->count();
+        $openTasks = $openTaskQ->limit(25)->get();
+
+        $stats = [
+            'interns' => $enrolments->count(),
+            'active' => $enrolments->where('status', 'active')->count(),
+            'pending_grades' => $pendingGradeCount,
+            'open_tasks' => $openTaskCount,
+        ];
+
+        return view('internship.supervisor.dashboard', compact(
+            'internRows', 'recentSubmissions', 'openTasks', 'stats'
+        ));
+    }
+
+    public function index()
+    {
+        $this->allow();
+        $submissions = $this->service->pendingGradeQuery(Auth::user())->paginate(40);
+        $pendingGrades = $submissions->total();
+
+        $sla = [];
+        foreach ($submissions as $submission) {
+            $sla[$submission->id] = $this->service->reviewSlaStatus($submission);
+        }
+        $slaDays = $this->service->reviewSlaWorkingDays();
+
+        return view('internship.supervisor.index', compact('submissions', 'sla', 'slaDays', 'pendingGrades'));
+    }
+
+    public function show($id)
+    {
+        $this->allow();
+        $submission = InternshipSubmission::with([
+            'student', 'files', 'grades.grader',
+            'assignment.task', 'assignment.enrolment.program', 'assignment.enrolment.supervisor',
+        ])->findOrFail($id);
+
+        $enrolment = $submission->assignment->enrolment;
+        $this->assertCanReview($enrolment);
+
+        $task = $submission->assignment->task;
+        $criteria = InternshipRubric::criteria($task);
+        $rubricTotal = InternshipRubric::totalPoints($criteria);
+        $sla = $this->service->reviewSlaStatus($submission);
+        $slaDays = $this->service->reviewSlaWorkingDays();
+
+        $history = InternshipSubmission::with(['grades.grader', 'files'])
+            ->where('assignment_id', $submission->assignment_id)
+            ->where('id', '!=', $submission->id)
+            ->orderByDesc('attempt_no')
+            ->get();
+
+        $hours = TimesheetEntry::where('assignment_id', $submission->assignment_id)
+            ->orderBy('entry_date')
+            ->get();
+
+        return view('internship.supervisor.show', compact(
+            'submission', 'task', 'criteria', 'rubricTotal', 'sla', 'slaDays', 'history', 'hours'
+        ));
+    }
+
+    public function grade(Request $request, $id)
+    {
+        $this->allow();
+        $submission = InternshipSubmission::with('assignment.enrolment', 'assignment.task')->findOrFail($id);
+        $this->assertCanReview($submission->assignment->enrolment, true);
+
+        $data = $request->validate([
+            'decision' => 'required|in:pass,revision_required',
+            'feedback' => 'nullable|string|max:5000',
+            'score' => 'nullable|integer|min:0|max:100',
+            'rubric_scores' => 'nullable|array',
+            'rubric_scores.*' => 'nullable|integer|min:0|max:100',
+            'accept_below_pass' => 'nullable|boolean',
+        ]);
+
+        try {
+            $this->service->gradeSubmission($submission, Auth::user(), $data);
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('not_permitted', $e->getMessage());
+        }
+
+        $enrolment = $submission->assignment->enrolment->fresh();
+        $accepted = $submission->assignment->fresh()->status === 'passed';
+        if ($accepted && $enrolment && $enrolment->status === 'completed') {
+            $message = 'Submission accepted. The internship is complete.';
+        } elseif ($accepted && $enrolment && $enrolment->currentOpenAssignment()) {
+            $next = $enrolment->currentOpenAssignment();
+            $message = 'Submission accepted. Task #'.$next->progression_day.' has been released to the student now.';
+        } elseif ($accepted) {
+            $message = 'Submission accepted. The next task will appear as soon as the student has a Working Week saved.';
+        } else {
+            $message = 'Revision requested. The student keeps this task and no new task is released.';
+        }
+
+        return redirect()->route('internship.supervisor.index')->with('message', $message);
+    }
+
+    /**
+     * Reviewing and grading follow the same rule as the queue listing: internship
+     * admins see everything, everyone else only the interns assigned to them.
+     */
+    protected function assertCanReview(InternshipEnrolment $enrolment, $forGrading = false)
+    {
+        $user = Auth::user();
+        if ((int) $user->role_id <= 2 || InternCompliance::isInternshipAdmin($user)) {
+            return;
+        }
+        if ($enrolment->isSupervisedBy($user->id)) {
+            return;
+        }
+
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            redirect(InternCompliance::homeUrl($user))->with('not_permitted', $forGrading
+                ? 'You can only grade submissions for interns assigned to you.'
+                : 'You can only open submissions for interns assigned to you.')
+        );
+    }
+
+    public function downloadFile($fileId)
+    {
+        $this->allow();
+        $file = \App\InternshipSubmissionFile::with('submission.assignment.enrolment')->findOrFail($fileId);
+        $this->assertCanReview($file->submission->assignment->enrolment);
+        $disk = Storage::disk($file->disk ?: 'local');
+        if (! $disk->exists($file->path)) {
+            abort(404);
+        }
+
+        $absolute = method_exists($disk, 'path')
+            ? $disk->path($file->path)
+            : storage_path('app/'.$file->path);
+
+        if ($file->isImage() && is_file($absolute)) {
+            return response()->file($absolute, [
+                'Content-Type' => $file->mime ?: 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="'.addslashes($file->original_name).'"',
+            ]);
+        }
+
+        return $disk->download($file->path, $file->original_name);
+    }
+
+    public function students()
+    {
+        $this->allow();
+        $q = InternshipEnrolment::with(['student', 'program'])
+            ->whereIn('status', ['pending', 'active', 'paused'])
+            ->orderByDesc('id');
+        $allowed = $this->service->supervisedEnrolmentIds(Auth::user());
+        if ($allowed !== null) {
+            $q->whereIn('id', $allowed->isEmpty() ? [0] : $allowed);
+        }
+        $enrolments = $q->paginate(40);
+
+        return view('internship.supervisor.students', compact('enrolments'));
+    }
+
+    public function placeEdit($id)
+    {
+        $this->allow();
+        $enrolment = InternshipEnrolment::with(['student', 'program', 'assignments'])->findOrFail($id);
+        $this->assertCanPlace($enrolment);
+        $hasAssignments = $enrolment->assignments->isNotEmpty();
+        $hasOpen = $enrolment->assignments->whereIn('status', ['available', 'in_progress', 'submitted', 'revision_required'])->isNotEmpty();
+
+        return view('internship.supervisor.place', compact('enrolment', 'hasAssignments', 'hasOpen'));
+    }
+
+    public function placeUpdate(Request $request, $id)
+    {
+        $this->allow();
+        $enrolment = InternshipEnrolment::findOrFail($id);
+        $this->assertCanPlace($enrolment);
+        $data = $request->validate([
+            'start_date' => 'nullable|date',
+            'start_curriculum_day' => 'nullable|integer|min:1|max:180',
+            'next_curriculum_day' => 'nullable|integer|min:1|max:180',
+            'planned_duration_days' => \App\Application::internshipDurationRule(false),
+            'notes' => 'nullable|string|max:2000',
+        ]);
+        try {
+            $this->service->updatePlacement($enrolment, $data);
+            if ($enrolment->fresh()->status === 'active') {
+                $this->service->reconcileReleases($enrolment->id);
+            }
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('not_permitted', $e->getMessage());
+        }
+
+        return redirect()->route('internship.supervisor.students')->with('message', 'Placement updated. Tasks will follow the new start day.');
+    }
+
+    public function showWorkingWeek($id)
+    {
+        $this->allow();
+        $enrolment = InternshipEnrolment::with(['student', 'program'])->findOrFail($id);
+        $this->assertCanReview($enrolment);
+        $student = $enrolment->student;
+        $inspect = InternCompliance::workingWeekInspect($student);
+        $backUrl = route('internship.supervisor.dashboard');
+        $personName = $student ? $student->name : 'Intern';
+        $application = null;
+
+        return view('internship.shared.working_week', compact(
+            'inspect', 'student', 'application', 'enrolment', 'backUrl', 'personName'
+        ));
+    }
+
+    public function destroyIntern($id)
+    {
+        $this->allow();
+        if (! InternCompliance::isInternshipAdmin(Auth::user())) {
+            abort(403, 'Only internship admins can delete an intern from the system.');
+        }
+        $enrolment = InternshipEnrolment::with('student')->findOrFail($id);
+        $label = optional($enrolment->student)->name ?: 'Intern';
+        try {
+            app(\App\Services\Internship\InternAccountPurge::class)->purgeEnrolment($enrolment, Auth::user());
+        } catch (\Throwable $e) {
+            return back()->with('not_permitted', $e->getMessage());
+        }
+
+        return redirect()->route('internship.supervisor.dashboard')
+            ->with('message', $label.' was deleted from the system.');
+    }
+
+    protected function assertCanPlace(InternshipEnrolment $enrolment)
+    {
+        if (Auth::user()->role_id <= 2
+            || in_array('internship.enrolments.update', $this->all_permission, true)
+            || in_array('internship.enrolments.create', $this->all_permission, true)) {
+            return;
+        }
+        if ($enrolment->isSupervisedBy(Auth::id())) {
+            return;
+        }
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            redirect(InternCompliance::homeUrl(Auth::user()))
+                ->with('not_permitted', 'You can only place students assigned to you.')
+        );
+    }
+}

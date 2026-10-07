@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Auto-increment the app version on every commit.
+# Source of truth: laravel-app/VERSION (semver x.y.z), read by App\Support\AppVersion.
+#
+# Scheme:
+#   patch 0–9, then roll to next minor (2.3.9 → 2.4.0)
+#   minor 0–9, then roll to next major (2.9.9 → 3.0.0)
+#
+# Skip once with:  SKIP_VERSION_BUMP=1 git commit ...
+set -euo pipefail
+
+[ "${SKIP_VERSION_BUMP:-0}" = "1" ] && exit 0
+
+ROOT="$(git rev-parse --show-toplevel)"
+FILE="$ROOT/laravel-app/VERSION"
+[ -f "$FILE" ] || exit 0
+
+current="$(tr -d '[:space:]' < "$FILE")"
+case "$current" in
+  [0-9]*.[0-9]*.[0-9]*) ;;
+  *) exit 0 ;;  # not a semver we understand — leave it alone
+esac
+
+major="${current%%.*}"
+rest="${current#*.}"
+minor="${rest%%.*}"
+patch="${rest#*.}"
+
+patch=$((patch + 1))
+if [ "$patch" -ge 10 ]; then
+  patch=0
+  minor=$((minor + 1))
+fi
+if [ "$minor" -ge 10 ]; then
+  minor=0
+  major=$((major + 1))
+fi
+
+next="${major}.${minor}.${patch}"
+
+printf '%s\n' "$next" > "$FILE"
+git add "$FILE"
+echo "[pre-commit] version bumped: $current -> $next"

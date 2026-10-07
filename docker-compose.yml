@@ -1,0 +1,19 @@
+# Skyline Hotel only. This database is not BeyondTechWorld and not AlphaBridge.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: skyline-hotel-mysql
+    restart: unless-stopped
+    ports:
+      - "3316:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: skyline_root_local
+      MYSQL_DATABASE: skyline_hotel
+      MYSQL_USER: skyline
+      MYSQL_PASSWORD: skyline_local
+    volumes:
+      - skyline_hotel_mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  skyline_hotel_mysql_data:

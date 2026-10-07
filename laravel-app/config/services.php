@@ -1,0 +1,217 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Third Party Services
+    |--------------------------------------------------------------------------
+    |
+    | This file is for storing the credentials for third party services such
+    | as Mailgun, Postmark, AWS and more. This file provides the de facto
+    | location for this type of information, allowing packages to have
+    | a conventional file to locate the various service credentials.
+    |
+    */
+
+    'mailgun' => [
+        'domain' => env('MAILGUN_DOMAIN'),
+        'secret' => env('MAILGUN_SECRET'),
+        'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
+    ],
+
+    'postmark' => [
+        'token' => env('POSTMARK_TOKEN'),
+    ],
+
+    'ses' => [
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    ],
+
+    'whatsapp' => [
+        // WASENDER = WhatsApp texts/OTP/announcements/documents via WasenderAPI.
+        // TWILIO = optional WhatsApp Content Templates; SMS still uses services.sms (Twilio).
+        'service' => env('WHATSAPP_SERVICE', 'WASENDER'),
+        'enabled' => env('MESSAGING_WHATSAPP_ENABLED', true),
+        'wasender_api_key' => env('WASENDER_API_KEY'),
+        'wasender_session_id' => env('WASENDER_SESSION_ID'),
+        'wasender_base_url' => env('WASENDER_BASE_URL', env('WASENDER_API_URL', 'https://wasenderapi.com/api')),
+        'min_send_interval_ms' => (int) env(
+            'WASENDER_MIN_SEND_INTERVAL_MS',
+            (int) env('WHATSAPP_SEND_INTERVAL', 5) * 1000
+        ),
+        'text_to_document_delay_ms' => (int) env('WASENDER_TEXT_TO_DOCUMENT_DELAY_MS', 6000),
+        'company_name' => env('COMPANY_NAME'),
+        'default_country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '237'),
+        'ultramsg_instance' => env('ULTRAMSG_INSTANCE'),
+        'ultramsg_token' => env('ULTRAMSG_TOKEN'),
+        'twilio_sid' => env('TWILIO_SID', env('ACCOUNT_SID')),
+        'twilio_token' => env('TWILIO_AUTH_TOKEN', env('AUTH_TOKEN')),
+        'twilio_whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),
+        // beyond_notice — 5 vars: headline, name, message, reference, extra
+        'content_sid_admission' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_ADMISSION',
+            'HX47150e179fdbab79738d060fb0ac6415'
+        ),
+        'content_sid_otp' => env('TWILIO_WHATSAPP_CONTENT_SID_OTP'),
+        'content_sid_status' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_STATUS',
+            'HX47150e179fdbab79738d060fb0ac6415'
+        ),
+        // Approved Content SIDs. Chat, groups, and documents stay on Wasender.
+        'content_sid_status_update' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_STATUS_UPDATE',
+            'HXe6dfa5ad7dc2ee87935caa74a927d970'
+        ),
+        'content_sid_service_update' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SERVICE_UPDATE',
+            'HXaee28bd46593790cd504232819ba127b'
+        ),
+        'content_sid_sale' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SALE',
+            'HXc875592ef3a86042206bedfc5ccfaaf3'
+        ),
+        'content_sid_sale_receipt' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SALE_RECEIPT',
+            'HX6a63485790163e2c74ed020b3289f90f'
+        ),
+        'content_sid_reminder' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_REMINDER',
+            'HXc3aaf3d3019bb03d917e4e1f49c7353e'
+        ),
+        'content_sid_announcement' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_ANNOUNCEMENT',
+            'HX350da7aa92bcb3d61102231c80b2e2c7'
+        ),
+        'content_sid_shared_notice' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_NOTICE',
+            'HXf57acecf17cbb538b7f46d192fc202cf'
+        ),
+        'content_sid_shared_status' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_STATUS',
+            'HXa6087b7c87588c6c9171d5d99d61b53d'
+        ),
+        'content_sid_shared_action' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_ACTION',
+            'HX97ab98f927ffd5d0e9ccc8c5edca9c61'
+        ),
+        'content_sid_shared_access' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_ACCESS',
+            'HX1f98bfca1625c102c7a544867d484bef'
+        ),
+        'content_sid_shared_otp' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_OTP',
+            'HX95054aa7ab0c98310c3dbcd399c52cc8'
+        ),
+        'content_sid_shared_confirmation' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_CONFIRMATION',
+            'HX59b3a3aea9341fa1baac5166e36f332f'
+        ),
+        'content_sid_shared_document' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_DOCUMENT',
+            'HXa985cc01cfc16741b20f9992b79e0afc'
+        ),
+        'content_sid_shared_image' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_IMAGE',
+            'HXfa458c10c5c5e687bdf04e8b7c900acc'
+        ),
+        'content_sid_shared_choice' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_SHARED_CHOICE',
+            'HX17d3a6994423698b0a957febff137a06'
+        ),
+        'media_base_url' => env('TWILIO_MEDIA_BASE_URL', 'https://skylinehotel.org'),
+        'content_sid_review_link' => env(
+            'TWILIO_WHATSAPP_CONTENT_SID_REVIEW_LINK',
+            'HXc0bd8939fe1e1739fd0d7b7d23c88dc8'
+        ),
+        'twilio_fallback_wasender' => env('WHATSAPP_TWILIO_FALLBACK_WASENDER', true),
+        'wasender_webhook_secret' => env('WASENDER_WEBHOOK_SECRET'),
+        'webhook_retention_days' => (int) env('WHATSAPP_WEBHOOK_RETENTION_DAYS', 30),
+        'internship_max_bytes' => (int) env('WHATSAPP_INTERNSHIP_MAX_BYTES', 20 * 1024 * 1024),
+        'attendance_location_max_age_minutes' => (int) env('WHATSAPP_ATTENDANCE_LOCATION_MAX_AGE_MINUTES', 15),
+        'attendance_location_retention_days' => (int) env('WHATSAPP_ATTENDANCE_LOCATION_RETENTION_DAYS', 90),
+        'attendance_geofence_radius_meters' => (int) env('WHATSAPP_ATTENDANCE_GEOFENCE_RADIUS_METERS', 150),
+        'attendance_field_location_required' => env('WHATSAPP_ATTENDANCE_FIELD_LOCATION_REQUIRED', true),
+        'attendance_office_location_required' => env('WHATSAPP_ATTENDANCE_OFFICE_LOCATION_REQUIRED', false),
+        'otp_ttl_minutes' => (int) env('WHATSAPP_OTP_TTL_MINUTES', 5),
+        'otp_max_attempts' => (int) env('WHATSAPP_OTP_MAX_ATTEMPTS', 5),
+        'otp_resend_cooldown_seconds' => (int) env('WHATSAPP_OTP_RESEND_COOLDOWN_SECONDS', 60),
+        'otp_hourly_limit' => (int) env('WHATSAPP_OTP_HOURLY_LIMIT', 5),
+        'otp_daily_limit' => (int) env('WHATSAPP_OTP_DAILY_LIMIT', 10),
+        'verification_session_minutes' => (int) env('WHATSAPP_VERIFICATION_SESSION_MINUTES', 20),
+        'document_hourly_limit' => (int) env('WHATSAPP_DOCUMENT_HOURLY_LIMIT', 8),
+        'document_use_fixtures' => env('WHATSAPP_DOCUMENT_USE_FIXTURES', false),
+        'document_fail_generation' => env('WHATSAPP_DOCUMENT_FAIL_GENERATION', false),
+        'default_conversation_mode' => strtoupper((string) env('WHATSAPP_DEFAULT_CONVERSATION_MODE', 'HUMAN')),
+        'session_status_cache_seconds' => (int) env('WHATSAPP_SESSION_STATUS_CACHE_SECONDS', 45),
+    ],
+
+        'sms' => [
+            'enabled' => env('MESSAGING_SMS_ENABLED', true),
+            'gateway' => env('SMS_GATEWAY', 'twilio'),
+            'account_sid' => env('ACCOUNT_SID', env('TWILIO_SID')),
+            'auth_token' => env('AUTH_TOKEN', env('TWILIO_AUTH_TOKEN')),
+            'twilio_number' => env('TWILIO_NUMBER', env('Twilio_Number')),
+            'clickatell_api_key' => env('CLICKATELL_API_KEY'),
+        ],
+
+        'funeral_pledge' => [
+            'enabled' => filter_var(env('FUNERAL_PLEDGE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+            'admin_phone' => env('FUNERAL_PLEDGE_ADMIN_PHONE', '237677318405'),
+            'cc_phones' => env('FUNERAL_PLEDGE_CC_PHONES', '237677124575'),
+            // Laid to rest ~6.5 hours before 26 Sep 2026 21:58 CEST (6h + 30m).
+            'buried_at' => env('FUNERAL_BURIED_AT', '2026-09-26T15:28:00+02:00'),
+        ],
+
+        'stripe' => [
+            'key' => env('STRIPE_KEY'),
+            'secret' => env('STRIPE_SECRET'),
+        ],
+
+        'campay' => [
+            'token' => env('CAMPAY_TOKEN', env('MOMO_TOKEN')),
+            'username' => env('CAMPAY_USERNAME'),
+            'password' => env('CAMPAY_PASSWORD'),
+            'app_id' => env('CAMPAY_APP_ID'),
+            'webhook_secret' => env('CAMPAY_WEBHOOK_SECRET'),
+            'base_url' => env('CAMPAY_BASE_URL', 'https://www.campay.net/api'),
+        ],
+
+        'pawapay' => [
+            'api_token' => env('PAWAPAY_API_TOKEN', env('PAWAPAY_TOKEN')),
+            'username' => env('PAWAPAY_USERNAME'),
+            'password' => env('PAWAPAY_PASSWORD'),
+            'webhook_secret' => env('PAWAPAY_WEBHOOK_SECRET'),
+            'environment' => env('PAWAPAY_ENVIRONMENT', 'production'),
+            'live_base_url' => env('PAWAPAY_LIVE_BASE_URL', 'https://api.pawapay.io'),
+            'callbacks' => [
+                'checkout' => env('PAWAPAY_CHECKOUT_CALLBACK_URL'),
+                'deposit' => env('PAWAPAY_DEPOSIT_CALLBACK_URL'),
+                'payout' => env('PAWAPAY_PAYOUT_CALLBACK_URL'),
+                'refund' => env('PAWAPAY_REFUND_CALLBACK_URL'),
+            ],
+        ],
+
+        'calendar' => [
+            'client_id' => env('GOOGLE_CALENDAR_CLIENT_ID', ''),
+            'client_secret' => env('GOOGLE_CALENDAR_CLIENT_SECRET', ''),
+            'refresh_token' => env('GOOGLE_CALENDAR_REFRESH_TOKEN', ''),
+            'calendar_id' => env('GOOGLE_CALENDAR_ID', ''),
+            'channel_token' => env('GOOGLE_CALENDAR_CHANNEL_TOKEN', ''),
+            'reminders_enabled' => env('APPOINTMENT_REMINDERS', false),
+        ],
+
+        'property' => [
+            'reminders_enabled' => env('PROPERTY_RENT_REMINDERS', false),
+            'reminder_days_before' => (int) env('PROPERTY_REMINDER_DAYS_BEFORE', 3),
+            'emergency_contact' => env('PROPERTY_EMERGENCY_CONTACT', ''),
+            'emergency_instruction' => env('PROPERTY_EMERGENCY_INSTRUCTION', ''),
+            'service_fee' => (float) env('PROPERTY_BILL_SERVICE_FEE', 0),
+            'currency' => env('PROPERTY_BILL_CURRENCY', 'XAF'),
+            'bill_webhook_secret' => env('PROPERTY_BILL_WEBHOOK_SECRET', ''),
+            'bill_types' => ['electricity', 'water', 'tv', 'internet', 'other'],
+        ],
+
+];

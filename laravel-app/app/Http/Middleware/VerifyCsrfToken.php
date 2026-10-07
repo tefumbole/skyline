@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as Middleware;
+
+class VerifyCsrfToken extends Middleware
+{
+    /**
+     * Indicates whether the XSRF-TOKEN cookie should be set on the response.
+     *
+     * @var bool
+     */
+    protected $addHttpCookie = true;
+
+    /**
+     * The URIs that should be excluded from CSRF verification.
+     *
+     * @var array
+     */
+    protected $except = [
+        'logout',
+        'portal/logout',
+        // Public memorial form: WhatsApp / Facebook in-app browsers often drop
+        // the session cookie, so CSRF would block family members from submitting.
+        'pangwayu/eulogy',
+        'mambole/submit',
+        'yong/submit',
+        'yong/reviews',
+        'yong/gallery',
+        'yong/ticket/*',
+        'yong/meals/thanks',
+        // Website chat widget POSTs from the public site; CSRF cookies are
+        // unreliable across cache/CDN and caused silent "Network error" sends.
+        'api/website-chat/*',
+        'cloud/billing/webhook/*',
+    ];
+}

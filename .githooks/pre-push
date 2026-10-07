@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Auto-bump ERP patch version before push (unless this push already updates appVersion.js).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if [[ "${SKIP_VERSION_BUMP:-}" == "1" ]]; then
+  exit 0
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
+
+  if [[ "$local_sha" == "0000000000000000000000000000000000000000" ]]; then
+    continue
+  fi
+
+  range="${remote_sha}..${local_sha}"
+  if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+    changed_files="$(git log --format= --name-only "$local_sha" 2>/dev/null || true)"
+  else
+    changed_files="$(git diff --name-only $range 2>/dev/null || true)"
+  fi
+
+  if echo "$changed_files" | grep -q 'appVersion.js'; then
+    continue
+  fi
+
+  NEXT="$(node tools/bump-version.js | awk '{print $3}')"
+  git add src/constants/appVersion.js apps/api/src/constants/appVersion.js
+  git commit -m "chore: bump version to ${NEXT}" --no-verify
+done
+
+exit 0

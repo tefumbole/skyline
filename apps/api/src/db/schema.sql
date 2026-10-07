@@ -1,0 +1,347 @@
+-- AlphaBridge MySQL schema (migrated from Supabase PostgreSQL)
+-- Run: cd apps/api && npm run db:migrate
+
+CREATE TABLE IF NOT EXISTS users (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(255) DEFAULT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'user',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  phone VARCHAR(50) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_users_role (role),
+  INDEX idx_users_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS profiles (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  email VARCHAR(255) DEFAULT NULL,
+  full_name VARCHAR(255) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  role VARCHAR(50) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'active',
+  avatar_url TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_profiles_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  user_id CHAR(36) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'admin',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_admin_users_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS otp_sessions (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  phone VARCHAR(50) NOT NULL,
+  otp VARCHAR(10) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  resend_count INT NOT NULL DEFAULT 0,
+  verified_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_otp_phone (phone),
+  INDEX idx_otp_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS shareholders (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  full_name VARCHAR(255) DEFAULT NULL,
+  name VARCHAR(255) DEFAULT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  phone_number VARCHAR(50) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  country_code VARCHAR(10) DEFAULT NULL,
+  full_phone_number VARCHAR(50) DEFAULT NULL,
+  company_name VARCHAR(255) DEFAULT NULL,
+  address TEXT DEFAULT NULL,
+  nationality VARCHAR(100) DEFAULT NULL,
+  shares_assigned INT NOT NULL DEFAULT 0,
+  investment_amount DECIMAL(14,2) DEFAULT NULL,
+  signature LONGTEXT DEFAULT NULL,
+  signature_image_url TEXT DEFAULT NULL,
+  agreement_signed_at DATETIME DEFAULT NULL,
+  payment_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  reference_number VARCHAR(100) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'pending_approval',
+  is_guest TINYINT(1) DEFAULT 1,
+  user_id CHAR(36) DEFAULT NULL,
+  submitted_at DATETIME DEFAULT NULL,
+  approved_at DATETIME DEFAULT NULL,
+  approved_by CHAR(36) DEFAULT NULL,
+  rejection_reason TEXT DEFAULT NULL,
+  admin_notes TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_shareholders_email (email),
+  INDEX idx_shareholders_ref (reference_number),
+  INDEX idx_shareholders_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS members (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  photo_url TEXT DEFAULT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS students (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS courses (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  price DECIMAL(12,2) DEFAULT 0,
+  duration VARCHAR(100) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'active',
+  sort_order INT NOT NULL DEFAULT 0,
+  category VARCHAR(100) DEFAULT NULL,
+  curriculum_json JSON DEFAULT NULL,
+  delivery_mode VARCHAR(255) DEFAULT NULL,
+  icon VARCHAR(50) DEFAULT NULL,
+  color VARCHAR(20) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS roles (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  is_default TINYINT(1) DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_roles_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  role VARCHAR(255) NOT NULL,
+  permission VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_role_permission (role, permission),
+  INDEX idx_role_permissions_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_roles (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  user_id CHAR(36) NOT NULL,
+  role VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_user_roles_user (user_id),
+  INDEX idx_user_roles_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS registrations (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  course_id CHAR(36) DEFAULT NULL,
+  client_name VARCHAR(255) NOT NULL,
+  client_email VARCHAR(255) DEFAULT NULL,
+  client_phone VARCHAR(50) DEFAULT NULL,
+  payment_status VARCHAR(50) DEFAULT 'pending',
+  reference_number VARCHAR(100) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_registrations_course (course_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  requirements TEXT DEFAULT NULL,
+  location VARCHAR(255) DEFAULT NULL,
+  type VARCHAR(100) DEFAULT NULL,
+  salary VARCHAR(100) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'active',
+  current_applicants INT DEFAULT 0,
+  posted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS applications (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  job_id CHAR(36) DEFAULT NULL,
+  user_id CHAR(36) DEFAULT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  cv_url TEXT DEFAULT NULL,
+  cover_letter TEXT DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'pending',
+  reference_number VARCHAR(100) DEFAULT NULL,
+  rejection_reason TEXT DEFAULT NULL,
+  interview_date DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_applications_job (job_id),
+  INDEX idx_applications_ref (reference_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS events (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  event_date DATETIME DEFAULT NULL,
+  location VARCHAR(255) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'draft',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS invitations (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  event_id CHAR(36) DEFAULT NULL,
+  guest_name VARCHAR(255) DEFAULT NULL,
+  guest_phone VARCHAR(50) DEFAULT NULL,
+  guest_email VARCHAR(255) DEFAULT NULL,
+  qr_code TEXT DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'pending',
+  checked_in TINYINT(1) DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_invitations_event (event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS announcement_settings (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  company_name VARCHAR(255) DEFAULT 'Alpha Bridge Technologies Ltd',
+  default_header VARCHAR(255) DEFAULT 'Alpha Bridge Technologies Ltd',
+  serial_prefix VARCHAR(50) DEFAULT 'ABT/ANN',
+  next_serial INT DEFAULT 1,
+  serial_padding INT DEFAULT 6,
+  timezone VARCHAR(64) DEFAULT 'Africa/Kigali',
+  timezone_offset VARCHAR(10) DEFAULT '+02:00',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) DEFAULT NULL,
+  subject VARCHAR(255) DEFAULT NULL,
+  header TEXT DEFAULT NULL,
+  body TEXT DEFAULT NULL,
+  footer TEXT DEFAULT NULL,
+  category VARCHAR(50) DEFAULT 'general',
+  people_type VARCHAR(50) DEFAULT 'customers',
+  recipient_ids TEXT DEFAULT NULL,
+  recipients_json JSON DEFAULT NULL,
+  reference VARCHAR(100) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'draft',
+  whatsapp_status VARCHAR(50) DEFAULT 'draft',
+  schedules_json JSON DEFAULT NULL,
+  scheduled_at DATETIME DEFAULT NULL,
+  attachments_json JSON DEFAULT NULL,
+  attachment VARCHAR(255) DEFAULT NULL,
+  is_sent TINYINT(1) DEFAULT 0,
+  is_active TINYINT(1) DEFAULT 1,
+  sent_count INT DEFAULT 0,
+  send_results_json JSON DEFAULT NULL,
+  created_by CHAR(36) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_announcements_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS announcement_templates (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(50) DEFAULT 'general',
+  subject VARCHAR(255) DEFAULT NULL,
+  header_html TEXT DEFAULT NULL,
+  body_html TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  developed_by TEXT DEFAULT NULL,
+  copyright_text TEXT DEFAULT NULL,
+  logo_url TEXT DEFAULT NULL,
+  logo_file_path VARCHAR(255) DEFAULT NULL,
+  pdf_header_text TEXT DEFAULT NULL,
+  pdf_footer_text TEXT DEFAULT NULL,
+  pdf_header_url TEXT DEFAULT NULL,
+  pdf_header_file_path VARCHAR(255) DEFAULT NULL,
+  pdf_footer_url TEXT DEFAULT NULL,
+  pdf_footer_file_path VARCHAR(255) DEFAULT NULL,
+  license_agreement_json JSON DEFAULT NULL,
+  price_per_share DECIMAL(12,2) DEFAULT NULL,
+  total_shares_available INT DEFAULT NULL,
+  total_sold_admin_override INT DEFAULT 0,
+  currency VARCHAR(10) DEFAULT 'USD',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  subject VARCHAR(255) DEFAULT NULL,
+  message TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS whatsapp_message_logs (
+  id CHAR(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  phone_number VARCHAR(50) DEFAULT NULL,
+  recipient_phone VARCHAR(50) DEFAULT NULL,
+  message_type VARCHAR(100) DEFAULT NULL,
+  message_content TEXT DEFAULT NULL,
+  recipient_name VARCHAR(255) DEFAULT NULL,
+  status VARCHAR(50) DEFAULT 'pending',
+  error_message TEXT DEFAULT NULL,
+  related_registration_id CHAR(36) DEFAULT NULL,
+  retry_count INT DEFAULT 0,
+  sent_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_whatsapp_logs_phone (recipient_phone),
+  INDEX idx_whatsapp_logs_sent (sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_test_sessions (
+  token CHAR(64) NOT NULL PRIMARY KEY,
+  phone VARCHAR(30) DEFAULT NULL,
+  verified TINYINT(1) NOT NULL DEFAULT 0,
+  form_token CHAR(64) NOT NULL,
+  form_expires DATETIME NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_system_test_sessions_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_test_drafts (
+  phone VARCHAR(30) NOT NULL PRIMARY KEY,
+  payload JSON NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS system_test_reports (
+  id VARCHAR(40) NOT NULL PRIMARY KEY,
+  tester_name VARCHAR(120) NOT NULL,
+  tester_phone VARCHAR(30) NOT NULL,
+  payload JSON NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_system_test_reports_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

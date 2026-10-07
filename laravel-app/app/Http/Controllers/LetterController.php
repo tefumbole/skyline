@@ -1,0 +1,2096 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Customer;
+use App\CustomerGroup;
+use App\Department;
+use App\Employee;
+use App\GeneralSetting;
+use App\Jobs\ProcessQueue;
+use App\LetterAttachment;
+use App\Mail\UserNotification;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use App\Letter;
+use App\LetterCategory;
+use App\LetterTemplate;
+use App\Services\MessageDeliveryTracker;
+use App\Services\PeopleDirectoryService;
+use App\Support\LetterRecipients;
+use App\Support\LetterSignature;
+use App\User;
+use PDF;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\View;
+use Spatie\Permission\Models\Role;
+use Twilio\Rest\Client;
+
+class LetterController extends Controller
+{
+    private $user;
+
+    public function __construct() {
+
+
+        $this->middleware(function ($request, $next) {
+            $this->user = Auth::user();
+            $role = Role::find($this->user->role_id);
+            $permissions = Role::findByName($role->name)->permissions;
+
+            foreach ($permissions as $permission) {
+                $all_permission[] = $permission->name;
+            }
+            View::share ( 'all_permission', $all_permission);
+
+            return $next($request);
+        });
+    }
+
+    public function checkOtp($request, $letter) {
+        if ($this->user->otp_verify == 1) {
+            return true;
+        }
+        if($request->otp == $letter->otp && $letter->otp_time > date('Y-m-d H:i:s', strtotime('-3 minutes'))) {
+            return true;
+        }
+        return false;
+    }
+
+    public function next($id) {
+        $letter = Letter::find($id);
+        $data = Letter::where('is_edit',  $letter->is_edit)
+            ->where('is_approve',  $letter->is_approve)
+            ->where('is_sign',  $letter->is_sign)
+            ->where('is_sent',  $letter->is_sent)
+            ->where('is_rejected', $letter->is_rejected)
+            ->where('is_active', true)
+            ->where('id', '<', $id)
+            ->orderBy('id', 'desc')
+            ->first();
+        if ($data == null) {
+            return back()->with('not_permitted', 'No more letter found');
+        }
+
+        return view('letter.show', compact('data'));
+
+    }
+
+    public function prev($id) {
+        $letter = Letter::find($id);
+        $data = Letter::where('is_edit',  $letter->is_edit)
+            ->where('is_approve',  $letter->is_approve)
+            ->where('is_sign',  $letter->is_sign)
+            ->where('is_sent',  $letter->is_sent)
+            ->where('is_rejected', $letter->is_rejected)
+            ->where('is_active', true)
+            ->where('id', '>', $id)
+            ->first();
+        if ($data == null) {
+            return back()->with('not_permitted', 'No more letter found');
+        }
+
+        return view('letter.show', compact('data'));
+
+    }
+    public function index()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_edit', 0)
+            ->where('is_approve', 0)
+            ->where('is_sign', 0)
+            ->where('is_sent', 0)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.index', compact('data'));
+    }
+
+    public function all()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.all', compact('data'));
+    }
+
+    public function rejected()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_rejected', 1)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.rejected', compact('data'));
+    }
+
+    public function approved()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_approve', 1)
+            ->where('is_sign', 0)
+            ->where('is_sent', 0)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.approved', compact('data'));
+    }
+
+    public function edited()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_edit', 1)
+            ->where('is_approve', 0)
+            ->where('is_sign', 0)
+            ->where('is_sent', 0)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.edited', compact('data'));
+    }
+
+    public function signed()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_approve', 1)
+            ->where('is_sign', 1)
+            ->where('is_sent', 0)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.signed', compact('data'));
+    }
+
+    public function sent()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_approve', 1)
+            ->where('is_sign', 1)
+            ->where('is_sent', 1)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.sent', compact('data'));
+    }
+
+    public function sentPrint()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_approve', 1)
+            ->where('is_sign', 1)
+            ->where('is_sent', 1)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.sent_print', compact('data'));
+    }
+
+    public function sentDownload()
+    {
+        $data = Letter::with('category')
+            ->where('is_active', true)
+            ->where('is_approve', 1)
+            ->where('is_sign', 1)
+            ->where('is_sent', 1)
+            ->where('is_rejected', 0)
+            ->orderBy('id', 'desc')
+            ->get();
+        return view('letter.sent_download', compact('data'));
+    }
+
+
+    public function create()
+    {
+        $category = LetterCategory::where('is_active', true)->get();
+        $template = LetterTemplate::where('is_active', true)->get();
+        $user = LetterRecipients::employees();
+        $customer = LetterRecipients::customers();
+        $departments = Department::where('is_active', true)->get();
+        $customerGroups = CustomerGroup::where('is_active', true)->get();
+        $clone = null;
+        $cloneToIds = [];
+        $cloneCcIds = [];
+        $clonePeopleType = 'directory';
+        $cloneDirectoryToIds = [];
+        $cloneDirectoryCcIds = [];
+        $directoryPeople = app(PeopleDirectoryService::class)->eligibleForTasks('all', '');
+        $directorySearchUrl = route('letter.people.search');
+
+        return view('letter.create', compact(
+            'category', 'template', 'user', 'customer', 'customerGroups', 'departments',
+            'clone', 'cloneToIds', 'cloneCcIds', 'clonePeopleType',
+            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl'
+        ));
+    }
+
+    public function cloneLetter($id)
+    {
+        $category = LetterCategory::where('is_active', true)->get();
+        $template = LetterTemplate::where('is_active', true)->get();
+        $user = LetterRecipients::employees();
+        $customer = LetterRecipients::customers();
+        $departments = Department::where('is_active', true)->get();
+        $customerGroups = CustomerGroup::where('is_active', true)->get();
+        $clone = Letter::findOrFail($id);
+        $resolved = $this->resolveCloneRecipients($clone);
+        $clonePeopleType = $resolved['peopleType'];
+        $cloneToIds = $resolved['toIds'];
+        $cloneCcIds = $resolved['ccIds'];
+        $cloneDirectoryToIds = $resolved['directoryToIds'] ?? [];
+        $cloneDirectoryCcIds = $resolved['directoryCcIds'] ?? [];
+        $directoryPeople = app(PeopleDirectoryService::class)->eligibleForTasks('all', '');
+        $directorySearchUrl = route('letter.people.search');
+
+        return view('letter.create', compact(
+            'category', 'template', 'user', 'customer', 'customerGroups', 'departments',
+            'clone', 'cloneToIds', 'cloneCcIds', 'clonePeopleType',
+            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl'
+        ));
+    }
+
+    public function searchPeople(Request $request)
+    {
+        $filter = $request->get('filter', 'all');
+        $q = $request->get('q', '');
+
+        return response()->json(
+            app(PeopleDirectoryService::class)->eligibleForTasks($filter, $q)
+        );
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        try {
+            $data = $request->all();
+
+            if (empty($data['people_type'])) {
+                $data['people_type'] = 'directory';
+            }
+
+            if ($data['people_type'] === 'directory') {
+                $recipientIds = array_values(array_unique(array_filter((array) ($data['recipient_ids'] ?? []))));
+                $ccIds = array_values(array_unique(array_filter((array) ($data['cc_ids'] ?? []))));
+                if (empty($recipientIds)) {
+                    return $this->letterStoreResponse($request, false, 'Please select at least one recipient.', 422);
+                }
+                $recipients = LetterRecipients::resolveDirectoryIds($recipientIds);
+                $ccs = LetterRecipients::resolveDirectoryIds($ccIds);
+                $data['recipients_json'] = json_encode($recipients);
+                $data['cc_json'] = json_encode($ccs);
+                $data['to'] = implode(',', $recipientIds);
+                $data['cc'] = ! empty($ccIds) ? implode(',', $ccIds) : null;
+            } elseif ($data['people_type'] == "customer") {
+                if (($data['customer_type'] ?? '') == "customer_group") {
+                    $customer_group = Customer::whereIn('customer_group_id', $data['to_customer_group'] ?? [])->where('is_active', 1)->pluck('id')->toArray();
+                    $data['to'] = implode(",", $customer_group);
+                } elseif (!empty($data['people_type_mode']) && $data['people_type_mode'] === 'all_customers') {
+                    $data['to'] = implode(",", LetterRecipients::allCustomerIds());
+                } else {
+                    $toCustomer = $data['to_customer'] ?? [];
+                    if (!is_array($toCustomer)) {
+                        $toCustomer = [$toCustomer];
+                    }
+                    $toCustomer = array_values(array_filter($toCustomer));
+                    if (empty($toCustomer)) {
+                        return $this->letterStoreResponse($request, false, 'Please select at least one customer recipient.', 422);
+                    }
+                    $data['to'] = implode(",", $toCustomer);
+                }
+                $ccCustomer = $data['cc_customer'] ?? [];
+                $data['cc'] = !empty($ccCustomer) ? implode(",", (array) $ccCustomer) : null;
+            } else if($data['people_type'] == "user") {
+                if (!empty($data['people_type_mode']) && $data['people_type_mode'] === 'all_employees') {
+                    $data['to'] = implode(",", LetterRecipients::allEmployeeIds());
+                } else {
+                    $toUsers = $data['to'] ?? [];
+                    if (!is_array($toUsers)) {
+                        $toUsers = [$toUsers];
+                    }
+                    $toUsers = array_values(array_filter($toUsers));
+                    if (empty($toUsers)) {
+                        return $this->letterStoreResponse($request, false, 'Please select at least one employee recipient.', 422);
+                    }
+                    $data['to'] = implode(",", $toUsers);
+                }
+                $ccUsers = $data['cc'] ?? [];
+                $data['cc'] = !empty($ccUsers) ? implode(",", (array) $ccUsers) : null;
+            } else if($data['people_type'] == "all") {
+                $data['to'] = LetterRecipients::encodeAllRecipients();
+                $data['cc'] = null;
+            } else if($data['people_type'] == "csv") {
+                $to_csv = $request->to_csv;
+                if (isset($to_csv)) {
+                    $imageName = date("Ymdhis").$to_csv->getClientOriginalName();
+                    $to_csv->move('public/letter/csv', $imageName);
+                    $data['to'] = $imageName;
+                } else {
+                    return $this->letterStoreResponse($request, false, 'Please upload a CSV file for recipients.', 422);
+                }
+            }
+
+            if (empty($data['to']) && empty($data['recipients_json'])) {
+                return $this->letterStoreResponse($request, false, 'Please choose who should receive this letter.', 422);
+            }
+
+            $image = $request->attachments;
+            if (isset($image[0])) {
+                $imageName = date("Ymdhis").$image[0]->getClientOriginalName();
+                $image[0]->move('public/letter/attachment', $imageName);
+                $data['attachment'] = $imageName;
+            }
+
+            $is_template = false;
+            $data['created_by'] = Auth::user()->id;
+            $data['is_edit'] = 0;
+            $data['is_approve'] = 0;
+            $data['is_sign'] = 0;
+            $data['is_sent'] = 0;
+            $data['is_rejected'] = 0;
+            $data['edit_by'] = null;
+            $data['approved_by'] = null;
+            $data['signed_by'] = null;
+            $data['reject_by'] = null;
+            $data['sent_by'] = null;
+
+            $data['reference'] = \App\Support\LetterReference::next();
+
+            if(isset($data['is_template'])) {
+                $is_template = true;
+            }
+
+            $forwardTo = isset($data['forward_letter']) ? (string) $data['forward_letter'] : 'editor';
+            $creator = Auth::user();
+            $this->applyLetterForwardSkip($data, $forwardTo, $creator);
+
+            unset($data['customer_type']);
+            unset($data['people_type_mode']);
+            unset($data['to_customer_group']);
+            unset($data['is_template']);
+            unset($data['to_customer']);
+            unset($data['cc_customer']);
+            unset($data['to_csv']);
+            unset($data['recipient_ids']);
+            unset($data['cc_ids']);
+            if(isset($data['attachments'])) {
+                $data_multiple['attachments'] = $data['attachments'];
+            }
+            unset($data['attachments']);
+
+            if(isset($data['forward_letter'])) {
+                unset($data['forward_letter']);
+            }
+            $letter = Letter::create($data);
+            $letterId = $letter->id;
+            $controller = $this;
+            register_shutdown_function(function () use ($controller, $letterId) {
+                try {
+                    $savedLetter = Letter::find($letterId);
+                    if ($savedLetter) {
+                        $controller->sendMsgToConcernPerson($savedLetter);
+                    }
+                } catch (\Throwable $e) {
+                    \Log::warning('Letter notification failed: ' . $e->getMessage());
+                }
+            });
+
+            if ($is_template == true) {
+                // letter_templates only has a small column set — do not pass letter workflow fields.
+                try {
+                    LetterTemplate::create([
+                        'category_id' => $data['category_id'] ?? null,
+                        'name' => $data['name'],
+                        'header' => $data['header'] ?? null,
+                        'subject' => $data['subject'],
+                        'body' => $data['body'] ?? null,
+                        'footer' => $data['footer'] ?? ($data['name'] ?? null),
+                        'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
+                        'created_by' => $data['created_by'],
+                    ]);
+                } catch (\Throwable $templateError) {
+                    \Log::warning('Letter saved but template copy failed: '.$templateError->getMessage());
+                }
+            }
+
+            $attachments = isset($data_multiple['attachments']) ? $data_multiple['attachments'] : [];
+            if ($attachments) {
+                foreach ($attachments as $key => $attachment) {
+                    if($key == 0) {
+                        LetterAttachment::create(['letter_id' => $letter->id, 'attachment' => $imageName]);
+                    } else {
+                        $attachmentName = date("Ymdhis").$attachments[$key]->getClientOriginalName();
+                        $attachments[$key]->move('public/letter/attachment', $attachmentName);
+                        LetterAttachment::create(['letter_id' => $letter->id, 'attachment' => $attachmentName]);
+                    }
+                }
+            }
+
+            $msg = 'Letter created successfully';
+            if ($forwardTo === 'approver') {
+                $msg = 'Letter created and sent to Approver (Awaiting Approval).';
+            } elseif ($forwardTo === 'signer') {
+                $msg = 'Letter created and sent to Signer (Awaiting Signature).';
+            } elseif ($forwardTo === 'sender') {
+                $msg = 'Letter created and is Ready To Send.';
+            }
+
+            return $this->letterStoreResponse($request, true, $msg, 200, $letter->id, $forwardTo);
+        } catch (\Throwable $e) {
+            \Log::error('Letter store failed: ' . $e->getMessage());
+
+            $hint = 'Failed to save letter. Please check all fields and try again.';
+            $err = $e->getMessage();
+            if (strpos($err, 'Unknown column') !== false) {
+                $hint = 'Failed to save letter due to a database schema mismatch. Please contact support.';
+            } elseif (strpos($err, 'SQLSTATE') !== false) {
+                $hint = 'Failed to save letter (database error). Please try again or contact support.';
+            }
+
+            return $this->letterStoreResponse($request, false, $hint, 500);
+        }
+    }
+
+    /**
+     * Skip workflow stages when "Forward Letter To" is Approver / Signer / Sender.
+     *
+     * @param  array  $data
+     * @param  string  $forwardTo  editor|approver|signer|sender
+     * @param  \App\User|null  $actor
+     */
+    protected function applyLetterForwardSkip(array &$data, $forwardTo, $actor = null): void
+    {
+        $actorId = $actor ? $actor->id : ($data['created_by'] ?? Auth::id());
+        $forwardTo = in_array($forwardTo, ['editor', 'approver', 'signer', 'sender'], true)
+            ? $forwardTo
+            : 'editor';
+
+        $data['is_rejected'] = 0;
+        $data['reject_by'] = null;
+        $data['is_edit'] = 0;
+        $data['edit_by'] = null;
+        $data['is_approve'] = 0;
+        $data['approved_by'] = null;
+        $data['is_sign'] = 0;
+        $data['signed_by'] = null;
+        $data['edit_signature'] = null;
+        $data['edit_signed_at'] = null;
+        $data['approve_signature'] = null;
+        $data['approve_signed_at'] = null;
+        $data['sign_signature'] = null;
+        $data['sign_signed_at'] = null;
+
+        if ($forwardTo === 'editor') {
+            return;
+        }
+
+        // Skip editing → land in Awaiting Approval (and beyond).
+        $data['is_edit'] = 1;
+        $data['edit_by'] = $actorId;
+        $data['edit_signed_at'] = now();
+        if ($actor && ! empty($actor->stemp)) {
+            $data['edit_signature'] = LetterSignature::storeFromAccountFile($actor->stemp, 'edit');
+        }
+
+        if ($forwardTo === 'approver') {
+            return;
+        }
+
+        // Skip approval → land in Awaiting Signature (and beyond).
+        $data['is_approve'] = 1;
+        $data['approved_by'] = $actorId;
+        $data['approve_signed_at'] = now();
+        if ($actor && ! empty($actor->approve)) {
+            $data['approve_signature'] = LetterSignature::storeFromAccountFile($actor->approve, 'approve');
+        }
+
+        if ($forwardTo === 'signer') {
+            return;
+        }
+
+        // Skip signing → land in Ready To Send.
+        $data['is_sign'] = 1;
+        $data['signed_by'] = $actorId;
+        $data['sign_signed_at'] = now();
+        if ($actor && ! empty($actor->sign)) {
+            $data['sign_signature'] = LetterSignature::storeFromAccountFile($actor->sign, 'sign');
+        }
+    }
+
+    protected function letterForwardRedirectRoute($forwardTo = 'editor'): string
+    {
+        if ($forwardTo === 'approver') {
+            return route('letter.index.edited'); // Awaiting Approval
+        }
+        if ($forwardTo === 'signer') {
+            return route('letter.index.approved'); // Awaiting Signature
+        }
+        if ($forwardTo === 'sender') {
+            return route('letter.index.signed'); // Ready To Send
+        }
+
+        return route('letter.index'); // Awaiting Editing
+    }
+
+    protected function letterStoreResponse(Request $request, bool $success, string $message, int $status = 200, $letterId = null, $forwardTo = 'editor')
+    {
+        $redirect = $success ? $this->letterForwardRedirectRoute($forwardTo) : null;
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => $success,
+                'message' => $message,
+                'redirect' => $redirect ?: route('letter.index'),
+                'letter_id' => $letterId,
+            ], $status);
+        }
+
+        if ($success) {
+            return redirect()->to($redirect)->with('message', $message);
+        }
+
+        return redirect()->back()->withInput()->with('not_permitted', $message);
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Letter  $letter
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Letter $letter, $id)
+    {
+        $data = Letter::with('category', 'createdBy', 'approvedBy', 'attachmentLib')->where('id', $id)->first();
+        return view('letter.show', compact('data'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Letter  $letter
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Letter $letter, $id)
+    {
+        $category = LetterCategory::where('is_active', true)->get();
+        $template = LetterTemplate::where('is_active', true)->get();
+        $data = $letter->findorfail($id);
+        if ($data->people_type == 'user') {
+            $user = Employee::where('is_active', true)->get();
+        } else if ($data->people_type == 'customer') {
+            $user = Customer::where('is_active', true)->get();
+        } else {
+            $user = null;
+        }
+
+        return view('letter.edit', compact('category', 'template', 'user', 'data'));
+    }
+
+    public function letterAttachmentDelete($id)
+    {
+        $attachment = LetterAttachment::where('id', $id)->first();
+        @unlink('public/letter/attachment/'.$attachment->attachment);
+        $attachment->delete();
+        return back();
+    }
+
+    public function letterAttachmentDeleteFirst($id)
+    {
+        $letter = Letter::where('id', $id)->first();
+        @unlink('public/letter/attachment/'.$letter->attachment);
+        $letter->update(['attachment' => null]);
+        return back()->with('not_permitted', 'Letter attachment deleted successfully');
+    }
+
+    public function editLast(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        if ($data->people_type == 'user') {
+            $user = Employee::where('is_active', true)->get();
+        } else if ($data->people_type == 'customer') {
+            $user = Customer::where('is_active', true)->get();
+        } else {
+            $user = null;
+        }
+        return view('letter.edit_last', compact( 'user', 'data'));
+    }
+
+    public function updateLast(Request $request, Letter $letter, $id)
+    {
+        $data = $request->all();
+        $letter = $letter->find($id);
+
+        $attachments = $request->attachments;
+        if ($attachments) {
+            foreach ($attachments as $key => $attachment) {
+                $attachmentName = date("Ymdhis").$attachments[$key]->getClientOriginalName();
+                $attachments[$key]->move('public/letter/attachment', $attachmentName);
+                LetterAttachment::create(['letter_id' => $id, 'attachment' => $attachmentName]);
+            }
+        }
+        if($letter->people_type == "csv") {
+            $to_csv = $request->to_csv;
+            if (isset($to_csv)) {
+                $imageName = date("Ymdhis").$to_csv->getClientOriginalName();
+                $to_csv->move('public/letter/csv', $imageName);
+                $data['to'] = $imageName;
+            }
+        } else {
+            $data['to'] = implode(",", $data['to']);
+            $data['cc'] = isset($data['cc']) ? implode(",", $data['cc']) : null;
+        }
+        unset($data['attachments']);
+        unset($data['to_csv']);
+        $data['edit_by'] = Auth::user()->id;
+        $letter->update($data);
+
+        return redirect()->route('letter.index.signed')->with('message', 'Letter updated successfully');
+    }
+    public function update(Request $request, Letter $letter, $id)
+    {
+        $data = $request->all();
+        $letter = $letter->find($id);
+        $attachments = $request->attachments;
+        if ($attachments) {
+            foreach ($attachments as $key => $attachment) {
+                $attachmentName = date("Ymdhis").$attachments[$key]->getClientOriginalName();
+                $attachments[$key]->move('public/letter/attachment', $attachmentName);
+                LetterAttachment::create(['letter_id' => $id, 'attachment' => $attachmentName]);
+            }
+        }
+
+        if($letter->people_type == "csv") {
+            $to_csv = $request->to_csv;
+            if (isset($to_csv)) {
+                $imageName = date("Ymdhis").$to_csv->getClientOriginalName();
+                $to_csv->move('public/letter/csv', $imageName);
+                $data['to'] = $imageName;
+            }
+        } else {
+            $data['to'] = implode(",", $data['to']);
+            $data['cc'] = isset($data['cc']) ? implode(",", $data['cc']) : null;
+        }
+        unset($data['attachments']);
+        unset($data['to_csv']);
+        unset($data['signature_image']);
+        $data['is_rejected'] = 0;
+        $data['reject_by'] = null;
+        $data['is_edit'] = 1;
+        $data['edit_by'] = Auth::user()->id;
+        $signature = $this->saveSignatureFromRequest($request, 'edit');
+        if (!$signature) {
+            return back()->with('not_permitted', 'Please provide your editor signature.');
+        }
+        $data['edit_signature'] = $signature;
+        $data['edit_signed_at'] = now();
+        $letter->update($data);
+        $this->sendMsgToConcernPerson($letter);
+
+        return redirect()->route('letter.index.edited')->with('message', 'Letter updated successfully. It is now awaiting approval.');
+    }
+
+    public function editOk(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        return view('letter.edit_ok', compact('data'));
+    }
+
+    public function editOkStore(Request $request, Letter $letter, $id)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'edit');
+        if (!$signature) {
+            return back()->with('not_permitted', 'Please provide your editor signature.');
+        }
+
+        $letter = $letter->find($id);
+        $letter->update([
+            'is_rejected' => 0,
+            'reject_by' => null,
+            'is_edit' => 1,
+            'edit_by' => Auth::user()->id,
+            'edit_signature' => $signature,
+            'edit_signed_at' => now(),
+            'otp' => null,
+        ]);
+        $this->sendMsgToConcernPerson($letter);
+
+        return redirect()->route('letter.index.edited')->with('message', 'Letter updated successfully. It is now awaiting approval.');
+    }
+
+    public function sendOTP($data) {
+        if ($this->user->otp_verify == 1) {
+            return true;
+        }
+        if ($data->otp_time == null || $data->otp_time < date('Y-m-d H:i:s', strtotime('-1 minutes'))) {
+            $otp = rand(1, 999999);
+            $msg = "Your OTP is: " . $otp . "\n That will be expired after 2 minutes";
+            try {
+                $this->wpMessage(Auth::user()->phone, $msg);
+                $data->update(['otp'=>$otp, 'otp_time'=>date('Y-m-d H:i:s')]);
+            } catch (\Exception $e) {
+                return $otp;
+            }
+            return $otp;
+        }
+    }
+
+    public function approve(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        return view('letter.approve', compact('data'));
+    }
+
+    public function approveStore(Request $request, Letter $letter, $id)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'approve');
+        if (!$signature) {
+            return back()->with('not_permitted', 'Please provide your approver signature.');
+        }
+
+        $letter = $letter->find($id);
+        $letter->update([
+            'is_approve' => 1,
+            'approved_by' => Auth::user()->id,
+            'approve_signature' => $signature,
+            'approve_signed_at' => now(),
+            'otp' => null,
+        ]);
+        $this->sendMsgToConcernPerson($letter);
+
+        return redirect()->route('letter.index.approved')->with('message', 'Letter Approved successfully. It is now awaiting signature.');
+    }
+
+    public function sendMsgToConcernPerson($letter) {
+        // Match queue stages: Editing → Approval → Signature → Send.
+        if ((int) $letter->is_edit === 0) {
+            $role_id = 9;
+            $role_name = 'Editor';
+            $action = 'editing';
+        } elseif ((int) $letter->is_approve === 0) {
+            $role_id = 10;
+            $role_name = 'Approver';
+            $action = 'approve';
+        } elseif ((int) $letter->is_sign === 0) {
+            $role_id = 11;
+            $role_name = 'Signer';
+            $action = 'signing';
+        } else {
+            $role_id = 12;
+            $role_name = 'Sender';
+            $action = 'sending';
+        }
+
+        $msg = 'Dear '.$role_name.', A new letter from '.@$letter->createdBy->name.', with the subject ('.$letter->subject.') is available for '.$action.'. Here is the comment('.$letter->comment.') attached to the letter.';
+        $msg .= "\n\nPlease click the link below to " . $action . ": ".request()->getSchemeAndHttpHost()."/letters/show/".$letter->id."\n\n";
+        $msg .= request()->getSchemeAndHttpHost();
+
+        $users = User::where('role_id', $role_id)->where('is_active', true)->get()->toArray();
+
+        if (empty($users)) {
+            return true;
+        }
+        foreach ($users as $user) {
+            try {
+                $this->wpMessage($user['phone'], $msg);
+            } catch (\Exception $e) {
+                return false;
+            }
+        }
+    }
+
+    public function reject(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+
+        if (Auth::user()->otp_verify == 1) {
+            $data->update(['is_rejected'=>true, 'is_edit' => 0, 'edit_by' => null, 'reject_by'=>Auth::user()->id, 'otp' => null]);
+            $this->sendMsgToConcernPerson($data);
+            return redirect()->back()->with('message', 'Letter Rejected successfully');
+        }
+        $this->sendOTP($data);
+        return view('letter.reject', compact('data'));
+    }
+
+    public function rejectStore(Request $request, Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+
+        if ($this->checkOtp($request, $letter) == true) {
+            $letter->update(['is_rejected'=>true, 'is_edit' => 0, 'edit_by' => null, 'reject_by'=>Auth::user()->id, 'otp' => null]);
+            $this->sendMsgToConcernPerson($letter);
+            return redirect()->back()->with('message', 'Letter Rejected successfully');
+        }
+        $letter->find($id)->update(['otp' => null]);
+        return back()->with('not_permitted', 'OTP is wrong or Expired');
+
+    }
+
+    public function send(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        if (Auth::user()->otp_verify == 1) {
+            if ($data->people_type == 'customer') {
+                $customer = Customer::class;
+            } elseif ($data->people_type == 'all') {
+                $customer = Customer::class;
+            } else {
+                $customer = Employee::class;
+            }
+
+            $this->dispatchLetterQueueAfterResponse($data, $id, $customer);
+
+            $data->update(['is_sent' => true, 'sent_by' => Auth::user()->id, 'otp' => null]);
+            return redirect()->route('message.delivery.index')
+                ->with('message', 'Letter queued. Watch WhatsApp delivery progress below.');
+        }
+        $this->sendOTP($data);
+        return view('letter.send', compact('data'));
+    }
+
+    public function sendStore(Request $request, Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+        if($letter->people_type == 'customer') {
+            $customer = Customer::class;
+        } elseif ($letter->people_type == 'all') {
+            $customer = Customer::class;
+        } else {
+            $customer = Employee::class;
+        }
+
+        if ($this->checkOtp($request, $letter) == true) {
+
+            $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+
+            $letter->update(['is_sent'=>true, 'sent_by'=>Auth::user()->id, 'otp' => null]);
+            return redirect()->route('message.delivery.index')
+                ->with('message', 'Letter queued. Watch WhatsApp delivery progress below.');
+        }
+        $letter->update(['otp' => null]);
+        return back()->with('not_permitted', 'OTP is wrong or Expired');
+
+    }
+
+    public function download(Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+        if($letter->people_type == 'customer') {
+            $customer = Customer::class;
+        } elseif ($letter->people_type == 'all') {
+            $customer = Customer::class;
+        } else {
+            $customer = Employee::class;
+        }
+        $data = [
+            'data' => $letter,
+            'user' => $customer,
+            'people_type' => $letter->people_type
+        ];
+
+        if ($letter->people_type === 'csv') {
+            $recipients = [];
+            $csv_path = public_path(env('LETTER_CSV_PATH'));
+            $csvFilePath = $csv_path.$letter->to;
+            $file = fopen($csvFilePath, 'r');
+
+            if ($file !== false) {
+                $firstRow = true;
+                while (($row = fgetcsv($file)) !== false) {
+                    if ($firstRow) { $firstRow = false; continue;}
+                    $r = (object) [];
+                    $r->name = $row[0] ?? '';
+                    $r->phone_number = $row[1] ?? '';
+                    $r->email = $row[2] ?? '';
+                    $r->address = $row[3] ?? '';
+                    $r->column1 = $row[4] ?? '';
+                    $r->column2 = $row[5] ?? '';
+                    $r->column3 = $row[6] ?? '';
+                    $r->column4 = $row[7] ?? '';
+                    $r->column5 = $row[8] ?? '';
+                    $r->column6 = $row[9] ?? '';
+                    $r->column7 = $row[10] ?? '';
+                    $r->column8 = $row[11] ?? '';
+                    $r->column9 = $row[12] ?? '';
+                    $r->column10 = $row[13] ?? '';
+                    $recipients[] = $r;
+                }
+                fclose($file);
+            }
+            $data['recipients'] = $recipients;
+        }
+
+//        return view('pdf.letter_download_pdf', $data);
+
+        $pdf = PDF::loadView('pdf.letter_download_pdf', $data)->setPaper('A4', 'portrait');
+        return $pdf->download('letter.pdf');
+
+    }
+
+    public function print(Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+        if($letter->people_type == 'customer') {
+            $customer = Customer::class;
+        } elseif ($letter->people_type == 'all') {
+            $customer = Customer::class;
+        } else {
+            $customer = Employee::class;
+        }
+        $data = [
+            'data' => $letter,
+            'user' => $customer,
+            'people_type' => $letter->people_type
+        ];
+
+        if ($letter->people_type === 'csv') {
+            $recipients = [];
+            $csv_path = public_path(env('LETTER_CSV_PATH'));
+            $csvFilePath = $csv_path.$letter->to;
+            $file = fopen($csvFilePath, 'r');
+
+            if ($file !== false) {
+                $firstRow = true;
+                while (($row = fgetcsv($file)) !== false) {
+                    if ($firstRow) { $firstRow = false; continue;}
+                    $r = (object) [];
+                    $r->name = $row[0] ?? '';
+                    $r->phone_number = $row[1] ?? '';
+                    $r->email = $row[2] ?? '';
+                    $r->address = $row[3] ?? '';
+                    $r->column1 = $row[4] ?? '';
+                    $r->column2 = $row[5] ?? '';
+                    $r->column3 = $row[6] ?? '';
+                    $r->column4 = $row[7] ?? '';
+                    $r->column5 = $row[8] ?? '';
+                    $r->column6 = $row[9] ?? '';
+                    $r->column7 = $row[10] ?? '';
+                    $r->column8 = $row[11] ?? '';
+                    $r->column8 = $row[11] ?? '';
+                    $r->column9 = $row[12] ?? '';
+                    $r->column10 = $row[13] ?? '';
+                    $recipients[] = $r;
+                }
+                fclose($file);
+            }
+            $data['recipients'] = $recipients;
+        }
+
+        $pdf = PDF::loadView('pdf.letter_download_pdf', $data)->setPaper('A4', 'portrait');
+        return $pdf->stream('letter.pdf');
+
+    }
+
+    public function sendWhatsapp(Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+        if($letter->people_type == 'customer') {
+            $customer = Customer::class;
+        } elseif ($letter->people_type == 'all') {
+            $customer = Customer::class;
+        } else {
+            $customer = Employee::class;
+        }
+
+        $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+
+        $letter->find($id)->update(['is_sent'=>true, 'sent_by'=>Auth::user()->id, 'otp' => null]);
+        return redirect()->route('message.delivery.index')
+            ->with('message', 'Letter queued. Watch WhatsApp delivery progress below.');
+    }
+
+    public function sendEmail(Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+
+        LetterRecipients::eachRecipient($letter->people_type, $letter->to, function ($recipient) use ($letter) {
+            $this->sendMail($letter, $recipient, $recipient->email ?: $recipient->id);
+        });
+
+        $letter->find($id)->update(['is_sent'=>true, 'sent_by'=>Auth::user()->id, 'otp' => null]);
+        return redirect()->back()->with('message', 'Letter Sent successfully');
+    }
+
+    public function sendMail($letter, $lims_customer_data, $to) {
+        $cc_emails = [];
+        $attachments = [];
+        $attachment_path = public_path('letter/attachment/');
+
+        // Directory letters store CC as prefixed IDs + cc_json snapshots — never Employee/Customer::find().
+        if (($letter->people_type ?? '') === 'directory') {
+            foreach (LetterRecipients::decodePeopleJson($letter->cc_json) as $person) {
+                $email = trim((string) ($person['email'] ?? ''));
+                if ($email !== '') {
+                    $cc_emails[] = $email;
+                }
+            }
+        } elseif ($letter->cc != null) {
+            if ($letter->people_type == 'customer' || $letter->people_type == 'all') {
+                $customer = Customer::class;
+            } else {
+                $customer = Employee::class;
+            }
+            foreach (explode(',', $letter->cc) as $cc) {
+                $lims_customer_data_cc = $customer::find(trim($cc));
+                if ($lims_customer_data_cc && ! empty($lims_customer_data_cc->email)) {
+                    $cc_emails[] = $lims_customer_data_cc->email;
+                }
+            }
+        }
+        $cc_emails = array_values(array_unique($cc_emails));
+
+        if ($letter->attachment) {
+            $attachments[] = $attachment_path.$letter->attachment;
+        }
+        if (isset($letter->attachmentlib[0])) {
+            foreach ($letter->attachmentlib as $key => $attachment) {
+                if ($key == 0) {
+                    continue;
+                }
+                $attachments[] = $attachment_path.$attachment->attachment;
+            }
+        }
+        if ($lims_customer_data == null) {
+            return true;
+        }
+        $mailTo = trim((string) ($lims_customer_data->email ?? ''));
+        if ($mailTo === '') {
+            return true;
+        }
+        $data = [
+            'to' => $to,
+            'data' => $letter,
+            'mail' => $mailTo,
+            'subject' => $letter->subject,
+            'cc_emails' => $cc_emails,
+            'attachments' => $attachments
+        ];
+
+        $message = 'Letter notification sent successfully';
+        try{
+            Mail::send( 'mail.letter_details', $data, function( $message ) use ($data)
+            {
+                $message->to($data['mail'])->subject($data['subject']);
+                if (! empty($data['cc_emails'])) {
+                    $message->cc($data['cc_emails']);
+                }
+
+                foreach ($data['attachments'] as $attachment) {
+                    $message->attach($attachment);
+                }
+            });
+        }
+        catch(\Exception $e){
+            $message = 'Letter is not sent. Please setup your <a href="setting/mail_setting">mail setting</a> to send mail.';
+        }
+        return $message;
+    }
+
+    private function replacePlaceholders($text, $recipient)
+    {
+        return \App\Support\LetterPlaceholders::replace($text, $recipient);
+    }
+
+    public function sendPDF($letter, $lims_customer_data, $to) {
+        $lims_customer_data = \App\Support\LetterPlaceholders::enrich($lims_customer_data);
+
+        // Clone and render placeholders for PDF content
+        $rendered = clone $letter;
+        $rendered->header = $this->replacePlaceholders($letter->header, $lims_customer_data);
+        $rendered->subject = trim(preg_replace(
+            '/^Subject:\s*/i',
+            '',
+            $this->replacePlaceholders($letter->subject, $lims_customer_data)
+        ));
+        $rendered->body = $this->replacePlaceholders($letter->body, $lims_customer_data);
+        $rendered->footer = $this->replacePlaceholders($letter->footer, $lims_customer_data);
+
+        $data = [
+            'to' => $to,
+            'data' => $rendered,
+            'user_to' => $lims_customer_data,
+            'letterhead_flow' => true,
+        ];
+        $pdf = PDF::loadView('pdf.letter_pdf', $data)->setPaper('A4', 'portrait');
+
+        $content = $pdf->download()->getOriginalContent();
+
+        Storage::put('public/letter/letter.pdf',$content);
+        $path = storage_path('app/public/letter/letter.pdf');
+        $attachment_path = public_path('letter/attachment/');
+        $message = 'Letter notification sent successfully';
+        try{
+            if ($this->isInternshipAcceptanceLetter($letter)
+                && $this->recipientNeedsAcceptanceSignature($lims_customer_data)) {
+                $this->sendInternshipAcceptanceSignWhatsApp($lims_customer_data);
+
+                return $message;
+            }
+            $this->wpPDFMessage($path, $lims_customer_data, 'letter.pdf');
+            if ($this->isInternshipAcceptanceLetter($letter)) {
+                $this->sendInternshipLoginGuideWhatsApp($lims_customer_data);
+            }
+        }
+        catch(\Exception $e){
+            $message = 'Letter not sent. Please setup your whatsapp setting.';
+        }
+
+
+        if($letter->attachment) {
+            $attachment_name = 'attachment-'.$letter->attachment;
+            try{
+                $this->wpPDFMessage($attachment_path . $letter->attachment, $lims_customer_data, $attachment_name);
+            }
+            catch(\Exception $e){
+                $message = 'Letter not sent. Please setup your whatsapp setting.';
+            }
+        }
+        if(isset($letter->attachmentlib[0])) {
+            foreach ($letter->attachmentlib as $key => $attachment) {
+                if($key == 0) {
+                    continue;
+                }
+                $attachment_name = 'attachment-'.$attachment->attachment;
+                try{
+                    $this->wpPDFMessage($attachment_path . $attachment->attachment, $lims_customer_data, $attachment_name);
+                }
+                catch(\Exception $e){
+                    $message = 'Letter not sent. Please setup your whatsapp setting.';
+                }
+            }
+
+        }
+        return $message;
+    }
+
+    protected function isInternshipAcceptanceLetter($letter): bool
+    {
+        $hay = strtolower(trim(
+            (string) ($letter->name ?? '').' '.
+            (string) ($letter->subject ?? '')
+        ));
+        if (strpos($hay, 'internship acceptance') !== false
+            || strpos($hay, 'internship admission') !== false) {
+            return true;
+        }
+
+        if (! empty($letter->template_id)) {
+            $template = LetterTemplate::find($letter->template_id);
+            if ($template) {
+                $t = strtolower((string) $template->name.' '.(string) $template->subject);
+                if (strpos($t, 'internship acceptance') !== false
+                    || strpos($t, 'internship admission') !== false) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    protected function recipientNeedsAcceptanceSignature($recipient): bool
+    {
+        $email = strtolower(trim((string) ($recipient->email ?? '')));
+        if ($email === '') {
+            return ! empty($recipient->sign_url) || ! empty($recipient->needs_signature);
+        }
+        $application = \App\Application::whereRaw('LOWER(email) = ?', [$email])->first();
+
+        return $application ? ! $application->hasSignedAcceptance() : true;
+    }
+
+    protected function resolveAcceptanceSignUrl($recipient): string
+    {
+        $signUrl = trim((string) ($recipient->sign_url ?? ''));
+        $email = strtolower(trim((string) ($recipient->email ?? '')));
+        if ($email === '') {
+            return $signUrl;
+        }
+        $application = \App\Application::whereRaw('LOWER(email) = ?', [$email])->first();
+        if (! $application) {
+            return $signUrl;
+        }
+        if ($application->hasSignedAcceptance()) {
+            return '';
+        }
+
+        return $signUrl !== ''
+            ? $signUrl
+            : app(\App\Services\ApplicationService::class)->agreementUrl($application);
+    }
+
+    /**
+     * WhatsApp sign link only — no PDF. Twilio templates drop URLs, so this uses Wasender.
+     */
+    protected function sendInternshipAcceptanceSignWhatsApp($recipient): void
+    {
+        $phone = $recipient->phone_number ?? $recipient->phone ?? null;
+        $signUrl = $this->resolveAcceptanceSignUrl($recipient);
+        if (! $phone || $signUrl === '') {
+            throw new \RuntimeException('WhatsApp phone and sign link are required for the acceptance letter.');
+        }
+
+        $msg = \App\Support\WhatsAppMessage::internshipAcceptanceSignRequest(
+            trim((string) ($recipient->name ?? 'Intern')),
+            $signUrl,
+            trim((string) ($recipient->program ?? '')) ?: null
+        );
+
+        $result = app(\App\Services\Messaging\NotificationRouter::class)
+            ->sendWhatsAppTextWithLink($phone, $msg);
+        if (empty($result['success']) && empty($result['skipped'])) {
+            throw new \RuntimeException($result['error'] ?? 'Could not send the acceptance sign link.');
+        }
+    }
+
+    /**
+     * WhatsApp text after internship admission PDF: login link + Timesheets working week.
+     */
+    protected function sendInternshipLoginGuideWhatsApp($recipient): void
+    {
+        $phone = $recipient->phone_number ?? $recipient->phone ?? null;
+        if (! $phone) {
+            return;
+        }
+
+        $name = trim((string) ($recipient->name ?? 'Intern'));
+        $username = trim((string) (
+            $recipient->username
+            ?? $recipient->phone_number
+            ?? $recipient->phone
+            ?? $recipient->email
+            ?? ''
+        ));
+        $password = trim((string) (
+            $recipient->password
+            ?? \App\Services\InternshipAcceptanceLetterService::DEFAULT_PASSWORD
+        ));
+        if ($password === '') {
+            $password = \App\Services\InternshipAcceptanceLetterService::DEFAULT_PASSWORD;
+        }
+
+        $signUrl = $this->resolveAcceptanceSignUrl($recipient);
+
+        $msg = \App\Support\WhatsAppMessage::internshipAdmissionLoginGuide(
+            $name,
+            $username,
+            $password,
+            url('/login'),
+            url('/admin/timesheet/working-week'),
+            $signUrl !== '' ? $signUrl : null
+        );
+
+        try {
+            // Throttle is handled by Wasender account protection retries in NotificationRouter/Wasender.
+            // A short pause after the PDF document is enough; long sleeps in-request caused nginx 502s.
+            usleep(1500000);
+            app(\App\Services\Messaging\NotificationRouter::class)->sendWhatsAppTextWithLink($phone, $msg);
+        } catch (\Throwable $e) {
+            \Log::warning('Internship login guide WhatsApp failed', [
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /** @var array<int, array{letterId:int,id:mixed,customer:mixed,batchId:?int}> */
+    protected static $pendingLetterDeliveries = [];
+
+    /** @var bool */
+    protected static $letterDeliveryRunnerRegistered = false;
+
+    /** @var bool */
+    protected static $letterDeliveryRunnerStarted = false;
+
+    /**
+     * Deliver WhatsApp/PDF after the browser response so nginx does not 502 on long Wasender sends.
+     * QUEUE_CONNECTION=sync would otherwise block the HTTP request for many recipients.
+     */
+    public function queueDeliveryAfterResponse($letter, $id = null, $customer = null): void
+    {
+        $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+    }
+
+    /**
+     * Deliver WhatsApp/PDF after the browser response so nginx does not 502 on long Wasender sends.
+     * QUEUE_CONNECTION=sync would otherwise block the HTTP request for many recipients.
+     */
+    protected function dispatchLetterQueueAfterResponse($letter, $id = null, $customer = null): void
+    {
+        $letterId = is_object($letter) ? (int) $letter->id : (int) $letter;
+        $id = $id ?? $letterId;
+        $saved = is_object($letter) ? $letter : Letter::find($letterId);
+        $batchId = null;
+        if (app()->runningInConsole()) {
+            if ($saved) {
+                try {
+                    $batch = app(MessageDeliveryTracker::class)->queueLetter($saved, $customer);
+                    $batchId = $batch ? (int) $batch->id : null;
+                } catch (\Throwable $e) {
+                    \Log::warning('Could not create delivery batch: '.$e->getMessage(), [
+                        'letter_id' => $letterId,
+                    ]);
+                }
+            }
+            (new ProcessQueue($saved ?: $letter, $id, $customer, $batchId))->handle();
+
+            return;
+        }
+        if ($saved) {
+            try {
+                $batch = app(MessageDeliveryTracker::class)->queueLetter($saved, $customer);
+                $batchId = $batch ? (int) $batch->id : null;
+            } catch (\Throwable $e) {
+                \Log::warning('Could not create delivery batch: '.$e->getMessage(), [
+                    'letter_id' => $letterId,
+                ]);
+            }
+        }
+
+        self::$pendingLetterDeliveries[] = [
+            'letterId' => $letterId,
+            'id' => $id,
+            'customer' => $customer,
+            'batchId' => $batchId,
+        ];
+
+        if (self::$letterDeliveryRunnerRegistered) {
+            return;
+        }
+        self::$letterDeliveryRunnerRegistered = true;
+
+        $runner = function () {
+            if (self::$letterDeliveryRunnerStarted) {
+                return;
+            }
+            self::$letterDeliveryRunnerStarted = true;
+
+            // Close the FastCGI connection to nginx first — otherwise long Wasender
+            // work keeps the request open and nginx returns 502 while PHP still sends.
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+            if (function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE) {
+                @session_write_close();
+            }
+            @set_time_limit(900);
+            ignore_user_abort(true);
+
+            $jobs = self::$pendingLetterDeliveries;
+            self::$pendingLetterDeliveries = [];
+
+            foreach ($jobs as $job) {
+                try {
+                    $saved = Letter::find($job['letterId']);
+                    if (! $saved) {
+                        continue;
+                    }
+                    (new ProcessQueue($saved, $job['id'], $job['customer'], $job['batchId'] ?? null))->handle();
+                } catch (\Throwable $e) {
+                    \Log::error('Letter ProcessQueue after-response failed: '.$e->getMessage(), [
+                        'letter_id' => $job['letterId'] ?? null,
+                    ]);
+                    if (! empty($job['batchId'])) {
+                        try {
+                            app(MessageDeliveryTracker::class)->finalizeBatch((int) $job['batchId']);
+                        } catch (\Throwable $ignored) {
+                        }
+                    }
+                }
+            }
+        };
+
+        // After Laravel has sent the redirect/HTML response…
+        app()->terminating($runner);
+        // …and as a fallback if terminate callbacks are skipped.
+        register_shutdown_function($runner);
+    }
+
+    public function imageUpload(Request $request)
+    {
+        $image = $request->file('image')->store('public/images/letters');
+        $url = Storage::url($image);
+
+        return response()->json(['location' => $url]);
+    }
+
+    public function sendSMS($letter, $lims_customer_data)
+    {
+        $message = 'Letter notification sent successfully';
+        $account_sid = env('ACCOUNT_SID');
+        $auth_token = env('AUTH_TOKEN');
+        $twilio_phone_number = env('TWILIO_NUMBER');
+
+        $data['message'] = $letter->subject . "<br><br>";
+        $data['message'] .= $letter->header . "<br><br>";
+        $data['message'] .= $letter->body . "<br><br>";
+        $data['message'] .= $letter->footer . "<br><br><br>";
+        $data['message'] .= request()->getSchemeAndHttpHost;
+        try{
+            $client = new Client($account_sid, $auth_token);
+            $client->messages->create(
+                $lims_customer_data->phone_number,
+                array(
+                    "from" => $twilio_phone_number,
+                    "body" => $data['message']
+                )
+            );
+        }
+        catch(\Exception $e){
+            $message = 'Letter is not sent. Please setup your <a href="setting/mail_setting">mail setting</a> to send mail.';
+        }
+
+        return $message;
+    }
+
+    /**
+     * Send a CC copy of the letter. The PDF is always personalized for the original
+     * To recipient — never rewritten as if addressed to the CC person.
+     *
+     * @param  object|string|null  $originalTo  Original recipient object, or To id/ref hint
+     */
+    public function sendPDFToCC($letter, $ccRecipient, $originalTo = null)
+    {
+        $original = $this->resolveLetterOriginalRecipient($letter, $originalTo);
+        if (! $original) {
+            $original = (object) ['name' => ''];
+        }
+        $original = \App\Support\LetterPlaceholders::enrich($original);
+
+        $originalName = trim((string) ($original->name ?? ''));
+        if ($originalName === '') {
+            $originalName = 'the recipient';
+        }
+
+        $rendered = clone $letter;
+        $rendered->header = $this->replacePlaceholders($letter->header, $original);
+        $rendered->subject = trim(preg_replace(
+            '/^Subject:\s*/i',
+            '',
+            $this->replacePlaceholders($letter->subject, $original)
+        ));
+        $rendered->body = $this->replacePlaceholders($letter->body, $original);
+        $rendered->footer = $this->replacePlaceholders($letter->footer, $original);
+
+        $data = [
+            'to' => $original->directory_id ?? ($original->id ?? $letter->to),
+            'data' => $rendered,
+            'user_to' => $original,
+            'letterhead_flow' => true,
+            'cc_copy_for' => $originalName,
+        ];
+        $pdf = PDF::loadView('pdf.letter_pdf', $data)->setPaper('A4', 'portrait');
+
+        $content = $pdf->download()->getOriginalContent();
+
+        Storage::put('public/letter/letter.pdf', $content);
+        $path = storage_path('app/public/letter/letter.pdf');
+        $attachment_path = public_path('letter/attachment/');
+        $message = 'Letter notification sent successfully';
+
+        $ccName = trim((string) ($ccRecipient->name ?? 'Colleague'));
+        $caption = \App\Support\WhatsAppMessage::statusBlock('📄', 'CC Copy')
+            .\App\Support\WhatsAppMessage::greeting($ccName !== '' ? $ccName : 'Colleague')
+            .'You have been *CC\'d* on a letter to *'.$originalName.'*.'
+            ."\n\n"
+            .'Please find the same letter PDF attached.'
+            .\App\Support\WhatsAppMessage::footer();
+
+        try {
+            $this->wpPDFMessage($path, $ccRecipient, 'letter.pdf', null, $caption);
+        } catch (\Exception $e) {
+            $message = 'Letter not sent. Please setup your whatsapp setting.';
+        }
+
+        if ($letter->attachment) {
+            $attachment_name = 'attachment-'.$letter->attachment;
+            try {
+                $this->wpPDFMessage($attachment_path.$letter->attachment, $ccRecipient, $attachment_name, null, $caption);
+            } catch (\Exception $e) {
+                $message = 'Letter not sent. Please setup your whatsapp setting.';
+            }
+        }
+        if (isset($letter->attachmentlib[0])) {
+            foreach ($letter->attachmentlib as $key => $attachment) {
+                if ($key == 0) {
+                    continue;
+                }
+                $attachment_name = 'attachment-'.$attachment->attachment;
+                try {
+                    $this->wpPDFMessage($attachment_path.$attachment->attachment, $ccRecipient, $attachment_name, null, $caption);
+                } catch (\Exception $e) {
+                    $message = 'Letter not sent. Please setup your whatsapp setting.';
+                }
+            }
+        }
+
+        return $message;
+    }
+
+    /**
+     * Resolve the original To recipient used to personalize a letter PDF.
+     *
+     * @param  object|string|null  $hint
+     * @return object|null
+     */
+    protected function resolveLetterOriginalRecipient($letter, $hint = null)
+    {
+        if (is_object($hint) && (isset($hint->name) || isset($hint->email) || isset($hint->phone_number))) {
+            return $hint;
+        }
+
+        $peopleType = (string) ($letter->people_type ?? '');
+
+        if ($peopleType === 'directory') {
+            $people = LetterRecipients::decodePeopleJson($letter->recipients_json);
+            $hintId = is_string($hint) ? trim($hint) : '';
+            if ($hintId !== '') {
+                foreach ($people as $person) {
+                    if (($person['id'] ?? null) === $hintId
+                        || ($person['email'] ?? null) === $hintId
+                        || ($person['phone'] ?? null) === $hintId) {
+                        return LetterRecipients::toSendObject($person);
+                    }
+                }
+            }
+            if (! empty($people[0])) {
+                return LetterRecipients::toSendObject($people[0]);
+            }
+
+            return null;
+        }
+
+        $model = in_array($peopleType, ['customer', 'all'], true) ? Customer::class : Employee::class;
+        $hintId = is_string($hint) ? trim(explode(',', $hint)[0]) : '';
+        if ($hintId !== '') {
+            $found = $model::find($hintId);
+            if ($found) {
+                return $found;
+            }
+        }
+
+        foreach (array_filter(explode(',', (string) $letter->to)) as $id) {
+            $found = $model::find(trim($id));
+            if ($found) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    public function sign(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        return view('letter.sign', compact('data'));
+    }
+
+    public function signStore(Request $request, Letter $letter, $id)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'sign');
+        if (!$signature) {
+            return back()->with('not_permitted', 'Please provide your signature.');
+        }
+
+        $letter = $letter->find($id);
+        $letter->update([
+            'is_sign' => true,
+            'signed_by' => Auth::user()->id,
+            'sign_signature' => $signature,
+            'sign_signed_at' => now(),
+            'otp' => null,
+        ]);
+
+        return redirect()->route('letter.index.signed')->with('message', 'Letter Signed successfully. It is now ready to send.');
+    }
+
+
+    public function signSend(Letter $letter, $id)
+    {
+        $data = $letter->findorfail($id);
+        $this->sendOTP($data);
+        return view('letter.signSend', compact('data'));
+    }
+    public function signSendStore(Request $request, Letter $letter, $id)
+    {
+        $letter = $letter->find($id);
+
+        if ($this->checkOtp($request, $letter) == true) {
+            $signature = $this->saveSignatureFromRequest($request, 'sign');
+            if (! $signature) {
+                return back()->with('not_permitted', 'Please provide your signature.');
+            }
+
+            $letter->update([
+                'is_sign' => true,
+                'signed_by' => Auth::user()->id,
+                'sign_signature' => $signature,
+                'sign_signed_at' => now(),
+                'otp' => null,
+            ]);
+            $letter = $letter->fresh();
+
+            $customer = LetterRecipients::recipientModel($letter->people_type ?? '');
+            if (($letter->people_type ?? '') === 'directory' || ($letter->people_type ?? '') === 'csv') {
+                $customer = null;
+            }
+
+            $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+
+            $letter->update(['is_sent'=>true, 'sent_by'=>Auth::user()->id, 'otp' => null]);
+            return redirect()->route('message.delivery.index')
+                ->with('message', 'Letter signed and queued. Watch WhatsApp delivery progress below.');
+        }
+
+        $letter->update(['otp' => null]);
+        return back()->with('not_permitted', 'OTP is wrong or Expired');
+    }
+
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Letter  $letter
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $data = Letter::find($id);
+        $data->is_active = false;
+        $data->save();
+        return back()->with('not_permitted','Data deleted successfully');
+    }
+
+    /**
+     * Soft-delete multiple letters from list checkboxes (same as single destroy).
+     */
+    public function multipleDelete(Request $request)
+    {
+        $ids = $request->ids;
+        if ($ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        $count = 0;
+        foreach ($ids as $key => $option) {
+            $letter = Letter::find($key);
+            if ($letter) {
+                $letter->is_active = false;
+                $letter->save();
+                $count++;
+            }
+        }
+
+        if ($count < 1) {
+            return redirect()->back()->with('not_permitted', 'No letters were deleted.');
+        }
+
+        return redirect()->back()->with('message', $count === 1
+            ? '1 letter deleted.'
+            : $count.' letters deleted.');
+    }
+
+    public function templateInfo ($id) {
+        return LetterTemplate::find($id);
+    }
+
+
+    private function sendMultiOTP($id_array) {
+        if (Auth::user()->otp_verify == 1) {
+            return true;
+        }
+        $data = Letter::find($id_array[0]);
+
+        if ($data->otp_time == null || $data->otp_time < date('Y-m-d H:i:s', strtotime('-30 seconds'))) {
+            $otp = rand(1, 999999);
+            $msg = "Your OTP is: " . $otp . "\n That will be expired after 2 minutes";
+            foreach ($id_array as $id) {
+                $letter = Letter::find($id);
+                $letter->update(['otp'=>$otp, 'otp_time'=>date('Y-m-d H:i:s')]);
+            }
+            try {
+                $this->wpMessage(Auth::user()->phone, $msg);
+            } catch (\Exception $e) {
+                return $otp;
+            }
+            return $otp;
+        }
+    }
+
+
+    public function multipleApprove(Letter $letter, Request $request)
+    {
+        $id_array = [];
+        $ids = $request->ids;
+        if($ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        foreach ($ids as $key => $option) {
+            $id_array[] = $key;
+        }
+
+        return view('letter.multiApprove', compact('id_array'));
+    }
+
+
+    public function multipleApproveStore(Request $request, Letter $letter)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'approve');
+        if (!$signature) {
+            return redirect()->route('letter.index.edited')->with('not_permitted', 'Please provide your approver signature.');
+        }
+
+        foreach ($request->ids as $id) {
+            Letter::find($id)->update([
+                'is_approve' => true,
+                'approved_by' => Auth::user()->id,
+                'approve_signature' => $signature,
+                'approve_signed_at' => now(),
+                'otp' => null,
+            ]);
+        }
+        $letter = $letter->find($request->ids[0]);
+        $this->sendMsgToConcernPerson($letter);
+
+        return redirect()->route('letter.index.approved')->with('message', 'Letter Approved successfully. They are now awaiting signature.');
+    }
+
+
+    public function multipleOk(Letter $letter, Request $request)
+    {
+        $id_array = [];
+        $ids = $request->ids;
+        if($ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        foreach ($ids as $key => $option) {
+            $id_array[] = $key;
+        }
+
+        return view('letter.multiOk', compact('id_array'));
+    }
+
+
+    public function multipleOkStore(Request $request, Letter $letter)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'edit');
+        if (!$signature) {
+            return redirect()->route('letter.index')->with('not_permitted', 'Please provide your editor signature.');
+        }
+
+        foreach ($request->ids as $id) {
+            Letter::find($id)->update([
+                'is_edit' => true,
+                'edit_by' => Auth::user()->id,
+                'edit_signature' => $signature,
+                'edit_signed_at' => now(),
+                'otp' => null,
+            ]);
+        }
+        $letter = $letter->find($request->ids[0]);
+        $this->sendMsgToConcernPerson($letter);
+
+        return redirect()->route('letter.index.edited')->with('message', 'Letter Ok successfully. They are now awaiting approval.');
+    }
+
+    public function multipleSign(Letter $letter, Request $request)
+    {
+        $id_array = [];
+        $ids = $request->ids;
+        if($ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        foreach ($ids as $key => $option) {
+            $id_array[] = $key;
+        }
+
+        return view('letter.multiSign', compact('id_array'));
+    }
+
+
+    public function multipleSignStore(Request $request, Letter $letter)
+    {
+        $signature = $this->saveSignatureFromRequest($request, 'sign');
+        if (!$signature) {
+            return redirect()->route('letter.index.approved')->with('not_permitted', 'Please provide your signature.');
+        }
+
+        foreach ($request->ids as $id) {
+            Letter::find($id)->update([
+                'is_sign' => true,
+                'signed_by' => Auth::user()->id,
+                'sign_signature' => $signature,
+                'sign_signed_at' => now(),
+                'otp' => null,
+            ]);
+        }
+
+        return redirect()->route('letter.index.signed')->with('message', 'Letter Signed successfully. They are now ready to send.');
+    }
+
+    public function multipleSend(Letter $letter, Request $request)
+    {
+        $id_array = [];
+        $ids = $request->ids;
+        if($ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+        foreach ($ids as $key => $option) {
+            $id_array[] = $key;
+        }
+
+        $this->sendMultiOTP($id_array);
+        return view('letter.multiSend', compact('id_array'));
+    }
+
+
+    public function multipleSendStore(Request $request, Letter $letter)
+    {
+        $letter = $letter->find($request->ids[0]);
+        if ($this->checkOtp($request, $letter) == true) {
+            foreach ($request->ids as $id) {
+                $letter = Letter::find($id);
+                if ($letter->people_type == 'customer' || $letter->people_type == 'all') {
+                    $customer = Customer::class;
+                } else {
+                    $customer = Employee::class;
+                }
+//                foreach (explode(",", $letter->to) as $to) {
+//                    $lims_customer_data = $customer::find($to);
+//                    $message = $this->sendPDF($letter, $lims_customer_data, $to);
+//                    $message = $this->sendMail($letter, $lims_customer_data, $to);
+//                }
+//                if ($letter->cc != null) {
+//                    foreach (explode(",", $letter->cc) as $cc) {
+//                        $lims_customer_data = $customer::find($cc);
+//                        $this->sendPDFToCC($letter, $lims_customer_data, $letter->to);
+//                    }
+//                }
+                $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+                $letter->find($id)->update(['is_sent' => true, 'sent_by' => Auth::user()->id, 'otp' => null]);
+
+            }
+            return redirect()->route('message.delivery.index')
+                ->with('message', 'Letters queued. Watch WhatsApp delivery progress below.');
+        }
+
+        $letter->update(['otp' => null]);
+        return redirect()->route('letter.index.sent')->with('not_permitted', 'OTP is wrong or Expired');
+    }
+
+    protected function saveSignatureFromRequest(Request $request, string $prefix)
+    {
+        $dataUrl = trim((string) $request->input('signature_image', ''));
+        $useAccount = $request->boolean('use_account_signature')
+            || $request->input('use_account_signature') === '1'
+            || $request->input('use_account_signature') === 1;
+
+        // New pad drawing takes priority.
+        if ($dataUrl !== '' && preg_match('/^data:image\/png;base64,/', $dataUrl)) {
+            $filename = LetterSignature::storeFromDataUrl($dataUrl, $prefix);
+            if ($filename) {
+                $this->replaceAccountSignature($prefix, $filename);
+            }
+
+            return $filename;
+        }
+
+        // Default: reuse the signature already saved on the user account.
+        if ($useAccount || $dataUrl === '') {
+            $column = LetterSignature::accountColumnForPrefix($prefix);
+            $accountFile = $column ? (Auth::user()->{$column} ?? null) : null;
+            if ($accountFile) {
+                return LetterSignature::storeFromAccountFile($accountFile, $prefix);
+            }
+        }
+
+        $request->validate([
+            'signature_image' => 'required|string',
+        ]);
+
+        return null;
+    }
+
+    private function replaceAccountSignature(string $prefix, string $filename)
+    {
+        $columnMap = [
+            'edit' => 'stemp',
+            'approve' => 'approve',
+            'sign' => 'sign',
+        ];
+
+        if (!isset($columnMap[$prefix])) {
+            return;
+        }
+
+        $source = public_path('letter/signatures/' . $filename);
+        if (!is_file($source)) {
+            return;
+        }
+
+        $destinationDir = public_path('images/user');
+        if (!is_dir($destinationDir)) {
+            mkdir($destinationDir, 0755, true);
+        }
+
+        $accountFile = 'acct_' . $prefix . '_' . Auth::id() . '_' . date('YmdHis') . '.png';
+        if (!@copy($source, $destinationDir . '/' . $accountFile)) {
+            return;
+        }
+
+        User::where('id', Auth::id())->update([$columnMap[$prefix] => $accountFile]);
+    }
+
+
+    public function multipleDownloadStore(Request $request, Letter $letter)
+    {
+        if($request->ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        if (isset($request->ids[0]) == false ) {
+            foreach ($request->ids as $key => $id) {
+                $ids[] = $key;
+            }
+        } else {
+            $ids = $request->ids;
+        }
+
+
+//        if ($this->checkOtp($request, $letter) == true) {
+        $data = [
+            'ids' => $ids
+        ];
+        $pdf = PDF::loadView('pdf.multiple_letter_download_pdf', $data)->setPaper('A4', 'portrait');
+        return $pdf->download('letter.pdf');
+//        }
+//
+//        $letter->update(['otp' => null]);
+//        return redirect()->route('letter.index.signed')->with('not_permitted', 'OTP is wrong or Expired');
+    }
+
+    public function multiplePrintStore(Request $request, Letter $letter)
+    {
+        if($request->ids == null) {
+            return redirect()->back()->with('not_permitted', 'No letter is selected');
+        }
+
+        if (isset($request->ids[0]) == false ) {
+            foreach ($request->ids as $key => $id) {
+                $ids[] = $key;
+            }
+        } else {
+            $ids = $request->ids;
+        }
+
+//        $letter = $letter->find($ids[0]);
+//        if ($this->checkOtp($request, $letter) == true) {
+        $data = [
+            'ids' => $ids
+        ];
+        $pdf = PDF::loadView('pdf.multiple_letter_download_pdf', $data)->setPaper('A4', 'portrait');
+        return $pdf->stream('letter.pdf');
+//        }
+
+//        $letter->update(['otp' => null]);
+//        return redirect()->route('letter.index.signed')->with('not_permitted', 'OTP is wrong or Expired');
+    }
+
+    protected function resolveCloneRecipients(Letter $clone): array
+    {
+        $peopleType = trim((string) ($clone->people_type ?? ''));
+        $toIds = [];
+        $ccIds = [];
+        $directoryToIds = [];
+        $directoryCcIds = [];
+
+        if ($peopleType === 'directory' || ! empty($clone->recipients_json)) {
+            $recipients = LetterRecipients::decodePeopleJson($clone->recipients_json);
+            $ccs = LetterRecipients::decodePeopleJson($clone->cc_json);
+            $directoryToIds = array_values(array_filter(array_column($recipients, 'id')));
+            $directoryCcIds = array_values(array_filter(array_column($ccs, 'id')));
+            if (empty($directoryToIds) && ! empty($clone->to)) {
+                $directoryToIds = array_values(array_filter(explode(',', (string) $clone->to)));
+            }
+            if (empty($directoryCcIds) && ! empty($clone->cc)) {
+                $directoryCcIds = array_values(array_filter(explode(',', (string) $clone->cc)));
+            }
+
+            return [
+                'peopleType' => 'directory',
+                'toIds' => $toIds,
+                'ccIds' => $ccIds,
+                'directoryToIds' => $directoryToIds,
+                'directoryCcIds' => $directoryCcIds,
+            ];
+        }
+
+        if (in_array($peopleType, ['customer', 'user', 'all', 'csv'], true)) {
+            if (in_array($peopleType, ['customer', 'user'], true)) {
+                $toIds = array_values(array_filter(explode(',', (string) $clone->to)));
+                $ccIds = $clone->cc
+                    ? array_values(array_filter(explode(',', (string) $clone->cc)))
+                    : [];
+                // Map legacy IDs into directory preselect where possible.
+                $prefix = $peopleType === 'customer' ? 'customer:' : 'user:';
+                // Employees are not user: — leave empty for directory; clone as directory with empty and let user re-pick, OR convert customers.
+                if ($peopleType === 'customer') {
+                    $directoryToIds = array_map(function ($id) { return 'customer:' . $id; }, $toIds);
+                    $directoryCcIds = array_map(function ($id) { return 'customer:' . $id; }, $ccIds);
+                }
+            }
+
+            return [
+                'peopleType' => in_array($peopleType, ['user', 'customer', 'all'], true) ? 'directory' : $peopleType,
+                'toIds' => $toIds,
+                'ccIds' => $ccIds,
+                'directoryToIds' => $directoryToIds,
+                'directoryCcIds' => $directoryCcIds,
+            ];
+        }
+
+        $to = (string) ($clone->to ?? '');
+
+        if (strpos($to, 'c:') !== false || strpos($to, 'e:') !== false) {
+            $peopleType = 'directory';
+        } elseif (preg_match('/\.csv$/i', $to)) {
+            $peopleType = 'csv';
+        } elseif ($to !== '') {
+            $customerIds = array_values(array_filter(explode(',', $to)));
+            $hasCustomer = Customer::whereIn('id', $customerIds)->exists();
+            $peopleType = 'directory';
+            if ($hasCustomer) {
+                $directoryToIds = array_map(function ($id) { return 'customer:' . $id; }, $customerIds);
+            }
+            $ccIds = $clone->cc
+                ? array_values(array_filter(explode(',', (string) $clone->cc)))
+                : [];
+            if ($hasCustomer && $ccIds) {
+                $directoryCcIds = array_map(function ($id) { return 'customer:' . $id; }, $ccIds);
+            }
+        }
+
+        return [
+            'peopleType' => $peopleType ?: 'directory',
+            'toIds' => $toIds,
+            'ccIds' => $ccIds,
+            'directoryToIds' => $directoryToIds,
+            'directoryCcIds' => $directoryCcIds,
+        ];
+    }
+
+}

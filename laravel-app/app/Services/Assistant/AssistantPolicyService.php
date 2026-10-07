@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Services\Assistant;
+
+use App\Assistant\IntentCatalog;
+use App\WhatsApp\WhatsAppConversation;
+use App\WhatsApp\WhatsAppSetting;
+
+class AssistantPolicyService
+{
+    public function globallyEnabled()
+    {
+        if (! config('assistant.enabled')) {
+            return false;
+        }
+        $saved = WhatsAppSetting::getValue('assistant_enabled', '0');
+
+        return $saved === '1' || $saved === 'true';
+    }
+
+    public function mayProcess(WhatsAppConversation $conversation)
+    {
+        $mode = strtoupper((string) $conversation->mode);
+        if (! $this->globallyEnabled()) {
+            return [false, 'assistant_disabled'];
+        }
+        if ($mode === WhatsAppConversation::MODE_HUMAN) {
+            return [false, 'human_mode'];
+        }
+        if ($mode === WhatsAppConversation::MODE_PAUSED) {
+            return [false, 'paused'];
+        }
+        if ($mode === WhatsAppConversation::MODE_CLOSED) {
+            return [false, 'closed'];
+        }
+        if ($mode !== WhatsAppConversation::MODE_AI) {
+            return [false, 'not_ai_mode'];
+        }
+
+        return [true, null];
+    }
+
+    public function decide(array $intent, array $roles)
+    {
+        $name = isset($intent['intent']) ? $intent['intent'] : IntentCatalog::UNKNOWN;
+        if (! IntentCatalog::isKnown($name)) {
+            $name = IntentCatalog::UNKNOWN;
+        }
+        $confidence = isset($intent['confidence']) ? (float) $intent['confidence'] : 0.0;
+        $meta = IntentCatalog::meta($name);
+
+        // Explicit human / complaint / call — handover
+        if (in_array($name, [IntentCatalog::HUMAN_REQUEST, IntentCatalog::COMPLAINT, IntentCatalog::CALL_REQUEST], true)) {
+            $reason = $name === IntentCatalog::CALL_REQUEST ? 'call_request' : 'customer_request';
+
+            return $this->result($name, $confidence, IntentCatalog::ACTION_HANDOVER, $meta, $reason);
+        }
+        if ($name === IntentCatalog::EMPLOYEE_ENQUIRY) {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_HANDOVER, $meta, 'privileged');
+        }
+        if ($meta['sensitivity'] === 'VERIFIED') {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_REFUSE, $meta, 'verification_required');
+        }
+        if ($meta['sensitivity'] === 'PRIVILEGED') {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_HANDOVER, $meta, 'privileged');
+        }
+
+        // UNKNOWN / low confidence must NOT mean HUMAN — OpenAI conversational path handles these.
+        if ($name === IntentCatalog::UNKNOWN) {
+            return $this->result($name, max($confidence, 0.5), IntentCatalog::ACTION_ANSWER, $meta, 'openai_conversation');
+        }
+
+        if ($meta['sensitivity'] === 'RECOGNIZED' && ! $this->hasRole($roles, $this->rolesFor($name))) {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_HANDOVER, $meta, 'identity_required');
+        }
+        if (! empty($intent['needs_clarification'])) {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_CLARIFY, $meta, 'missing_slots');
+        }
+        if ($meta['requires_erp'] || ! empty($intent['requires_erp'])) {
+            return $this->result($name, $confidence, IntentCatalog::ACTION_TOOL, $meta, null);
+        }
+
+        return $this->result($name, $confidence, IntentCatalog::ACTION_ANSWER, $meta, null);
+    }
+
+    public function toolAllowed($toolName, array $toolMeta, array $roles)
+    {
+        $sensitivity = isset($toolMeta['sensitivity']) ? $toolMeta['sensitivity'] : 'PUBLIC';
+        if ($sensitivity === 'OWNER') {
+            return ! empty($roles['owner_authorized']) ? [true, null] : [false, 'privileged'];
+        }
+        if ($sensitivity === 'VERIFIED' || $sensitivity === 'PRIVILEGED') {
+            return [false, 'policy_blocked'];
+        }
+        if ($sensitivity === 'RECOGNIZED') {
+            $need = isset($toolMeta['roles']) ? $toolMeta['roles'] : ['customer', 'intern'];
+            if (! $this->hasRole($roles, $need)) {
+                return [false, 'identity_required'];
+            }
+        }
+
+        return [true, null];
+    }
+
+    protected function rolesFor($intent)
+    {
+        if (in_array($intent, [IntentCatalog::INTERNSHIP_TASK, IntentCatalog::INTERNSHIP_STATUS, IntentCatalog::INTERNSHIP_MATERIAL, IntentCatalog::INTERNSHIP_SUBMIT], true)) {
+            return ['intern'];
+        }
+        if (in_array($intent, [IntentCatalog::ATTENDANCE_IN, IntentCatalog::ATTENDANCE_OUT, IntentCatalog::ATTENDANCE_STATUS, IntentCatalog::ATTENDANCE_HOURS, IntentCatalog::ATTENDANCE_ASSIGNMENT, IntentCatalog::ATTENDANCE_CORRECTION], true)) {
+            return ['employee', 'intern'];
+        }
+        if (in_array($intent, [IntentCatalog::DOCUMENT_REQUEST, IntentCatalog::VERIFY_OTP], true)) {
+            return ['customer', 'employee', 'intern'];
+        }
+        if (in_array($intent, [IntentCatalog::BILL_REQUEST, IntentCatalog::BILL_CONFIRM, IntentCatalog::BILL_STATUS, IntentCatalog::BILL_MEDIA], true)) {
+            return ['customer', 'tenant'];
+        }
+        if (in_array($intent, [IntentCatalog::TENANT_BALANCE, IntentCatalog::TENANT_DUE, IntentCatalog::TENANT_PAYMENTS, IntentCatalog::TENANT_CLAIM, IntentCatalog::TENANT_DOCUMENT, IntentCatalog::TENANT_CLARIFY, IntentCatalog::MAINTENANCE_CREATE, IntentCatalog::MAINTENANCE_STATUS, IntentCatalog::MAINTENANCE_ATTACH], true)) {
+            return ['tenant'];
+        }
+
+        return ['customer'];
+    }
+
+    protected function hasRole(array $roles, array $need)
+    {
+        foreach ($need as $role) {
+            if (in_array($role, $roles, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function result($intent, $confidence, $action, array $meta, $reason)
+    {
+        return [
+            'intent' => $intent,
+            'confidence' => $confidence,
+            'action' => $action,
+            'requires_erp' => ! empty($meta['requires_erp']),
+            'sensitivity' => $meta['sensitivity'],
+            'reason' => $reason,
+        ];
+    }
+}

@@ -1,0 +1,553 @@
+import { supabase } from '@/lib/customSupabaseClient';
+
+const useMysql = import.meta.env.VITE_DATA_BACKEND === 'mysql';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const STORAGE_KEY = 'alpha_supabase_auth';
+
+function getToken() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.access_token || parsed?.currentSession?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function mysqlUsersApi(path, options = {}) {
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message =
+      typeof json.error === 'string'
+        ? json.error
+        : json.error?.message || res.statusText || 'Request failed';
+    throw new Error(message);
+  }
+  return json;
+}
+
+/**
+ * User Service
+ * Handles basic user CRUD operations
+ */
+
+/**
+ * Get all users
+ * @returns {Promise<Array>} Array of users
+ */
+export async function getAllUsers() {
+  console.log('[USER SERVICE] Fetching all users');
+
+  if (useMysql) {
+    try {
+      const { data } = await mysqlUsersApi('/users');
+      console.log('[USER SERVICE] Fetched', data?.length || 0, 'users');
+      return data || [];
+    } catch (error) {
+      console.error('[USER SERVICE] Error fetching users:', error);
+      throw error;
+    }
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    console.log('[USER SERVICE] Fetched', data?.length || 0, 'users');
+    return data || [];
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching users:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user by ID
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object>} User object
+ */
+export async function getUserById(userId) {
+  console.log('[USER SERVICE] Fetching user:', userId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user by email
+ * @param {string} email - User email
+ * @returns {Promise<Object>} User object
+ */
+export async function getUserByEmail(email) {
+  console.log('[USER SERVICE] Fetching user by email:', email);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user by username (searches by email or full_name)
+ * @param {string} username - Username to search for
+ * @returns {Promise<Object>} User object
+ */
+export async function getUserByUsername(username) {
+  console.log('[USER SERVICE] Fetching user by username:', username);
+
+  if (useMysql) {
+    try {
+      const { data } = await mysqlUsersApi(`/users/lookup?identifier=${encodeURIComponent(username)}`);
+      if (!data) throw new Error(`User not found: ${username}`);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[USER SERVICE] Error fetching user by username:', error);
+      throw error;
+    }
+  }
+  
+  try {
+    // Search by email first (exact match)
+    let { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', username)
+      .maybeSingle();
+    
+    if (error) throw error;
+    
+    // If not found by email, search by full_name (case-insensitive)
+    if (!data) {
+      const { data: nameData, error: nameError } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('full_name', username)
+        .maybeSingle();
+      
+      if (nameError) throw nameError;
+      data = nameData;
+    }
+    
+    if (!data) {
+      throw new Error(`User not found: ${username}`);
+    }
+    
+    console.log('[USER SERVICE] User found:', data.id);
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching user by username:', error);
+    throw error;
+  }
+}
+
+/**
+ * Search users for task assignment (debounced picker, like Announcements).
+ */
+export async function searchUsersForTaskAssignment(query = '', category = 'all') {
+  if (useMysql) {
+    try {
+      const params = new URLSearchParams({
+        q: query.trim(),
+        category: category || 'all',
+      });
+      const { data } = await mysqlUsersApi(`/tasks/assignees/search?${params.toString()}`);
+      return { success: true, data: data || [] };
+    } catch (error) {
+      console.error('[USER SERVICE] Error searching assignees:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  try {
+    const { searchRecipients } = await import('./announcementService');
+    const q = query.trim();
+    let rows = [];
+
+    if (category === 'all') {
+      const [staff, customers] = await Promise.all([
+        searchRecipients('users', q),
+        searchRecipients('customers', q),
+      ]);
+      rows = [...staff, ...customers];
+    } else if (category === 'staff' || category === 'users') {
+      rows = await searchRecipients('users', q);
+    } else {
+      rows = await searchRecipients('customers', q);
+    }
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, role')
+      .order('full_name', { ascending: true });
+
+    if (profiles?.length) {
+      const profileRows = profiles
+        .filter((p) => {
+          if (!q) return true;
+          const needle = q.toLowerCase();
+          return [p.full_name, p.email, p.phone].some((v) => (v || '').toLowerCase().includes(needle));
+        })
+        .map((p) => ({
+          id: p.id,
+          name: p.full_name,
+          full_name: p.full_name,
+          email: p.email || '',
+          phone: p.phone || '',
+          role: p.role || '',
+          type: 'staff',
+        }));
+      const seen = new Set(rows.map((r) => r.id || r.recipient_id));
+      profileRows.forEach((p) => {
+        if (!seen.has(p.id)) rows.push(p);
+      });
+    }
+
+    const mapped = rows.map((r) => ({
+      id: r.id || r.recipient_id,
+      name: r.name || r.full_name || r.email,
+      full_name: r.full_name || r.name || r.email,
+      email: r.email || '',
+      phone: r.phone || '',
+      role: r.role || r.recipient_type || '',
+      type: r.type || r.recipient_type || 'user',
+    }));
+
+    const deduped = [];
+    const ids = new Set();
+    mapped.forEach((row) => {
+      if (!row.id || ids.has(row.id)) return;
+      ids.add(row.id);
+      deduped.push(row);
+    });
+
+    return { success: true, data: deduped.slice(0, 50) };
+  } catch (error) {
+    console.error('[USER SERVICE] Error searching assignees:', error);
+    return { success: false, error: error.message, data: [] };
+  }
+}
+
+/**
+ * Fetch EVERY assignee in a category (no 50-row cap) for the "Select everyone" action.
+ */
+export async function getAllAssigneesForTask(category = 'all') {
+  if (useMysql) {
+    try {
+      const params = new URLSearchParams({ category: category || 'all' });
+      const { data } = await mysqlUsersApi(`/tasks/assignees/all?${params.toString()}`);
+      return { success: true, data: data || [] };
+    } catch (error) {
+      console.error('[USER SERVICE] Error fetching all assignees:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+  // Supabase fallback: reuse the search (returns the full active list when query is empty).
+  return searchUsersForTaskAssignment('', category);
+}
+
+/**
+ * Get all users for assignment (task assignment, etc.)
+ * @returns {Promise<Array>} Array of users with essential fields
+ */
+export async function getAllUsersForAssignment() {
+  console.log('[USER SERVICE] Fetching all users for assignment');
+
+  if (useMysql) {
+    try {
+      const { data } = await mysqlUsersApi('/users?for=assignment');
+      const mapped = (data || []).map((u) => ({
+        id: u.id,
+        full_name: u.full_name || u.name,
+        name: u.full_name || u.name,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+      }));
+      console.log('[USER SERVICE] Fetched', mapped.length, 'users for assignment');
+      return { success: true, data: mapped };
+    } catch (error) {
+      console.error('[USER SERVICE] Error fetching users for assignment:', error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, role')
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+
+    const mapped = (data || []).map((u) => ({
+      ...u,
+      name: u.full_name,
+    }));
+    console.log('[USER SERVICE] Fetched', mapped.length, 'users for assignment');
+    return { success: true, data: mapped };
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching users for assignment:', error);
+    return { success: false, error: error.message, data: [] };
+  }
+}
+
+/**
+ * Create user (basic)
+ * @param {Object} userData - User data
+ * @returns {Promise<Object>} Created user
+ */
+export async function createUser(userData) {
+  console.log('[USER SERVICE] Creating user');
+
+  if (useMysql) {
+    try {
+      const json = await mysqlUsersApi('/users', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      return { ...(json.data || {}), existing: Boolean(json.existing) };
+    } catch (error) {
+      console.error('[USER SERVICE] Error creating user:', error);
+      throw error;
+    }
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert(userData)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error creating user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user
+ * @param {string} userId - User UUID
+ * @param {Object} updates - Updates object
+ * @returns {Promise<Object>} Updated user
+ */
+export async function updateUser(userId, updates) {
+  console.log('[USER SERVICE] Updating user:', userId);
+
+  if (useMysql) {
+    try {
+      const { data } = await mysqlUsersApi(`/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return data;
+    } catch (error) {
+      console.error('[USER SERVICE] Error updating user:', error);
+      throw error;
+    }
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error updating user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete user
+ * @param {string} userId - User UUID
+ */
+export async function deleteUser(userId) {
+  console.log('[USER SERVICE] Deleting user:', userId);
+
+  if (useMysql) {
+    try {
+      await mysqlUsersApi(`/users/${userId}`, { method: 'DELETE' });
+      console.log('[USER SERVICE] User deleted');
+      return;
+    } catch (error) {
+      console.error('[USER SERVICE] Error deleting user:', error);
+      throw error;
+    }
+  }
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    
+    if (error) throw error;
+    
+    console.log('[USER SERVICE] User deleted');
+  } catch (error) {
+    console.error('[USER SERVICE] Error deleting user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Search users by name or email
+ * @param {string} searchTerm - Search term
+ * @returns {Promise<Array>} Array of matching users
+ */
+export async function searchUsers(searchTerm) {
+  console.log('[USER SERVICE] Searching users:', searchTerm);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+      .order('full_name');
+    
+    if (error) throw error;
+    
+    console.log('[USER SERVICE] Found', data?.length || 0, 'users');
+    return data || [];
+  } catch (error) {
+    console.error('[USER SERVICE] Error searching users:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get users by role
+ * @param {string} role - Role name
+ * @returns {Promise<Array>} Array of users with the specified role
+ */
+export async function getUsersByRole(role) {
+  console.log('[USER SERVICE] Fetching users by role:', role);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', role)
+      .order('full_name');
+    
+    if (error) throw error;
+    
+    console.log('[USER SERVICE] Found', data?.length || 0, 'users with role:', role);
+    return data || [];
+  } catch (error) {
+    console.error('[USER SERVICE] Error fetching users by role:', error);
+    throw error;
+  }
+}
+
+/**
+ * Activate user
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object>} Updated user
+ */
+export async function activateUser(userId) {
+  console.log('[USER SERVICE] Activating user:', userId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_active: true })
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error activating user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Deactivate user
+ * @param {string} userId - User UUID
+ * @returns {Promise<Object>} Updated user
+ */
+export async function deactivateUser(userId) {
+  console.log('[USER SERVICE] Deactivating user:', userId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('[USER SERVICE] Error deactivating user:', error);
+    throw error;
+  }
+}
+
+export default {
+  getAllUsers,
+  getUserById,
+  getUserByEmail,
+  getUserByUsername,
+  getAllUsersForAssignment,
+  searchUsersForTaskAssignment,
+  getAllAssigneesForTask,
+  createUser,
+  updateUser,
+  deleteUser,
+  searchUsers,
+  getUsersByRole,
+  activateUser,
+  deactivateUser
+};

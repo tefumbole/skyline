@@ -1,0 +1,12 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+apps/api/.env
+data/export/
+apps/api/uploads/
+.DS_Store
+*.log
+.vite/

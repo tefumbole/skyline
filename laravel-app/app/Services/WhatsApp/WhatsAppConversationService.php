@@ -1,0 +1,874 @@
+<?php
+
+namespace App\Services\WhatsApp;
+
+use App\Contracts\WhatsApp\WhatsAppProviderInterface;
+use App\Services\Assistant\AssistantRuntimeSettings;
+use App\WhatsApp\WhatsAppContact;
+use App\WhatsApp\WhatsAppContactLink;
+use App\WhatsApp\WhatsAppConversation;
+use App\WhatsApp\WhatsAppConversationEvent;
+use App\WhatsApp\WhatsAppMessage;
+use App\WhatsApp\WhatsAppNote;
+use App\WhatsApp\WhatsAppSetting;
+
+class WhatsAppConversationService
+{
+    protected $identity;
+    protected $provider;
+
+    public function __construct(WhatsAppIdentityService $identity, WhatsAppProviderInterface $provider)
+    {
+        $this->identity = $identity;
+        $this->provider = $provider;
+    }
+
+    public function defaultMode()
+    {
+        $saved = WhatsAppSetting::getValue('default_conversation_mode');
+        $mode = strtoupper((string) ($saved ?: config('services.whatsapp.default_conversation_mode', 'HUMAN')));
+        if (! in_array($mode, [
+            WhatsAppConversation::MODE_AI,
+            WhatsAppConversation::MODE_HUMAN,
+            WhatsAppConversation::MODE_PAUSED,
+            WhatsAppConversation::MODE_CLOSED,
+        ], true)) {
+            $mode = WhatsAppConversation::MODE_HUMAN;
+        }
+        if (AssistantRuntimeSettings::aiFirst()) {
+            try {
+                if (app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()) {
+                    return WhatsAppConversation::MODE_AI;
+                }
+            } catch (\Exception $e) {
+                return WhatsAppConversation::MODE_HUMAN;
+            }
+
+            return WhatsAppConversation::MODE_HUMAN;
+        }
+
+        return $mode;
+    }
+
+    public function findOrCreateContact($phone, $waName = null)
+    {
+        $normalized = $this->identity->normalize($phone);
+        if ($normalized === '') {
+            return null;
+        }
+        app(\App\Services\WhatsApp\WhatsAppContactLookup::class)->requireTenant();
+
+        $contact = WhatsAppContact::query()->where('normalized_phone', $normalized)->first();
+        if (! $contact) {
+            $contact = new WhatsAppContact();
+            $contact->normalized_phone = $normalized;
+        }
+        $contact->display_phone = $this->identity->display($phone);
+        if ($waName && trim((string) $waName) !== '') {
+            $contact->wa_name = $waName;
+        }
+        $contact->save();
+        $this->syncIdentityLinks($contact);
+
+        return $contact->fresh('links');
+    }
+
+    public function syncIdentityLinks(WhatsAppContact $contact)
+    {
+        foreach ($this->identity->resolve($contact->normalized_phone) as $match) {
+            WhatsAppContactLink::firstOrCreate([
+                'contact_id' => $contact->id,
+                'linkable_type' => $match['type'],
+                'linkable_id' => $match['id'],
+                'role' => $match['role'],
+            ]);
+        }
+    }
+
+    public function openConversation(WhatsAppContact $contact)
+    {
+        $conversation = WhatsAppConversation::where('contact_id', $contact->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($conversation) {
+            if (in_array($conversation->status, [WhatsAppConversation::STATUS_CLOSED, WhatsAppConversation::STATUS_RESOLVED], true)) {
+                $conversation->status = WhatsAppConversation::STATUS_WAITING_STAFF;
+                if ($conversation->mode === WhatsAppConversation::MODE_CLOSED) {
+                    $conversation->mode = $this->initialMode();
+                }
+                $conversation->save();
+            }
+
+            return $conversation;
+        }
+
+        return WhatsAppConversation::create([
+            'contact_id' => $contact->id,
+            'mode' => $this->initialMode(),
+            'status' => WhatsAppConversation::STATUS_OPEN,
+            'unread_count' => 0,
+        ]);
+    }
+
+    public function recordIncoming(array $parsed)
+    {
+        $contact = $this->findOrCreateContact($parsed['phone'], $parsed['wa_name'] ?? null);
+        if (! $contact) {
+            return null;
+        }
+
+        $conversation = $this->openConversation($contact);
+        $conversation = $this->promoteToAiIfDefault($conversation);
+        if (! empty($parsed['message_id'])) {
+            $existing = WhatsAppMessage::where('provider_message_id', $parsed['message_id'])->first();
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        $preview = $this->preview($parsed['body'] ?? null, $parsed['message_type'] ?? 'TEXT');
+        $message = WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_IN,
+            'type' => $parsed['message_type'] ?? 'UNKNOWN',
+            'provider_message_id' => $parsed['message_id'] ?? null,
+            'body' => $parsed['body'] ?? null,
+            'media_json' => ! empty($parsed['media']) ? json_encode($parsed['media']) : null,
+            'status' => WhatsAppMessage::STATUS_DELIVERED,
+            'sender_type' => 'CONTACT',
+            'delivered_at' => now(),
+        ]);
+
+        $conversation->unread_count = (int) $conversation->unread_count + 1;
+        if (! $conversation->first_message) {
+            $conversation->first_message = $preview;
+        }
+        $conversation->last_message = $preview;
+        $conversation->last_activity_at = now();
+        $conversation->last_incoming_at = now();
+        if ($conversation->status !== WhatsAppConversation::STATUS_CLOSED) {
+            $conversation->status = WhatsAppConversation::STATUS_WAITING_STAFF;
+        }
+        $conversation->save();
+
+        try {
+            app(WhatsAppLeadService::class)->considerIncoming($contact, $conversation, $message);
+        } catch (\Exception $e) {
+        }
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('assistant_activities')) {
+                \App\Jobs\ProcessAssistantTurn::dispatch($message->id)->onQueue('whatsapp');
+            }
+        } catch (\Exception $e) {
+        }
+
+        return $message;
+    }
+
+    public function applyStatus($providerMessageId, $status)
+    {
+        if (! $providerMessageId || ! $status) {
+            return null;
+        }
+
+        $message = WhatsAppMessage::where('provider_message_id', $providerMessageId)->first();
+        if (! $message) {
+            return null;
+        }
+
+        $now = now();
+        if ($status === WhatsAppMessage::STATUS_QUEUED && ! $message->queued_at) {
+            $message->queued_at = $now;
+        }
+        if ($status === WhatsAppMessage::STATUS_SENT) {
+            $message->sent_at = $message->sent_at ?: $now;
+        }
+        if ($status === WhatsAppMessage::STATUS_DELIVERED) {
+            $message->delivered_at = $message->delivered_at ?: $now;
+            if (! $message->sent_at) {
+                $message->sent_at = $now;
+            }
+        }
+        if ($status === WhatsAppMessage::STATUS_READ) {
+            $message->read_at = $message->read_at ?: $now;
+            $message->delivered_at = $message->delivered_at ?: $now;
+            $message->sent_at = $message->sent_at ?: $now;
+        }
+        if ($status === WhatsAppMessage::STATUS_PLAYED) {
+            $message->played_at = $message->played_at ?: $now;
+            $message->read_at = $message->read_at ?: $now;
+            $message->delivered_at = $message->delivered_at ?: $now;
+        }
+        if ($status === WhatsAppMessage::STATUS_FAILED) {
+            $message->failed_at = $message->failed_at ?: $now;
+        }
+
+        $rank = [
+            WhatsAppMessage::STATUS_QUEUED => 1,
+            WhatsAppMessage::STATUS_SENT => 2,
+            WhatsAppMessage::STATUS_DELIVERED => 3,
+            WhatsAppMessage::STATUS_READ => 4,
+            WhatsAppMessage::STATUS_PLAYED => 5,
+            WhatsAppMessage::STATUS_FAILED => 6,
+        ];
+        $current = isset($rank[$message->status]) ? $rank[$message->status] : 0;
+        $next = isset($rank[$status]) ? $rank[$status] : 0;
+        if ($status === WhatsAppMessage::STATUS_FAILED || $next >= $current) {
+            $message->status = $status;
+        }
+        $message->save();
+
+        return $message;
+    }
+
+    public function ownerNotice(WhatsAppConversation $conversation, $body)
+    {
+        $body = trim((string) $body);
+        $contact = $conversation->contact;
+        if ($body === '' || ! $contact) {
+            return ['success' => false];
+        }
+        $result = $this->provider->sendText($contact->normalized_phone, $body);
+        WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'TEXT',
+            'body' => $body,
+            'status' => ! empty($result['success']) ? WhatsAppMessage::STATUS_SENT : WhatsAppMessage::STATUS_FAILED,
+            'sender_type' => 'ASSISTANT',
+            'provider_message_id' => isset($result['msg_id']) ? $result['msg_id'] : null,
+            'sent_at' => now(),
+        ]);
+
+        return $result;
+    }
+
+    public function reply(WhatsAppConversation $conversation, $body, $userId = null)
+    {
+        $body = trim((string) $body);
+        if ($body === '') {
+            return ['success' => false, 'error' => 'Message is empty.'];
+        }
+        $command = strtoupper(preg_replace('/\s+/', ' ', $body));
+        if ($command === 'AI OFF' || $command === 'AI ON') {
+            return $this->switchModeFromReply($conversation, $command === 'AI ON', $userId);
+        }
+        if (AssistantRuntimeSettings::manualReplyTakesOver() && $conversation->mode === WhatsAppConversation::MODE_AI) {
+            $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+            if ($userId) {
+                $conversation->assigned_user_id = $userId;
+            }
+            $conversation->save();
+            $this->event($conversation, WhatsAppConversationEvent::TAKEOVER, 'HUMAN_TAKEOVER_BY_REPLY', $userId);
+        }
+
+        $contact = $conversation->contact;
+        if (! $contact || $contact->isBlocked()) {
+            return ['success' => false, 'error' => 'Contact is blocked or missing.'];
+        }
+
+        $message = WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'TEXT',
+            'body' => $body,
+            'status' => WhatsAppMessage::STATUS_QUEUED,
+            'sender_type' => 'STAFF',
+            'sender_user_id' => $userId,
+            'queued_at' => now(),
+        ]);
+
+        if ($conversation->isWebsite()) {
+            $message->provider_message_id = 'webmsg:'.uniqid('', true);
+            $message->status = WhatsAppMessage::STATUS_SENT;
+            $message->sent_at = now();
+            $message->save();
+            $result = ['success' => true, 'msg_id' => $message->provider_message_id, 'channel' => 'website'];
+        } else {
+            $result = $this->provider->sendText($contact->normalized_phone, $body);
+            if (! empty($result['success'])) {
+                $msgId = isset($result['msg_id']) ? (string) $result['msg_id'] : null;
+                $message->provider_message_id = $msgId ?: null;
+                $message->status = WhatsAppMessage::STATUS_SENT;
+                $message->sent_at = now();
+                $message->save();
+            } else {
+                $message->status = WhatsAppMessage::STATUS_FAILED;
+                $message->failed_at = now();
+                $message->error = isset($result['error']) ? substr((string) $result['error'], 0, 500) : 'send failed';
+                $message->save();
+            }
+        }
+
+        $preview = $this->preview($body, 'TEXT');
+        if (! $conversation->first_message) {
+            $conversation->first_message = $preview;
+        }
+        $conversation->last_message = $preview;
+        $conversation->last_activity_at = now();
+        $conversation->last_outgoing_at = now();
+        $conversation->unread_count = 0;
+        if ($conversation->status !== WhatsAppConversation::STATUS_CLOSED) {
+            $conversation->status = WhatsAppConversation::STATUS_WAITING_CUSTOMER;
+        }
+        $conversation->save();
+        try {
+            app(WhatsAppLeadService::class)->conversationEvent(
+                $conversation->id,
+                WhatsAppConversationEvent::REPLIED,
+                'Staff replied',
+                $userId
+            );
+        } catch (\Exception $e) {
+        }
+
+        $result['message'] = $message;
+
+        return $result;
+    }
+
+    public function sendServicePoll(WhatsAppConversation $conversation)
+    {
+        $contact = $conversation ? $conversation->contact : null;
+        if (! $conversation || ! $contact || $conversation->mode !== WhatsAppConversation::MODE_AI) {
+            return ['success' => false];
+        }
+        $menu = app(\App\Services\Assistant\ServiceMenu::class);
+
+        // Website chat: interactive choices in the widget — never send a Wasender poll
+        // to a visitor who is already chatting on the site.
+        if ($conversation->isWebsite()) {
+            $message = WhatsAppMessage::create([
+                'conversation_id' => $conversation->id,
+                'contact_id' => $contact->id,
+                'direction' => WhatsAppMessage::DIR_OUT,
+                'type' => 'TEXT',
+                'provider_message_id' => 'webmsg:'.uniqid('', true),
+                'body' => $menu->websitePrompt(),
+                'media_json' => json_encode(['choices' => $menu->choices()]),
+                'status' => WhatsAppMessage::STATUS_SENT,
+                'sender_type' => 'ASSISTANT',
+                'sent_at' => now(),
+            ]);
+            $conversation->last_message = mb_substr($menu->websitePrompt(), 0, 120);
+            $conversation->last_activity_at = now();
+            $conversation->last_outgoing_at = now();
+            $conversation->save();
+
+            return ['success' => true, 'channel' => 'website', 'message' => $message];
+        }
+
+        $wasender = app(\App\Services\BeyondWasenderService::class);
+        if (! $wasender->isConfigured()) {
+            return ['success' => false, 'error' => 'not_configured'];
+        }
+        $result = $wasender->sendPoll($contact->normalized_phone, 'Which service do you need?', $menu->options());
+        if (empty($result['success'])) {
+            return $result;
+        }
+        WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'TEXT',
+            'body' => 'Which service do you need?',
+            'status' => WhatsAppMessage::STATUS_SENT,
+            'sender_type' => 'ASSISTANT',
+            'provider_message_id' => isset($result['msg_id']) ? (string) $result['msg_id'] : null,
+            'sent_at' => now(),
+        ]);
+
+        return $result;
+    }
+
+    public function markRead(WhatsAppConversation $conversation)
+    {
+        $conversation->unread_count = 0;
+        $conversation->save();
+    }
+
+    public function assign(WhatsAppConversation $conversation, $userId, $actorId = null)
+    {
+        $conversation->assigned_user_id = $userId ?: null;
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::ASSIGNED, $userId ? 'Assigned to #'.$userId : 'Unassigned', $actorId);
+
+        return $conversation;
+    }
+
+    protected function switchModeFromReply(WhatsAppConversation $conversation, $aiOn, $userId = null)
+    {
+        if ($aiOn) {
+            if (! app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()) {
+                if (strtoupper((string) $conversation->mode) === WhatsAppConversation::MODE_AI) {
+                    $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+                    $conversation->save();
+                }
+
+                return ['success' => true, 'mode' => WhatsAppConversation::MODE_HUMAN];
+            }
+            $conversation->mode = WhatsAppConversation::MODE_AI;
+            $conversation->assigned_user_id = null;
+            if ($conversation->status === WhatsAppConversation::STATUS_CLOSED) {
+                $conversation->status = WhatsAppConversation::STATUS_OPEN;
+            }
+            $conversation->save();
+            $this->event($conversation, WhatsAppConversationEvent::MODE, 'AI ON switched this chat to AI mode', $userId);
+            $this->resumeLatestCustomerMessage($conversation);
+
+            return ['success' => true, 'mode' => WhatsAppConversation::MODE_AI];
+        }
+        $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+        if ($userId) {
+            $conversation->assigned_user_id = $userId;
+        }
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::MODE, 'AI OFF switched this chat to Human mode', $userId);
+
+        return ['success' => true, 'mode' => WhatsAppConversation::MODE_HUMAN];
+    }
+
+    public function enableAi(WhatsAppConversation $conversation, $userId = null)
+    {
+        if (! app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()) {
+            if (strtoupper((string) $conversation->mode) === WhatsAppConversation::MODE_AI) {
+                $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+                $conversation->save();
+                $this->event($conversation, WhatsAppConversationEvent::MODE, 'AI is off, so this chat stayed with a person', $userId);
+            }
+
+            return $conversation;
+        }
+        $conversation->mode = WhatsAppConversation::MODE_AI;
+        $conversation->assigned_user_id = null;
+        if ($conversation->status === WhatsAppConversation::STATUS_CLOSED) {
+            $conversation->status = WhatsAppConversation::STATUS_OPEN;
+        }
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::MODE, 'AI enabled', $userId);
+        $this->resumeLatestCustomerMessage($conversation);
+
+        return $conversation;
+    }
+
+    public function assistantReply(WhatsAppConversation $conversation, $body, array $media = null)
+    {
+        $body = \App\Support\WhatsAppMessage::plainAiReply($body);
+        $body = $this->withoutRepeatGreeting($conversation, $body);
+        if ($body === '') {
+            return ['success' => false, 'error' => 'Message is empty.'];
+        }
+        $conversation = WhatsAppConversation::find($conversation->id);
+        if (! $conversation || $conversation->mode !== WhatsAppConversation::MODE_AI) {
+            return ['success' => false, 'error' => 'mode_changed', 'discarded' => true];
+        }
+        $contact = $conversation->contact;
+        if (! $contact || $contact->isBlocked()) {
+            return ['success' => false, 'error' => 'Contact is blocked or missing.'];
+        }
+
+        $mediaJson = null;
+        $hadServiceMenu = strpos($body, '1. Sound') !== false;
+        if ($conversation->isWebsite() && is_array($media) && (! empty($media['choices']) || ! empty($media['ui']))) {
+            $payload = array_filter([
+                'choices' => isset($media['choices']) ? $media['choices'] : null,
+                'ui' => isset($media['ui']) ? $media['ui'] : null,
+            ], function ($v) {
+                return $v !== null;
+            });
+            $mediaJson = json_encode($payload);
+        } elseif ($conversation->isWebsite() && $hadServiceMenu) {
+            $menu = app(\App\Services\Assistant\ServiceMenu::class);
+            $body = trim(preg_replace('/\n*You can tap a service below.*$/s', "\n\n".$menu->websitePrompt(), $body));
+            if ($body === '' || $body === $menu->websitePrompt()) {
+                $body = $menu->websitePrompt();
+            }
+            $mediaJson = json_encode(['choices' => $menu->choices()]);
+        }
+
+        $message = WhatsAppMessage::create(array_filter([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'TEXT',
+            'body' => $body,
+            'media_json' => $mediaJson,
+            'status' => WhatsAppMessage::STATUS_QUEUED,
+            'sender_type' => 'ASSISTANT',
+            'queued_at' => now(),
+        ], function ($v) {
+            return $v !== null;
+        }));
+
+        // Re-check mode immediately before transport commit (takeover discard).
+        $conversation = WhatsAppConversation::find($conversation->id);
+        if (! $conversation || $conversation->mode !== WhatsAppConversation::MODE_AI) {
+            $message->status = WhatsAppMessage::STATUS_FAILED;
+            $message->failed_at = now();
+            $message->error = 'mode_changed';
+            $message->save();
+
+            return ['success' => false, 'error' => 'mode_changed', 'discarded' => true];
+        }
+
+        if ($conversation->isWebsite()) {
+            $message->provider_message_id = 'webmsg:'.uniqid('', true);
+            $message->status = WhatsAppMessage::STATUS_SENT;
+            $message->sent_at = now();
+            $message->save();
+            $result = ['success' => true, 'msg_id' => $message->provider_message_id, 'channel' => 'website', 'had_service_menu' => $hadServiceMenu];
+        } else {
+            if (method_exists($this->provider, 'sendPlainText')) {
+                $result = $this->provider->sendPlainText($contact->normalized_phone, $body);
+            } else {
+                $result = $this->provider->sendText($contact->normalized_phone, $body);
+            }
+            if (! empty($result['success'])) {
+                $message->provider_message_id = isset($result['msg_id']) ? (string) $result['msg_id'] : null;
+                $message->status = WhatsAppMessage::STATUS_SENT;
+                $message->sent_at = now();
+                $message->save();
+            } else {
+                $message->status = WhatsAppMessage::STATUS_FAILED;
+                $message->failed_at = now();
+                $message->error = isset($result['error']) ? substr((string) $result['error'], 0, 500) : 'send failed';
+                $message->save();
+            }
+        }
+        $preview = $this->preview($body, 'TEXT');
+        $conversation->last_message = $preview;
+        $conversation->last_activity_at = now();
+        $conversation->last_outgoing_at = now();
+        if ($conversation->status !== WhatsAppConversation::STATUS_CLOSED) {
+            $conversation->status = WhatsAppConversation::STATUS_WAITING_CUSTOMER;
+        }
+        $conversation->save();
+        $result['message'] = $message;
+
+        return $result;
+    }
+
+    protected function withoutRepeatGreeting(WhatsAppConversation $conversation, $body)
+    {
+        $body = trim((string) $body);
+        if ($body === '') {
+            return $body;
+        }
+        $prior = WhatsAppMessage::where('conversation_id', $conversation->id)->count();
+        if ($prior <= 1) {
+            return $body;
+        }
+        $name = $this->knownPersonName($conversation);
+        $namePart = $name !== '' ? '(?:'.preg_quote($name, '/').'[,!]?\s*)?' : '';
+        $stripped = preg_replace('/^(?:hello|hi|hey|hiya|bonjour|bonsoir|salut|good morning|good afternoon|good evening)[,!]?\s+'.$namePart.'/iu', '', $body, 1);
+        if (! is_string($stripped)) {
+            return $body;
+        }
+        $rest = trim($stripped);
+        if ($rest === '') {
+            return 'How can I help you?';
+        }
+        if (strcasecmp($rest, $body) === 0) {
+            return $body;
+        }
+
+        return $rest;
+    }
+
+    protected function knownPersonName(WhatsAppConversation $conversation)
+    {
+        $contact = $conversation->contact;
+        if (! $contact) {
+            return '';
+        }
+        $name = '';
+        $phone = trim((string) $contact->normalized_phone);
+        if ($phone !== '') {
+            try {
+                $name = trim((string) app(\App\Services\WhatsApp\GroupContactExportService::class)->nameForPhone($phone, false));
+            } catch (\Throwable $e) {
+                $name = '';
+            }
+        }
+        if ($name === '') {
+            $name = trim((string) $contact->wa_name);
+        }
+        if ($name === '' || preg_match('/^\+?[\d\s\-\(\)]+$/', $name)) {
+            return '';
+        }
+
+        return $name;
+    }
+
+    public function takeover(WhatsAppConversation $conversation, $userId)
+    {
+        $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+        $conversation->assigned_user_id = $userId;
+        if (in_array($conversation->status, [WhatsAppConversation::STATUS_CLOSED, WhatsAppConversation::STATUS_RESOLVED], true)) {
+            $conversation->status = WhatsAppConversation::STATUS_OPEN;
+        }
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::TAKEOVER, 'Taken by staff', $userId);
+
+        return $conversation;
+    }
+
+    public function release(WhatsAppConversation $conversation, $userId)
+    {
+        $conversation->assigned_user_id = null;
+        $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+        if ($conversation->status === WhatsAppConversation::STATUS_CLOSED) {
+            $conversation->status = WhatsAppConversation::STATUS_OPEN;
+        }
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::RELEASED, 'Released', $userId);
+
+        return $conversation;
+    }
+
+    public function pause(WhatsAppConversation $conversation, $userId)
+    {
+        $conversation->mode = WhatsAppConversation::MODE_PAUSED;
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::MODE, 'Paused', $userId);
+
+        return $conversation;
+    }
+
+    public function destroy(WhatsAppConversation $conversation)
+    {
+        $id = (int) $conversation->id;
+        \Illuminate\Support\Facades\DB::transaction(function () use ($conversation, $id) {
+            foreach ([
+                'whatsapp_messages',
+                'whatsapp_notes',
+                'whatsapp_conversation_events',
+                'assistant_memories',
+                'assistant_activities',
+                'whatsapp_calls',
+            ] as $table) {
+                if (\Illuminate\Support\Facades\Schema::hasTable($table) && \Illuminate\Support\Facades\Schema::hasColumn($table, 'conversation_id')) {
+                    \Illuminate\Support\Facades\DB::table($table)->where('conversation_id', $id)->delete();
+                }
+            }
+            foreach ([
+                'quotations' => 'whatsapp_conversation_id',
+                'attendances' => 'whatsapp_conversation_id',
+                'internship_submissions' => 'whatsapp_conversation_id',
+            ] as $table => $column) {
+                if (\Illuminate\Support\Facades\Schema::hasTable($table) && \Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
+                    \Illuminate\Support\Facades\DB::table($table)->where($column, $id)->update([$column => null]);
+                }
+            }
+            $conversation->delete();
+        });
+    }
+
+    public function close(WhatsAppConversation $conversation, $userId)
+    {
+        $conversation->mode = WhatsAppConversation::MODE_CLOSED;
+        $conversation->status = WhatsAppConversation::STATUS_CLOSED;
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::CLOSED, 'Closed', $userId);
+
+        return $conversation;
+    }
+
+    public function reopen(WhatsAppConversation $conversation, $userId)
+    {
+        $conversation->mode = WhatsAppConversation::MODE_HUMAN;
+        $conversation->status = WhatsAppConversation::STATUS_OPEN;
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::REOPENED, 'Reopened', $userId);
+
+        return $conversation;
+    }
+
+    public function addNote(WhatsAppConversation $conversation, $body, $authorId, $leadId = null)
+    {
+        $body = trim((string) $body);
+        if ($body === '') {
+            return null;
+        }
+        $note = WhatsAppNote::create([
+            'conversation_id' => $conversation->id,
+            'lead_id' => $leadId,
+            'author_id' => $authorId,
+            'body' => $body,
+        ]);
+        $this->event($conversation, WhatsAppConversationEvent::NOTE, 'Internal note added', $authorId);
+
+        return $note;
+    }
+
+    public function sendSecretText(WhatsAppConversation $conversation, $secret)
+    {
+        $secret = trim((string) $secret);
+        $contact = $conversation->contact;
+        if ($secret === '' || ! $contact || $contact->isBlocked()) {
+            return ['success' => false, 'error' => 'Message is empty.'];
+        }
+        $stored = 'Verification code sent. It expires shortly. Do not share this code.';
+        $message = WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'TEXT',
+            'body' => $stored,
+            'status' => WhatsAppMessage::STATUS_QUEUED,
+            'sender_type' => 'ASSISTANT',
+            'queued_at' => now(),
+        ]);
+        $result = $this->provider->sendText($contact->normalized_phone, $secret);
+        if (! empty($result['success'])) {
+            $message->provider_message_id = isset($result['msg_id']) ? (string) $result['msg_id'] : null;
+            $message->status = WhatsAppMessage::STATUS_SENT;
+            $message->sent_at = now();
+            $message->save();
+        } else {
+            $message->status = WhatsAppMessage::STATUS_FAILED;
+            $message->failed_at = now();
+            $message->error = isset($result['error']) ? substr((string) $result['error'], 0, 500) : 'send failed';
+            $message->save();
+        }
+        $conversation->last_message = $stored;
+        $conversation->last_activity_at = now();
+        $conversation->last_outgoing_at = now();
+        $conversation->unread_count = 0;
+        $conversation->status = WhatsAppConversation::STATUS_WAITING_CUSTOMER;
+        $conversation->save();
+        $result['message'] = $message;
+
+        return $result;
+    }
+
+    public function sendExistingDocument(WhatsAppConversation $conversation, $localPath, $fileName, $caption, $userId, $senderType = 'STAFF')
+    {
+        $contact = $conversation->contact;
+        if (! $contact || ! is_string($localPath) || ! is_file($localPath)) {
+            return ['success' => false, 'error' => 'Document is not available.'];
+        }
+        $real = realpath($localPath);
+        $root = realpath(base_path());
+        if (! $real || strpos($real, $root) !== 0) {
+            return ['success' => false, 'error' => 'Document path is not allowed.'];
+        }
+
+        $message = WhatsAppMessage::create([
+            'conversation_id' => $conversation->id,
+            'contact_id' => $contact->id,
+            'direction' => WhatsAppMessage::DIR_OUT,
+            'type' => 'DOCUMENT',
+            'body' => $caption ?: $fileName,
+            'status' => WhatsAppMessage::STATUS_QUEUED,
+            'sender_type' => $senderType ?: 'STAFF',
+            'sender_user_id' => $userId,
+            'queued_at' => now(),
+            'media_json' => json_encode(['path' => $fileName]),
+        ]);
+        $result = $this->provider->sendDocument($contact->normalized_phone, $real, $fileName, $caption);
+        if (! empty($result['success'])) {
+            $message->provider_message_id = isset($result['msg_id']) ? (string) $result['msg_id'] : null;
+            $message->status = WhatsAppMessage::STATUS_SENT;
+            $message->sent_at = now();
+            $message->save();
+        } else {
+            $message->status = WhatsAppMessage::STATUS_FAILED;
+            $message->failed_at = now();
+            $message->error = isset($result['error']) ? substr((string) $result['error'], 0, 500) : 'send failed';
+            $message->save();
+        }
+        $conversation->last_message = '['.$fileName.']';
+        $conversation->last_activity_at = now();
+        $conversation->last_outgoing_at = now();
+        $conversation->unread_count = 0;
+        $conversation->status = WhatsAppConversation::STATUS_WAITING_CUSTOMER;
+        $conversation->save();
+        $this->event($conversation, WhatsAppConversationEvent::DOCUMENT, ! empty($result['success']) ? 'Document sent: '.$fileName : 'Document send failed: '.$fileName, $userId);
+        $result['message'] = $message;
+
+        return $result;
+    }
+
+    protected function resumeLatestCustomerMessage(WhatsAppConversation $conversation)
+    {
+        $latest = WhatsAppMessage::where('conversation_id', $conversation->id)->orderByDesc('id')->first();
+        if (! $latest || $latest->direction !== WhatsAppMessage::DIR_IN) {
+            return;
+        }
+        try {
+            \App\Jobs\ProcessAssistantTurn::dispatch($latest->id)
+                ->onConnection('database')
+                ->onQueue('whatsapp');
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function event(WhatsAppConversation $conversation, $type, $body, $actorId = null)
+    {
+        return WhatsAppConversationEvent::create([
+            'conversation_id' => $conversation->id,
+            'type' => $type,
+            'body' => $body,
+            'actor_user_id' => $actorId,
+        ]);
+    }
+
+    /**
+     * When AI is the default and the assistant is on, answer unassigned chats
+     * even if they were opened earlier in Human mode.
+     */
+    protected function promoteToAiIfDefault(WhatsAppConversation $conversation)
+    {
+        if ($conversation->mode === WhatsAppConversation::MODE_AI) {
+            return $conversation;
+        }
+        try {
+            if ($this->defaultMode() !== WhatsAppConversation::MODE_AI) {
+                return $conversation;
+            }
+            if (! app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()) {
+                return $conversation;
+            }
+            if (app(ConversationAiSwitchService::class)->excludeReason($conversation) !== null) {
+                return $conversation;
+            }
+            $conversation->mode = WhatsAppConversation::MODE_AI;
+            $conversation->save();
+            $this->event($conversation, WhatsAppConversationEvent::MODE, 'Auto-switched to AI because AI mode is on');
+        } catch (\Exception $e) {
+        }
+
+        return $conversation->fresh() ?: $conversation;
+    }
+
+    protected function initialMode()
+    {
+        $mode = $this->defaultMode();
+        if ($mode === WhatsAppConversation::MODE_AI) {
+            try {
+                if (! app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()) {
+                    return WhatsAppConversation::MODE_HUMAN;
+                }
+            } catch (\Exception $e) {
+                return WhatsAppConversation::MODE_HUMAN;
+            }
+        }
+
+        return $mode;
+    }
+
+    protected function preview($body, $type)
+    {
+        $text = trim((string) $body);
+        if ($text !== '') {
+            return mb_substr($text, 0, 180);
+        }
+
+        return '['.$type.']';
+    }
+}

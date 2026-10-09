@@ -6,26 +6,7 @@ class BeyondController extends Controller
 {
     public function home()
     {
-        $pubService = app(\App\Services\EventPublicationService::class);
-        $homeEvents = $pubService->publishedQuery()
-            ->orderBy('event_start_at')
-            ->limit(6)
-            ->get()
-            ->map(function ($event) use ($pubService) {
-                $pub = $event->publication;
-
-                return [
-                    'slug' => $event->slug,
-                    'title' => $pub->public_title ?: $event->name,
-                    'summary' => $pub->public_summary,
-                    'flyer' => $pubService->publicFlyerUrl($event, $pub),
-                    'start' => $event->event_start_at,
-                    'venue' => $pub->public_venue ?: $event->venue,
-                    'status' => $pubService->computePublicStatus($event, $pub),
-                ];
-            });
-
-        return view('beyond.home', ['homeEvents' => $homeEvents]);
+        return view('beyond.home');
     }
 
     public function subscriptions()

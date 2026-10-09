@@ -1389,7 +1389,6 @@
                         @endif
                         @if(in_array((int) Auth::user()->role_id, [1, 2], true))
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
-                            <li><a href="{{ route('cloud.admin') }}" data-nav-key="subscriptions"> <i class="dripicons-card"></i><span>Subscriptions</span></a></li>
                             <li><a href="{{ url('/admin/leaders') }}" data-nav-key="leaders"> <i class="dripicons-user-group"></i><span>About Us Leaders</span></a></li>
                         @endif
                         <?php
@@ -1805,82 +1804,15 @@
                         @if($jobs_module_active)
                             <li><a href="#jobs-module" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-briefcase"></i><span>Job Board</span></a>
                                 <ul id="jobs-module" class="collapse list-unstyled ">
-                                    <li id="jobs-applicants-menu"><a href="{{ route('jobs.applicants') }}">Interns</a></li>
+                                    <li id="jobs-applicants-menu"><a href="{{ route('jobs.applicants') }}">Applicants</a></li>
                                     <li id="jobs-list-menu"><a href="{{ route('jobs.index') }}">Job Postings</a></li>
                                     <li id="jobs-create-menu"><a href="{{ route('jobs.create') }}">Add Job</a></li>
-                                    <li id="jobs-create-intern-menu"><a href="{{ route('jobs.createInternship') }}">Add Internship</a></li>
                                     <li id="jobs-apps-menu"><a href="{{ route('jobs.applications') }}">All Applications</a></li>
                                     <li id="jobs-awaiting-menu"><a href="{{ route('jobs.awaiting') }}">Awaiting Approval</a></li>
                                     <li id="jobs-selected-menu"><a href="{{ route('jobs.selected') }}">Selected</a></li>
                                     <li id="jobs-rejected-menu"><a href="{{ route('jobs.rejected') }}">Rejected</a></li>
                                 </ul>
                             </li>
-                        @endif
-                        @php
-                            $internship_module_permission = \Spatie\Permission\Models\Permission::where('name', 'internship_module')->first();
-                            $internship_module_active = $role && $internship_module_permission ? \DB::table('role_has_permissions')->where([
-                                ['permission_id', $internship_module_permission->id],
-                                ['role_id', $role->id]
-                            ])->first() : null;
-                            $internship_student_perm = \Spatie\Permission\Models\Permission::where('name', 'internship.student')->first();
-                            $internship_student_active = $role && $internship_student_perm ? \DB::table('role_has_permissions')->where([
-                                ['permission_id', $internship_student_perm->id],
-                                ['role_id', $role->id]
-                            ])->first() : null;
-                            $internship_supervise_perm = \Spatie\Permission\Models\Permission::where('name', 'internship.supervise')->first();
-                            $internship_supervise_active = $role && $internship_supervise_perm ? \DB::table('role_has_permissions')->where([
-                                ['permission_id', $internship_supervise_perm->id],
-                                ['role_id', $role->id]
-                            ])->first() : null;
-                        @endphp
-                        @if($internship_module_active)
-                            @php
-                                $internship_is_admin = in_array($role->id, [1, 2])
-                                    || in_array('internship.programs.view', $all_permission ?? [])
-                                    || in_array('internship.enrolments.create', $all_permission ?? [])
-                                    || in_array('internship.programs.import', $all_permission ?? []);
-                                $internship_is_supervisor = $internship_supervise_active
-                                    || in_array('internship.submissions.grade', $all_permission ?? []);
-                                $internship_show_supervisor_menu = $internship_is_supervisor || $internship_is_admin;
-                            @endphp
-                            @if($internship_is_admin)
-                                <li><a href="#internship-admin-module" data-nav-key="internship" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-graduation-cap"></i><span>Internships</span></a>
-                                    <ul id="internship-admin-module" class="collapse list-unstyled ">
-                                        <li id="ip-hub"><a href="{{ route('internship.dashboard') }}">Dashboard</a></li>
-                                        <li id="ip-interns"><a href="{{ route('internship.interns') }}">Interns</a></li>
-                                        <li id="ip-programs"><a href="{{ route('internship.programs') }}">Programs</a></li>
-                                        <li id="ip-supervisors-admin"><a href="{{ route('internship.supervisors') }}">Supervisors</a></li>
-                                        <li id="ip-admin-tasks"><a href="{{ route('internship.tasks') }}">Task Manager</a></li>
-                                        <li id="ip-admin-queue"><a href="{{ route('internship.supervisor.index') }}">Grade Queue</a></li>
-                                        <li id="ip-admin-sup-home"><a href="{{ route('internship.supervisor.dashboard') }}">Supervisor Home</a></li>
-                                        <li id="ip-enrolments"><a href="{{ route('internship.enrolments') }}">Enrolments</a></li>
-                                        <li id="ip-reports"><a href="{{ route('internship.reports') }}">Reports</a></li>
-                                    </ul>
-                                </li>
-                            @endif
-                            @if($internship_show_supervisor_menu)
-                                <li><a href="#supervisor-module" data-nav-key="supervisor" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-users"></i><span>Supervisor</span></a>
-                                    <ul id="supervisor-module" class="collapse list-unstyled ">
-                                        <li id="ip-sup-home"><a href="{{ route('internship.supervisor.dashboard') }}">Home</a></li>
-                                        <li id="ip-my-students"><a href="{{ route('internship.supervisor.students') }}">{{ $internship_is_admin ? 'All Interns' : 'My Interns' }}</a></li>
-                                        @if($internship_is_admin)
-                                            <li id="ip-sup-interns"><a href="{{ route('internship.interns') }}">Interns</a></li>
-                                        @endif
-                                        <li id="ip-tasks-sup"><a href="{{ route('internship.tasks') }}">Tasks</a></li>
-                                        <li id="ip-grade-queue"><a href="{{ route('internship.supervisor.index') }}">Grade Queue</a></li>
-                                    </ul>
-                                </li>
-                            @endif
-                            @if($internship_student_active && ! $internship_is_admin)
-                            <li><a href="#internship-module" data-nav-key="internship" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-graduation-cap"></i><span>Internships</span></a>
-                                <ul id="internship-module" class="collapse list-unstyled ">
-                                        <li id="ip-student-dash"><a href="{{ route('internship.student.dashboard') }}">My Task</a></li>
-                                        <li id="ip-student-upload"><a href="{{ route('internship.student.upload') }}">Upload Task</a></li>
-                                        <li id="ip-student-messages"><a href="{{ route('internship.student.messages') }}">Message Supervisor</a></li>
-                                        <li id="ip-student-portfolio"><a href="{{ route('internship.student.portfolio') }}">Portfolio</a></li>
-                                </ul>
-                            </li>
-                            @endif
                         @endif
                         @php
                             $contracts_module_permission = \Spatie\Permission\Models\Permission::where('name', 'contracts_module')->first();
@@ -1902,26 +1834,6 @@
                                     <li id="contracts-clauses-menu"><a href="{{ route('contracts.clauses') }}">Clause Library</a></li>
                                     <li id="contracts-report-menu"><a href="{{ route('contracts.report') }}">Reports</a></li>
                                     <li id="contracts-settings-menu"><a href="{{ route('contracts.settings') }}">Settings</a></li>
-                                </ul>
-                            </li>
-                        @endif
-                        @php
-                            $courses_module_permission = \Spatie\Permission\Models\Permission::where('name', 'courses_module')->first();
-                            $courses_module_active = $role && $courses_module_permission ? \DB::table('role_has_permissions')->where([
-                                ['permission_id', $courses_module_permission->id],
-                                ['role_id', $role->id]
-                            ])->first() : null;
-                        @endphp
-                        @if($courses_module_active)
-                            <li><a href="#courses-module" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-graduation-cap"></i><span>Courses</span></a>
-                                <ul id="courses-module" class="collapse list-unstyled ">
-                                    <li id="courses-list-menu"><a href="{{ route('courses.index') }}">Course List</a></li>
-                                    <li id="courses-create-menu"><a href="{{ route('courses.create') }}">Add Course</a></li>
-                                    <li id="courses-regs-menu"><a href="{{ route('courses.registrations') }}">Registrations</a></li>
-                                    <li id="courses-inv-menu"><a href="{{ route('courses.invoices') }}">Invoices</a></li>
-                                    <li id="courses-cert-menu"><a href="{{ route('courses.certificates') }}">Certificates</a></li>
-                                    <li id="courses-progress-menu"><a href="{{ route('courses.progress') }}">Student Progress</a></li>
-                                    <li id="courses-feedback-menu"><a href="{{ route('courses.feedback') }}">Feedback</a></li>
                                 </ul>
                             </li>
                         @endif
@@ -2231,15 +2143,8 @@
                                     <li id="whatsapp-leads-menu"><a href="{{ route('whatsapp.leads') }}">Leads</a></li>
                                     <li id="whatsapp-groups-menu"><a href="{{ route('whatsapp.groups') }}">Groups</a></li>
                                     <li id="whatsapp-rentals-menu"><a href="{{ route('whatsapp.rentals') }}">Rentals</a></li>
-                                    <li id="whatsapp-internship-menu"><a href="{{ route('whatsapp.internship') }}">Internship</a></li>
                                     <li id="whatsapp-attendance-menu"><a href="{{ route('whatsapp.attendance') }}">Attendance</a></li>
-                                    <li id="whatsapp-documents-menu"><a href="{{ route('whatsapp.documents') }}">Documents</a></li>
-                                    <li id="whatsapp-tenants-menu"><a href="{{ route('whatsapp.tenants') }}">Tenant Operations</a></li>
-                                    <li id="whatsapp-bills-menu"><a href="{{ route('whatsapp.bills') }}">Bill Payments</a></li>
-                                    <li id="whatsapp-appointments-menu"><a href="{{ route('whatsapp.appointments') }}">Appointments</a></li>
-                                    <li id="whatsapp-tracking-menu"><a href="{{ route('whatsapp.tracking') }}">Message Tracking</a></li>
                                     <li id="whatsapp-calls-menu"><a href="{{ route('whatsapp.calls') }}">Calls</a></li>
-                                    <li id="whatsapp-diagnostics-menu"><a href="{{ route('whatsapp.diagnostics') }}">Diagnostics</a></li>
                                     <li id="whatsapp-assistant-menu"><a href="{{ route('whatsapp.assistant') }}">AI Assistant</a></li>
                                     <li id="whatsapp-brief-menu"><a href="{{ route('whatsapp.brief') }}">AI brief</a></li>
                                     <li id="whatsapp-people-menu"><a href="{{ route('whatsapp.people') }}">People I know</a></li>
@@ -2248,52 +2153,6 @@
                             </li>
                         @endif
                         <li><a href="{{ route('property.index') }}" data-nav-key="properties"> <i class="fa fa-building"></i><span>Properties</span></a></li>
-                        <?php
-                        $wealth_view = DB::table('permissions')->where('name', 'wealth.view')->first();
-                        $expenses_index_perm = DB::table('permissions')->where('name', 'expenses-index')->first();
-                        $wealth_menu_active = (int) Auth::user()->role_id <= 2;
-                        if ($wealth_view) {
-                            $wealth_menu_active = $wealth_menu_active || DB::table('role_has_permissions')->where([
-                                ['permission_id', $wealth_view->id],
-                                ['role_id', $role->id]
-                            ])->first();
-                        }
-                        if (! $wealth_menu_active && $expenses_index_perm) {
-                            $wealth_menu_active = DB::table('role_has_permissions')->where([
-                                ['permission_id', $expenses_index_perm->id],
-                                ['role_id', $role->id]
-                            ])->first();
-                        }
-                        ?>
-                        @if($wealth_menu_active)
-                            <li>
-                                <a href="#wealth" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-wallet"></i><span>{{trans('file.Wealth Manager')}}</span></a>
-                                <ul id="wealth" class="collapse list-unstyled ">
-                                    <li><a href="{{ route('wealth.overview') }}">Overview</a></li>
-                                    <li><a href="{{ route('wealth.health') }}">Financial Health</a></li>
-                                    <li><a href="{{ route('wealth.income') }}">Income</a></li>
-                                    <li><a href="{{ route('wealth.expenses') }}">Expenses</a></li>
-                                    <li><a href="{{ route('wealth.programs') }}">Programs</a></li>
-                                    <li><a href="{{ route('wealth.allocations') }}">Allocations</a></li>
-                                    <li><a href="{{ route('wealth.investments') }}">Investments</a></li>
-                                    <li><a href="{{ route('wealth.charity') }}">Charity</a></li>
-                                    <li><a href="{{ route('wealth.reports') }}">Reports</a></li>
-                                    <li><a href="{{ route('wealth.settings') }}">Settings</a></li>
-                                    <li id="exp-cat-menu"><a href="{{route('expense_categories.index')}}">{{trans('file.Expense Category')}}</a></li>
-                                    <?php
-                                    $add_permission = DB::table('permissions')->where('name', 'expenses-add')->first();
-                                    $add_permission_active = $add_permission && DB::table('role_has_permissions')->where([
-                                        ['permission_id', $add_permission->id],
-                                        ['role_id', $role->id]
-                                    ])->first();
-                                    ?>
-                                    @if($add_permission_active || (int) Auth::user()->role_id <= 2)
-                                        <li><a id="add-expense" href=""> {{trans('file.Add Expense')}}</a></li>
-                                    @endif
-                                    <li><a href="{{ route('wealth.help') }}">Help</a></li>
-                                </ul>
-                            </li>
-                        @endif
                         <?php
                         $index_permission = DB::table('permissions')->where('name', 'quotes-index')->first();
                         $index_permission_active = DB::table('role_has_permissions')->where([
@@ -2653,20 +2512,6 @@
                                             @endif
                                         </li>
                                     @endif
-
-                                    <li id="supervisor-list-menu"><a href="{{ route('internship.supervisors') }}">Supervisor List</a>
-                                        @if(!empty($user_add_permission_active))
-                                            <ul class="people-sub">
-                                                <li id="supervisor-create-menu"><a href="{{ route('user.create', ['as' => 'supervisor']) }}">Add Supervisor</a></li>
-                                            </ul>
-                                        @endif
-                                    </li>
-
-                                    <li id="intern-list-menu"><a href="{{ route('internship.interns') }}">Intern List</a>
-                                        <ul class="people-sub">
-                                            <li id="intern-create-menu"><a href="{{ route('internship.enrol.create') }}">Add Intern</a></li>
-                                        </ul>
-                                    </li>
 
                                     @if($biller_index_permission_active)
                                         <li id="biller-list-menu"><a href="{{route('biller.index')}}">{{trans('file.Biller List')}}</a>

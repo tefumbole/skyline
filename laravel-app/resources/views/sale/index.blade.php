@@ -446,7 +446,7 @@
         var all_permission = <?php echo json_encode($all_permission) ?>;
         var reward_point_setting = <?php echo json_encode($lims_reward_point_setting_data) ?>;
         var sale_id = [];
-        var user_verified = <?php echo json_encode(env('USER_VERIFIED')) ?>;
+        var user_verified = <?php echo json_encode(true) ?>;
 
         $.ajaxSetup({
             headers: {
@@ -938,7 +938,7 @@
                     text: '<i title="delete" class="dripicons-cross"></i>',
                     className: 'buttons-delete',
                     action: function ( e, dt, node, config ) {
-                        if(user_verified == '1') {
+                        if(true) {
                             sale_id.length = 0;
                             $(':checkbox:checked').each(function(i){
                                 if(i){

@@ -195,14 +195,6 @@
           </div>
           <div class="beyond-stat-icon orange"><i class="dripicons-checklist"></i></div>
         </a>
-        <a href="{{ route('internship.dashboard') }}" class="beyond-stat-card" title="Open Internship Dashboard">
-          <div>
-            <div class="label">Active Interns</div>
-            <div class="value">{{ number_format((int) ($internOps['active'] ?? 0)) }}</div>
-            <div class="hint">{{ number_format((int) ($internOps['review'] ?? 0)) }} awaiting review · {{ number_format((int) ($internOps['pending'] ?? 0)) }} pending</div>
-          </div>
-          <div class="beyond-stat-icon teal"><i class="dripicons-user-id"></i></div>
-        </a>
         <a href="{{ route('quotations.index', ['tab' => 'awaiting']) }}" class="beyond-stat-card" title="Quotations awaiting signature">
           <div>
             <div class="label">Awaiting Signatures</div>
@@ -250,7 +242,7 @@
       <div class="beyond-section-head">
         <div>
           <h3>Work operations</h3>
-          <p>Tasks, internships, and quotations waiting for client signature</p>
+          <p>Tasks and quotations waiting for client signature</p>
         </div>
       </div>
 
@@ -269,22 +261,6 @@
             <span><i style="background:#0b3f90;"></i> In progress ({{ (int) ($taskOps['in_progress'] ?? 0) }})</span>
             <span><i style="background:#22c55e;"></i> Completed ({{ (int) ($taskOps['completed'] ?? 0) }})</span>
             <span><i style="background:#e11d48;"></i> Overdue ({{ (int) ($taskOps['overdue'] ?? 0) }})</span>
-          </div>
-        </div>
-        <div class="beyond-chart-panel">
-          <h5><i class="dripicons-user-id"></i> Intern placements</h5>
-          <div class="beyond-chart-canvas-wrap is-sm">
-            <canvas id="beyond-intern-pie"
-              data-active="{{ (int) ($internOps['active'] ?? 0) }}"
-              data-paused="{{ (int) ($internOps['paused'] ?? 0) }}"
-              data-pending="{{ (int) ($internOps['pending'] ?? 0) }}"
-              data-completed="{{ (int) ($internOps['completed'] ?? 0) }}"></canvas>
-          </div>
-          <div class="beyond-chart-legend">
-            <span><i style="background:#0d9488;"></i> Active ({{ (int) ($internOps['active'] ?? 0) }})</span>
-            <span><i style="background:#f59e0b;"></i> Paused ({{ (int) ($internOps['paused'] ?? 0) }})</span>
-            <span><i style="background:#94a3b8;"></i> Pending ({{ (int) ($internOps['pending'] ?? 0) }})</span>
-            <span><i style="background:#22c55e;"></i> Completed ({{ (int) ($internOps['completed'] ?? 0) }})</span>
           </div>
         </div>
         <div class="beyond-chart-panel">
@@ -335,32 +311,6 @@
         <div class="beyond-panel beyond-feed-panel">
           <div class="beyond-panel-header beyond-feed-header">
             <div>
-              <h4>Interns</h4>
-              <p>{{ (int) ($internOps['review'] ?? 0) }} submissions awaiting review</p>
-            </div>
-            <a href="{{ (int) ($internOps['review'] ?? 0) > 0 ? route('internship.supervisor.index') : route('internship.interns') }}" class="beyond-feed-link">View all</a>
-          </div>
-          <div class="beyond-feed-list">
-            @forelse(($internOps['recent'] ?? []) as $internRow)
-              @php
-                $internStatus = strtolower((string) ($internRow['status'] ?? ''));
-                $internBadge = $internStatus === 'active' ? 'ok' : ($internStatus === 'paused' ? 'warn' : 'info');
-              @endphp
-              <a class="beyond-feed-row" href="{{ !empty($internRow['application_id']) ? route('internship.interns.working_week', $internRow['application_id']) : route('internship.interns') }}">
-                <div>
-                  <strong>{{ $internRow['name'] }}</strong>
-                  <span>{{ $internRow['program'] }} · {{ (int) $internRow['completed'] }} tasks done</span>
-                </div>
-                <span class="beyond-status-badge {{ $internBadge }}">{{ ucfirst($internRow['status']) }}</span>
-              </a>
-            @empty
-              <div class="beyond-feed-empty">No active or pending internships.</div>
-            @endforelse
-          </div>
-        </div>
-        <div class="beyond-panel beyond-feed-panel">
-          <div class="beyond-panel-header beyond-feed-header">
-            <div>
               <h4>Awaiting signatures</h4>
               <p>Quotations still waiting for the client</p>
             </div>
@@ -404,13 +354,6 @@
             <div>
               <h5>Task Manager</h5>
               <p>Assign work, track progress, and chase overdue items</p>
-            </div>
-          </a>
-          <a href="{{ route('internship.dashboard') }}" class="beyond-quick-card">
-            <div class="icon-wrap" style="background:rgba(13,148,136,.12);color:#0d9488;"><i class="dripicons-user-id"></i></div>
-            <div>
-              <h5>Interns</h5>
-              <p>Placements, submissions, and supervisor review</p>
             </div>
           </a>
           <a href="{{ route('quotations.index', ['tab' => 'awaiting']) }}" class="beyond-quick-card">
@@ -819,13 +762,7 @@
     <div class="container-fluid" style="max-width:720px;padding-top:24px;">
         <div class="alert alert-info">
             <h4 style="margin-top:0;">Welcome, {{ Auth::user()->name }}</h4>
-            <p class="mb-3">This account does not use the sales dashboard. Open your internship or timesheet tools from the menu.</p>
-            @if(\App\Support\InternCompliance::canSuperviseInternships(Auth::user()))
-                <a class="btn btn-primary mr-2" href="{{ route('internship.supervisor.dashboard') }}">Supervisor home</a>
-            @endif
-            @if(\App\Support\InternCompliance::appliesTo(Auth::user()))
-                <a class="btn btn-primary mr-2" href="{{ route('internship.student.dashboard') }}">My internship task</a>
-            @endif
+            <p class="mb-3">This account does not use the sales dashboard. Open your timesheet tools from the menu.</p>
             <a class="btn btn-outline-secondary" href="{{ route('timesheet.fill') }}">Fill time sheet</a>
         </div>
     </div>
@@ -987,12 +924,6 @@
             ['pending', 'progress', 'completed', 'overdue'],
             ['Pending', 'In progress', 'Completed', 'Overdue'],
             ['#f59e0b', '#0b3f90', '#22c55e', '#e11d48']
-        );
-        doughnutFromCanvas(
-            document.getElementById('beyond-intern-pie'),
-            ['active', 'paused', 'pending', 'completed'],
-            ['Active', 'Paused', 'Pending', 'Completed'],
-            ['#0d9488', '#f59e0b', '#94a3b8', '#22c55e']
         );
         doughnutFromCanvas(
             document.getElementById('beyond-quote-pie'),

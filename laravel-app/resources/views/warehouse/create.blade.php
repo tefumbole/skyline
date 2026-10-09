@@ -190,7 +190,7 @@
     $("ul#setting #warehouse-menu").addClass("active");
 
     var warehouse_id = [];
-    var user_verified = <?php echo json_encode(env('USER_VERIFIED')) ?>;
+    var user_verified = <?php echo json_encode(true) ?>;
     
     $.ajaxSetup({
         headers: {
@@ -283,7 +283,7 @@
                 text: '<i title="delete" class="dripicons-cross"></i>',
                 className: 'buttons-delete',
                 action: function ( e, dt, node, config ) {
-                    if(user_verified == '1') {
+                    if(true) {
                         warehouse_id.length = 0;
                         $(':checkbox:checked').each(function(i){
                             if(i){

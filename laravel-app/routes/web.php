@@ -74,11 +74,11 @@ Route::get('/events', 'PublicEventController@index')->name('beyond.events');
 Route::get('/events/{slug}', 'PublicEventController@show')->name('beyond.event.detail');
 Route::get('/api/public/events', 'PublicEventController@apiList');
 Route::get('/api/public/events/{slug}', 'PublicEventController@apiShow');
-Route::get('/trainings', 'TrainingController@trainings')->name('beyond.trainings');
+Route::get('/trainings', function () { abort(404); })->name('beyond.trainings');
 Route::get('/directory/phone-lookup', 'PublicPhoneLookupController@lookup')->middleware('throttle:40,1')->name('directory.phone-lookup');
-Route::get('/register-now', 'TrainingController@registerNow')->name('beyond.register');
-Route::post('/register-now', 'TrainingController@storeRegistration')->name('training.register');
-Route::get('/registration-confirmation/{reference}', 'TrainingController@registered')->name('training.registered');
+Route::get('/register-now', function () { abort(404); })->name('beyond.register');
+Route::post('/register-now', function () { abort(404); })->name('training.register');
+Route::get('/registration-confirmation/{reference}', function () { abort(404); })->name('training.registered');
 Route::redirect('/registration', '/register-now');
 
 // Legacy upload URLs (missing /public/) → correct static path
@@ -93,7 +93,7 @@ Route::get('/uploads/applications/{file}', function ($file) {
 })->where('file', '[A-Za-z0-9._-]+');
 
 Route::get('/rentals', 'PublicRentalController@index')->name('beyond.rentals');
-Route::get('/subscriptions', 'BeyondController@subscriptions')->name('beyond.subscriptions');
+Route::get('/subscriptions', function () { abort(404); })->name('beyond.subscriptions');
 Route::post('/rentals', 'PublicRentalController@store')->name('beyond.rentals.store');
 Route::get('/rentals/confirmation/{reference}', 'PublicRentalController@confirmation')->name('beyond.rentals.confirmation');
 
@@ -180,9 +180,9 @@ Route::post('/yong/gallery', 'YongInvitationController@storeGallery')->middlewar
 
 // Student portal (training) — requires Beyond auth + OTP
 Route::middleware(['beyond.auth', 'beyond.otp'])->group(function () {
-    Route::get('/student/dashboard', 'StudentDashboardController@dashboard')->name('student.dashboard');
-    Route::get('/student/progress', 'StudentDashboardController@progress')->name('student.progress');
-    Route::post('/student/feedback', 'StudentDashboardController@submitFeedback')->name('student.feedback');
+    Route::get('/student/dashboard', function () { abort(404); })->name('student.dashboard');
+    Route::get('/student/progress', function () { abort(404); })->name('student.progress');
+    Route::post('/student/feedback', function () { abort(404); })->name('student.feedback');
 });
 
 // Job board / Apply Now (public)
@@ -223,8 +223,8 @@ Route::post('/task-invite/{token}/setup', 'TaskInviteController@storeSetup')->na
 Route::post('/task-invite/{token}/accept', 'TaskInviteController@accept')->name('task.invite.accept');
 Route::post('/task-invite/{token}/decline', 'TaskInviteController@decline')->name('task.invite.decline');
 
-Route::get('/internship/supervisor-reply/{token}', 'Internship\InternshipSupervisorReplyController@show')->name('internship.supervisor.reply');
-Route::post('/internship/supervisor-reply/{token}', 'Internship\InternshipSupervisorReplyController@store')->name('internship.supervisor.reply.store');
+Route::get('/internship/supervisor-reply/{token}', function () { abort(404); })->name('internship.supervisor.reply');
+Route::post('/internship/supervisor-reply/{token}', function () { abort(404); })->name('internship.supervisor.reply.store');
 
 Route::get('/shareholders', 'ShareholderController@landing')->name('shareholders.landing');
 Route::post('/shareholders/accept', 'ShareholderController@acceptTerms')->name('shareholders.accept');
@@ -238,7 +238,7 @@ Route::redirect('/share-purchase', '/shares');
 Route::get('/verify/payslip/{code}', 'PayslipVerifyController@show')->name('payslip.verify');
 
 // Public internship timesheet report verification (QR on printed report)
-Route::get('/verify/internship/{token}', 'InternshipReportVerifyController@show')
+Route::get('/verify/internship/{token}', function () { abort(404); })
     ->where('token', '[A-Za-z0-9._\-]+')
     ->name('internship.report.verify');
 
@@ -444,19 +444,19 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/site-content/gallery/reorder', 'SiteContentController@reorderGalleryItems')->name('site-content.gallery.reorder');
 
     // About Us — Leaders (Alpha Bridge Members equivalent)
-    Route::get('/admin/subscriptions', 'CloudAdminController@index')->name('cloud.admin');
-    Route::get('/admin/subscriptions/payments', 'CloudBillingController@adminIndex')->name('cloud.admin.billing');
-    Route::get('/admin/subscriptions/whatsapp', 'CloudWhatsAppCapacityController@index')->name('cloud.admin.whatsapp');
-    Route::post('/admin/subscriptions/payments/manual', 'CloudBillingController@manual')->name('cloud.admin.billing.manual');
-    Route::post('/admin/subscriptions/plans/{id}', 'CloudAdminController@updatePrice')->name('cloud.admin.price');
-    Route::post('/admin/subscriptions/tenants/{tenant}/grant-trial', 'CloudAdminController@grantTrial')->name('cloud.admin.grant-trial');
-    Route::post('/admin/subscriptions/{subscription}/extend', 'CloudAdminController@extendSubscription')->name('cloud.admin.extend');
-    Route::post('/admin/subscriptions/{subscription}/suspend', 'CloudAdminController@suspend')->name('cloud.admin.suspend');
-    Route::post('/admin/subscriptions/{subscription}/reactivate', 'CloudAdminController@reactivate')->name('cloud.admin.reactivate');
-    Route::post('/admin/subscriptions/{subscription}/cancel', 'CloudAdminController@cancel')->name('cloud.admin.cancel');
-    Route::post('/admin/subscriptions/companies/{id}/suspend', 'CloudAdminController@suspendCompany')->name('cloud.admin.company.suspend');
-    Route::post('/admin/subscriptions/companies/{id}/reactivate', 'CloudAdminController@reactivateCompany')->name('cloud.admin.company.reactivate');
-    Route::post('/admin/subscriptions/signup', 'CloudAdminController@setPublicSignup')->name('cloud.admin.signup');
+    Route::get('/admin/subscriptions', function () { abort(404); })->name('cloud.admin');
+    Route::get('/admin/subscriptions/payments', function () { abort(404); })->name('cloud.admin.billing');
+    Route::get('/admin/subscriptions/whatsapp', function () { abort(404); })->name('cloud.admin.whatsapp');
+    Route::post('/admin/subscriptions/payments/manual', function () { abort(404); })->name('cloud.admin.billing.manual');
+    Route::post('/admin/subscriptions/plans/{id}', function () { abort(404); })->name('cloud.admin.price');
+    Route::post('/admin/subscriptions/tenants/{tenant}/grant-trial', function () { abort(404); })->name('cloud.admin.grant-trial');
+    Route::post('/admin/subscriptions/{subscription}/extend', function () { abort(404); })->name('cloud.admin.extend');
+    Route::post('/admin/subscriptions/{subscription}/suspend', function () { abort(404); })->name('cloud.admin.suspend');
+    Route::post('/admin/subscriptions/{subscription}/reactivate', function () { abort(404); })->name('cloud.admin.reactivate');
+    Route::post('/admin/subscriptions/{subscription}/cancel', function () { abort(404); })->name('cloud.admin.cancel');
+    Route::post('/admin/subscriptions/companies/{id}/suspend', function () { abort(404); })->name('cloud.admin.company.suspend');
+    Route::post('/admin/subscriptions/companies/{id}/reactivate', function () { abort(404); })->name('cloud.admin.company.reactivate');
+    Route::post('/admin/subscriptions/signup', function () { abort(404); })->name('cloud.admin.signup');
 
     Route::get('/admin/leaders', 'LeaderController@index')->name('leaders.index');
     Route::post('/admin/leaders', 'LeaderController@store')->name('leaders.store');
@@ -544,7 +544,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 
     Route::get('/admin/jobs', 'JobBoardController@index')->name('jobs.index');
     Route::get('/admin/jobs/create', 'JobBoardController@create')->name('jobs.create');
-    Route::get('/admin/jobs/create-internship', 'JobBoardController@createInternship')->name('jobs.createInternship');
+    Route::get('/admin/jobs/create-internship', function () { abort(404); })->name('jobs.createInternship');
     Route::post('/admin/jobs', 'JobBoardController@store')->name('jobs.store');
     Route::get('/admin/jobs/applications', 'JobBoardController@applications')->name('jobs.applications');
     Route::get('/admin/jobs/applicants', 'JobBoardController@applicants')->name('jobs.applicants');
@@ -623,15 +623,15 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/whatsapp/leads/{id}/follow-up', 'WhatsApp\WhatsAppLeadController@followUp')->name('whatsapp.leads.followup');
     Route::post('/admin/whatsapp/leads/{id}/note', 'WhatsApp\WhatsAppLeadController@note')->name('whatsapp.leads.note');
     Route::post('/admin/whatsapp/leads/{id}/convert', 'WhatsApp\WhatsAppLeadController@convert')->name('whatsapp.leads.convert');
-    Route::get('/admin/whatsapp/tracking', 'WhatsApp\WhatsAppHubController@tracking')->name('whatsapp.tracking');
+    Route::get('/admin/whatsapp/tracking', function () { abort(404); })->name('whatsapp.tracking');
     Route::get('/admin/whatsapp/calls', 'WhatsApp\WhatsAppHubController@calls')->name('whatsapp.calls');
     Route::post('/admin/whatsapp/calls/{id}', 'WhatsApp\WhatsAppHubController@updateCall')->name('whatsapp.calls.update');
     Route::post('/admin/whatsapp/calls/{id}/follow-up', 'WhatsApp\WhatsAppHubController@followUpCall')->name('whatsapp.calls.followup');
-    Route::get('/admin/whatsapp/diagnostics', 'WhatsApp\WhatsAppHubController@diagnostics')->name('whatsapp.diagnostics');
-    Route::post('/admin/whatsapp/diagnostics/test-openai', 'WhatsApp\WhatsAppHubController@testOpenAi')->name('whatsapp.diagnostics.test_openai');
+    Route::get('/admin/whatsapp/diagnostics', function () { abort(404); })->name('whatsapp.diagnostics');
+    Route::post('/admin/whatsapp/diagnostics/test-openai', function () { abort(404); })->name('whatsapp.diagnostics.test_openai');
     Route::get('/admin/whatsapp/settings', 'WhatsApp\WhatsAppHubController@settings')->name('whatsapp.settings');
-    Route::get('/admin/whatsapp/appointments', 'WhatsApp\WhatsAppHubController@appointments')->name('whatsapp.appointments');
-    Route::post('/admin/whatsapp/appointments/availability', 'WhatsApp\WhatsAppHubController@storeAvailability')->name('whatsapp.appointments.availability');
+    Route::get('/admin/whatsapp/appointments', function () { abort(404); })->name('whatsapp.appointments');
+    Route::post('/admin/whatsapp/appointments/availability', function () { abort(404); })->name('whatsapp.appointments.availability');
     Route::get('/admin/whatsapp/groups', 'WhatsApp\WhatsAppHubController@groups')->name('whatsapp.groups');
     Route::post('/admin/whatsapp/groups/fetch', 'WhatsApp\WhatsAppHubController@fetchGroups')->name('whatsapp.groups.fetch');
     Route::post('/admin/whatsapp/groups/fetch-contacts', 'WhatsApp\WhatsAppHubController@fetchGroupContacts')->name('whatsapp.groups.fetch_contacts');
@@ -648,12 +648,12 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/whatsapp/groups/{id}/mode', 'WhatsApp\WhatsAppHubController@updateGroupMode')->name('whatsapp.groups.mode');
     Route::post('/admin/whatsapp/settings', 'WhatsApp\WhatsAppHubController@updateSettings')->name('whatsapp.settings.update');
     Route::post('/admin/whatsapp/settings/switch-ai', 'WhatsApp\WhatsAppHubController@switchEligibleToAi')->name('whatsapp.settings.switch_ai');
-    Route::get('/admin/whatsapp/internship', 'WhatsApp\WhatsAppHubController@internship')->name('whatsapp.internship');
+    Route::get('/admin/whatsapp/internship', function () { abort(404); })->name('whatsapp.internship');
     Route::get('/admin/whatsapp/attendance', 'WhatsApp\WhatsAppHubController@attendance')->name('whatsapp.attendance');
     Route::post('/admin/whatsapp/attendance/corrections/{id}/approve', 'WhatsApp\WhatsAppHubController@approveCorrection')->name('whatsapp.attendance.corrections.approve');
-    Route::get('/admin/whatsapp/documents', 'WhatsApp\WhatsAppHubController@documents')->name('whatsapp.documents');
-    Route::get('/admin/whatsapp/tenants', 'WhatsApp\WhatsAppHubController@tenants')->name('whatsapp.tenants');
-    Route::get('/admin/whatsapp/bills', 'WhatsApp\WhatsAppHubController@bills')->name('whatsapp.bills');
+    Route::get('/admin/whatsapp/documents', function () { abort(404); })->name('whatsapp.documents');
+    Route::get('/admin/whatsapp/tenants', function () { abort(404); })->name('whatsapp.tenants');
+    Route::get('/admin/whatsapp/bills', function () { abort(404); })->name('whatsapp.bills');
     Route::get('/admin/properties', 'Property\PropertyController@index')->name('property.index');
     Route::post('/admin/properties', 'Property\PropertyController@storeProperty')->name('property.store');
     Route::post('/admin/properties/units', 'Property\PropertyController@storeUnit')->name('property.units.store');
@@ -663,7 +663,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/properties/maintenance/{id}/assign', 'Property\PropertyController@assignMaintenance')->name('property.maintenance.assign');
     Route::post('/admin/properties/maintenance/{id}/status', 'Property\PropertyController@maintenanceStatus')->name('property.maintenance.status');
     Route::get('/admin/properties/bills', 'Property\PropertyController@bills')->name('property.bills');
-    Route::post('/admin/whatsapp/documents/{id}/retry', 'WhatsApp\WhatsAppHubController@retryDocument')->name('whatsapp.documents.retry');
+    Route::post('/admin/whatsapp/documents/{id}/retry', function () { abort(404); })->name('whatsapp.documents.retry');
     Route::post('/admin/whatsapp/verification/{id}/invalidate', 'WhatsApp\WhatsAppHubController@invalidateVerification')->name('whatsapp.verification.invalidate');
     Route::get('/admin/whatsapp/rentals', 'WhatsApp\WhatsAppRentalController@index')->name('whatsapp.rentals');
     Route::post('/admin/whatsapp/rentals/{id}/approve', 'WhatsApp\WhatsAppRentalController@approve')->name('whatsapp.rentals.approve');
@@ -685,25 +685,25 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/event-packages/{id}/components', 'EventPackageAdminController@storeComponent')->name('event-packages.components.store');
 
     // Course Manager (AlphaBridge-style)
-    Route::get('/admin/courses', 'CourseManagerController@index')->name('courses.index');
-    Route::get('/admin/courses/create', 'CourseManagerController@create')->name('courses.create');
-    Route::post('/admin/courses', 'CourseManagerController@store')->name('courses.store');
-    Route::post('/admin/courses/reorder', 'CourseManagerController@reorder')->name('courses.reorder');
-    Route::get('/admin/courses/{id}/edit', 'CourseManagerController@edit')->name('courses.edit');
-    Route::post('/admin/courses/{id}', 'CourseManagerController@update')->name('courses.update');
-    Route::post('/admin/courses/{id}/delete', 'CourseManagerController@destroy')->name('courses.destroy');
-    Route::post('/admin/courses/{id}/move', 'CourseManagerController@move')->name('courses.move');
-    Route::post('/admin/courses/{id}/clone', 'CourseManagerController@cloneCourse')->name('courses.clone');
-    Route::get('/admin/courses/{id}/feedback', 'CourseManagerController@courseFeedback')->name('courses.course-feedback');
-    Route::get('/admin/course-registrations', 'CourseManagerController@registrations')->name('courses.registrations');
-    Route::post('/admin/course-registrations/{id}', 'CourseManagerController@updateRegistration')->name('courses.registrations.update');
-    Route::get('/admin/course-invoices', 'CourseManagerController@invoices')->name('courses.invoices');
-    Route::get('/admin/course-certificates', 'CourseManagerController@certificates')->name('courses.certificates');
-    Route::post('/admin/course-certificates/{id}/revoke', 'CourseManagerController@revokeCertificate')->name('courses.certificates.revoke');
-    Route::get('/admin/course-progress', 'CourseManagerController@progress')->name('courses.progress');
-    Route::post('/admin/course-progress/{id}', 'CourseManagerController@updateProgress')->name('courses.progress.update');
-    Route::get('/admin/course-feedback', 'CourseManagerController@feedback')->name('courses.feedback');
-    Route::post('/admin/course-feedback/{id}/delete', 'CourseManagerController@destroyFeedback')->name('courses.feedback.destroy');
+    Route::get('/admin/courses', function () { abort(404); })->name('courses.index');
+    Route::get('/admin/courses/create', function () { abort(404); })->name('courses.create');
+    Route::post('/admin/courses', function () { abort(404); })->name('courses.store');
+    Route::post('/admin/courses/reorder', function () { abort(404); })->name('courses.reorder');
+    Route::get('/admin/courses/{id}/edit', function () { abort(404); })->name('courses.edit');
+    Route::post('/admin/courses/{id}', function () { abort(404); })->name('courses.update');
+    Route::post('/admin/courses/{id}/delete', function () { abort(404); })->name('courses.destroy');
+    Route::post('/admin/courses/{id}/move', function () { abort(404); })->name('courses.move');
+    Route::post('/admin/courses/{id}/clone', function () { abort(404); })->name('courses.clone');
+    Route::get('/admin/courses/{id}/feedback', function () { abort(404); })->name('courses.course-feedback');
+    Route::get('/admin/course-registrations', function () { abort(404); })->name('courses.registrations');
+    Route::post('/admin/course-registrations/{id}', function () { abort(404); })->name('courses.registrations.update');
+    Route::get('/admin/course-invoices', function () { abort(404); })->name('courses.invoices');
+    Route::get('/admin/course-certificates', function () { abort(404); })->name('courses.certificates');
+    Route::post('/admin/course-certificates/{id}/revoke', function () { abort(404); })->name('courses.certificates.revoke');
+    Route::get('/admin/course-progress', function () { abort(404); })->name('courses.progress');
+    Route::post('/admin/course-progress/{id}', function () { abort(404); })->name('courses.progress.update');
+    Route::get('/admin/course-feedback', function () { abort(404); })->name('courses.feedback');
+    Route::post('/admin/course-feedback/{id}/delete', function () { abort(404); })->name('courses.feedback.destroy');
 
     // Timesheet — Employee
     Route::get('/admin/timesheet/activities', 'TimesheetEmployeeController@activities')->name('timesheet.activities');
@@ -730,55 +730,55 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/timesheet-admin/categories/{id}/delete', 'TimesheetAdminController@destroyCategory')->name('timesheet.admin.categories.destroy');
 
     // 180-day Internship Program (additive)
-    Route::get('/admin/internship', 'Internship\InternshipAdminController@dashboard')->name('internship.dashboard');
-    Route::get('/admin/internship/interns', 'Internship\InternshipAdminController@interns')->name('internship.interns');
-    Route::post('/admin/internship/interns/{id}/request-week', 'Internship\InternshipAdminController@requestWorkingWeek')->name('internship.interns.request_week');
-    Route::get('/admin/internship/interns/{id}/working-week', 'Internship\InternshipAdminController@showWorkingWeek')->name('internship.interns.working_week');
-    Route::delete('/admin/internship/interns/{id}', 'Internship\InternshipAdminController@destroyIntern')->name('internship.interns.destroy');
-    Route::get('/admin/internship/supervisors', 'Internship\InternshipAdminController@supervisors')->name('internship.supervisors');
-    Route::get('/admin/internship/programs', 'Internship\InternshipAdminController@programs')->name('internship.programs');
-    Route::get('/admin/internship/programs/{id}', 'Internship\InternshipAdminController@programShow')->name('internship.programs.show');
-    Route::post('/admin/internship/programs/{id}', 'Internship\InternshipAdminController@programUpdate')->name('internship.programs.update');
-    Route::post('/admin/internship/programs/{id}/tasks/{taskId}', 'Internship\InternshipAdminController@taskUpdate')->name('internship.programs.tasks.update');
-    Route::get('/admin/internship/programs/{id}/tasks/{taskId}/handbook', 'Internship\InternshipAdminController@downloadTaskHandbook')->name('internship.programs.tasks.handbook');
-    Route::get('/admin/internship/import', 'Internship\InternshipAdminController@importForm')->name('internship.import');
-    Route::post('/admin/internship/import', 'Internship\InternshipAdminController@importRun')->name('internship.import.run');
-    Route::get('/admin/internship/enrolments', 'Internship\InternshipAdminController@enrolments')->name('internship.enrolments');
-    Route::get('/admin/internship/enrolments/create', 'Internship\InternshipAdminController@enrolCreate')->name('internship.enrol.create');
-    Route::post('/admin/internship/enrolments', 'Internship\InternshipAdminController@enrolStore')->name('internship.enrol.store');
-    Route::get('/admin/internship/enrolments/{id}/edit', 'Internship\InternshipAdminController@enrolEdit')->name('internship.enrol.edit');
-    Route::post('/admin/internship/enrolments/{id}', 'Internship\InternshipAdminController@enrolUpdate')->name('internship.enrol.update');
-    Route::post('/admin/internship/enrolments/{id}/pause', 'Internship\InternshipAdminController@enrolPause')->name('internship.enrol.pause');
-    Route::post('/admin/internship/enrolments/{id}/resume', 'Internship\InternshipAdminController@enrolResume')->name('internship.enrol.resume');
-    Route::get('/admin/internship/reports', 'Internship\InternshipAdminController@reports')->name('internship.reports');
-    Route::get('/admin/internship/tasks', 'Internship\InternshipAdminController@taskManager')->name('internship.tasks');
-    Route::post('/admin/internship/tasks/{id}/resend', 'Internship\InternshipAdminController@resendTask')->name('internship.tasks.resend');
-    Route::get('/admin/internship/student', 'Internship\InternshipStudentController@dashboard')->name('internship.student.dashboard');
-    Route::post('/admin/internship/student/request-task', 'Internship\InternshipStudentController@requestTask')->name('internship.student.request');
-    Route::get('/admin/internship/student/upload', 'Internship\InternshipStudentController@upload')->name('internship.student.upload');
-    Route::get('/admin/internship/student/messages', 'Internship\InternshipStudentController@messages')->name('internship.student.messages');
-    Route::post('/admin/internship/student/messages', 'Internship\InternshipStudentController@sendMessage')->name('internship.student.messages.send');
-    Route::get('/admin/internship/student/portfolio', 'Internship\InternshipStudentController@portfolio')->name('internship.student.portfolio');
-    Route::get('/admin/internship/student/task/{id}', 'Internship\InternshipStudentController@task')->name('internship.student.task');
-    Route::get('/admin/internship/student/task/{id}/handbook', 'Internship\InternshipStudentController@downloadHandbook')->name('internship.student.handbook');
-    Route::post('/admin/internship/student/task/{id}/start', 'Internship\InternshipStudentController@start')->name('internship.student.start');
-    Route::post('/admin/internship/student/task/{id}/steps', 'Internship\InternshipStudentController@updateStepProgress')->name('internship.student.steps');
-    Route::post('/admin/internship/student/task/{id}/submit', 'Internship\InternshipStudentController@submit')->name('internship.student.submit');
-    Route::post('/admin/internship/student/task/{id}/draft', 'Internship\InternshipStudentController@storeDraft')->name('internship.student.draft.store');
-    Route::post('/admin/internship/student/task/{id}/draft/{draftId}', 'Internship\InternshipStudentController@updateDraft')->name('internship.student.draft.update');
-    Route::delete('/admin/internship/student/task/{id}/draft/{draftId}', 'Internship\InternshipStudentController@destroyDraft')->name('internship.student.draft.destroy');
-    Route::get('/admin/internship/student/drafts/{draftId}', 'Internship\InternshipStudentController@downloadDraft')->name('internship.student.draft');
-    Route::get('/admin/internship/student/files/{fileId}', 'Internship\InternshipStudentController@downloadFile')->name('internship.student.file');
-    Route::get('/admin/internship/supervisor', 'Internship\InternshipSupervisorController@dashboard')->name('internship.supervisor.dashboard');
-    Route::get('/admin/internship/supervisor/queue', 'Internship\InternshipSupervisorController@index')->name('internship.supervisor.index');
-    Route::get('/admin/internship/supervisor/students', 'Internship\InternshipSupervisorController@students')->name('internship.supervisor.students');
-    Route::get('/admin/internship/supervisor/students/{id}/working-week', 'Internship\InternshipSupervisorController@showWorkingWeek')->name('internship.supervisor.working_week');
-    Route::delete('/admin/internship/supervisor/students/{id}', 'Internship\InternshipSupervisorController@destroyIntern')->name('internship.supervisor.destroy');
-    Route::get('/admin/internship/supervisor/students/{id}/place', 'Internship\InternshipSupervisorController@placeEdit')->name('internship.supervisor.place');
-    Route::post('/admin/internship/supervisor/students/{id}/place', 'Internship\InternshipSupervisorController@placeUpdate')->name('internship.supervisor.place.update');
-    Route::get('/admin/internship/supervisor/submissions/{id}', 'Internship\InternshipSupervisorController@show')->name('internship.supervisor.show');
-    Route::post('/admin/internship/supervisor/submissions/{id}/grade', 'Internship\InternshipSupervisorController@grade')->name('internship.supervisor.grade');
-    Route::get('/admin/internship/supervisor/files/{fileId}', 'Internship\InternshipSupervisorController@downloadFile')->name('internship.supervisor.file');
+    Route::get('/admin/internship', function () { abort(404); })->name('internship.dashboard');
+    Route::get('/admin/internship/interns', function () { abort(404); })->name('internship.interns');
+    Route::post('/admin/internship/interns/{id}/request-week', function () { abort(404); })->name('internship.interns.request_week');
+    Route::get('/admin/internship/interns/{id}/working-week', function () { abort(404); })->name('internship.interns.working_week');
+    Route::delete('/admin/internship/interns/{id}', function () { abort(404); })->name('internship.interns.destroy');
+    Route::get('/admin/internship/supervisors', function () { abort(404); })->name('internship.supervisors');
+    Route::get('/admin/internship/programs', function () { abort(404); })->name('internship.programs');
+    Route::get('/admin/internship/programs/{id}', function () { abort(404); })->name('internship.programs.show');
+    Route::post('/admin/internship/programs/{id}', function () { abort(404); })->name('internship.programs.update');
+    Route::post('/admin/internship/programs/{id}/tasks/{taskId}', function () { abort(404); })->name('internship.programs.tasks.update');
+    Route::get('/admin/internship/programs/{id}/tasks/{taskId}/handbook', function () { abort(404); })->name('internship.programs.tasks.handbook');
+    Route::get('/admin/internship/import', function () { abort(404); })->name('internship.import');
+    Route::post('/admin/internship/import', function () { abort(404); })->name('internship.import.run');
+    Route::get('/admin/internship/enrolments', function () { abort(404); })->name('internship.enrolments');
+    Route::get('/admin/internship/enrolments/create', function () { abort(404); })->name('internship.enrol.create');
+    Route::post('/admin/internship/enrolments', function () { abort(404); })->name('internship.enrol.store');
+    Route::get('/admin/internship/enrolments/{id}/edit', function () { abort(404); })->name('internship.enrol.edit');
+    Route::post('/admin/internship/enrolments/{id}', function () { abort(404); })->name('internship.enrol.update');
+    Route::post('/admin/internship/enrolments/{id}/pause', function () { abort(404); })->name('internship.enrol.pause');
+    Route::post('/admin/internship/enrolments/{id}/resume', function () { abort(404); })->name('internship.enrol.resume');
+    Route::get('/admin/internship/reports', function () { abort(404); })->name('internship.reports');
+    Route::get('/admin/internship/tasks', function () { abort(404); })->name('internship.tasks');
+    Route::post('/admin/internship/tasks/{id}/resend', function () { abort(404); })->name('internship.tasks.resend');
+    Route::get('/admin/internship/student', function () { abort(404); })->name('internship.student.dashboard');
+    Route::post('/admin/internship/student/request-task', function () { abort(404); })->name('internship.student.request');
+    Route::get('/admin/internship/student/upload', function () { abort(404); })->name('internship.student.upload');
+    Route::get('/admin/internship/student/messages', function () { abort(404); })->name('internship.student.messages');
+    Route::post('/admin/internship/student/messages', function () { abort(404); })->name('internship.student.messages.send');
+    Route::get('/admin/internship/student/portfolio', function () { abort(404); })->name('internship.student.portfolio');
+    Route::get('/admin/internship/student/task/{id}', function () { abort(404); })->name('internship.student.task');
+    Route::get('/admin/internship/student/task/{id}/handbook', function () { abort(404); })->name('internship.student.handbook');
+    Route::post('/admin/internship/student/task/{id}/start', function () { abort(404); })->name('internship.student.start');
+    Route::post('/admin/internship/student/task/{id}/steps', function () { abort(404); })->name('internship.student.steps');
+    Route::post('/admin/internship/student/task/{id}/submit', function () { abort(404); })->name('internship.student.submit');
+    Route::post('/admin/internship/student/task/{id}/draft', function () { abort(404); })->name('internship.student.draft.store');
+    Route::post('/admin/internship/student/task/{id}/draft/{draftId}', function () { abort(404); })->name('internship.student.draft.update');
+    Route::delete('/admin/internship/student/task/{id}/draft/{draftId}', function () { abort(404); })->name('internship.student.draft.destroy');
+    Route::get('/admin/internship/student/drafts/{draftId}', function () { abort(404); })->name('internship.student.draft');
+    Route::get('/admin/internship/student/files/{fileId}', function () { abort(404); })->name('internship.student.file');
+    Route::get('/admin/internship/supervisor', function () { abort(404); })->name('internship.supervisor.dashboard');
+    Route::get('/admin/internship/supervisor/queue', function () { abort(404); })->name('internship.supervisor.index');
+    Route::get('/admin/internship/supervisor/students', function () { abort(404); })->name('internship.supervisor.students');
+    Route::get('/admin/internship/supervisor/students/{id}/working-week', function () { abort(404); })->name('internship.supervisor.working_week');
+    Route::delete('/admin/internship/supervisor/students/{id}', function () { abort(404); })->name('internship.supervisor.destroy');
+    Route::get('/admin/internship/supervisor/students/{id}/place', function () { abort(404); })->name('internship.supervisor.place');
+    Route::post('/admin/internship/supervisor/students/{id}/place', function () { abort(404); })->name('internship.supervisor.place.update');
+    Route::get('/admin/internship/supervisor/submissions/{id}', function () { abort(404); })->name('internship.supervisor.show');
+    Route::post('/admin/internship/supervisor/submissions/{id}/grade', function () { abort(404); })->name('internship.supervisor.grade');
+    Route::get('/admin/internship/supervisor/files/{fileId}', function () { abort(404); })->name('internship.supervisor.file');
 
     // Digital Invitations (Online Invitation module)
     Route::name('online_invitation.')->prefix('online-invitation')->group(function () {
@@ -1149,38 +1149,38 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('expense_categories/deletebyselection', 'ExpenseCategoryController@deleteBySelection');
 	Route::resource('expense_categories', 'ExpenseCategoryController');
 
-	Route::get('wealth', 'Wealth\WealthOverviewController@index')->name('wealth.overview');
-	Route::get('wealth/api/overview', 'Wealth\WealthOverviewController@apiOverview')->name('wealth.api.overview');
-	Route::get('wealth/api/financial-health', 'Wealth\WealthOverviewController@apiHealth')->name('wealth.api.health');
-	Route::post('wealth/api/income/sync', 'Wealth\WealthOverviewController@syncIncome')->name('wealth.income.sync');
-	Route::get('wealth/financial-health', 'Wealth\WealthHealthController@index')->name('wealth.health');
-	Route::get('wealth/income', 'Wealth\WealthIncomeController@index')->name('wealth.income');
-	Route::post('wealth/income', 'Wealth\WealthIncomeController@store')->name('wealth.income.store');
-	Route::get('wealth/income/{id}', 'Wealth\WealthIncomeController@show')->name('wealth.income.show');
-	Route::post('wealth/income/{id}', 'Wealth\WealthIncomeController@update')->name('wealth.income.update');
-	Route::get('wealth/expenses', 'Wealth\WealthExpensePageController@index')->name('wealth.expenses');
-	Route::post('wealth/expenses', 'Wealth\WealthExpensePageController@store')->name('wealth.expenses.store');
-	Route::post('wealth/expenses/classify', 'Wealth\WealthExpensePageController@classify')->name('wealth.expenses.classify');
-	Route::get('wealth/programs', 'Wealth\WealthProgramController@index')->name('wealth.programs');
-	Route::post('wealth/programs', 'Wealth\WealthProgramController@store')->name('wealth.programs.store');
-	Route::post('wealth/programs/{id}/budget', 'Wealth\WealthProgramController@storeBudget')->name('wealth.programs.budget.store');
-	Route::post('wealth/programs/budget/{id}/delete', 'Wealth\WealthProgramController@destroyBudget')->name('wealth.programs.budget.destroy');
-	Route::get('wealth/programs/{id}', 'Wealth\WealthProgramController@show')->name('wealth.programs.show');
-	Route::post('wealth/programs/{id}', 'Wealth\WealthProgramController@update')->name('wealth.programs.update');
-	Route::get('wealth/allocations', 'Wealth\WealthAllocationController@index')->name('wealth.allocations');
-	Route::get('wealth/investments', 'Wealth\WealthInvestmentController@index')->name('wealth.investments');
-	Route::post('wealth/investments', 'Wealth\WealthInvestmentController@store')->name('wealth.investments.store');
-	Route::post('wealth/investments/{id}', 'Wealth\WealthInvestmentController@update')->name('wealth.investments.update');
-	Route::get('wealth/charity', 'Wealth\WealthCharityController@index')->name('wealth.charity');
-	Route::post('wealth/charity', 'Wealth\WealthCharityController@store')->name('wealth.charity.store');
-	Route::get('wealth/reports', 'Wealth\WealthReportController@index')->name('wealth.reports');
-	Route::get('wealth/reports/pdf', 'Wealth\WealthReportController@pdf')->name('wealth.reports.pdf');
-	Route::get('wealth/reports/csv', 'Wealth\WealthReportController@csv')->name('wealth.reports.csv');
-	Route::get('wealth/settings', 'Wealth\WealthSettingsController@index')->name('wealth.settings');
-	Route::post('wealth/settings/rules', 'Wealth\WealthSettingsController@saveRules')->name('wealth.settings.rules');
-	Route::post('wealth/settings/health', 'Wealth\WealthSettingsController@saveHealth')->name('wealth.settings.health');
-	Route::post('wealth/settings/category', 'Wealth\WealthSettingsController@saveCategory')->name('wealth.settings.category');
-	Route::get('wealth/help', 'Wealth\WealthHelpController@index')->name('wealth.help');
+	Route::get('wealth', function () { abort(404); })->name('wealth.overview');
+	Route::get('wealth/api/overview', function () { abort(404); })->name('wealth.api.overview');
+	Route::get('wealth/api/financial-health', function () { abort(404); })->name('wealth.api.health');
+	Route::post('wealth/api/income/sync', function () { abort(404); })->name('wealth.income.sync');
+	Route::get('wealth/financial-health', function () { abort(404); })->name('wealth.health');
+	Route::get('wealth/income', function () { abort(404); })->name('wealth.income');
+	Route::post('wealth/income', function () { abort(404); })->name('wealth.income.store');
+	Route::get('wealth/income/{id}', function () { abort(404); })->name('wealth.income.show');
+	Route::post('wealth/income/{id}', function () { abort(404); })->name('wealth.income.update');
+	Route::get('wealth/expenses', function () { abort(404); })->name('wealth.expenses');
+	Route::post('wealth/expenses', function () { abort(404); })->name('wealth.expenses.store');
+	Route::post('wealth/expenses/classify', function () { abort(404); })->name('wealth.expenses.classify');
+	Route::get('wealth/programs', function () { abort(404); })->name('wealth.programs');
+	Route::post('wealth/programs', function () { abort(404); })->name('wealth.programs.store');
+	Route::post('wealth/programs/{id}/budget', function () { abort(404); })->name('wealth.programs.budget.store');
+	Route::post('wealth/programs/budget/{id}/delete', function () { abort(404); })->name('wealth.programs.budget.destroy');
+	Route::get('wealth/programs/{id}', function () { abort(404); })->name('wealth.programs.show');
+	Route::post('wealth/programs/{id}', function () { abort(404); })->name('wealth.programs.update');
+	Route::get('wealth/allocations', function () { abort(404); })->name('wealth.allocations');
+	Route::get('wealth/investments', function () { abort(404); })->name('wealth.investments');
+	Route::post('wealth/investments', function () { abort(404); })->name('wealth.investments.store');
+	Route::post('wealth/investments/{id}', function () { abort(404); })->name('wealth.investments.update');
+	Route::get('wealth/charity', function () { abort(404); })->name('wealth.charity');
+	Route::post('wealth/charity', function () { abort(404); })->name('wealth.charity.store');
+	Route::get('wealth/reports', function () { abort(404); })->name('wealth.reports');
+	Route::get('wealth/reports/pdf', function () { abort(404); })->name('wealth.reports.pdf');
+	Route::get('wealth/reports/csv', function () { abort(404); })->name('wealth.reports.csv');
+	Route::get('wealth/settings', function () { abort(404); })->name('wealth.settings');
+	Route::post('wealth/settings/rules', function () { abort(404); })->name('wealth.settings.rules');
+	Route::post('wealth/settings/health', function () { abort(404); })->name('wealth.settings.health');
+	Route::post('wealth/settings/category', function () { abort(404); })->name('wealth.settings.category');
+	Route::get('wealth/help', function () { abort(404); })->name('wealth.help');
 
 	Route::post('expenses/deletebyselection', 'ExpenseController@deleteBySelection');
 	Route::resource('expenses', 'ExpenseController');

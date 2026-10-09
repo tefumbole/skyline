@@ -248,123 +248,6 @@
             </div>
         </div>
 
-        <form id="assign-internship-form" method="POST" action="{{ route('jobs.applicants.assign') }}">
-            @csrf
-            <input type="hidden" name="program_id" id="jb-program-id" value="{{ old('program_id') }}" required>
-
-            <div class="jb-card" id="assign-panel">
-                <h5 style="color:#0b3f90;font-weight:800;margin:0 0 12px;">Assign to internship</h5>
-                <p class="text-muted small mb-3">Checked interns will be enrolled for the chosen program, supervisor(s), and duration. ERP Intern accounts are created when needed.</p>
-
-                <div class="mb-3">
-                    <label class="jb-label">Internship program *</label>
-                    <div class="jb-prog-selected mb-2" id="jb-program-chosen">{{ old('program_id') ? 'Program #'.old('program_id') : 'No program selected' }}</div>
-                    <input type="search" class="jb-field mb-2" id="jb-program-search" placeholder="Search programs…">
-                    <div class="jb-user-list" id="jb-program-list" style="max-height:180px;"></div>
-                </div>
-
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap mb-2" style="gap:8px;">
-                        <label class="jb-label mb-0" style="color:#0b3f90;font-weight:700;font-size:15px;">Supervisors</label>
-                        <div class="d-flex align-items-center flex-wrap" style="gap:10px;">
-                            <button type="button" class="jb-btn-secondary" id="jb-add-supervisor-btn" style="white-space:nowrap;">
-                                <i class="dripicons-plus"></i> Add supervisor
-                            </button>
-                            <div>
-                                <small class="text-muted">Selected</small>
-                                <strong id="jb-sup-count" style="color:#0b3f90;font-size:1.15rem;margin-left:6px;">0</strong>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-muted small mb-2">Search and select one or more supervisors from System Users or Customers. Use + Add supervisor if they are not in the system yet.</p>
-
-                    <div id="jb-add-supervisor-panel" class="mb-3" style="display:none;border:1px solid #e3e9f4;border-radius:10px;padding:12px;background:#f8fafc;">
-                        <p class="text-muted small mb-2">Add someone who is not listed. They are saved in <strong>People → Customers</strong> (system-wide) and selected automatically.</p>
-                        <div class="row">
-                            <div class="col-md-6 mb-2">
-                                <label class="small font-weight-bold">Phone / WhatsApp *</label>
-                                <input type="tel" class="jb-field js-phone-holder" id="jb-new-sup-phone" placeholder="675321739 or +237…">
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="small font-weight-bold">Name *</label>
-                                <input type="text" class="jb-field" id="jb-new-sup-name" placeholder="Full name">
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="small font-weight-bold">Email (optional)</label>
-                                <input type="email" class="jb-field" id="jb-new-sup-email" placeholder="email@example.com">
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label class="small font-weight-bold">Address (optional)</label>
-                                <input type="text" class="jb-field" id="jb-new-sup-address" placeholder="City / address">
-                            </div>
-                        </div>
-                        <div class="d-flex flex-wrap" style="gap:8px;">
-                            <button type="button" class="jb-btn" id="jb-new-sup-save"><i class="dripicons-checkmark"></i> Save &amp; select</button>
-                            <button type="button" class="jb-btn-secondary" id="jb-new-sup-cancel">Cancel</button>
-                            <span class="small text-muted align-self-center" id="jb-new-sup-status"></span>
-                        </div>
-                    </div>
-
-                    <div class="mb-2">
-                        <button type="button" class="jb-pill active jb-sf" data-role="customers">Customers</button>
-                        <button type="button" class="jb-pill jb-sf" data-role="staff">System Users</button>
-                        <button type="button" class="jb-pill jb-sf" data-role="all">All</button>
-                    </div>
-                    <div class="d-flex mb-2" style="gap:8px;">
-                        <input type="search" class="jb-field jb-ssearch" placeholder="Search name, email, phone…">
-                        <button type="button" class="jb-btn-secondary jb-sselect-all" style="white-space:nowrap;">Select all</button>
-                    </div>
-                    <div class="jb-user-list jb-slist"></div>
-                    <div class="jb-schips mt-2"></div>
-                    <div class="jb-shiddens"></div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="jb-label">Duration (days) *</label>
-                        <input type="number" name="planned_duration_days" class="jb-field" required
-                               min="{{ \App\Application::internshipDurationMin() }}"
-                               max="{{ \App\Application::internshipDurationMax() }}"
-                               value="{{ old('planned_duration_days', 90) }}"
-                               placeholder="e.g. 19, 21, 30, 90…">
-                        <small class="text-muted">Any length from {{ \App\Application::internshipDurationMin() }} to {{ \App\Application::internshipDurationMax() }} days.</small>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="jb-label">Start from curriculum day *</label>
-                        <input type="number" name="start_curriculum_day" class="jb-field" min="1" max="180" required
-                               value="{{ old('start_curriculum_day', 1) }}">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="jb-label">Calendar start date *</label>
-                        <input type="date" name="start_date" class="jb-field" required value="{{ old('start_date', date('Y-m-d')) }}">
-                    </div>
-                    <div class="col-md-6 mb-3 d-flex align-items-end">
-                        <label class="d-flex align-items-center mb-2" style="gap:8px;font-weight:600;">
-                            <input type="checkbox" name="mark_selected" value="1" @if(old('mark_selected', '1')) checked @endif>
-                            Mark awaiting interns as Selected
-                        </label>
-                    </div>
-                </div>
-                <div class="d-flex flex-wrap align-items-center" style="gap:10px;">
-                    <button type="submit" class="jb-btn" id="assign-submit" disabled>
-                        <i class="dripicons-graduation"></i> Assign selected (<span id="assign-count">0</span>)
-                    </button>
-                    <button type="submit" form="notify-interns-form" class="jb-btn" id="notify-submit" disabled
-                            style="background:#e91e8c;border-color:#e91e8c;">
-                        <i class="dripicons-message"></i> Notify (<span id="notify-count">0</span>)
-                    </button>
-                    <button type="button" class="jb-btn-secondary jb-select-visible">Select all interns</button>
-                    <button type="button" class="jb-btn-secondary jb-clear-visible">Clear interns</button>
-                    <a class="jb-btn-secondary" href="{{ route('letter.template.index') }}" target="_blank" rel="noopener">
-                        Edit acceptance letter template
-                    </a>
-                </div>
-                <p class="text-muted small mb-0 mt-2">
-                    <strong>Notify</strong> sends a WhatsApp <strong>sign link</strong> (not a PDF). Day 1 is sent only after they sign.
-                </p>
-            </div>
-        </form>
-
         <form id="notify-interns-form" method="POST" action="{{ route('jobs.applicants.notify') }}" class="d-none">
             @csrf
         </form>
@@ -394,6 +277,8 @@ window.JB_CSRF = @json(csrf_token());
         });
     }
 
+    /* Internship assignment was removed. */
+    if (document.getElementById('assign-internship-form')) {
     /* —— Program searchable single-select —— */
     var programIdInput = document.getElementById('jb-program-id');
     var programChosen = document.getElementById('jb-program-chosen');
@@ -629,6 +514,7 @@ window.JB_CSRF = @json(csrf_token());
 
     refreshSupervisors();
 
+    }
     /* —— Applicant row selection —— */
     var form = document.getElementById('assign-internship-form');
     var notifyForm = document.getElementById('notify-interns-form');

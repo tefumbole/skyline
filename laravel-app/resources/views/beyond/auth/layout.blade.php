@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     @php
         $siteLogoUrl = \App\Support\SiteBrand::logoUrl($general_setting ?? null);
         $siteTitle = \App\Support\SiteBrand::siteTitle($general_setting ?? null);
@@ -30,7 +30,7 @@
             margin: 0;
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
             min-height: 100vh;
-            background: #0a2540;
+            background: #07111c url('{{ url('public/branding/chill-on-the-hill.png') }}?v=dj') center center / contain no-repeat fixed;
         }
         .auth-page {
             min-height: 100vh;
@@ -38,6 +38,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            background: rgba(6, 14, 26, 0.55);
             padding: 28px 16px 20px;
         }
         .auth-card {
@@ -91,6 +92,16 @@
         @media (prefers-reduced-motion: reduce) {
             .auth-logo-ring,
             .auth-logo-ring img { animation: none; }
+        }
+        @media (max-width: 420px) {
+            .auth-page {
+                padding: 20px max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+                justify-content: flex-start;
+            }
+            .auth-card { padding: 24px 16px 20px; border-radius: 16px; }
+            .auth-logo-ring { width: 84px; height: 84px; margin-bottom: 12px; }
+            .auth-links a { justify-content: center; text-align: center; line-height: 1.4; min-height: 44px; }
+            .auth-credit { font-size: 12px; line-height: 1.45; padding: 0 8px; }
         }
         .auth-title {
             margin: 0;
@@ -180,14 +191,20 @@
             flex-direction: column;
             gap: 10px;
             align-items: center;
+            width: 100%;
         }
         .auth-links a {
             color: #6b7280;
             font-size: 13px;
+            line-height: 1.4;
             text-decoration: none;
-            display: inline-flex;
+            display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            max-width: 100%;
+            text-align: center;
+            white-space: normal;
         }
         .auth-links a:hover { color: #0b3f90; text-decoration: underline; }
         .auth-links .wa { color: #16a34a; }
@@ -213,6 +230,9 @@
             color: #e8c547;
             font-size: 12px;
             font-weight: 500;
+            line-height: 1.45;
+            max-width: 100%;
+            padding: 0 12px;
         }
         .auth-version {
             display: inline-flex;

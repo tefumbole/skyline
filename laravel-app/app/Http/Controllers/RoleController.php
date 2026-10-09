@@ -96,7 +96,7 @@ class RoleController extends Controller
 
     public function setPermission(Request $request)
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
         $role = Role::firstOrCreate(['id' => $request['role_id']]);
@@ -2026,7 +2026,7 @@ class RoleController extends Controller
 
     public function destroy($id)
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
         $lims_role_data = Roles::find($id);
         $lims_role_data->is_active = false;

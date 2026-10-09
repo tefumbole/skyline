@@ -132,7 +132,7 @@
                 text: '<i title="delete" class="dripicons-cross"></i>',
                 className: 'buttons-delete',
                 action: function ( e, dt, node, config ) {
-                    if(user_verified == '1') {
+                    if(true) {
                         customer_id.length = 0;
                         $(':checkbox:checked').each(function(i){
                             if(i){

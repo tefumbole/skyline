@@ -1,6 +1,7 @@
 @extends('beyond.auth.layout')
 
-@section('title', 'Sign in')
+@section('title', 'Admin login')
+@section('auth_subtitle', 'Sign in to the admin panel')
 
 @php
     $asCustomer = !empty($asCustomer);

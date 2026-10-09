@@ -53,7 +53,7 @@ class CurrencyController extends Controller
 
     public function destroy($id)
     {
-        if(!env('USER_VERIFIED')) {
+        if(!true) {
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
         }
         $general_setting = GeneralSetting::latest()->first();

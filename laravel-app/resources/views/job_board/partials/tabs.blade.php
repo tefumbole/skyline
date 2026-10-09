@@ -157,10 +157,9 @@
     $jbTab = $jbTab ?? '';
     $jbTabCounts = $jbTabCounts ?? app(\App\Services\ApplicationService::class)->jobBoardTabCounts();
     $tabs = [
-        ['jobs.applicants', 'Interns', 'dripicons-user', 'tone-pink'],
+        ['jobs.applicants', 'Applicants', 'dripicons-user', 'tone-pink'],
         ['jobs.index', 'Job Postings', 'dripicons-briefcase', 'tone-blue'],
         ['jobs.create', 'Add Job', 'dripicons-plus', 'tone-gold'],
-        ['jobs.createInternship', 'Add Internship', 'dripicons-user', 'tone-purple'],
         ['jobs.applications', 'All Applications', 'dripicons-user-group', 'tone-teal'],
         ['jobs.awaiting', 'Awaiting Approval', 'dripicons-clock', 'tone-orange'],
         ['jobs.selected', 'Selected', 'dripicons-checkmark', 'tone-green'],

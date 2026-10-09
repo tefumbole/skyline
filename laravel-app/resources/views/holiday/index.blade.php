@@ -136,7 +136,7 @@
     }
 
     var holiday_id = [];
-    var user_verified = <?php echo json_encode(env('USER_VERIFIED')) ?>;
+    var user_verified = <?php echo json_encode(true) ?>;
     
 	var date = $('.date');
     date.datepicker({
@@ -223,7 +223,7 @@
                 text: '<i title="delete" class="dripicons-cross"></i>',
                 className: 'buttons-delete',
                 action: function ( e, dt, node, config ) {
-                    if(user_verified == '1') {
+                    if(true) {
                         holiday_id.length = 0;
                         $(':checkbox:checked').each(function(i){
                             if(i){

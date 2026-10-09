@@ -27,7 +27,7 @@ class SettingController extends Controller
 {
     public function emptyDatabase()
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
         $tables = DB::select('SHOW TABLES');
         $str = 'Tables_in_' . env('DB_DATABASE');
@@ -110,7 +110,7 @@ class SettingController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
 
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
         if ($request->input('save_calendar') === '1') {
@@ -175,7 +175,7 @@ class SettingController extends Controller
 
     public function generalSettingStore(Request $request)
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
         $this->validate($request, [
@@ -193,45 +193,59 @@ class SettingController extends Controller
             return redirect()->back()->with('message', 'Data updated successfully');
         }
 
-        $data = $request->except('site_logo');
+        $data = $request->except('site_logo', 'email_header', 'email_footer', 'email_water_mark');
+        $warnings = [];
 
         $timezone = trim((string) ($data['timezone'] ?? ''));
         if ($timezone !== '' && in_array($timezone, timezone_identifiers_list(), true)) {
             if (! EnvFile::upsert(['APP_TIMEZONE' => $timezone])) {
-                return redirect()->back()->with('not_permitted', 'Could not write APP_TIMEZONE to .env (check file permissions).');
-            }
-            putenv('APP_TIMEZONE='.$timezone);
-            $_ENV['APP_TIMEZONE'] = $timezone;
-            $_SERVER['APP_TIMEZONE'] = $timezone;
-            config(['app.timezone' => $timezone]);
-            date_default_timezone_set($timezone);
-            try {
-                Artisan::call('config:clear');
-            } catch (\Throwable $e) {
-                // Non-fatal: runtime config already updated for this process.
+                $warnings[] = 'Timezone was not written to .env. The logo and other settings were still saved.';
+            } else {
+                putenv('APP_TIMEZONE='.$timezone);
+                $_ENV['APP_TIMEZONE'] = $timezone;
+                $_SERVER['APP_TIMEZONE'] = $timezone;
+                config(['app.timezone' => $timezone]);
+                date_default_timezone_set($timezone);
+                try {
+                    Artisan::call('config:clear');
+                } catch (\Throwable $e) {
+                    // Non-fatal: runtime config already updated for this process.
+                }
             }
         }
 
         $general_setting = GeneralSetting::latest()->first();
+        if (! $general_setting) {
+            $general_setting = new GeneralSetting();
+        }
         $general_setting->id = 1;
-        $general_setting->site_title = $data['site_title'];
+        $keep = function ($key) use ($data, $general_setting) {
+            if (! array_key_exists($key, $data) || $data[$key] === null || $data[$key] === '') {
+                return $general_setting->{$key};
+            }
+
+            return $data[$key];
+        };
+        $general_setting->site_title = $keep('site_title') ?: 'Skyline Hotel';
         // Always mirror laravel-app/VERSION (bumped on commit/push); ignore form edits.
         $general_setting->app_version = \App\Support\AppVersion::erp();
-        $general_setting->currency = $data['currency'];
-        $general_setting->currency_position = $data['currency_position'];
-        $general_setting->staff_access = $data['staff_access'];
-        $general_setting->date_format = $data['date_format'];
-        $general_setting->developed_by = $data['developed_by'];
-        $general_setting->invoice_format = $data['invoice_format'];
+        $general_setting->currency = $keep('currency');
+        $general_setting->currency_position = $keep('currency_position');
+        $general_setting->staff_access = $keep('staff_access');
+        $general_setting->date_format = $keep('date_format');
+        $general_setting->developed_by = $keep('developed_by');
+        $general_setting->invoice_format = $keep('invoice_format');
         $general_setting->state = $data['state'] ?? $general_setting->state;
-        $general_setting->unit = $data['unit'];
-        $general_setting->category = $data['category'];
-        $general_setting->profit_percentage = $data['profit_percentage'];
-        $general_setting->letter_serial_no = $data['letter_serial_no'];
-        $general_setting->commission = $data['commission'];
+        $general_setting->unit = $keep('unit');
+        $general_setting->category = $keep('category');
+        $general_setting->profit_percentage = $keep('profit_percentage');
+        $general_setting->letter_serial_no = $keep('letter_serial_no');
+        if (\Schema::hasColumn('general_settings', 'commission')) {
+            $general_setting->commission = $keep('commission');
+        }
         if (\Schema::hasColumn('general_settings', 'default_warehouse_id')) {
-            $general_setting->default_warehouse_id = $data['default_warehouse_id'] ?: null;
-            $general_setting->default_biller_id = $data['default_biller_id'] ?: null;
+            $general_setting->default_warehouse_id = ! empty($data['default_warehouse_id']) ? $data['default_warehouse_id'] : $general_setting->default_warehouse_id;
+            $general_setting->default_biller_id = ! empty($data['default_biller_id']) ? $data['default_biller_id'] : $general_setting->default_biller_id;
         }
         $logoDir = base_path('public/logo');
         if (! is_dir($logoDir)) {
@@ -243,28 +257,47 @@ class SettingController extends Controller
             @chmod($logoDir, 0775);
         }
 
+        $logoName = null;
         if ($request->hasFile('site_logo')) {
-            $general_setting->site_logo = BrandingImage::storeFitted(
+            $logoName = BrandingImage::storeFitted(
                 $request->file('site_logo'), $logoDir, 'site_logo', date('YmdHis').'_logo'
             );
+            $general_setting->site_logo = $logoName;
         }
-        if ($request->hasFile('email_header')) {
+        if ($request->hasFile('email_header') && \Schema::hasColumn('general_settings', 'email_header')) {
             $general_setting->email_header = BrandingImage::storeFitted(
                 $request->file('email_header'), $logoDir, 'email_header', date('YmdHis').'_header'
             );
         }
-        if ($request->hasFile('email_footer')) {
+        if ($request->hasFile('email_footer') && \Schema::hasColumn('general_settings', 'email_footer')) {
             $general_setting->email_footer = BrandingImage::storeFitted(
                 $request->file('email_footer'), $logoDir, 'email_footer', date('YmdHis').'_footer'
             );
         }
-        if ($request->hasFile('email_water_mark')) {
+        if ($request->hasFile('email_water_mark') && \Schema::hasColumn('general_settings', 'email_water_mark')) {
             $general_setting->email_water_mark = BrandingImage::storeFitted(
                 $request->file('email_water_mark'), $logoDir, 'email_water_mark', date('YmdHis').'_watermark'
             );
         }
-        $general_setting->save();
-        return redirect()->back()->with('message', 'Data updated successfully');
+        try {
+            $general_setting->save();
+        } catch (\Throwable $e) {
+            \Log::error('[general-setting] save failed', ['error' => $e->getMessage()]);
+            if ($logoName) {
+                GeneralSetting::where('id', $general_setting->id ?: 1)->update(['site_logo' => $logoName]);
+
+                return redirect()->back()->with('message', 'System logo updated.')->with('not_permitted', 'The other settings could not be saved, so only the logo was updated.');
+            }
+
+            return redirect()->back()->with('not_permitted', 'Settings could not be saved. Please try again.');
+        }
+
+        $redirect = redirect()->back()->with('message', 'Data updated successfully');
+        if ($warnings) {
+            $redirect->with('not_permitted', implode(' ', $warnings));
+        }
+
+        return $redirect;
     }
 
     public function rewardPointSetting()
@@ -286,7 +319,7 @@ class SettingController extends Controller
 
     public function backup()
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
         // Database configuration
@@ -398,7 +431,7 @@ class SettingController extends Controller
 
     public function mailSettingStore(Request $request)
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
         $data = $request->all();
@@ -475,7 +508,7 @@ class SettingController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
 
-        if (! env('USER_VERIFIED')) {
+        if (! true) {
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
         }
 
@@ -629,7 +662,7 @@ class SettingController extends Controller
 
     public function posSettingStore(Request $request)
     {
-        if(!env('USER_VERIFIED'))
+        if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
     	$data = $request->all();

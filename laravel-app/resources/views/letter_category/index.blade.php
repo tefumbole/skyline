@@ -111,7 +111,7 @@
     $("ul#letter #letter-category-menu").addClass("active");
 
     var expense_category_id = [];
-    var user_verified = <?php echo json_encode(env('USER_VERIFIED')) ?>;
+    var user_verified = <?php echo json_encode(true) ?>;
 
     $.ajaxSetup({
         headers: {
@@ -233,7 +233,7 @@ function confirmDelete() {
                 text: '<i title="delete" class="dripicons-cross"></i>',
                 className: 'buttons-delete',
                 action: function ( e, dt, node, config ) {
-                    if(user_verified == '1') {
+                    if(true) {
                         expense_category_id.length = 0;
                         $(':checkbox:checked').each(function(i){
                             if(i){

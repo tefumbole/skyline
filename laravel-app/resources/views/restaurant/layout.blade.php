@@ -38,7 +38,7 @@
 <body>
 <header>
     <strong>Skyline Hotel</strong>
-    <a href="{{ url('/menu') }}">Menu</a>
+    <a href="{{ url('/') }}">Skyline Hotel</a>
 </header>
 <main>
     @if(session('message'))<div class="alert ok">{{ session('message') }}</div>@endif

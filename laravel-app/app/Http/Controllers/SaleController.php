@@ -721,7 +721,11 @@ class SaleController extends Controller
             Product_Sale::create($product_sale);
         }
         try {
-            if (! isset($data['sale_status']) || (int) $data['sale_status'] !== 3) {
+            $mayPlace = auth()->check() && (
+                \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add')
+                || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')
+            );
+            if ($mayPlace && (! isset($data['sale_status']) || (int) $data['sale_status'] !== 3)) {
                 app(\App\Services\Restaurant\RestaurantOrderService::class)->attachFromRequest($lims_sale_data, $request);
             }
         } catch (\Throwable $e) {

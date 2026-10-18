@@ -1432,20 +1432,21 @@
                                             </div>
                                         </div>
                                     </div>
-                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
                                     <div class="row" style="margin:8px 0;">
+                                        <div class="col-sm-12"><strong>Restaurant order</strong> <span class="text-muted">Place food and drinks here. Kitchen and bar receive them from this sale.</span></div>
                                         <div class="col-sm-3">
                                             <label>Service</label>
                                             <select name="service_type" class="form-control">
-                                                <option value="">Not a restaurant order</option>
                                                 <option value="dine_in">Dine In</option>
                                                 <option value="take_away">Take Away</option>
+                                                <option value="">Not a restaurant order</option>
                                             </select>
                                         </div>
                                         <div class="col-sm-3">
                                             <label>Table</label>
                                             <select name="restaurant_table_id" class="form-control">
-                                                <option value="">Optional</option>
+                                                <option value="">Optional for take away</option>
                                                 @foreach(\App\RestaurantTable::where('is_active', 1)->orderBy('name')->get() as $table)
                                                     <option value="{{ $table->id }}">{{ $table->name }}</option>
                                                 @endforeach
@@ -1455,7 +1456,7 @@
                                             <label>Waitress / waiter</label>
                                             <select name="waitress_user_id" class="form-control">
                                                 <option value="">Unassigned</option>
-                                                @foreach(\App\User::orderBy('name')->limit(200)->get(['id','name']) as $person)
+                                                @foreach(\App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders') as $person)
                                                     <option value="{{ $person->id }}">{{ $person->name }}</option>
                                                 @endforeach
                                             </select>

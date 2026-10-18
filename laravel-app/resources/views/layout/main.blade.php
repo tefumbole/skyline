@@ -1607,7 +1607,9 @@
                                     @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
                                         <li id="order-logs-menu"><a href="{{ route('restaurant.logs') }}">Order Logs</a></li>
                                     @endif
-                                    <li><a href="{{ route('restaurant.menu') }}" target="_blank">Guest menu</a></li>
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders'))
+                                        <li id="restaurant-pos-menu"><a href="{{ route('sale.pos') }}">POS</a></li>
+                                    @endif
                                 </ul>
                             </li>
                         @endif

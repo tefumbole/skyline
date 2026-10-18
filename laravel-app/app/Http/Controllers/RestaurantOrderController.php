@@ -163,7 +163,7 @@ class RestaurantOrderController extends Controller
         $sale = Sale::with('customer')->findOrFail($sale);
         $order = RestaurantOrder::with(['items', 'diningTable', 'waitress'])->where('sale_id', $sale->id)->first();
         $lines = Product_Sale::where('sale_id', $sale->id)->get();
-        $staff = User::orderBy('name')->get(['id', 'name']);
+        $staff = RestaurantAccess::usersWithPermission('waiter-orders');
 
         return view('restaurant.confirmation', compact('sale', 'order', 'lines', 'staff'));
     }
@@ -201,7 +201,11 @@ class RestaurantOrderController extends Controller
         $items = $query->orderByDesc('id')->limit(300)->get();
         $rejections = MealRejection::with('user')->orderByDesc('id')->limit(100)->get();
         $tables = RestaurantTable::orderBy('name')->get();
-        $staffList = User::orderBy('name')->get(['id', 'name']);
+        $staffList = collect();
+        foreach (['kitchen-orders', 'bar-orders', 'waiter-orders', 'order-logs', 'sales-add'] as $permission) {
+            $staffList = $staffList->merge(RestaurantAccess::usersWithPermission($permission));
+        }
+        $staffList = $staffList->unique('id')->sortBy('name')->values();
 
         return view('restaurant.logs', compact('items', 'rejections', 'tables', 'staffList'));
     }

@@ -55,8 +55,9 @@ Route::post('/contracts/sign/{token}/decline', 'ContractSignController@decline')
 
 
 Route::get('/', 'BeyondController@home')->name('beyond.home');
-Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');
-Route::post('/menu', 'RestaurantMenuController@checkout')->name('restaurant.checkout');
+Route::match(['get', 'post'], '/menu', function () {
+    return redirect('/pos');
+})->name('restaurant.menu');
 Route::get('/order-confirm/{sale}/{token}', 'RestaurantMenuController@confirmation')->name('restaurant.public.confirm');
 Route::get('/order-track/{sale}/{token}', 'RestaurantTrackingController@show')->name('restaurant.track');
 Route::get('/order-review/{sale}/{token}', 'RestaurantTrackingController@review')->name('restaurant.review');

@@ -226,6 +226,17 @@ class RestaurantOrderWorkflowTest extends TestCase
         $this->assertSame(1, Sale::count());
     }
 
+    public function test_public_menu_does_not_create_an_order()
+    {
+        $this->post('/menu', [
+            'name' => 'Guest',
+            'phone' => '675321700',
+            'service_type' => 'dine_in',
+            'checkout_token' => 'should-not-run',
+        ])->assertRedirect('/pos');
+        $this->assertSame(0, Sale::count());
+    }
+
     public function test_review_saves_scores()
     {
         $sale = $this->order([['product_id' => $this->product('Soup', 'food')->id, 'qty' => 1]]);

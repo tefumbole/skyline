@@ -1,5 +1,5 @@
 nav.navbar a.menu-btn:hover {
-    background: #7c5cc4;
+    background: #0c1830;
 }
 
 .pos-page .container-fluid {
@@ -29,13 +29,13 @@ nav.navbar a.menu-btn:hover {
 .side-navbar li a:hover,
 .side-navbar li.active>a,
 .side-navbar li a[aria-expanded="true"] {
-    background: #f8f8f8;
-	color: #7c5cc4;
+    background: rgba(225, 179, 104, 0.18);
+	color: #e1b368;
     text-decoration: none;
 }
 
 .side-navbar .sidenav-header {
-    background: #7c5cc4;
+    background: #0c1830;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     margin-bottom: 20px;
     padding: 0;
@@ -590,7 +590,7 @@ section {
 }
 
 .side-navbar .sidenav-header {
-    background: #7c5cc4;
+    background: #0c1830;
     margin-bottom: 0;
     padding: 0;
 }
@@ -635,15 +635,15 @@ section {
 
 nav.navbar a.menu-btn {
     background: transparent;
-    border: 1px solid #7c5cc4;
+    border: 1px solid #e1b368;
     border-radius: 5px;
-    color: #7c5cc4;
+    color: #e1b368;
 }
 
 nav.navbar a.menu-btn:hover {
-    background: #7c5cc4;
-    border: 1px solid #7c5cc4;
-    color: #FFF;
+    background: #e1b368;
+    border: 1px solid #e1b368;
+    color: #07111c;
 }
 
 .navbar-brand {
@@ -651,7 +651,7 @@ nav.navbar a.menu-btn:hover {
 }
 
 .brand-text h3 {
-	color: #7c5cc4;
+	color: #e1b368;
 	font-weight: 300;
 }
 
@@ -660,14 +660,14 @@ nav.navbar a.menu-btn:hover {
 }
 
 nav.navbar {
-    background: #FFF;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: #0c1830;
+    border-bottom: 1px solid rgba(225, 179, 104, 0.28);
     line-height: 60px;
     padding: 0;
 }
 
 nav.navbar .nav-item a i {
-    color: #7c5cc4;
+    color: #e1b368;
     font-size: 14px;
     margin-right: 5px;
     vertical-align: middle;
@@ -694,7 +694,7 @@ nav.navbar .nav-item li.notifications a i{
 
 .nav-tabs .nav-item .nav-link.active {
 	border-color: transparent;
-    border-bottom: 2px solid #7c5cc4;
+    border-bottom: 2px solid #e1b368;
 }
 
 .dropdown-item {
@@ -734,7 +734,7 @@ nav.navbar .nav-item li.notifications a i{
 }
 
 .dt-button-collection.dropdown-menu {
-	background: #7c5cc4;
+	background: #0c1830;
 	padding: 10px 15px;
 }
 
@@ -765,7 +765,7 @@ nav.navbar .nav-item li.notifications a i{
 }
 
 .buttons-collection {
-	background: #7c5cc4;
+	background: #0c1830;
 	border: none;
 }
 
@@ -781,7 +781,7 @@ nav.navbar .nav-item li.notifications a i{
 
 .dropdown-menu.edit-options li a,
 .dropdown-menu.edit-options li .btn-link {
-	color: #7c5cc4;
+	color: #0c1830;
 	display: block;
 	text-align: left;
 	text-decoration: none;
@@ -790,8 +790,8 @@ nav.navbar .nav-item li.notifications a i{
 
 .dropdown-menu.edit-options li a:hover,
 .dropdown-menu.edit-options li .btn-link:hover {
-	background-color: #f8f8f8;
-	color: #7c5cc4
+	background-color: rgba(225, 179, 104, 0.2);
+	color: #07111c
 }
 
 .table.totals tr td {

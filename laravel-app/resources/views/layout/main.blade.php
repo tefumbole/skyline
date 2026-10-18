@@ -95,9 +95,9 @@
         <link rel="stylesheet" href="<?php echo asset('public/css/custom-'.$general_setting->theme) ?>" type="text/css" id="custom-style">
         <style>
             :root {
-                --beyond-primary: #0b3f90;
-                --beyond-primary-dark: #072f6b;
-                --beyond-accent: #c6ab47;
+                --beyond-primary: #0c1830;
+                --beyond-primary-dark: #07111c;
+                --beyond-accent: #e1b368;
                 --beyond-bg: #f3f6fb;
                 --beyond-card: #ffffff;
                 --beyond-text: #1f2a44;
@@ -187,7 +187,7 @@
 
             .sidebar-user-panel {
                 flex-shrink: 0;
-                background: #072f6b;
+                background: #07111c;
                 border-top: 1px solid rgba(255, 255, 255, 0.12);
                 padding: 16px 14px;
             }
@@ -225,8 +225,8 @@
                 margin-top: 4px;
                 padding: 2px 8px;
                 border-radius: 999px;
-                background: rgba(198, 171, 71, 0.18);
-                color: #f4dd88;
+                background: rgba(225, 179, 104, 0.18);
+                color: #fff6df;
                 font-size: 10px;
                 font-weight: 700;
                 text-transform: uppercase;
@@ -292,8 +292,8 @@
 
             .side-navbar .side-menu > li > a:hover,
             .side-navbar .side-menu > li > a:focus {
-                background: rgba(198, 171, 71, 0.18);
-                color: #ffffff;
+                background: rgba(225, 179, 104, 0.18);
+                color: #fff6df;
             }
 
             .side-navbar .side-menu > li > a.menu-parent-active,
@@ -428,9 +428,9 @@
                 padding: 0 5px;
                 margin-left: 6px;
                 border-radius: 999px;
-                background: #0b3f90;
-                border: 2px solid #e67e22;
-                color: #e67e22;
+                background: #0c1830;
+                border: 2px solid #e1b368;
+                color: #e1b368;
                 font-size: 11px;
                 font-weight: 800;
                 line-height: 1;
@@ -517,6 +517,38 @@
             .beyond-module-tab.tone-red { border-color: #ef4444; color: #ef4444; }
             .beyond-module-tab.tone-red.is-active { background: #ef4444 !important; border-color: #ef4444 !important; }
             .beyond-module-tab.tone-red i { color: #ef4444 !important; }
+
+            .beyond-module-tabs {
+                background: #0c1830;
+                border-bottom-color: rgba(225, 179, 104, 0.35);
+            }
+            .beyond-module-tabs-label {
+                color: #e1b368;
+            }
+            .beyond-module-tab,
+            .beyond-module-tab[class*="tone-"] {
+                background: transparent;
+                border-color: rgba(225, 179, 104, 0.55);
+                color: #fff6df;
+            }
+            .beyond-module-tab i,
+            .beyond-module-tab[class*="tone-"] i {
+                color: #e1b368 !important;
+            }
+            .beyond-module-tab:hover {
+                background: rgba(225, 179, 104, 0.16);
+                box-shadow: none;
+            }
+            .beyond-module-tab.is-active,
+            .beyond-module-tab[class*="tone-"].is-active {
+                background: #e1b368 !important;
+                border-color: #e1b368 !important;
+                color: #07111c !important;
+            }
+            .beyond-module-tab.is-active i,
+            .beyond-module-tab[class*="tone-"].is-active i {
+                color: #07111c !important;
+            }
 
             .header .navbar {
                 background: var(--beyond-primary) !important;

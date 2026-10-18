@@ -12,18 +12,19 @@
         html, body { margin: 0; background: #07111c; }
         html { -webkit-text-size-adjust: 100%; }
         body {
-            min-height: 100vh;
-            min-height: 100dvh;
+            height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
             color: #f6f1e6;
-            overflow-x: hidden;
+            overflow: hidden;
         }
         .bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-shrink: 0;
             gap: 16px;
             background: #0c1830;
             padding: 10px max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left));
@@ -110,19 +111,33 @@
             white-space: nowrap;
         }
         .login:hover { background: rgba(255, 255, 255, 0.08); }
-        .hero { line-height: 0; background: #07111c; }
-        .frame { position: relative; }
+        .hero {
+            flex: 1 1 0;
+            min-height: 0;
+            position: relative;
+            line-height: 0;
+            background: #07111c;
+        }
+        .frame {
+            position: absolute;
+            inset: 0;
+        }
         .poster {
             width: 100%;
-            height: auto;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
             display: block;
         }
-        .when {
+        .when-block {
             position: absolute;
             left: 6.5%;
-            top: 43%;
-            max-width: 88%;
-            margin: 0;
+            top: 48%;
+            max-width: 90%;
+            line-height: 1.2;
+        }
+        .when {
+            margin: 0 0 0.45em;
             color: #fff;
             font-size: clamp(12px, 1.6vw, 26px);
             font-weight: 600;
@@ -131,49 +146,55 @@
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
         }
         .count {
+            position: absolute;
+            left: 50%;
+            top: 56%;
+            transform: translateX(-50%);
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 16px 22px;
-            flex-wrap: wrap;
-            line-height: 1.2;
-            background: #0c1830;
-            border-top: 1px solid rgba(225, 179, 104, 0.35);
-            padding: 12px max(16px, env(safe-area-inset-right)) 14px max(16px, env(safe-area-inset-left));
+            gap: 10px;
+            width: max-content;
+            max-width: 96%;
+            line-height: 1.1;
+            text-align: center;
         }
         .count-label {
             margin: 0;
             font-family: Cinzel, Georgia, serif;
-            font-size: 12px;
+            font-size: clamp(12px, 2.23vw, 27px);
             font-weight: 600;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
             color: #e1b368;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
         }
         .count-grid {
             display: flex;
-            gap: 8px;
+            justify-content: center;
+            gap: clamp(6px, 1.28vw, 17px);
         }
         .count-cell {
-            min-width: 62px;
+            min-width: clamp(52px, 11vw, 145px);
             text-align: center;
-            border: 1px solid rgba(225, 179, 104, 0.5);
-            border-radius: 8px;
-            padding: 6px 8px 5px;
-            background: rgba(7, 17, 28, 0.45);
+            border: 1px solid rgba(225, 179, 104, 0.7);
+            border-radius: 12px;
+            padding: 8px 12px 7px;
+            background: rgba(7, 17, 28, 0.62);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
         }
         .count-cell strong {
             display: block;
             font-variant-numeric: tabular-nums;
-            font-size: clamp(18px, 2.4vw, 26px);
+            font-size: clamp(18px, 3.62vw, 51px);
             font-weight: 600;
             color: #fff6df;
         }
         .count-cell span {
             display: block;
-            margin-top: 2px;
-            font-size: 10px;
-            letter-spacing: 0.12em;
+            margin-top: 3px;
+            font-size: clamp(9px, 1.6vw, 22px);
+            letter-spacing: 0.08em;
             text-transform: uppercase;
             color: #e1b368;
         }
@@ -190,7 +211,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 18px;
-            margin-top: auto;
+            flex-shrink: 0;
             background: #0c1830;
             padding: 14px max(22px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
         }
@@ -209,6 +230,21 @@
             white-space: nowrap;
         }
         .credit a:hover { color: #f0cb86; }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            min-width: 0;
+        }
+        .version {
+            margin: 0;
+            color: #e1b368;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }
         .foot .brand { margin-left: auto; flex: 0 1 auto; }
         .foot-links {
             display: flex;
@@ -271,10 +307,9 @@
                 padding: 6px 2px;
                 border-top: 1px solid rgba(225, 179, 104, 0.28);
             }
-            .when { left: 5%; top: 42%; font-size: clamp(12px, 3.4vw, 16px); }
-            .count { gap: 8px 12px; padding-top: 10px; padding-bottom: 12px; }
-            .count-label { letter-spacing: 0.08em; font-size: 11px; text-align: center; }
-            .count-cell { min-width: 58px; padding: 5px 4px 4px; }
+            .when-block { left: 5%; top: 46%; }
+            .poster { object-position: left center; }
+            .when { font-size: clamp(12px, 3.4vw, 16px); }
         }
         @media (max-width: 420px) {
             .event { font-size: 11px; letter-spacing: 0.06em; }
@@ -309,19 +344,21 @@
 
     <main class="hero">
         <div class="frame">
-            <img class="poster" src="{{ url('public/branding/chill-on-the-hill.png') }}?v=dj" width="2048" height="1153" alt="Chill on the Hill at Skyline Hotel Bamenda">
-            <p class="when">24th Dec, 2026 - 02 Jan, 2027</p>
-        </div>
-        <section class="count" id="opening-countdown" aria-label="Countdown to 1 November 2026" data-target="2026-11-01T00:00:00+01:00">
-            <p class="count-label">1 November 2026</p>
-            <div class="count-grid">
-                <div class="count-cell"><strong data-unit="days">00</strong><span>Days</span></div>
-                <div class="count-cell"><strong data-unit="hours">00</strong><span>Hours</span></div>
-                <div class="count-cell"><strong data-unit="minutes">00</strong><span>Minutes</span></div>
-                <div class="count-cell"><strong data-unit="seconds">00</strong><span>Seconds</span></div>
+            <img class="poster" src="{{ url('public/branding/chill-on-the-hill.jpg') }}?v=final" width="1024" height="576" alt="Chill on the Hill at Skyline Hotel Bamenda">
+            <div class="when-block">
+                <p class="when">24th Dec, 2026 - 02 Jan, 2027</p>
             </div>
-            <p class="count-done">1 November 2026 is here</p>
-        </section>
+            <section class="count" id="opening-countdown" aria-label="Launching 1st November" data-target="2026-11-01T00:00:00+01:00">
+                <p class="count-label">Launching 1st November</p>
+                <div class="count-grid">
+                    <div class="count-cell"><strong data-unit="days">00</strong><span>Days</span></div>
+                    <div class="count-cell"><strong data-unit="hours">00</strong><span>Hours</span></div>
+                    <div class="count-cell"><strong data-unit="minutes">00</strong><span>Minutes</span></div>
+                    <div class="count-cell"><strong data-unit="seconds">00</strong><span>Seconds</span></div>
+                </div>
+                <p class="count-done">Launching 1st November</p>
+            </section>
+        </div>
     </main>
 
     <footer class="foot">
@@ -344,7 +381,10 @@
                 <img class="logo" src="{{ url('public/branding/skyline-logo.png') }}" alt="">
             </span>
             <span class="rule" aria-hidden="true"></span>
-            <p class="credit">Developed By <span aria-hidden="true">|</span> Sr. Engr. Tefu R. Mbole <span aria-hidden="true">|</span> <a href="https://wa.me/237675321739" target="_blank" rel="noopener">237 675 321 739</a></p>
+            <div class="brand-text">
+                <p class="credit">Developed By <span aria-hidden="true">|</span> Sr. Engr. Tefu R. Mbole <span aria-hidden="true">|</span> <a href="https://wa.me/237675321739" target="_blank" rel="noopener">237 675 321 739</a></p>
+                <p class="version">{{ \App\Support\AppVersion::erp() }}</p>
+            </div>
         </div>
     </footer>
     <script>

@@ -1631,7 +1631,7 @@ class SaleController extends Controller
             $product_expired_date[] = null;
         }
 
-        if ($role->hasPermissionTo('search_all_products')) {
+        if ($role->permissions()->where('name', 'search_all_products')->exists()) {
             $zero_stock = Product::whereNotIn('id', $product_id)->where('is_active', true)->get();
             foreach ($zero_stock as $zero) {
                 $product_qty[] = $zero->qty;
@@ -1656,8 +1656,8 @@ class SaleController extends Controller
     public function searchAllProducts()
     {
         $role = Role::find(Auth::user()->role_id);
-        if (!$role->hasPermissionTo('search_all_products')) {
-            $permission = Permission::firstOrCreate(['name' => 'search_all_products']);
+        $permission = Permission::firstOrCreate(['name' => 'search_all_products', 'guard_name' => 'web']);
+        if (! $role->hasPermissionTo($permission)) {
             $role->givePermissionTo($permission);
         }
 
@@ -1667,7 +1667,7 @@ class SaleController extends Controller
     public function searchQuickProducts()
     {
         $role = Role::find(Auth::user()->role_id);
-        if ($role->hasPermissionTo('search_all_products')) {
+        if ($role->permissions()->where('name', 'search_all_products')->exists()) {
             $role->revokePermissionTo('search_all_products');
         }
 
@@ -1700,7 +1700,7 @@ class SaleController extends Controller
             $lims_unit_list = Unit::select('id', 'unit_name', 'unit_code')->where('is_active', true)->get();
             $lims_category_list = Category::select('id', 'name', 'parent_id')->where('is_active', true)->get();
 
-            $canSearchAllProducts = $role->hasPermissionTo('search_all_products');
+            $canSearchAllProducts = in_array('search_all_products', $all_permission, true);
             $baseProductsLimit = $canSearchAllProducts ? 900 : 300;
             $variantProductsLimit = $canSearchAllProducts ? 400 : 180;
 

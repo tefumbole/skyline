@@ -27,16 +27,7 @@ class SettingController extends Controller
 {
     public function emptyDatabase()
     {
-        if(!true)
-            return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
-        $tables = DB::select('SHOW TABLES');
-        $str = 'Tables_in_' . env('DB_DATABASE');
-        foreach ($tables as $table) {
-            if($table->$str != 'accounts' && $table->$str != 'general_settings' && $table->$str != 'hrm_settings' && $table->$str != 'languages' && $table->$str != 'migrations' && $table->$str != 'password_resets' && $table->$str != 'permissions' && $table->$str != 'pos_setting' && $table->$str != 'roles' && $table->$str != 'role_has_permissions' && $table->$str != 'users' && $table->$str != 'currencies' && $table->$str != 'reward_point_settings') {
-                DB::table($table->$str)->truncate();
-            }
-        }
-        return redirect()->back()->with('message', 'Database cleared successfully');
+        return redirect()->route('setting.general')->with('not_permitted', 'Clearing the database from this screen is turned off.');
     }
     public function generalSetting()
     {
@@ -313,7 +304,12 @@ class SettingController extends Controller
             $data['is_active'] = true;
         else
             $data['is_active'] = false;
-        RewardPointSetting::latest()->first()->update($data);
+        $row = RewardPointSetting::latest()->first();
+        if (! $row) {
+            $row = new RewardPointSetting();
+        }
+        $row->fill($data);
+        $row->save();
         return redirect()->back()->with('message', 'Reward point setting updated successfully');
     }
 
@@ -329,7 +325,10 @@ class SettingController extends Controller
         $database_name = env('DB_DATABASE');
 
         // Get connection object and set the charset
-        $conn = mysqli_connect($host, $username, $password, $database_name);
+        $conn = @mysqli_connect($host, $username, $password, $database_name);
+        if (! $conn) {
+            return redirect()->back()->with('not_permitted', 'Backup could not connect to the database.');
+        }
         $conn->set_charset("utf8");
 
 
@@ -383,34 +382,31 @@ class SettingController extends Controller
 
         if(!empty($sqlScript))
         {
-            // Save the SQL script to a backup file
-            $backup_file_name = public_path().'/'.$database_name . '_backup_' . time() . '.sql';
-            //return $backup_file_name;
-            $fileHandler = fopen($backup_file_name, 'w+');
-            $number_of_lines = fwrite($fileHandler, $sqlScript);
+            $dir = storage_path('app/backups');
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0750, true);
+            }
+            $stamp = time();
+            $backup_file_name = $dir.'/'.$database_name.'_backup_'.$stamp.'.sql';
+            $fileHandler = @fopen($backup_file_name, 'w+');
+            if (! $fileHandler) {
+                return redirect()->back()->with('not_permitted', 'Backup could not be saved.');
+            }
+            fwrite($fileHandler, $sqlScript);
             fclose($fileHandler);
 
+            $zipFileName = $database_name.'_backup_'.$stamp.'.zip';
+            $zipPath = $dir.'/'.$zipFileName;
             $zip = new ZipArchive();
-            $zipFileName = $database_name . '_backup_' . time() . '.zip';
-            $zip->open(public_path() . '/' . $zipFileName, ZipArchive::CREATE);
-            $zip->addFile($backup_file_name, $database_name . '_backup_' . time() . '.sql');
+            if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
+                return redirect()->back()->with('not_permitted', 'Backup could not be saved.');
+            }
+            $zip->addFile($backup_file_name, basename($backup_file_name));
             $zip->close();
 
-            // Download the SQL backup file to the browser
-            /*header('Content-Description: File Transfer');
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename=' . basename($backup_file_name));
-            header('Content-Transfer-Encoding: binary');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate');
-            header('Pragma: public');
-            header('Content-Length: ' . filesize($backup_file_name));
-            ob_clean();
-            flush();
-            readfile($backup_file_name);
-            exec('rm ' . $backup_file_name); */
+            return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
         }
-        return redirect('public/' . $zipFileName);
+        return redirect()->back()->with('not_permitted', 'Nothing to back up.');
     }
 
     public function changeTheme($theme)
@@ -684,20 +680,28 @@ class SettingController extends Controller
     	$pos_setting->stripe_secret_key = $data['stripe_secret_key'];
 
         $lims_account_data = Account::where('is_default', true)->first();
-        $lims_account_data->is_default = false;
-        $lims_account_data->save();
+        if ($lims_account_data) {
+            $lims_account_data->is_default = false;
+            $lims_account_data->save();
+        }
 
-        $lims_account_data = Account::find($data['account_id']);
-        $lims_account_data->is_default = true;
-        $lims_account_data->save();
+        $lims_account_data = Account::find($data['account_id'] ?? null);
+        if ($lims_account_data) {
+            $lims_account_data->is_default = true;
+            $lims_account_data->save();
+        }
 
         $lims_account_data = Account::where('is_default_debit', true)->first();
-        $lims_account_data->is_default_debit = false;
-        $lims_account_data->save();
+        if ($lims_account_data) {
+            $lims_account_data->is_default_debit = false;
+            $lims_account_data->save();
+        }
 
-        $lims_account_data = Account::find($data['debit_account_id']);
-        $lims_account_data->is_default_debit = true;
-        $lims_account_data->save();
+        $lims_account_data = Account::find($data['debit_account_id'] ?? null);
+        if ($lims_account_data) {
+            $lims_account_data->is_default_debit = true;
+            $lims_account_data->save();
+        }
 
         if(!isset($data['keybord_active']))
             $pos_setting->keybord_active = false;

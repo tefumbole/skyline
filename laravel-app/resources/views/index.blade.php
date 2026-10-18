@@ -164,7 +164,7 @@
             <div class="label">{{ trans('file.profit') }}</div>
             <div class="value profit-data">{{ number_format((float)$profit, 2, '.', ',') }}</div>
           </div>
-          <div class="beyond-stat-icon green"><i class="dripicons-trophy"></i></div>
+          <div class="beyond-stat-icon gold"><i class="dripicons-trophy"></i></div>
         </a>
         {!! Form::open(['route' => 'report.profitLoss', 'method' => 'post', 'id' => 'beyond-profit-stat-form', 'class' => 'd-none']) !!}
           <input type="hidden" name="start_date" value="{{ date('Y-m').'-01' }}" />
@@ -231,7 +231,7 @@
               data-requests="{{ $bookingRequests }}"></canvas>
           </div>
           <div class="beyond-chart-legend">
-            <span><i style="background:#22c55e;"></i> Completed ({{ $bookingCompleted }})</span>
+            <span><i style="background:#e1b368;"></i> Completed ({{ $bookingCompleted }})</span>
             <span><i style="background:#f59e0b;"></i> Pending ({{ $bookingPending }})</span>
             <span><i style="background:#94a3b8;"></i> Draft ({{ $bookingDraft }})</span>
             <span><i style="background:#7b61ff;"></i> Guest Requests ({{ $bookingRequests }})</span>
@@ -258,8 +258,8 @@
           </div>
           <div class="beyond-chart-legend">
             <span><i style="background:#f59e0b;"></i> Pending ({{ (int) ($taskOps['pending'] ?? 0) }})</span>
-            <span><i style="background:#0b3f90;"></i> In progress ({{ (int) ($taskOps['in_progress'] ?? 0) }})</span>
-            <span><i style="background:#22c55e;"></i> Completed ({{ (int) ($taskOps['completed'] ?? 0) }})</span>
+            <span><i style="background:#0c1830;"></i> In progress ({{ (int) ($taskOps['in_progress'] ?? 0) }})</span>
+            <span><i style="background:#e1b368;"></i> Completed ({{ (int) ($taskOps['completed'] ?? 0) }})</span>
             <span><i style="background:#e11d48;"></i> Overdue ({{ (int) ($taskOps['overdue'] ?? 0) }})</span>
           </div>
         </div>
@@ -274,7 +274,7 @@
           </div>
           <div class="beyond-chart-legend">
             <span><i style="background:#e11d48;"></i> Awaiting ({{ (int) ($quoteOps['awaiting'] ?? 0) }})</span>
-            <span><i style="background:#22c55e;"></i> Approved ({{ (int) ($quoteOps['approved'] ?? 0) }})</span>
+            <span><i style="background:#e1b368;"></i> Approved ({{ (int) ($quoteOps['approved'] ?? 0) }})</span>
             <span><i style="background:#64748b;"></i> Rejected ({{ (int) ($quoteOps['rejected'] ?? 0) }})</span>
             <span><i style="background:#7b61ff;"></i> Client quote ({{ (int) ($quoteOps['quoted'] ?? 0) }})</span>
           </div>
@@ -364,7 +364,7 @@
             </div>
           </a>
           <a href="{{ route('products.index') }}" class="beyond-quick-card">
-            <div class="icon-wrap" style="background:rgba(0,168,107,.12);color:#00a86b;"><i class="dripicons-list"></i></div>
+            <div class="icon-wrap" style="background:rgba(12,24,48,.1);color:#0c1830;"><i class="dripicons-list"></i></div>
             <div>
               <h5>Products</h5>
               <p>Manage inventory, pricing, and product catalog</p>
@@ -847,7 +847,7 @@
                     labels: labels,
                     datasets: [{
                         data: values,
-                        backgroundColor: ['#0b3f90', '#00a86b', '#7b61ff', '#f59e0b'],
+                        backgroundColor: ['#0c1830', '#e1b368', '#7b61ff', '#f59e0b'],
                         borderWidth: 0
                     }]
                 },
@@ -882,7 +882,7 @@
                     labels: ['Completed', 'Pending', 'Draft', 'Guest Requests'],
                     datasets: [{
                         data: pieValues,
-                        backgroundColor: ['#22c55e', '#f59e0b', '#94a3b8', '#7b61ff'],
+                        backgroundColor: ['#e1b368', '#f59e0b', '#94a3b8', '#7b61ff'],
                         borderWidth: 0
                     }]
                 },
@@ -923,13 +923,13 @@
             document.getElementById('beyond-task-pie'),
             ['pending', 'progress', 'completed', 'overdue'],
             ['Pending', 'In progress', 'Completed', 'Overdue'],
-            ['#f59e0b', '#0b3f90', '#22c55e', '#e11d48']
+            ['#f59e0b', '#0c1830', '#e1b368', '#e11d48']
         );
         doughnutFromCanvas(
             document.getElementById('beyond-quote-pie'),
             ['awaiting', 'approved', 'rejected', 'quoted'],
             ['Awaiting signature', 'Approved', 'Rejected', 'Client quote'],
-            ['#e11d48', '#22c55e', '#64748b', '#7b61ff']
+            ['#e11d48', '#e1b368', '#64748b', '#7b61ff']
         );
     })();
 </script>

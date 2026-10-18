@@ -225,7 +225,7 @@
                                 <option value="4">Cheque</option>
                                 <option value="5">Paypal</option>
                                 <option value="6">Deposit</option>
-                                @if($lims_reward_point_setting_data->is_active)
+                                @if(optional($lims_reward_point_setting_data)->is_active)
                                     <option value="7">Points</option>
                                 @endif
                             </select>
@@ -308,7 +308,7 @@
         $("ul#order #online-booking-index-menu").addClass("active");
         @endif
 
-        var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+        var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
         var all_permission = <?php echo json_encode($all_permission) ?>;
         var reward_point_setting = <?php echo json_encode($lims_reward_point_setting_data) ?>;
         var booking_id = [];

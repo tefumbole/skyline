@@ -1300,7 +1300,7 @@
         saveQuickProduct(true);
     });
 
-    var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+    var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
     var currency = <?php echo json_encode($currency) ?>;
 
 $("#payment").hide();

@@ -20,7 +20,7 @@
                             <div class="row">
                                 <div class="col-md-3 mt-3">
                                     <div class="form-group">
-                                        @if($lims_reward_point_setting_data->is_active)
+                                        @if(optional($lims_reward_point_setting_data)->is_active)
                                         <input type="checkbox" name="is_active" value="1" checked>
                                         @else
                                         <input type="checkbox" name="is_active" value="1">
@@ -31,26 +31,26 @@
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label>{{trans('file.Sold amount per point')}} *</label> <i class="dripicons-question" data-toggle="tooltip" title="{{trans('file.This means how much point customer will get according to sold amount. For example, if you put 100 then for every 100 dollar spent customer will get one point as reward.')}}"></i>
-                                        <input type="number" name="per_point_amount" class="form-control" value="{{$lims_reward_point_setting_data->per_point_amount}}" required />
+                                        <input type="number" name="per_point_amount" class="form-control" value="{{ optional($lims_reward_point_setting_data)->per_point_amount }}" required />
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label>{{trans('file.Minumum sold amount to get point')}} * <i class="dripicons-question" data-toggle="tooltip" title="{{trans('file.For example, if you put 100 then customer will only get point after spending 100 dollar or more.')}}"></i></label>
-                                        <input type="number" name="minimum_amount" class="form-control" value="{{$lims_reward_point_setting_data->minimum_amount}}" required />
+                                        <input type="number" name="minimum_amount" class="form-control" value="{{ optional($lims_reward_point_setting_data)->minimum_amount }}" required />
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label>{{trans('file.Point Expiry Duration')}}</label>
-                                        <input type="number" name="duration" class="form-control" value="{{$lims_reward_point_setting_data->duration}}" />
+                                        <input type="number" name="duration" class="form-control" value="{{ optional($lims_reward_point_setting_data)->duration }}" />
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="form-group">
                                         <label>{{trans('file.Duration Type')}}</label>
                                         <select name="type" class="form-control">
-                                            @if($lims_reward_point_setting_data->type == 'Year')
+                                            @if(optional($lims_reward_point_setting_data)->type == 'Year')
                                                 <option selected value="Year">Years</option>
                                                 <option value="Month">Months</option>
                                             @else

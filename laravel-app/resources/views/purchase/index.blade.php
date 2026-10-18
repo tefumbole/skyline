@@ -329,7 +329,7 @@
     $("ul#purchase").addClass("show");
     $("ul#purchase #purchase-list-menu").addClass("active");
 
-    var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+    var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
     var all_permission = <?php echo json_encode($all_permission) ?>;
 
     var purchase_id = [];

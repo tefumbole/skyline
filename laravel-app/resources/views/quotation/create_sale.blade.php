@@ -470,7 +470,7 @@ $("ul#sale").siblings('a').attr('aria-expanded','true');
 $("ul#sale").addClass("show");
 $("ul#sale #sale-create-menu").addClass("active");
 
-var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
 
 // array data depend on warehouse
 var lims_product_array = [];

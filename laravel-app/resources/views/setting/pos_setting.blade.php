@@ -46,7 +46,7 @@
                                         <label>{{trans('file.Default Credit Account')}} *</label>
                                         <select required name="account_id" class="selectpicker form-control" data-live-search="true"   title="Select Biller...">
                                             @foreach($lims_account_all as $account)
-                                                <option value="{{$account->id}}" {{$account->id == $lims_account_default->id ? 'selected' : '' }}>{{$account->name }}</option>
+                                                <option value="{{$account->id}}" {{$account->id == optional($lims_account_default)->id ? 'selected' : '' }}>{{$account->name }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -86,7 +86,7 @@
                                         <label>{{trans('file.Default Debit Account')}} *</label>
                                         <select required name="debit_account_id" class="selectpicker form-control" data-live-search="true"   title="Select Biller...">
                                             @foreach($lims_account_all as $account)
-                                                <option value="{{$account->id}}" {{$account->id == $lims_account_default_debit->id ? 'selected' : '' }}>{{$account->name }}</option>
+                                                <option value="{{$account->id}}" {{$account->id == optional($lims_account_default_debit)->id ? 'selected' : '' }}>{{$account->name }}</option>
                                             @endforeach
                                         </select>
                                     </div>

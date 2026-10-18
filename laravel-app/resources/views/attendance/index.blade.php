@@ -81,11 +81,11 @@
                     </div>
                     <div class="col-md-6 form-group">
                         <label>{{trans('file.CheckIn')}} *</label>
-                        <input type="text" id="checkin" name="checkin" class="form-control" value="{{$lims_hrm_setting_data->checkin}}" required>
+                        <input type="text" id="checkin" name="checkin" class="form-control" value="{{ optional($lims_hrm_setting_data)->checkin }}" required>
                     </div>
                     <div class="col-md-6 form-group">
                         <label>{{trans('file.CheckOut')}} *</label>
-                        <input type="text" id="checkout" name="checkout" class="form-control" value="{{$lims_hrm_setting_data->checkout}}" required>
+                        <input type="text" id="checkout" name="checkout" class="form-control" value="{{ optional($lims_hrm_setting_data)->checkout }}" required>
                     </div>
                     <div class="col-md-12 form-group">
                         <label>{{trans('file.Note')}}</label>

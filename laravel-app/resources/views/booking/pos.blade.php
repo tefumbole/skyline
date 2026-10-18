@@ -545,10 +545,10 @@
                                 <li id="supplier-list-menu"><a href="{{route('supplier.index')}}">{{trans('file.Supplier List')}}</a></li>
                                     <?php
                                     $supplier_add_permission = DB::table('permissions')->where('name', 'suppliers-add')->first();
-                                    $supplier_add_permission_active = DB::table('role_has_permissions')->where([
+                                    $supplier_add_permission_active = $supplier_add_permission ? DB::table('role_has_permissions')->where([
                                         ['permission_id', $supplier_add_permission->id],
                                         ['role_id', $role->id]
-                                    ])->first();
+                                    ])->first() : null;
                                     ?>
                                 @if($supplier_add_permission_active)
                                     <li id="supplier-create-menu"><a href="{{route('supplier.create')}}">{{trans('file.Add Supplier')}}</a></li>
@@ -1162,7 +1162,7 @@
                         <div class="column-5">
                             <button style="background-color: #b33771" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="deposit-btn"><i class="fa fa-university"></i> Deposit</button>
                         </div>
-                        @if($lims_reward_point_setting_data->is_active)
+                        @if(optional($lims_reward_point_setting_data)->is_active)
                         <div class="column-5">
                             <button style="background-color: #319398" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="point-btn"><i class="dripicons-rocket"></i> Points</button>
                         </div>
@@ -1213,7 +1213,7 @@
                                                 <option value="4">Cheque</option>
                                                 <option value="5">Paypal</option>
                                                 <option value="6">Deposit</option>
-                                                @if($lims_reward_point_setting_data->is_active)
+                                                @if(optional($lims_reward_point_setting_data)->is_active)
                                                 <option value="7">Points</option>
                                                 @endif
                                             </select>
@@ -1224,7 +1224,7 @@
                                             <select name="debit_select" class="form-control selectpicker" data-live-search="true">
                                                 <option value="">{{trans('file.Choose Account')}}</option>
                                                 @foreach($lims_account_list as $item)
-                                                    <option value="{{$item->id}}" {{$item->id == $lims_account_default_debit->id ? 'selected' : '' }}>{{$item->name}} / {{$item->account_no}} - {{$item->departments->code }}</option>
+                                                    <option value="{{$item->id}}" {{$item->id == optional($lims_account_default_debit)->id ? 'selected' : '' }}>{{$item->name}} / {{$item->account_no}} - {{ optional($item->departments)->code }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -1234,7 +1234,7 @@
                                             <select name="credit_select"  class="form-control selectpicker" data-live-search="true">
                                                 <option value="">{{trans('file.Choose Account')}}</option>
                                                 @foreach($lims_account_list as $item)
-                                                    <option value="{{$item->id}}" {{$item->id == $lims_account_default->id ? 'selected' : '' }}>{{$item->name}} / {{$item->account_no}} - {{$item->departments->code }}</option>
+                                                    <option value="{{$item->id}}" {{$item->id == optional($lims_account_default)->id ? 'selected' : '' }}>{{$item->name}} / {{$item->account_no}} - {{ optional($item->departments)->code }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -1399,16 +1399,16 @@
                             </li>
                             <?php
                                 $today_sale_permission = DB::table('permissions')->where('name', 'today_sale')->first();
-                                $today_sale_permission_active = DB::table('role_has_permissions')->where([
+                                $today_sale_permission_active = $today_sale_permission ? DB::table('role_has_permissions')->where([
                                             ['permission_id', $today_sale_permission->id],
                                             ['role_id', Auth::user()->role_id]
-                                        ])->first();
+                                        ])->first() : null;
 
                                 $today_profit_permission = DB::table('permissions')->where('name', 'today_profit')->first();
-                                $today_profit_permission_active = DB::table('role_has_permissions')->where([
+                                $today_profit_permission_active = $today_profit_permission ? DB::table('role_has_permissions')->where([
                                             ['permission_id', $today_profit_permission->id],
                                             ['role_id', Auth::user()->role_id]
-                                        ])->first();
+                                        ])->first() : null;
                             ?>
 
                             @if($today_sale_permission_active)
@@ -2036,7 +2036,7 @@
     $("ul#sale").addClass("show");
     $("ul#sale #sale-pos-menu").addClass("active");
 
-    var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+    var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
     var alert_product = <?php echo json_encode($alert_product) ?>;
     var currency = <?php echo json_encode($currency) ?>;
     var valid;

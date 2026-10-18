@@ -396,10 +396,10 @@
               <li id="supplier-list-menu"><a href="{{route('supplier.index')}}">{{trans('file.Supplier List')}}</a></li>
               <?php
                 $add_permission = DB::table('permissions')->where('name', 'suppliers-add')->first();
-                $add_permission_active = DB::table('role_has_permissions')->where([
+                $add_permission_active = $add_permission ? DB::table('role_has_permissions')->where([
                     ['permission_id', $add_permission->id],
                     ['role_id', $role->id]
-                ])->first();
+                ])->first() : null;
               ?>
               @if($add_permission_active)
               <li id="supplier-create-menu"><a href="{{route('supplier.create')}}">{{trans('file.Add Supplier')}}</a></li>
@@ -1552,7 +1552,7 @@
     $("ul#sale").addClass("show");
     $("ul#sale li").eq(1).addClass("active");
 
-    var public_key = <?php echo json_encode($lims_pos_setting_data->stripe_public_key) ?>;
+    var public_key = <?php echo json_encode(optional($lims_pos_setting_data)->stripe_public_key) ?>;
     var valid;
 
 // array data depend on warehouse

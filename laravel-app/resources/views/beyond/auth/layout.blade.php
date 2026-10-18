@@ -30,7 +30,7 @@
             margin: 0;
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
             min-height: 100vh;
-            background: #07111c url('{{ url('public/branding/chill-on-the-hill.png') }}?v=dj') center center / contain no-repeat fixed;
+            background: #07111c url('{{ url('public/branding/chill-on-the-hill.jpg') }}?v=final') center center / cover no-repeat fixed;
         }
         .auth-page {
             min-height: 100vh;
@@ -38,7 +38,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(6, 14, 26, 0.55);
+            background: transparent;
             padding: 28px 16px 20px;
         }
         .auth-card {
@@ -245,6 +245,12 @@
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.04em;
+        }
+        @media (max-width: 640px) {
+            body {
+                background-position: left center;
+                background-attachment: scroll;
+            }
         }
     </style>
     @stack('head')

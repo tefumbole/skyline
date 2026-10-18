@@ -36,14 +36,7 @@ class BeyondAuthController extends Controller
         if (Auth::guard('web')->check()) {
             $webUser = Auth::guard('web')->user();
             $role = $webUser ? Role::find($webUser->role_id) : null;
-            $needsOtp = false;
-            if ($role && (int) $role->id !== 5 && ! \App\Support\LocalDevAuth::skipStaffOtp()) {
-                try {
-                    $needsOtp = $role->hasPermissionTo('one_time_otp');
-                } catch (\Throwable $e) {
-                    $needsOtp = false;
-                }
-            }
+            $needsOtp = $role && (int) $role->id !== 5 && \App\Support\StaffOtp::required($webUser);
             if ($needsOtp && (int) $webUser->otp_verify !== 1) {
                 return redirect()->route('check.otp');
             }
@@ -328,15 +321,7 @@ class BeyondAuthController extends Controller
 
         $role = Role::find(Auth::user()->role_id);
         if ($role && (int) $role->id !== 5) {
-            $needsOtp = false;
-            if (! \App\Support\LocalDevAuth::skipStaffOtp()) {
-                try {
-                    $needsOtp = $role->hasPermissionTo('one_time_otp');
-                } catch (\Throwable $e) {
-                    $needsOtp = false;
-                }
-            }
-            if ($needsOtp) {
+            if (\App\Support\StaffOtp::required(Auth::user())) {
                 Auth::user()->update(['otp_verify' => 0, 'otp' => null, 'otp_time' => null]);
                 \App\Services\ActivityLogService::log([
                     'action' => 'login',

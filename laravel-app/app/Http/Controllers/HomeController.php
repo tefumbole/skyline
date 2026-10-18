@@ -46,10 +46,10 @@ class HomeController extends Controller
 
     public function dashboard()
     {
-        if (Auth::user()->otp_verify == 0 && ! \App\Support\LocalDevAuth::skipStaffOtp()) {
+        if (Auth::user()->otp_verify == 0 && \App\Support\StaffOtp::required(Auth::user())) {
             return redirect()->route('check.otp');
         }
-        if (\App\Support\LocalDevAuth::skipStaffOtp() && Auth::user()->otp_verify == 0) {
+        if (! \App\Support\StaffOtp::required(Auth::user()) && Auth::user()->otp_verify == 0) {
             Auth::user()->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
         }
         $role = Role::find(Auth::user()->role_id);
@@ -67,7 +67,7 @@ class HomeController extends Controller
         $user = Auth::user();
 
         // Local: skip WhatsApp OTP entirely and enter admin.
-        if (\App\Support\LocalDevAuth::skipStaffOtp()) {
+        if (! \App\Support\StaffOtp::required($user)) {
             $user->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
 
             return $this->redirectAfterStaffOtp($user);
@@ -403,10 +403,8 @@ echo $response;
             $role->revokePermissionTo('search_all_products');
         } catch (\Throwable $e) {
         }
-        if (! \App\Support\LocalDevAuth::skipStaffOtp() && $role->hasPermissionTo('one_time_otp')) {
-            if (Auth::user()->otp_verify == 0) {
-                return redirect()->route('check.otp');
-            }
+        if (\App\Support\StaffOtp::required(Auth::user()) && Auth::user()->otp_verify == 0) {
+            return redirect()->route('check.otp');
         }
 
         if(Auth::user()->role_id == 7) {

@@ -61,6 +61,14 @@
                     <label>{{trans('file.Parent Category')}}</label>
                     {{Form::select('parent_id', $lims_categories, null, ['class' => 'form-control','placeholder' => 'No Parent Category'])}}
                 </div>
+                <div class="col-md-6 form-group">
+                    <label>Preparation</label>
+                    <select name="department" class="form-control">
+                        <option value="">Not food or drinks</option>
+                        <option value="food">Food (Kitchen)</option>
+                        <option value="drinks">Drinks (Bar)</option>
+                    </select>
+                </div>
             </div>
 
             <div class="form-group">
@@ -91,6 +99,14 @@
             <div class="col-md-6 form-group">
                 <label>{{trans('file.Image')}}</label>
                 <input type="file" name="image" class="form-control">
+            </div>
+            <div class="col-md-6 form-group">
+                <label>Preparation</label>
+                <select name="department" class="form-control" id="category-department">
+                    <option value="">Not food or drinks</option>
+                    <option value="food">Food (Kitchen)</option>
+                    <option value="drinks">Drinks (Bar)</option>
+                </select>
             </div>
             <div class="col-md-6 form-group">
                 <label>{{trans('file.Parent Category')}}</label>
@@ -172,6 +188,7 @@
           $.get(url, function(data){
             $("#editModal input[name='name']").val(data['name']);
             $("#editModal select[name='parent_id']").val(data['parent_id']);
+            $("#editModal select[name='department']").val(data['department'] || '');
             $("#editModal input[name='category_id']").val(data['id']);
             $('.selectpicker').selectpicker('refresh');
           });

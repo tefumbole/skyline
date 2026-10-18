@@ -720,6 +720,13 @@ class SaleController extends Controller
             $this->stockDurationSave($lims_product_data->id, $lims_product_data->qty);
             Product_Sale::create($product_sale);
         }
+        try {
+            if (! isset($data['sale_status']) || (int) $data['sale_status'] !== 3) {
+                app(\App\Services\Restaurant\RestaurantOrderService::class)->attachFromRequest($lims_sale_data, $request);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('restaurant order attach failed: '.$e->getMessage());
+        }
         if($data['sale_status'] == 3)
             $message = 'Sale successfully added to draft';
         else
@@ -967,6 +974,9 @@ class SaleController extends Controller
         $role->revokePermissionTo('search_all_products');
 
         if($data['paid_by_id'] == 9) {
+            if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+                return $to->with('message', $message);
+            }
             return back()->with('message', $message)        ;
         }
 
@@ -987,11 +997,17 @@ class SaleController extends Controller
 
         if($data['pos'] == 1) {
             if($lims_sale_data->sale_status == '1') {
+                if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+                    return $to->with('message', $message);
+                }
                 return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
             }
             return redirect('pos')->with('message', $message);
         }else{
             if($lims_sale_data->sale_status == '1') {
+                if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+                    return $to->with('message', $message);
+                }
                 return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
             }
             return redirect('sales')->with('message', $message);
@@ -1016,6 +1032,13 @@ class SaleController extends Controller
 
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
+        $gatewayRef = isset($data['reference']) ? $data['reference'] : '';
+        if (\App\Services\Restaurant\RestaurantPayments::alreadyRecorded($lims_sale_data->id, $gatewayRef) || (int) $lims_sale_data->payment_status === 4) {
+            if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+                return $to->with('message', 'Payment already recorded');
+            }
+            return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', 'Payment already recorded');
+        }
 
         $lims_sale_data->paid_amount += $data['amount'];
         $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;
@@ -1056,7 +1079,7 @@ class SaleController extends Controller
         $lims_payment_data->amount = $data['amount'];
         $lims_payment_data->change = $balance - $data['amount'];
         $lims_payment_data->paying_method = $paying_method;
-        $lims_payment_data->payment_note = $data['payment_note'] ?? '';
+        $lims_payment_data->payment_note = trim((isset($data['payment_note']) ? $data['payment_note'] : '').' '.\App\Services\Restaurant\RestaurantPayments::gatewayNote(isset($data['reference']) ? $data['reference'] : ''));
         $lims_payment_data->save();
         $lims_sale_data->save();
 
@@ -1081,6 +1104,9 @@ class SaleController extends Controller
             }
 
         }
+        if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+            return $to->with('message', $message);
+        }
         return back()->with('message', $message);
     }
 
@@ -1101,6 +1127,13 @@ class SaleController extends Controller
 
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
+        $gatewayRef = isset($data['reference']) ? $data['reference'] : '';
+        if (\App\Services\Restaurant\RestaurantPayments::alreadyRecorded($lims_sale_data->id, $gatewayRef) || (int) $lims_sale_data->payment_status === 4) {
+            if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+                return $to->with('message', 'Payment already recorded');
+            }
+            return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', 'Payment already recorded');
+        }
 
         $lims_sale_data->paid_amount += $data['amount'];
         $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;
@@ -1124,7 +1157,7 @@ class SaleController extends Controller
         $lims_payment_data->amount = $data['amount'];
         $lims_payment_data->change = $balance - $data['amount'];
         $lims_payment_data->paying_method = $paying_method;
-        $lims_payment_data->payment_note = $data['payment_note'] ?? '';
+        $lims_payment_data->payment_note = trim((isset($data['payment_note']) ? $data['payment_note'] : '').' '.\App\Services\Restaurant\RestaurantPayments::gatewayNote(isset($data['reference']) ? $data['reference'] : ''));
         $lims_payment_data->save();
         $lims_sale_data->save();
 
@@ -1150,6 +1183,9 @@ class SaleController extends Controller
 
         }
 
+        if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
+            return $to->with('message', $message);
+        }
         return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
     }
 
@@ -2666,6 +2702,19 @@ class SaleController extends Controller
      * 4 = Paid (fully paid or overpaid), 3 = Partial (some paid, balance remains),
      * 2 = Due (nothing paid yet).
      */
+    private function restaurantSaleRedirect($sale)
+    {
+        try {
+            if ($sale && \Illuminate\Support\Facades\Schema::hasTable('restaurant_orders')
+                && \App\RestaurantOrder::where('sale_id', $sale->id)->exists()) {
+                return redirect()->route('restaurant.confirmation', $sale->id);
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return null;
+    }
+
     private function paymentStatusForBalance($paidAmount, $balance)
     {
         if ($balance <= 0) {

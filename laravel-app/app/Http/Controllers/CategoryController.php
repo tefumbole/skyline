@@ -78,7 +78,7 @@ class CategoryController extends Controller
                 else
                     $nestedData['image'] = '<img src="'.url('public/images/product/zummXD2dvAtI.png').'" height="80" width="80">';
 
-                $nestedData['name'] = $category->name;
+                $nestedData['name'] = $category->name.($category->department ? ' ('.ucfirst($category->department).')' : '');
 
                 if($category->parent_id)
                     $nestedData['parent_id'] = Category::find($category->parent_id)->name;
@@ -153,6 +153,7 @@ class CategoryController extends Controller
         }
         $lims_category_data['name'] = $request->name;
         $lims_category_data['parent_id'] = $request->parent_id;
+        $lims_category_data['department'] = in_array($request->department, ['food', 'drinks'], true) ? $request->department : null;
         $lims_category_data['is_active'] = true;
         Category::create($lims_category_data);
         return redirect('category')->with('message', 'Category inserted successfully');
@@ -180,6 +181,9 @@ class CategoryController extends Controller
         ]);
 
         $input = $request->except('image');
+        if (! in_array(isset($input['department']) ? $input['department'] : '', ['food', 'drinks'], true)) {
+            $input['department'] = null;
+        }
         $image = $request->image;
         if ($image) {
             $ext = pathinfo($image->getClientOriginalName(), PATHINFO_EXTENSION);

@@ -44,7 +44,17 @@
                         <td>{{ number_format($sale->grand_total, 2) }}</td>
                         <td>{{ number_format($sale->paid_amount, 2) ?? 0 }}</td>
                         <td>{{ number_format($sale->grand_total - $sale->paid_amount, 2) }}</td>
-                        <td><span class="badge badge-warning">{{ $sale->payment_status == 1 ? 'Pending' : 'Due' }}</span></td>
+                        <td>
+                            <span class="badge badge-warning">{{ $sale->payment_status == 1 ? 'Pending' : ($sale->payment_status == 3 ? 'Partial' : 'Due') }}</span>
+                            @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_orders'))
+                                @php $ticket = \App\RestaurantOrder::with('items')->where('sale_id', $sale->id)->first(); @endphp
+                                @if($ticket && $ticket->isFulfilled())
+                                    <span class="badge badge-info">Served, balance due</span>
+                                @elseif($ticket && $ticket->partiallyDelivered())
+                                    <span class="badge badge-secondary">Partly served</span>
+                                @endif
+                            @endif
+                        </td>
                         <td>{{ $sale->created_at }}</td>
                         <td>
                             <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $sale->id }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>

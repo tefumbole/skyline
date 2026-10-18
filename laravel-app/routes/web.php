@@ -55,6 +55,15 @@ Route::post('/contracts/sign/{token}/decline', 'ContractSignController@decline')
 
 
 Route::get('/', 'BeyondController@home')->name('beyond.home');
+Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');
+Route::post('/menu', 'RestaurantMenuController@checkout')->name('restaurant.checkout');
+Route::get('/order-confirm/{sale}/{token}', 'RestaurantMenuController@confirmation')->name('restaurant.public.confirm');
+Route::get('/order-track/{sale}/{token}', 'RestaurantTrackingController@show')->name('restaurant.track');
+Route::get('/order-review/{sale}/{token}', 'RestaurantTrackingController@review')->name('restaurant.review');
+Route::post('/order-review/{sale}/{token}', 'RestaurantTrackingController@storeReview')->name('restaurant.review.store');
+Route::get('/pay/invoice/{sale}/{token}', 'RestaurantPayController@show')->name('restaurant.pay');
+Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->name('restaurant.pay.start');
+Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
 Route::get('/projects', 'BeyondController@projects')->name('beyond.projects');
@@ -422,6 +431,19 @@ Route::group(['middleware' => ['auth', 'cloud.member']], function () {
 });
 
 Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function() {
+
+    Route::get('/orders/kitchen', 'RestaurantOrderController@kitchen')->name('restaurant.kitchen');
+    Route::get('/orders/bar', 'RestaurantOrderController@bar')->name('restaurant.bar');
+    Route::get('/orders/ready', 'RestaurantOrderController@ready')->name('restaurant.ready');
+    Route::get('/orders/logs', 'RestaurantOrderController@logs')->name('restaurant.logs');
+    Route::get('/orders/confirmation/{sale}', 'RestaurantOrderController@confirmation')->name('restaurant.confirmation');
+    Route::post('/orders/items/{item}/accept', 'RestaurantOrderController@accept')->name('restaurant.accept');
+    Route::post('/orders/items/{item}/estimate', 'RestaurantOrderController@estimate')->name('restaurant.estimate');
+    Route::post('/orders/items/{item}/ready', 'RestaurantOrderController@markReady')->name('restaurant.ready.mark');
+    Route::post('/orders/items/{item}/deliver', 'RestaurantOrderController@deliver')->name('restaurant.deliver');
+    Route::post('/orders/items/{item}/reject', 'RestaurantOrderController@reject')->name('restaurant.reject');
+    Route::post('/orders/{order}/waitress', 'RestaurantOrderController@assignWaitress')->name('restaurant.waitress');
+    Route::post('/orders/tables', 'RestaurantOrderController@storeTable')->name('restaurant.tables.store');
 
     // Auth::routes already registers POST /logout → LoginController@logout (overridden).
 	Route::get('/otp/screen', 'HomeController@otpCheck')->name('check.otp');

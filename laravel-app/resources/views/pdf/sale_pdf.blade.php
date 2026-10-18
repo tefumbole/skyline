@@ -64,6 +64,7 @@
     $totalProductDiscount = 0;
     $totalProductSubtotal = 0;
     $invoiceQrUrl = \App\Support\SaleInvoiceQr::scanUrl($lims_sale_data);
+    $payQrUrl = \App\Support\SalePayQr::payUrl($lims_sale_data);
 @endphp
 
 <div class="inv-title">Sales Invoice</div>
@@ -269,6 +270,7 @@
         'stampDate' => $lims_sale_data->created_at ?? ($lims_sale_data->sale_date ?? null),
     ])
     <div class="inv-qr" style="margin:0 0 6px;">
+        <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($payQrUrl, 'QRCODE').'" height="52" width="52" alt="pay">'; ?>
         <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($invoiceQrUrl, 'QRCODE').'" height="52" width="52" alt="qrcode">'; ?>
     </div>
     <div class="inv-barcode">

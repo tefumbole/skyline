@@ -42,6 +42,11 @@ class Sale extends Model
         return $this->hasMany('App\Product_Sale', 'sale_id', 'id');
     }
 
+    public function restaurantOrder()
+    {
+        return $this->hasOne('App\RestaurantOrder', 'sale_id', 'id');
+    }
+
     public function cloudTenantRelations()
     {
         return [

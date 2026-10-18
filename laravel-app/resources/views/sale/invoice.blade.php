@@ -266,6 +266,7 @@
                 $total_product_discount = 0;
                 $total_product_subtotal = 0;
                 $invoiceQrUrl = \App\Support\SaleInvoiceQr::scanUrl($lims_sale_data);
+                $payQrUrl = \App\Support\SalePayQr::payUrl($lims_sale_data);
             ?>
             @foreach($lims_product_sale_data as $key => $product_sale_data)
                 <?php
@@ -418,7 +419,10 @@
                 'createdClass' => 'created-by',
             ])
             <div class="code-media" style="margin:0 0 6px;">
+                <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($payQrUrl, 'QRCODE').'" height="48" width="48" alt="pay">'; ?>
+                <div style="font-size:11px;">Pay</div>
                 <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($invoiceQrUrl, 'QRCODE').'" height="48" width="48" alt="qrcode">'; ?>
+                <div style="font-size:11px;">Verify</div>
             </div>
             <div class="code-media">
                 <?php echo '<img src="data:image/png;base64,'.DNS1D::getBarcodePNG($lims_sale_data->reference_no, 'C128').'" height="28" width="160" alt="barcode">'; ?>

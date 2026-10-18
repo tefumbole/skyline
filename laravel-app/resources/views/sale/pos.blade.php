@@ -1432,6 +1432,40 @@
                                             </div>
                                         </div>
                                     </div>
+                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                    <div class="row" style="margin:8px 0;">
+                                        <div class="col-sm-3">
+                                            <label>Service</label>
+                                            <select name="service_type" class="form-control">
+                                                <option value="">Not a restaurant order</option>
+                                                <option value="dine_in">Dine In</option>
+                                                <option value="take_away">Take Away</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <label>Table</label>
+                                            <select name="restaurant_table_id" class="form-control">
+                                                <option value="">Optional</option>
+                                                @foreach(\App\RestaurantTable::where('is_active', 1)->orderBy('name')->get() as $table)
+                                                    <option value="{{ $table->id }}">{{ $table->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <label>Waitress / waiter</label>
+                                            <select name="waitress_user_id" class="form-control">
+                                                <option value="">Unassigned</option>
+                                                @foreach(\App\User::orderBy('name')->limit(200)->get(['id','name']) as $person)
+                                                    <option value="{{ $person->id }}">{{ $person->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <label>Order note</label>
+                                            <input type="text" name="customer_comment" class="form-control" placeholder="Guest comment">
+                                        </div>
+                                    </div>
+                                    @endif
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
                                     </div>
@@ -3852,6 +3886,7 @@
             @endif
                 cols += '<td class="col-sm-2"><div class="input-group"><span class="input-group-btn"><button type="button" class="btn btn-default minus"><span class="dripicons-minus"></span></button></span><input type="text" name="qty[]" class="form-control qty numkey input-number" step="any" required><span class="input-group-btn"><button type="button" class="btn btn-default plus"><span class="dripicons-plus"></span></button></span></div></td>';
             cols += '<td class="col-sm-2 sub-total"></td>';
+            cols += '<td><input type="text" name="item_comment[]" class="form-control" placeholder="Item note"></td>';
             cols += '<td class="col-sm-1"><button type="button" class="ibtnDel btn btn-danger btn-sm"><i class="dripicons-cross"></i></button></td>';
             cols += '<input type="hidden" class="product-code" name="product_code[]" value="' + data[1] + '"/>';
             cols += '<input type="hidden" class="product-id" name="product_id[]" value="' + data[9] + '"/>';

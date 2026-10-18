@@ -1581,6 +1581,36 @@
                                 </ul>
                             </li>
                         @endif
+                        @php
+                            $restaurantMenu = false;
+                            try {
+                                $restaurantMenu = \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'kitchen-orders')
+                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'bar-orders')
+                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')
+                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs');
+                            } catch (\Throwable $e) {
+                                $restaurantMenu = false;
+                            }
+                        @endphp
+                        @if($restaurantMenu)
+                            <li><a href="#restaurant-orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
+                                <ul id="restaurant-orders" class="collapse list-unstyled">
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'kitchen-orders'))
+                                        <li id="kitchen-orders-menu"><a href="{{ route('restaurant.kitchen') }}">Kitchen Orders</a></li>
+                                    @endif
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'bar-orders'))
+                                        <li id="bar-orders-menu"><a href="{{ route('restaurant.bar') }}">Bar Orders</a></li>
+                                    @endif
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders'))
+                                        <li id="ready-orders-menu"><a href="{{ route('restaurant.ready') }}">Ready for Delivery</a></li>
+                                    @endif
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
+                                        <li id="order-logs-menu"><a href="{{ route('restaurant.logs') }}">Order Logs</a></li>
+                                    @endif
+                                    <li><a href="{{ route('restaurant.menu') }}" target="_blank">Guest menu</a></li>
+                                </ul>
+                            </li>
+                        @endif
                         <?php
                         $index_permission_booking = DB::table('permissions')->where('name', 'booking_module')->first();
                         $index_permission_booking_active = DB::table('role_has_permissions')->where([

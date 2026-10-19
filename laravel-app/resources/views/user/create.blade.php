@@ -73,7 +73,7 @@
                                         </div>
                                         <div class="form-group">
                                             <label><strong>{{trans('file.Country')}}</strong></label>
-                                            <input type="text" name="country" class="form-control">
+                                            @include('partials.country_select', ['selected' => old('country', 'Cameroon')])
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -198,6 +198,7 @@
             $('#biller-id').hide(300);
             $('#warehouseId').hide(300);
             $('.customer-section').show(300);
+            $('.customer-section .selectpicker').selectpicker('refresh');
             $('.customer-input').prop('required',true);
             $('select[name="warehouse_id"]').prop('required',false);
             $('select[name="biller_id"]').prop('required',false);

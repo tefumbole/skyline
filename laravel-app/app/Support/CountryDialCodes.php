@@ -88,6 +88,23 @@ class CountryDialCodes
         ];
     }
 
+    public static function names()
+    {
+        $names = [];
+        foreach (self::all() as $label) {
+            $name = trim(preg_replace('/\s*\(\+\d+\)\s*$/', '', (string) $label));
+            if ($name !== '') {
+                $names[$name] = $name;
+            }
+        }
+        $list = array_values($names);
+        usort($list, function ($a, $b) {
+            return strcasecmp($a, $b);
+        });
+
+        return $list;
+    }
+
     public static function combine($code, $number)
     {
         $codeDigits = preg_replace('/\D/', '', (string) $code);

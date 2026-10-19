@@ -89,7 +89,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label>{{trans('file.Country')}}</label>
-                                    <input type="text" name="country" value="{{$lims_biller_data->country}}" class="form-control">
+                                    @include('partials.country_select', ['selected' => old('country', $lims_biller_data->country)])
                                 </div>
                             </div>
                             <div class="col-md-12">

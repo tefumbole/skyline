@@ -16,7 +16,8 @@ class UnitController extends Controller
         $role = Role::find(Auth::user()->role_id);
         if($role->hasPermissionTo('unit')) {
             $lims_unit_all = Unit::where('is_active', true)->get();
-            return view('unit.create', compact('lims_unit_all'));
+            $next_unit_code = $this->nextUnitCode($lims_unit_all);
+            return view('unit.create', compact('lims_unit_all', 'next_unit_code'));
         }
         else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
@@ -55,7 +56,26 @@ class UnitController extends Controller
         $lims_unit_name = $_GET['lims_unitNameSearch'];
         $lims_unit_all = Unit::where('unit_name', $lims_unit_name)->paginate(5);
         $lims_unit_list = Unit::all();
-        return view('unit.create', compact('lims_unit_all','lims_unit_list'));
+        $next_unit_code = $this->nextUnitCode(Unit::where('is_active', true)->get());
+        return view('unit.create', compact('lims_unit_all','lims_unit_list', 'next_unit_code'));
+    }
+
+    protected function nextUnitCode($units)
+    {
+        $max = 0;
+        $width = 3;
+        foreach ($units as $unit) {
+            $code = trim((string) $unit->unit_code);
+            if ($code !== '' && ctype_digit($code)) {
+                $number = (int) $code;
+                if ($number >= $max) {
+                    $max = $number;
+                    $width = max($width, strlen($code));
+                }
+            }
+        }
+
+        return str_pad((string) ($max + 1), $width, '0', STR_PAD_LEFT);
     }
 
     public function edit($id)

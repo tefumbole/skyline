@@ -101,7 +101,7 @@
                 <form>
                     <div class="form-group">
                     <label>{{trans('file.Code')}} *</label>
-                    {{Form::text('unit_code',null,array('required' => 'required', 'class' => 'form-control'))}}
+                    {{Form::text('unit_code', old('unit_code', $next_unit_code ?? '001'), array('required' => 'required', 'class' => 'form-control', 'id' => 'unit_code_create'))}}
                     </div>
                     <div class="form-group">
                         <label>{{trans('file.name')}} *</label>
@@ -238,11 +238,11 @@ $(document).ready(function() {
         url = url.concat(id).concat("/edit");
 
         $.get(url, function(data) {
-            $("input[name='unit_code']").val(data['unit_code']);
-            $("input[name='unit_name']").val(data['unit_name']);
-            $("input[name='operator']").val(data['operator']);
-            $("input[name='operation_value']").val(data['operation_value']);
-            $("input[name='unit_id']").val(data['id']);
+            $("#editModal input[name='unit_code']").val(data['unit_code']);
+            $("#editModal input[name='unit_name']").val(data['unit_name']);
+            $("#editModal input[name='operator']").val(data['operator']);
+            $("#editModal input[name='operation_value']").val(data['operation_value']);
+            $("#editModal input[name='unit_id']").val(data['id']);
             $("#base_unit_edit").val(data['base_unit']);
             if(data['base_unit']!=null)
             {
@@ -294,10 +294,18 @@ $(document).ready(function() {
         });
     });
 
-    $('.open-CreateUnitDialog').on('click', function() {
-        $(".operator").hide();
-        $(".operation_value").hide();
-
+    var nextUnitCode = @json($next_unit_code ?? '001');
+    $('#createModal').on('show.bs.modal', function () {
+        var $modal = $(this);
+        $modal.find('input[name="unit_code"]').val(nextUnitCode);
+        $modal.find('input[name="unit_name"]').val('');
+        $modal.find('input[name="operator"]').val('');
+        $modal.find('input[name="operation_value"]').val('');
+        $modal.find('#base_unit_create').val('');
+        $modal.find('.operator, .operation_value').hide();
+        if ($modal.find('.selectpicker').data('selectpicker')) {
+            $modal.find('.selectpicker').selectpicker('refresh');
+        }
     });
 
     $('#base_unit_create').on('change', function() {

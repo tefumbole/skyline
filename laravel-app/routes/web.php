@@ -55,9 +55,8 @@ Route::post('/contracts/sign/{token}/decline', 'ContractSignController@decline')
 
 
 Route::get('/', 'BeyondController@home')->name('beyond.home');
-Route::match(['get', 'post'], '/menu', function () {
-    return redirect('/pos');
-})->name('restaurant.menu');
+Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');
+Route::post('/menu', 'RestaurantMenuController@checkout')->name('restaurant.checkout');
 Route::get('/order-confirm/{sale}/{token}', 'RestaurantMenuController@confirmation')->name('restaurant.public.confirm');
 Route::get('/order-track/{sale}/{token}', 'RestaurantTrackingController@show')->name('restaurant.track');
 Route::get('/order-review/{sale}/{token}', 'RestaurantTrackingController@review')->name('restaurant.review');
@@ -433,6 +432,9 @@ Route::group(['middleware' => ['auth', 'cloud.member']], function () {
 
 Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function() {
 
+    Route::get('/orders', 'RestaurantOrderController@board')->name('restaurant.orders');
+    Route::get('/orders/alerts', 'RestaurantOrderController@alerts')->name('restaurant.alerts');
+    Route::get('/orders/help', 'RestaurantOrderController@help')->name('restaurant.help');
     Route::get('/orders/kitchen', 'RestaurantOrderController@kitchen')->name('restaurant.kitchen');
     Route::get('/orders/bar', 'RestaurantOrderController@bar')->name('restaurant.bar');
     Route::get('/orders/ready', 'RestaurantOrderController@ready')->name('restaurant.ready');
@@ -443,6 +445,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/orders/items/{item}/ready', 'RestaurantOrderController@markReady')->name('restaurant.ready.mark');
     Route::post('/orders/items/{item}/deliver', 'RestaurantOrderController@deliver')->name('restaurant.deliver');
     Route::post('/orders/items/{item}/reject', 'RestaurantOrderController@reject')->name('restaurant.reject');
+    Route::post('/orders/items/{item}/deny', 'RestaurantOrderController@deny')->name('restaurant.deny');
     Route::post('/orders/{order}/waitress', 'RestaurantOrderController@assignWaitress')->name('restaurant.waitress');
     Route::post('/orders/tables', 'RestaurantOrderController@storeTable')->name('restaurant.tables.store');
 

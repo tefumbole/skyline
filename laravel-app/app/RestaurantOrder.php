@@ -66,7 +66,7 @@ class RestaurantOrder extends Model
     public function activeItems()
     {
         return $this->items->filter(function ($item) {
-            return $item->status !== 'cancelled';
+            return ! in_array($item->status, ['cancelled', 'rejected'], true);
         });
     }
 

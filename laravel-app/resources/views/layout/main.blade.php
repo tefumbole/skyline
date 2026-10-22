@@ -1584,10 +1584,8 @@
                         @php
                             $restaurantMenu = false;
                             try {
-                                $restaurantMenu = \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'kitchen-orders')
-                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'bar-orders')
-                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')
-                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs');
+                                $restaurantMenu = \App\Services\Restaurant\RestaurantAccess::canSeeOrders(auth()->user())
+                                    || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add');
                             } catch (\Throwable $e) {
                                 $restaurantMenu = false;
                             }
@@ -1595,18 +1593,35 @@
                         @if($restaurantMenu)
                             <li><a href="#restaurant-orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
                                 <ul id="restaurant-orders" class="collapse list-unstyled">
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'kitchen-orders'))
-                                        <li id="kitchen-orders-menu"><a href="{{ route('restaurant.kitchen') }}">Kitchen Orders</a></li>
-                                    @endif
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'bar-orders'))
-                                        <li id="bar-orders-menu"><a href="{{ route('restaurant.bar') }}">Bar Orders</a></li>
-                                    @endif
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders'))
-                                        <li id="ready-orders-menu"><a href="{{ route('restaurant.ready') }}">Ready for Delivery</a></li>
-                                    @endif
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
-                                        <li id="order-logs-menu"><a href="{{ route('restaurant.logs') }}">Order Logs</a></li>
-                                    @endif
+                                    @php
+                                        $orderLanes = \App\Services\Restaurant\RestaurantAccess::lanes();
+                                        $orderTabs = \App\Services\Restaurant\RestaurantAccess::statuses();
+                                        $orderCounts = \App\Services\Restaurant\RestaurantAccess::queueCounts();
+                                        $onOrders = request()->routeIs('restaurant.orders');
+                                        $openLane = $onOrders ? request()->query('lane', 'coffee') : request()->query('lane', '');
+                                    @endphp
+                                    @foreach($orderLanes as $laneKey => $laneLabel)
+                                        @if(\App\Services\Restaurant\RestaurantAccess::seeLane(auth()->user(), $laneKey))
+                                            @php $laneTotal = (int) ($orderCounts[$laneKey]['awaiting'] ?? 0); @endphp
+                                            <li>
+                                                <a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => 'awaiting']) }}">{{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif</a>
+                                                @if($onOrders && $openLane === $laneKey)
+                                                    <ul>
+                                                        @foreach($orderTabs as $tabKey => $tabLabel)
+                                                            @if(\App\Services\Restaurant\RestaurantAccess::seeStatus(auth()->user(), $tabKey))
+                                                                @php $tabCount = (int) ($orderCounts[$laneKey][$tabKey] ?? 0); @endphp
+                                                                <li><a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => $tabKey]) }}">{{ $tabLabel }}@if($tabCount)<span class="badge">{{ $tabCount }}</span>@endif</a></li>
+                                                            @endif
+                                                        @endforeach
+                                                        @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
+                                                            <li><a href="{{ route('restaurant.logs', ['lane' => $laneKey]) }}">Log</a></li>
+                                                        @endif
+                                                    </ul>
+                                                @endif
+                                            </li>
+                                        @endif
+                                    @endforeach
+                                    <li><a href="{{ route('restaurant.help', $openLane ? ['topic' => \App\Services\Restaurant\RestaurantAccess::helpHashForLane($openLane)] : []) }}">Help</a></li>
                                     @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders'))
                                         <li id="restaurant-pos-menu"><a href="{{ route('sale.pos') }}">POS</a></li>
                                     @endif
@@ -4125,5 +4140,84 @@
         @if(auth()->check())
             <script src="{{ asset('public/js/phone-holder-lookup.js') }}"></script>
         @endif
+      @if(auth()->check() && \App\Services\Restaurant\RestaurantAccess::installed() && \App\Services\Restaurant\RestaurantAccess::canSeeOrders(auth()->user()))
+        <style>
+            #sky-order-pop { position:fixed; right:18px; bottom:18px; z-index:11000; width:min(400px, calc(100vw - 24px)); background:#0c1830; color:#fff8ea; border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.28); padding:16px 16px 14px; }
+            #sky-order-pop h2 { margin:0 0 8px; font-size:18px; color:#e1b368; }
+            #sky-order-pop p { margin:0 0 6px; }
+            #sky-order-pop .sky-order-row { border-top:1px solid rgba(225,179,104,.28); padding:10px 0 4px; }
+            #sky-order-pop a, #sky-order-pop button { display:inline-block; margin:6px 8px 0 0; border-radius:999px; padding:8px 14px; font-weight:700; text-decoration:none; border:0; cursor:pointer; }
+            #sky-order-pop .go { background:#e1b368; color:#0c1830; }
+            #sky-order-pop .stay { background:transparent; color:#fff8ea; border:1px solid #e1b368; }
+        </style>
+        <div id="sky-order-pop" hidden>
+            <h2 id="sky-order-pop-title">Order waiting</h2>
+            <div id="sky-order-pop-body"></div>
+            <button type="button" class="stay" id="sky-order-pop-close">Dismiss all</button>
+        </div>
+        <script>
+            (function () {
+                var url = @json(route('restaurant.alerts'));
+                var userId = @json((int) auth()->id());
+                var seenKey = 'skyline-order-seen-u' + userId;
+                var box = document.getElementById('sky-order-pop');
+                var title = document.getElementById('sky-order-pop-title');
+                var body = document.getElementById('sky-order-pop-body');
+                var closeBtn = document.getElementById('sky-order-pop-close');
+                var queue = [];
+                if (!box) return;
+                function seenMap() { try { return JSON.parse(localStorage.getItem(seenKey) || '{}'); } catch (e) { return {}; } }
+                function saveSeen(seen) { try { localStorage.setItem(seenKey, JSON.stringify(seen)); } catch (e) {} }
+                function esc(value) {
+                    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+                        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+                    });
+                }
+                function render() {
+                    if (!queue.length) { box.hidden = true; body.innerHTML = ''; return; }
+                    title.textContent = 'Order waiting · ' + queue.length;
+                    body.innerHTML = queue.slice(0, 8).map(function (item) {
+                        var by = item.placed_by ? ('<br>By ' + esc(item.placed_by)) : '';
+                        return '<div class="sky-order-row"><p><strong>Waiting</strong> · ' + esc(item.lane_label) + ' · ' + esc(item.ref) +
+                            '<br>' + esc(item.name) + ' × ' + esc(item.qty) + by + '</p>' +
+                            '<a class="go" href="' + esc(item.href) + '">Open</a>' +
+                            '<button type="button" class="stay" data-dismiss-id="' + esc(item.id) + '">Dismiss</button></div>';
+                    }).join('');
+                    box.hidden = false;
+                }
+                body.addEventListener('click', function (e) {
+                    var button = e.target.closest('[data-dismiss-id]');
+                    if (!button) return;
+                    e.preventDefault();
+                    var id = String(button.getAttribute('data-dismiss-id'));
+                    var seen = seenMap();
+                    seen[id] = Date.now();
+                    saveSeen(seen);
+                    queue = queue.filter(function (item) { return String(item.id) !== id; });
+                    render();
+                });
+                closeBtn.addEventListener('click', function () {
+                    var seen = seenMap();
+                    queue.forEach(function (item) { seen[String(item.id)] = Date.now(); });
+                    saveSeen(seen);
+                    queue = [];
+                    render();
+                });
+                function poll() {
+                    fetch(url, {headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', cache:'no-store'})
+                        .then(function (res) { return res.ok ? res.json() : {items:[]}; })
+                        .then(function (data) {
+                            var seen = seenMap();
+                            queue = (data.items || []).filter(function (item) {
+                                return item.status === 'awaiting' && !seen[String(item.id)];
+                            });
+                            render();
+                        }).catch(function () {});
+                }
+                poll();
+                setInterval(poll, 15000);
+            })();
+        </script>
+      @endif
       </body>
     </html>

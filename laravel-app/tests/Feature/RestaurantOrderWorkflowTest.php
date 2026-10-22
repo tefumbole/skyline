@@ -33,6 +33,10 @@ class RestaurantOrderWorkflowTest extends TestCase
             '--path' => 'database/migrations/2026_10_18_180000_create_restaurant_orders.php',
             '--force' => true,
         ]);
+        $this->artisan('migrate', [
+            '--path' => 'database/migrations/2026_10_22_170000_add_restaurant_lanes_and_order_permissions.php',
+            '--force' => true,
+        ]);
     }
 
     public function test_mixed_order_is_one_bill_split_by_department()
@@ -226,15 +230,24 @@ class RestaurantOrderWorkflowTest extends TestCase
         $this->assertSame(1, Sale::count());
     }
 
-    public function test_public_menu_does_not_create_an_order()
+    public function test_public_menu_checkout_creates_one_order()
     {
-        $this->post('/menu', [
+        $food = $this->product('Menu Rice', 'food');
+        $this->get('/menu')->assertOk();
+        $payload = [
             'name' => 'Guest',
             'phone' => '675321700',
-            'service_type' => 'dine_in',
-            'checkout_token' => 'should-not-run',
-        ])->assertRedirect('/pos');
-        $this->assertSame(0, Sale::count());
+            'service_type' => 'take_away',
+            'checkout_token' => 'menu-once',
+            'product_id' => [$food->id],
+            'qty' => [1],
+            'item_comment' => ['mild'],
+        ];
+        $this->post('/menu', $payload)->assertRedirect();
+        $this->assertSame(1, Sale::count());
+        $this->post('/menu', $payload)->assertRedirect();
+        $this->assertSame(1, Sale::count());
+        $this->assertSame('online', RestaurantOrderItem::where('product_id', $food->id)->value('lane'));
     }
 
     public function test_review_saves_scores()
@@ -325,6 +338,84 @@ class RestaurantOrderWorkflowTest extends TestCase
             'payment_status' => $paymentStatus,
             'paid_amount' => $paymentStatus === 4 ? $total : 0,
         ];
+    }
+
+    public function test_dine_in_routes_lanes_and_reject_lowers_the_bill()
+    {
+        $coffeeCategory = Category::create(['name' => 'Coffee & Tea', 'is_active' => 1]);
+        $coffee = $this->product('Espresso', 'drinks');
+        $coffee->category_id = $coffeeCategory->id;
+        $coffee->save();
+        $food = $this->product('Plantain', 'food');
+        $drink = $this->product('Soda', 'drinks');
+        $customer = \App\Customer::create([
+            'customer_group_id' => 1,
+            'name' => 'Ada',
+            'phone_number' => '675000222',
+            'is_active' => 1,
+        ]);
+        $sale = Sale::create($this->saleRow($customer->id, 2, 4500));
+        foreach ([$food, $drink, $coffee] as $product) {
+            Product_Sale::create([
+                'sale_id' => $sale->id,
+                'product_id' => $product->id,
+                'category_id' => $product->category_id,
+                'qty' => 1,
+                'sale_unit_id' => 0,
+                'net_unit_price' => 1500,
+                'discount' => 0,
+                'tax_rate' => 0,
+                'tax' => 0,
+                'total' => 1500,
+            ]);
+        }
+        $service = app(RestaurantOrderService::class);
+        $order = $service->attachFromRequest($sale, Request::create('/', 'POST', [
+            'service_type' => 'dine_in',
+            'restaurant_table_id' => 1,
+        ]));
+        $this->assertSame(1, RestaurantOrder::where('sale_id', $sale->id)->count());
+        $this->assertSame('restaurant', $order->items()->where('product_id', $food->id)->value('lane'));
+        $this->assertSame('bar', $order->items()->where('product_id', $drink->id)->value('lane'));
+        $this->assertSame('coffee', $order->items()->where('product_id', $coffee->id)->value('lane'));
+        $this->assertSame($order->id, $service->attachFromRequest($sale, Request::create('/', 'POST', [
+            'service_type' => 'dine_in',
+        ]))->id);
+
+        $web = Sale::create($this->saleRow($customer->id, 2, 1500));
+        Product_Sale::create([
+            'sale_id' => $web->id, 'product_id' => $food->id, 'category_id' => $food->category_id,
+            'qty' => 1, 'sale_unit_id' => 0, 'net_unit_price' => 1500, 'discount' => 0,
+            'tax_rate' => 0, 'tax' => 0, 'total' => 1500,
+        ]);
+        $online = $service->attachFromRequest($web, Request::create('/', 'POST', [
+            'order_source' => 'frontend',
+            'service_type' => 'take_away',
+        ]));
+        $this->assertSame('online', $online->items()->value('lane'));
+        $this->assertSame('food', $online->items()->value('department'));
+
+        $chef = $this->user('LaneChef', 1);
+        $coffeeItem = $order->items()->where('lane', 'coffee')->first();
+        \App\Services\Restaurant\RestaurantAccess::forgetCounts();
+        $before = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['coffee']['awaiting'] ?? 0);
+        $service->accept($coffeeItem, $chef, null);
+        \App\Services\Restaurant\RestaurantAccess::forgetCounts();
+        $after = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['coffee']['awaiting'] ?? 0);
+        $this->assertSame('preparing', $coffeeItem->fresh()->status);
+        $this->assertSame($before - 1, $after);
+        $this->assertEquals(20, (float) $coffee->fresh()->qty);
+
+        $drinkItem = $order->items()->where('lane', 'bar')->first();
+        $service->deny($drinkItem, $chef, 'Rejected');
+        $sale->refresh();
+        $this->assertEquals(3000, (float) $sale->grand_total);
+        $this->assertEquals(21, (float) $drink->fresh()->qty);
+        $this->assertStringContainsString('Order Logs @if', file_get_contents(resource_path('views/restaurant/logs.blade.php')));
+        $queue = file_get_contents(resource_path('views/restaurant/queue.blade.php'));
+        $this->assertStringContainsString('>Accept<', $queue);
+        $this->assertStringContainsString('>Reject<', $queue);
+        $this->assertStringNotContainsString('>Hold<', $queue);
     }
 
     protected function schema()

@@ -4,16 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Account;
 use App\Deposit;
+use App\RestaurantOrder;
 use App\Sale;
 use App\Services\AccountDepositService;
+use App\Services\Restaurant\RestaurantSettlement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class PaymentController extends Controller
 {
     public function index()
     {
-        $sales = Sale::with('customer')->where('payment_status', "!=", 4)->orderByDesc('id')->get();
+        $sales = $this->awaitingSales();
         $lims_account_list = Account::orderByDesc('id')->get();
         return view('payment.customer-data', compact('sales', 'lims_account_list'));
     }
@@ -21,9 +24,36 @@ class PaymentController extends Controller
 
     public function AwaitingPayments($id)
     {
-        $sales = Sale::with('customer')->where('customer_id', $id)->where('payment_status', "!=", 4)->orderByDesc('id')->get();
+        $sales = $this->awaitingSales($id);
         $lims_account_list = Account::orderByDesc('id')->get();
         return view('payment.customer-data', compact('sales', 'lims_account_list'));
+    }
+
+    protected function awaitingSales($customerId = null)
+    {
+        $query = Sale::with('customer')->orderByDesc('id');
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        }
+        $open = (clone $query)->where('payment_status', '!=', 4)->get();
+        if (! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('restaurant_order_items')) {
+            return $open;
+        }
+        $ids = RestaurantOrder::whereHas('items', function ($items) {
+            $items->whereNotIn('status', ['delivered', 'rejected', 'cancelled']);
+        })->pluck('sale_id');
+        $pendingPaid = collect();
+        if ($ids->isNotEmpty()) {
+            $paid = Sale::with('customer')->where('payment_status', 4)->whereIn('id', $ids);
+            if ($customerId) {
+                $paid->where('customer_id', $customerId);
+            }
+            $pendingPaid = $paid->orderByDesc('id')->get();
+        }
+        $sales = $open->merge($pendingPaid)->unique('id')->sortByDesc('id')->values();
+        RestaurantSettlement::attach($sales);
+
+        return $sales;
     }
 
     public function Desposit() {

@@ -34,24 +34,28 @@ class RestaurantOrderService
         }
 
         $lines = Product_Sale::where('sale_id', $sale->id)->orderBy('id')->get();
+        $online = $request->input('order_source') === 'frontend';
         $routed = [];
         foreach ($lines as $index => $line) {
-            $department = RestaurantDepartment::forCategoryId($line->category_id);
-            if (! $department && $line->product_id) {
+            $categoryId = $line->category_id;
+            if (! $categoryId && $line->product_id) {
                 $product = Product::find($line->product_id);
-                if ($product) {
-                    $department = RestaurantDepartment::forCategoryId($product->category_id);
-                }
+                $categoryId = $product ? $product->category_id : null;
             }
-            if ($department) {
-                $routed[] = ['line' => $line, 'department' => $department, 'index' => $index];
+            list($lane, $department) = RestaurantDepartment::laneAndDepartment($categoryId);
+            if (! $lane || ! $department) {
+                continue;
             }
+            if ($online) {
+                $lane = 'online';
+            }
+            $routed[] = ['line' => $line, 'department' => $department, 'lane' => $lane, 'index' => $index];
         }
 
-        $service = $request->input('service_type');
-        if (! $routed && ! in_array($service, ['dine_in', 'take_away'], true)) {
+        if (! $routed) {
             return null;
         }
+        $service = $request->input('service_type');
 
         $waitressId = $this->staffId($request->input('waitress_user_id'));
         $comments = (array) $request->input('item_comment', []);
@@ -77,6 +81,7 @@ class RestaurantOrderService
                 'product_id' => $line->product_id,
                 'product_name' => $product ? $product->name : 'Item',
                 'department' => $row['department'],
+                'lane' => $row['lane'],
                 'qty' => $line->qty,
                 'customer_comment' => isset($comments[$row['index']]) ? $comments[$row['index']] : null,
             ]);
@@ -217,21 +222,26 @@ class RestaurantOrderService
     public function accept(RestaurantOrderItem $item, User $user, $minutes)
     {
         $this->assertStatus($item, 'awaiting', 'preparing');
-        $minutes = (int) $minutes;
-        if ($minutes < 1 || $minutes > 240) {
+        $minutes = is_numeric($minutes) ? (int) $minutes : 0;
+        if ($minutes > 240) {
             throw new \InvalidArgumentException('Enter a preparation time between 1 and 240 minutes.');
         }
+        $timed = $minutes >= 1;
         $item->status = 'preparing';
         $item->accepted_by = $user->id;
         $item->accepted_at = now();
-        $item->estimate_minutes = $minutes;
-        if (! $item->original_estimate_minutes) {
+        $item->estimate_minutes = $timed ? $minutes : null;
+        if ($timed && ! $item->original_estimate_minutes) {
             $item->original_estimate_minutes = $minutes;
         }
-        $item->expected_ready_at = now()->addMinutes($minutes);
+        $item->expected_ready_at = $timed ? now()->addMinutes($minutes) : null;
         $item->save();
-        $this->event($item->order, $item, 'accepted', $user->id, $minutes.' min');
-        $this->notify($item->order, ucfirst($item->department).' accepted '.$item->product_name.' (x'.$this->qty($item).'). Ready in about '.$minutes.' minutes.');
+        $this->event($item->order, $item, 'accepted', $user->id, $timed ? $minutes.' min' : null);
+        $text = RestaurantDepartment::label($item->lane ?: $item->department).' accepted '.$item->product_name.' (x'.$this->qty($item).').';
+        if ($timed) {
+            $text .= ' Ready in about '.$minutes.' minutes.';
+        }
+        $this->notify($item->order, $text);
 
         return $item;
     }
@@ -310,6 +320,7 @@ class RestaurantOrderService
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
                 'department' => $item->department,
+                'lane' => $item->lane,
                 'qty' => $qty,
                 'customer_comment' => $item->customer_comment,
                 'attempt_no' => ((int) $item->attempt_no) + 1,
@@ -329,6 +340,32 @@ class RestaurantOrderService
         $this->event($item->order, $item, 'rejected', $user->id, $resolution.': '.$reason);
 
         return $rejection;
+    }
+
+    public function deny(RestaurantOrderItem $item, User $user, $reason)
+    {
+        if (! in_array($item->status, ['awaiting', 'preparing'], true)) {
+            throw new \InvalidArgumentException('Only an order that is still open can be denied.');
+        }
+        $reason = trim((string) $reason);
+        if ($reason === '') {
+            $reason = 'Rejected';
+        }
+        $wasAwaiting = $item->status === 'awaiting';
+        $item->status = 'rejected';
+        $item->internal_note = $reason;
+        $item->save();
+        $this->dropLineFromBill($item);
+        if ($wasAwaiting) {
+            $this->restoreItemStock($item);
+        }
+        $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+        $this->event($order, $item, 'denied', $user->id, $reason);
+        if ($order) {
+            $this->notify($order, $item->product_name.' was not accepted. '.$reason.'. This item will not be billed.');
+        }
+
+        return $item;
     }
 
     public function assignWaitress(RestaurantOrder $order, $userId, User $actor)
@@ -399,6 +436,7 @@ class RestaurantOrderService
             'product_id' => isset($data['product_id']) ? $data['product_id'] : null,
             'product_name' => $data['product_name'],
             'department' => $data['department'],
+            'lane' => isset($data['lane']) ? $data['lane'] : null,
             'qty' => $data['qty'],
             'status' => 'awaiting',
             'customer_comment' => isset($data['customer_comment']) ? $data['customer_comment'] : null,
@@ -407,8 +445,13 @@ class RestaurantOrderService
         ]);
     }
 
-    protected function event(RestaurantOrder $order, $item, $action, $userId, $note)
+    protected function event($order, $item, $action, $userId, $note)
     {
+        if (! $order) {
+            RestaurantAccess::forgetCounts();
+
+            return;
+        }
         RestaurantOrderEvent::create([
             'restaurant_order_id' => $order->id,
             'restaurant_order_item_id' => $item ? $item->id : null,
@@ -416,6 +459,91 @@ class RestaurantOrderService
             'user_id' => $userId,
             'note' => $note,
         ]);
+        RestaurantAccess::forgetCounts();
+    }
+
+    protected function dropLineFromBill(RestaurantOrderItem $item)
+    {
+        $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+        $line = $item->product_sale_id ? Product_Sale::find($item->product_sale_id) : null;
+        if (! $line && $order && $item->product_id) {
+            $line = Product_Sale::where('sale_id', $order->sale_id)
+                ->where('product_id', $item->product_id)
+                ->where('total', '>', 0)
+                ->orderBy('id')
+                ->first();
+        }
+        if (! $line) {
+            return;
+        }
+        $amount = (float) $line->total;
+        $line->total = 0;
+        $line->net_unit_price = 0;
+        $line->tax = 0;
+        $line->save();
+        if ($amount <= 0) {
+            return;
+        }
+        $sale = $order ? ($order->sale ?: Sale::find($order->sale_id)) : Sale::find($line->sale_id);
+        if (! $sale) {
+            return;
+        }
+        $sale->grand_total = max(0, round((float) $sale->grand_total - $amount, 2));
+        $sale->total_price = max(0, round((float) $sale->total_price - $amount, 2));
+        if ((float) $sale->grand_total <= (float) $sale->paid_amount + 0.009) {
+            $sale->payment_status = 4;
+        } elseif ((float) $sale->paid_amount > 0.009) {
+            $sale->payment_status = 3;
+        } else {
+            $sale->payment_status = 2;
+        }
+        $sale->save();
+    }
+
+    protected function restoreItemStock(RestaurantOrderItem $item)
+    {
+        $product = Product::find($item->product_id);
+        if (! $product) {
+            return;
+        }
+        $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+        $sale = $order ? ($order->sale ?: Sale::find($order->sale_id)) : null;
+        $warehouseId = $sale ? $sale->warehouse_id : null;
+        $this->restoreStock($product, $item->qty, $warehouseId);
+    }
+
+    protected function restoreStock(Product $product, $qty, $warehouseId)
+    {
+        $quantity = $this->baseQty($product, $qty);
+        if ($product->type === 'combo' && $product->product_list) {
+            $ids = explode(',', $product->product_list);
+            $qtyList = explode(',', (string) $product->qty_list);
+            foreach ($ids as $key => $childId) {
+                $child = Product::find($childId);
+                if (! $child) {
+                    continue;
+                }
+                $childQty = $quantity * (isset($qtyList[$key]) ? (float) $qtyList[$key] : 1);
+                $this->returnQty($child, $childQty, $warehouseId);
+            }
+
+            return;
+        }
+        $this->returnQty($product, $quantity, $warehouseId);
+    }
+
+    protected function returnQty(Product $product, $quantity, $warehouseId)
+    {
+        $product->qty = (float) $product->qty + (float) $quantity;
+        $product->save();
+        if (! $warehouseId) {
+            return;
+        }
+        $bin = Product_Warehouse::where('product_id', $product->id)->where('warehouse_id', $warehouseId)->first();
+        if ($bin) {
+            $bin->qty = (float) $bin->qty + (float) $quantity;
+            $bin->save();
+        }
     }
 
     protected function assertStatus(RestaurantOrderItem $item, $from, $to)

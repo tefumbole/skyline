@@ -38,7 +38,10 @@
 <body>
 <header>
     <strong>Skyline Hotel</strong>
-    <a href="{{ url('/') }}">Skyline Hotel</a>
+    <span>
+        <a href="{{ route('restaurant.menu') }}">Menu</a>
+        <a href="{{ url('/') }}" style="margin-left:14px;">Skyline Hotel</a>
+    </span>
 </header>
 <main>
     @if(session('message'))<div class="alert ok">{{ session('message') }}</div>@endif

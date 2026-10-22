@@ -28,6 +28,7 @@
                     <th>{{trans('file.Amount')}}</th>
                     <th>{{trans('file.Paid Amount')}}</th>
                     <th>{{trans('file.Due')}}</th>
+                    <th>Delivery</th>
                     <th>{{trans('file.Payment Status')}}</th>
                     <th>{{trans('file.Date')}}</th>
                     <th>{{trans('file.Add Payment')}}</th>
@@ -35,6 +36,10 @@
                 </thead>
                 <tbody>
                 @foreach($sales as $key=>$sale)
+                    @php
+                        $settlement = isset($sale->settlement) ? $sale->settlement : null;
+                        $due = $settlement ? $sale->settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+                    @endphp
                     <tr data-id="{{$sale->id}}">
                         <td>{{$key}}</td>
                         <td>{{ $sale->customer->name }}</td>
@@ -43,17 +48,30 @@
                         <td>{{ $sale->customer->phone_number }}</td>
                         <td>{{ number_format($sale->grand_total, 2) }}</td>
                         <td>{{ number_format($sale->paid_amount, 2) ?? 0 }}</td>
-                        <td>{{ number_format($sale->grand_total - $sale->paid_amount, 2) }}</td>
+                        <td>{{ number_format($due, 2) }}</td>
                         <td>
-                            <span class="badge badge-warning">{{ $sale->payment_status == 1 ? 'Pending' : ($sale->payment_status == 3 ? 'Partial' : 'Due') }}</span>
-                            @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_orders'))
-                                @php $ticket = \App\RestaurantOrder::with('items')->where('sale_id', $sale->id)->first(); @endphp
-                                @if($ticket && $ticket->isFulfilled())
-                                    <span class="badge badge-info">Served, balance due</span>
-                                @elseif($ticket && $ticket->partiallyDelivered())
-                                    <span class="badge badge-secondary">Partly served</span>
-                                @endif
+                            @if($settlement && !empty($settlement['undelivered']))
+                                @foreach($settlement['undelivered'] as $openItem)
+                                    <div>
+                                        <strong>{{ $openItem['name'] }}</strong> × {{ $openItem['qty'] }}
+                                        <span class="text-muted">{{ number_format($openItem['amount'], 2) }}</span>
+                                        <div class="text-muted">
+                                            @if($openItem['minutes_left'] === null)
+                                                Waiting to accept
+                                            @elseif($openItem['minutes_left'] >= 0)
+                                                {{ $openItem['minutes_left'] }} min left
+                                            @else
+                                                {{ abs($openItem['minutes_left']) }} min over
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            @else
+                                —
                             @endif
+                        </td>
+                        <td>
+                            <span class="badge badge-warning">{{ $due <= 0.009 ? 'Paid' : ($sale->payment_status == 1 ? 'Pending' : ($sale->payment_status == 3 ? 'Partial' : 'Due')) }}</span>
                         </td>
                         <td>{{ $sale->created_at }}</td>
                         <td>

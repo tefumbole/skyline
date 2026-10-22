@@ -22,50 +22,104 @@ class RestaurantOrderController extends Controller
         $this->orders = $orders;
     }
 
+    public function board(Request $request)
+    {
+        $user = $request->user();
+        if (! RestaurantAccess::canSeeOrders($user)) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $lanes = [];
+        foreach (RestaurantAccess::lanes() as $key => $label) {
+            if (RestaurantAccess::seeLane($user, $key)) {
+                $lanes[$key] = $label;
+            }
+        }
+        if (! $lanes) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        reset($lanes);
+        $lane = $request->query('lane', key($lanes));
+        if (! isset($lanes[$lane])) {
+            reset($lanes);
+            $lane = key($lanes);
+        }
+        $tabs = [];
+        foreach (RestaurantAccess::statuses() as $key => $label) {
+            if (RestaurantAccess::seeStatus($user, $key)) {
+                $tabs[$key] = $label;
+            }
+        }
+        $tab = $request->query('tab', 'awaiting');
+        if ($tab === 'preparing') {
+            $tab = 'accepted';
+        }
+        if (! isset($tabs[$tab])) {
+            if (isset($tabs['awaiting'])) {
+                $tab = 'awaiting';
+            } else {
+                reset($tabs);
+                $tab = key($tabs);
+            }
+        }
+        $status = $tab === 'accepted' ? 'preparing' : $tab;
+        $items = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.waitress', 'order.placedBy', 'acceptedBy', 'productSale'])
+            ->where(function ($query) use ($lane) {
+                $query->where('lane', $lane);
+                if ($lane === 'restaurant') {
+                    $query->orWhere(function ($fallback) {
+                        $fallback->whereNull('lane')->where('department', 'food');
+                    });
+                }
+                if ($lane === 'bar') {
+                    $query->orWhere(function ($fallback) {
+                        $fallback->whereNull('lane')->where('department', 'drinks');
+                    });
+                }
+            })
+            ->where('status', $status)
+            ->orderBy($tab === 'delivered' ? 'id' : 'id', $tab === 'delivered' ? 'desc' : 'asc')
+            ->limit($tab === 'delivered' ? 40 : 80)
+            ->get();
+
+        return view('restaurant.queue', [
+            'lanes' => RestaurantAccess::lanes(),
+            'lane' => $lane,
+            'tabs' => $tabs,
+            'tab' => $tab,
+            'items' => $items,
+            'counts' => RestaurantAccess::queueCounts(),
+            'canReject' => RestaurantAccess::can($user, 'meal-rejections'),
+        ]);
+    }
+
     public function kitchen(Request $request)
     {
-        return $this->queue($request, 'food', 'Kitchen Orders', 'Cooking');
+        return redirect()->route('restaurant.orders', [
+            'lane' => 'restaurant',
+            'tab' => $request->query('tab', 'awaiting'),
+        ]);
     }
 
     public function bar(Request $request)
     {
-        return $this->queue($request, 'drinks', 'Bar Orders', 'Serving / Preparing');
+        return redirect()->route('restaurant.orders', [
+            'lane' => 'bar',
+            'tab' => $request->query('tab', 'awaiting'),
+        ]);
     }
 
     public function ready(Request $request)
     {
-        if (! RestaurantAccess::can($request->user(), 'waiter-orders')) {
-            return redirect('admin')->with('not_permitted', 'Sorry! You are not allowed to access this module');
-        }
-        $tab = $request->input('tab', 'ready');
-        if (! in_array($tab, ['ready', 'delivered'], true)) {
-            $tab = 'ready';
-        }
-        $items = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.waitress'])
-            ->whereIn('department', ['food', 'drinks'])
-            ->where('status', $tab === 'ready' ? 'ready' : 'delivered')
-            ->orderBy('updated_at')
-            ->get();
-
-        return view('restaurant.queue', [
-            'title' => 'Ready for Delivery',
-            'department' => 'both',
-            'preparingLabel' => 'Serving / Preparing',
-            'tab' => $tab,
-            'tabs' => ['ready' => 'Ready for Delivery', 'delivered' => 'Delivered'],
-            'items' => $items,
-            'base' => route('restaurant.ready'),
-            'canDeliver' => true,
-            'canPrepare' => false,
-            'canReject' => RestaurantAccess::can($request->user(), 'meal-rejections'),
-            'staff' => User::orderBy('name')->get(['id', 'name']),
+        return redirect()->route('restaurant.orders', [
+            'lane' => 'coffee',
+            'tab' => 'ready',
         ]);
     }
 
     public function accept(Request $request, $item)
     {
         $row = $this->item($item);
-        if ($deny = $this->denyDepartment($request, $row->department)) {
+        if ($deny = $this->denyOrder($request, $row, 'add')) {
             return $deny;
         }
         try {
@@ -80,7 +134,7 @@ class RestaurantOrderController extends Controller
     public function estimate(Request $request, $item)
     {
         $row = $this->item($item);
-        if ($deny = $this->denyDepartment($request, $row->department)) {
+        if ($deny = $this->denyOrder($request, $row, 'edit')) {
             return $deny;
         }
         try {
@@ -95,7 +149,7 @@ class RestaurantOrderController extends Controller
     public function markReady(Request $request, $item)
     {
         $row = $this->item($item);
-        if ($deny = $this->denyDepartment($request, $row->department)) {
+        if ($deny = $this->denyOrder($request, $row, 'edit')) {
             return $deny;
         }
         try {
@@ -109,10 +163,10 @@ class RestaurantOrderController extends Controller
 
     public function deliver(Request $request, $item)
     {
-        if (! RestaurantAccess::can($request->user(), 'waiter-orders')) {
-            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
-        }
         $row = $this->item($item);
+        if ($deny = $this->denyOrder($request, $row, 'edit')) {
+            return $deny;
+        }
         try {
             $this->orders->deliver($row, $request->user());
         } catch (\InvalidArgumentException $e) {
@@ -143,6 +197,105 @@ class RestaurantOrderController extends Controller
         return back()->with('message', 'Rejection recorded. Use Return Sale if a refund or price change is authorised.');
     }
 
+    public function deny(Request $request, $item)
+    {
+        $row = $this->item($item);
+        if ($deny = $this->denyOrder($request, $row, 'delete')) {
+            return $deny;
+        }
+        try {
+            $this->orders->deny($row, $request->user(), $request->input('reason'));
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('not_permitted', $e->getMessage());
+        }
+
+        return back()->with('message', 'Rejected. That line is off the amount due.');
+    }
+
+    public function alerts(Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['items' => [], 'summary' => [], 'pending' => 0]);
+        }
+        $items = [];
+        $summary = [];
+        if (RestaurantAccess::installed() && RestaurantAccess::canSeeOrders($user) && RestaurantAccess::seeStatus($user, 'awaiting')) {
+            $lanes = [];
+            foreach (array_keys(RestaurantAccess::lanes()) as $lane) {
+                if (RestaurantAccess::seeLane($user, $lane)) {
+                    $lanes[] = $lane;
+                }
+            }
+            if ($lanes) {
+                $rows = RestaurantOrderItem::with(['order.sale', 'order.placedBy', 'order.waitress'])
+                    ->where('status', 'awaiting')
+                    ->where(function ($query) use ($lanes) {
+                        $query->whereIn('lane', $lanes);
+                        if (in_array('restaurant', $lanes, true)) {
+                            $query->orWhereNull('lane');
+                        }
+                    })
+                    ->orderBy('id', 'desc')
+                    ->limit(20)
+                    ->get();
+                foreach ($rows as $row) {
+                    $sale = $row->order ? $row->order->sale : null;
+                    $lane = $row->lane ?: 'restaurant';
+                    $placer = optional(optional($row->order)->placedBy)->name
+                        ?: optional(optional($row->order)->waitress)->name;
+                    $items[] = [
+                        'id' => 'ord-'.(int) $row->id,
+                        'name' => $row->product_name,
+                        'qty' => $row->qty,
+                        'status' => 'awaiting',
+                        'lane' => $lane,
+                        'lane_label' => RestaurantAccess::lanes()[$lane] ?? $lane,
+                        'ref' => $sale ? $sale->reference_no : '',
+                        'placed_by' => $placer ?: '',
+                        'href' => route('restaurant.orders', ['lane' => $lane, 'tab' => 'awaiting']),
+                    ];
+                }
+                $counts = RestaurantAccess::queueCounts();
+                foreach ($lanes as $lane) {
+                    $awaiting = (int) ($counts[$lane]['awaiting'] ?? 0);
+                    if ($awaiting < 1) {
+                        continue;
+                    }
+                    $summary[] = [
+                        'lane' => $lane,
+                        'label' => RestaurantAccess::lanes()[$lane] ?? $lane,
+                        'awaiting' => $awaiting,
+                        'total' => $awaiting,
+                        'href' => route('restaurant.orders', ['lane' => $lane, 'tab' => 'awaiting']),
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'items' => $items,
+            'summary' => $summary,
+            'pending' => array_sum(array_map(function ($row) {
+                return (int) ($row['total'] ?? 0);
+            }, $summary)),
+        ]);
+    }
+
+    public function help(Request $request)
+    {
+        if (! RestaurantAccess::canSeeOrders($request->user())) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $topic = $request->query('topic');
+        $known = ['restaurant-coffee', 'restaurant', 'restaurant-bar', 'orders'];
+        if (! in_array($topic, $known, true)) {
+            $topic = null;
+        }
+
+        return view('restaurant.help', compact('topic'));
+    }
+
     public function assignWaitress(Request $request, $order)
     {
         if (! RestaurantAccess::can($request->user(), 'waiter-orders') && ! RestaurantAccess::can($request->user(), 'order-logs')) {
@@ -158,7 +311,7 @@ class RestaurantOrderController extends Controller
     {
         $user = auth()->user();
         if (! RestaurantAccess::can($user, 'sales-index') && ! RestaurantAccess::can($user, 'waiter-orders') && ! RestaurantAccess::can($user, 'kitchen-orders') && ! RestaurantAccess::can($user, 'bar-orders')) {
-            return redirect('admin')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $sale = Sale::with('customer')->findOrFail($sale);
         $order = RestaurantOrder::with(['items', 'diningTable', 'waitress'])->where('sale_id', $sale->id)->first();
@@ -171,9 +324,28 @@ class RestaurantOrderController extends Controller
     public function logs(Request $request)
     {
         if (! RestaurantAccess::can($request->user(), 'order-logs')) {
-            return redirect('admin')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $query = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.placedBy', 'order.waitress', 'acceptedBy', 'readyBy', 'deliveredBy']);
+        if ($request->filled('lane') && isset(RestaurantAccess::lanes()[$request->input('lane')])) {
+            $lane = $request->input('lane');
+            if (! RestaurantAccess::seeLane($request->user(), $lane)) {
+                return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+            }
+            $query->where(function ($q) use ($lane) {
+                $q->where('lane', $lane);
+                if ($lane === 'restaurant') {
+                    $q->orWhere(function ($fallback) {
+                        $fallback->whereNull('lane')->where('department', 'food');
+                    });
+                }
+                if ($lane === 'bar') {
+                    $q->orWhere(function ($fallback) {
+                        $fallback->whereNull('lane')->where('department', 'drinks');
+                    });
+                }
+            });
+        }
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->input('date'));
         }
@@ -212,57 +384,35 @@ class RestaurantOrderController extends Controller
 
     public function storeTable(Request $request)
     {
-        if (! RestaurantAccess::can($request->user(), 'order-logs')) {
+        if (! RestaurantAccess::can($request->user(), 'order-logs')
+            && ! RestaurantAccess::can($request->user(), 'sales-add')
+            && ! RestaurantAccess::can($request->user(), 'waiter-orders')) {
             return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $name = trim((string) $request->input('name'));
         if ($name === '') {
             return back()->with('not_permitted', 'Table name is required.');
         }
-        RestaurantTable::create(['name' => $name, 'is_active' => 1]);
+        $capacity = $request->filled('capacity') ? (int) $request->input('capacity') : null;
+        $table = RestaurantTable::create([
+            'name' => $name,
+            'description' => $request->input('description') ?: null,
+            'capacity' => $capacity > 0 ? $capacity : null,
+            'is_active' => 1,
+        ]);
+        if ($request->expectsJson() || $request->ajax()) {
+            $label = $table->name;
+            if ($table->description) {
+                $label .= ' · '.$table->description;
+            }
+            if ($table->capacity) {
+                $label .= ' ('.$table->capacity.' persons)';
+            }
+
+            return response()->json(['id' => $table->id, 'name' => $table->name, 'label' => $label]);
+        }
 
         return back()->with('message', 'Table added.');
-    }
-
-    protected function queue(Request $request, $department, $title, $preparingLabel)
-    {
-        if (! RestaurantAccess::canDepartment($request->user(), $department)) {
-            return redirect('admin')->with('not_permitted', 'Sorry! You are not allowed to access this module');
-        }
-        $tab = $request->input('tab', 'awaiting');
-        $map = [
-            'awaiting' => 'awaiting',
-            'preparing' => 'preparing',
-            'ready' => 'ready',
-            'delivered' => 'delivered',
-        ];
-        if (! isset($map[$tab])) {
-            $tab = 'awaiting';
-        }
-        $items = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.waitress', 'acceptedBy'])
-            ->where('department', $department)
-            ->where('status', $map[$tab])
-            ->orderBy('id')
-            ->get();
-
-        return view('restaurant.queue', [
-            'title' => $title,
-            'department' => $department,
-            'preparingLabel' => $preparingLabel,
-            'tab' => $tab,
-            'tabs' => [
-                'awaiting' => 'Awaiting',
-                'preparing' => $preparingLabel,
-                'ready' => 'Ready for Delivery',
-                'delivered' => 'Delivered',
-            ],
-            'items' => $items,
-            'base' => $department === 'food' ? route('restaurant.kitchen') : route('restaurant.bar'),
-            'canDeliver' => false,
-            'canPrepare' => true,
-            'canReject' => RestaurantAccess::can($request->user(), 'meal-rejections'),
-            'staff' => User::orderBy('name')->get(['id', 'name']),
-        ]);
     }
 
     protected function item($id)
@@ -270,9 +420,9 @@ class RestaurantOrderController extends Controller
         return RestaurantOrderItem::with('order')->findOrFail($id);
     }
 
-    protected function denyDepartment(Request $request, $department)
+    protected function denyOrder(Request $request, RestaurantOrderItem $item, $action)
     {
-        if (RestaurantAccess::canDepartment($request->user(), $department)) {
+        if (RestaurantAccess::canOrder($request->user(), $action, $item)) {
             return null;
         }
 

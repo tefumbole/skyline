@@ -8,7 +8,6 @@ use App\Product_Sale;
 use App\RestaurantOrder;
 use App\RestaurantTable;
 use App\Sale;
-use App\Services\Restaurant\RestaurantDepartment;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Http\Request;
 
@@ -16,18 +15,30 @@ class RestaurantMenuController extends Controller
 {
     public function show()
     {
-        $groups = ['food' => [], 'drinks' => []];
-        $products = Product::where('is_active', true)->orderBy('name')->get();
-        foreach ($products as $product) {
-            $department = RestaurantDepartment::forCategoryId($product->category_id);
-            if ($department) {
-                $groups[$department][] = $product;
+        $sections = [];
+        $parents = Category::whereNull('parent_id')->whereIn('name', ['Restaurant', 'Bar'])->get()->sortBy(function ($category) {
+            return $category->name === 'Restaurant' ? 0 : 1;
+        });
+        foreach ($parents as $parent) {
+            $blocks = [];
+            $own = Product::where('is_active', true)->where('category_id', $parent->id)->orderBy('id')->get();
+            if ($own->isNotEmpty()) {
+                $blocks[] = ['title' => $parent->name, 'products' => $own];
+            }
+            foreach (Category::where('parent_id', $parent->id)->orderBy('id')->get() as $child) {
+                $blocks[] = [
+                    'title' => $child->name,
+                    'products' => Product::where('is_active', true)->where('category_id', $child->id)->orderBy('id')->get(),
+                ];
+            }
+            if ($blocks) {
+                $sections[] = ['title' => $parent->name, 'blocks' => $blocks];
             }
         }
         $tables = RestaurantTable::where('is_active', 1)->orderBy('name')->get();
         $token = bin2hex(random_bytes(16));
 
-        return view('restaurant.menu', compact('groups', 'tables', 'token'));
+        return view('restaurant.menu', compact('sections', 'tables', 'token'));
     }
 
     public function checkout(Request $request, RestaurantOrderService $orders)

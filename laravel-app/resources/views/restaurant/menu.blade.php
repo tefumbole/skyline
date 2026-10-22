@@ -1,35 +1,49 @@
 @extends('restaurant.layout')
-@section('title', 'Order · Skyline Hotel')
+@section('title', 'Menu · Skyline Hotel')
 @section('content')
-    <h1>Order food and drinks</h1>
-    <p class="muted">One order, one bill. Food goes to the kitchen and drinks go to the bar.</p>
+    <h1>Menu</h1>
+    <p class="muted">One order, one bill. Restaurant dishes go to the kitchen. Bar drinks go to the bar. After you place the order, the tracking page keeps the countdown.</p>
     <form method="post" action="{{ route('restaurant.checkout') }}">
         @csrf
         <input type="hidden" name="checkout_token" value="{{ $token }}">
-        @foreach(['food' => 'Food', 'drinks' => 'Drinks'] as $key => $label)
-            <div class="card">
-                <h2>{{ $label }}</h2>
-                @forelse($groups[$key] as $product)
-                    <div class="row" style="align-items:flex-end; margin-bottom:10px;">
-                        <div>
-                            <strong>{{ $product->name }}</strong>
-                            <div class="muted">{{ number_format((float) $product->price, 0) }} XAF</div>
-                            <input type="hidden" name="product_id[]" value="{{ $product->id }}">
+        @forelse($sections as $section)
+            <h2>{{ $section['title'] }}</h2>
+            @foreach($section['blocks'] as $block)
+                <div class="card">
+                    <h2>{{ $block['title'] }}</h2>
+                    @forelse($block['products'] as $product)
+                        <div class="row" style="align-items:flex-end; margin-bottom:10px;">
+                            <div>
+                                <strong>{{ $product->name }}</strong>
+                                <div class="muted">
+                                    @if((float) $product->price > 0)
+                                        {{ number_format((float) $product->price, 0) }} XAF
+                                    @else
+                                        Ask for the price
+                                    @endif
+                                    @if($product->product_details)
+                                        · {{ $product->product_details }}
+                                    @endif
+                                </div>
+                                <input type="hidden" name="product_id[]" value="{{ $product->id }}">
+                            </div>
+                            <div>
+                                <label>Qty</label>
+                                <input type="number" name="qty[]" min="0" step="1" value="0">
+                            </div>
+                            <div>
+                                <label>Note for this item</label>
+                                <input type="text" name="item_comment[]" maxlength="255" placeholder="Optional">
+                            </div>
                         </div>
-                        <div>
-                            <label>Qty</label>
-                            <input type="number" name="qty[]" min="0" step="1" value="0">
-                        </div>
-                        <div>
-                            <label>Note for this item</label>
-                            <input type="text" name="item_comment[]" maxlength="255" placeholder="Optional">
-                        </div>
-                    </div>
-                @empty
-                    <p class="muted">No {{ strtolower($label) }} items are on the menu yet. Map a category to {{ $label }} in the admin category screen.</p>
-                @endforelse
-            </div>
-        @endforeach
+                    @empty
+                        <p class="muted">Nothing in this section yet.</p>
+                    @endforelse
+                </div>
+            @endforeach
+        @empty
+            <div class="card"><p class="muted">The menu is not loaded yet.</p></div>
+        @endforelse
         <div class="card">
             <h2>Your details</h2>
             <div class="row">
@@ -67,7 +81,7 @@
             <label>Comment</label>
             <textarea name="customer_comment" rows="2">{{ old('customer_comment') }}</textarea>
             <p style="margin-top:16px;"><button type="submit">Place order</button></p>
-            <p class="muted">You can pay now from the confirmation page, or later. The order still goes to the kitchen and bar.</p>
+            <p class="muted">You can pay now from the confirmation page, or later. The order still goes to Restaurant or Bar, and the tracking page counts down to the ready time.</p>
         </div>
     </form>
 @endsection

@@ -1444,11 +1444,11 @@
                                             </select>
                                         </div>
                                         <div class="col-sm-3">
-                                            <label>Table</label>
-                                            <select name="restaurant_table_id" class="form-control">
+                                            <label>Table <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#create-table-modal">Create table</button></label>
+                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
                                                 <option value="">Optional for take away</option>
                                                 @foreach(\App\RestaurantTable::where('is_active', 1)->orderBy('name')->get() as $table)
-                                                    <option value="{{ $table->id }}">{{ $table->name }}</option>
+                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->description) · {{ $table->description }}@endif @if($table->capacity)({{ $table->capacity }} persons)@endif</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -1466,6 +1466,51 @@
                                             <input type="text" name="customer_comment" class="form-control" placeholder="Guest comment">
                                         </div>
                                     </div>
+                                    <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+                                        <div role="document" class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Create table</h5>
+                                                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="form-group"><label>Name</label><input id="new-table-name" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Description</label><input id="new-table-description" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Number of persons</label><input id="new-table-capacity" class="form-control" type="number" min="1"></div>
+                                                    <button type="button" class="btn btn-primary" id="save-new-table">Add table</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <script>
+                                        (function () {
+                                            var button = document.getElementById('save-new-table');
+                                            if (!button) return;
+                                            button.addEventListener('click', function () {
+                                                var name = document.getElementById('new-table-name').value;
+                                                var body = new FormData();
+                                                body.append('name', name);
+                                                body.append('description', document.getElementById('new-table-description').value);
+                                                body.append('capacity', document.getElementById('new-table-capacity').value);
+                                                body.append('_token', '{{ csrf_token() }}');
+                                                fetch('{{ route('restaurant.tables.store') }}', {
+                                                    method: 'POST',
+                                                    headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'},
+                                                    body: body,
+                                                    credentials: 'same-origin'
+                                                }).then(function (res) { return res.json(); }).then(function (data) {
+                                                    if (!data || !data.id) return;
+                                                    var select = document.getElementById('restaurant_table_id');
+                                                    var option = document.createElement('option');
+                                                    option.value = data.id;
+                                                    option.textContent = data.label || data.name;
+                                                    option.selected = true;
+                                                    select.appendChild(option);
+                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
+                                                });
+                                            });
+                                        })();
+                                    </script>
                                     @endif
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
@@ -1475,7 +1520,7 @@
                                         {{--                            <button style="background: #0984e3" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-card-btn"><i class="fa fa-credit-card"></i> Card</button>--}}
                                         {{--                        </div>--}}
                                         <div class="column-5">
-                                            <button style="background-color: #213170" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to Payment</button>
+                                            <button style="background-color: #213170" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to Payments</button>
                                         </div>
 
                                             @if(in_array("JE-method", $all_permission))

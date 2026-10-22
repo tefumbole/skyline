@@ -79,22 +79,15 @@ class AddRestaurantLanesAndOrderPermissions extends Migration
         if (! Schema::hasTable('permissions') || ! Schema::hasTable('roles')) {
             return;
         }
-        $now = date('Y-m-d H:i:s');
         $names = [];
         foreach (\App\Services\Restaurant\RestaurantAccess::permissionRows() as $row) {
             foreach (array_slice($row, 1) as $name) {
                 $names[] = $name;
             }
         }
+        $names = array_values(array_unique($names));
+        app('cache')->forget('spatie.permission.cache');
         foreach ($names as $name) {
-            if (! DB::table('permissions')->where('name', $name)->where('guard_name', 'web')->exists()) {
-                DB::table('permissions')->insert([
-                    'name' => $name,
-                    'guard_name' => 'web',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            }
             Permission::findOrCreate($name, 'web');
         }
         foreach ([1, 2] as $roleId) {

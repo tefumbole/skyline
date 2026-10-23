@@ -26,7 +26,8 @@ class PublicHotelMenusTest extends TestCase
         $home->assertSee('Chill on the Hill');
         $home->assertDontSee('Apply Now');
 
-        $this->get('/register-now')->assertStatus(200)->assertSee('Become a Member')->assertSee('sky-menus');
+        $this->get('/register-now')->assertStatus(200)->assertSee('Become a Member')->assertSee('Tap to continue')->assertDontSee('Submit application');
+        $this->get('/register-now/details?plan=promo')->assertStatus(200)->assertSee('Photo of the ID')->assertSee('Submit application');
         $this->get('/reviews')->assertStatus(200)->assertSee('Add a review')->assertSee('Chill on the Hill');
         $this->get('/services')->assertStatus(200)->assertSee('Restaurant')->assertSee('Coffee')->assertSee('sky-bar');
         $this->get('/services/restaurant')->assertStatus(200)->assertSee('Choose quantities');

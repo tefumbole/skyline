@@ -14,17 +14,66 @@ class MembershipPublicController extends Controller
 {
     public function apply()
     {
-        if (! Schema::hasTable('membership_plans')) {
-            return view('beyond.membership.apply', ['ready' => false]);
+        return view('beyond.membership.apply', $this->membershipFormData());
+    }
+
+    public function details(Request $request)
+    {
+        $data = $this->membershipFormData();
+        if (empty($data['ready'])) {
+            return redirect(url('/register-now'));
+        }
+        $choice = (string) $request->query('plan', old('plan_choice'));
+        $plan = $this->chosenPlan($data, $choice);
+        if (! $plan) {
+            return redirect(url('/register-now'));
         }
 
-        return view('beyond.membership.apply', [
+        return view('beyond.membership.details', $data + [
+            'planChoice' => $choice,
+            'chosen' => $plan,
+        ]);
+    }
+
+    protected function membershipFormData()
+    {
+        if (! Schema::hasTable('membership_plans')) {
+            return ['ready' => false];
+        }
+
+        return [
             'ready' => true,
             'plans' => DB::table('membership_plans')->where('is_active', 1)->orderBy('sort_order')->get(),
             'promo' => DB::table('membership_promotions')->where('is_enabled', 1)->orderByDesc('id')->first(),
             'agreement' => DB::table('membership_agreements')->where('is_current', 1)->first(),
             'countries' => \App\Support\CountryDialCodes::names(),
-        ]);
+        ];
+    }
+
+    protected function chosenPlan(array $data, $choice)
+    {
+        if ($choice === 'promo' && ! empty($data['promo'])) {
+            return [
+                'choice' => 'promo',
+                'name' => $data['promo']->name,
+                'price' => '0 XAF',
+                'meta' => (int) ($data['promo']->free_days ?: 90).' days',
+            ];
+        }
+        foreach ($data['plans'] as $plan) {
+            if ((string) $plan->id === (string) $choice) {
+                $months = (int) $plan->duration_months;
+
+                return [
+                    'choice' => (string) $plan->id,
+                    'name' => $plan->name,
+                    'price' => number_format((float) $plan->fee, 0).' XAF',
+                    'meta' => $months === 1 ? '1 Month' : $months.' Months',
+                ];
+            }
+        }
+
+        return null;
     }
 
     public function store(Request $request)

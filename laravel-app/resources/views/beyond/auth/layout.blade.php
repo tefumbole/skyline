@@ -26,11 +26,19 @@
     </script>
     <style>
         * { box-sizing: border-box; }
+        html, body { background: #0A0A0A; }
         body {
             margin: 0;
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
             min-height: 100vh;
-            background: #07111c url('{{ url('public/branding/chill-on-the-hill.jpg') }}?v=final') center center / cover no-repeat fixed;
+            background: #0A0A0A;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            z-index: -1;
+            inset: -14%;
+            background: #0A0A0A url('{{ url('public/branding/chill-on-the-hill.jpg') }}?v=coffee') center center / cover no-repeat;
         }
         .auth-page {
             min-height: 100vh;
@@ -145,7 +153,7 @@
             height: 50px;
             border: 0;
             border-radius: 999px;
-            background: #f3f1e8;
+            background: #F7F1E8;
             font-size: 15px;
             padding: 0 44px 0 44px;
             color: #1f2937;
@@ -194,7 +202,7 @@
             width: 100%;
         }
         .auth-links a {
-            color: #6b7280;
+            color: #8a7340;
             font-size: 13px;
             line-height: 1.4;
             text-decoration: none;
@@ -227,7 +235,7 @@
             text-align: center;
         }
         .auth-credit {
-            color: #e8c547;
+            color: #C5A059;
             font-size: 12px;
             font-weight: 500;
             line-height: 1.45;
@@ -239,18 +247,15 @@
             align-items: center;
             padding: 3px 10px;
             border-radius: 999px;
-            background: #111;
-            border: 1px solid #d4af37;
-            color: #f0d36a;
+            background: #0A0A0A;
+            border: 1px solid #C5A059;
+            color: #C5A059;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.04em;
         }
         @media (max-width: 640px) {
-            body {
-                background-position: left center;
-                background-attachment: scroll;
-            }
+            body::before { background-position: left center; }
         }
     </style>
     @stack('head')

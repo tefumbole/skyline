@@ -72,6 +72,7 @@ Route::post('/reviews', 'GuestReviewController@store')->name('beyond.reviews.sto
 Route::post('/reviews/verify', 'GuestReviewController@verify')->name('beyond.reviews.verify');
 Route::post('/reviews/resend-otp', 'GuestReviewController@resendOtp')->name('beyond.reviews.resend');
 Route::get('/register-now', 'MembershipPublicController@apply')->name('beyond.register');
+Route::get('/register-now/details', 'MembershipPublicController@details')->name('membership.apply.details');
 Route::post('/register-now', 'MembershipPublicController@store')->name('membership.apply.store');
 Route::get('/membership/confirmation/{reference}', 'MembershipPublicController@confirmation')->name('membership.confirmation');
 Route::get('/projects', 'BeyondController@projects')->name('beyond.projects');

@@ -2,7 +2,7 @@
 @section('title', 'Membership received · Skyline Hotel')
 
 @section('content')
-<div class="bg-[#0c1830] text-white min-h-[70vh] py-10 px-4">
+<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
     <div class="max-w-xl mx-auto rounded-2xl border border-brand-gold/40 bg-white/5 p-6">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Skyline Hotel</p>
         <h1 class="font-serif text-3xl mt-2">Application received</h1>

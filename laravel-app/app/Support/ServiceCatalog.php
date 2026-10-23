@@ -11,9 +11,12 @@ class ServiceCatalog
     public static function services()
     {
         return [
-            'restaurant' => ['label' => 'Restaurant', 'blurb' => 'Meals from the kitchen, on one bill.'],
-            'coffee' => ['label' => 'Coffee & Tea', 'blurb' => 'Coffee, tea, juices, and smoothies.'],
-            'bar' => ['label' => 'Bar', 'blurb' => 'Beers, wines, spirits, and cocktails.'],
+            'supermarket' => ['label' => 'Convenience store & supermarket', 'blurb' => 'Snacks, drinks, and everyday items from the shop.', 'icon' => 'shopping-basket', 'priority' => true],
+            'restaurant' => ['label' => 'Bar & Restaurant', 'blurb' => 'Kitchen meals and the bar list, on one bill.', 'icon' => 'utensils-crossed'],
+            'coffee' => ['label' => 'Coffee shop', 'blurb' => 'Coffee, tea, juices, and smoothies.', 'icon' => 'coffee'],
+            'bar' => ['label' => 'Bar', 'blurb' => 'Beers, wines, spirits, and cocktails.', 'icon' => 'wine'],
+            'laundry' => ['label' => 'Laundry', 'blurb' => 'Wash, iron, and dry cleaning.', 'icon' => 'shirt'],
+            'fashion' => ['label' => 'Fashion store', 'blurb' => 'Clothes and accessories.', 'icon' => 'shopping-bag'],
         ];
     }
 
@@ -27,16 +30,33 @@ class ServiceCatalog
         if (! Schema::hasTable('categories')) {
             return collect();
         }
+        $named = [
+            'supermarket' => ['%supermarket%', '%grocer%', '%snack%', '%convenience%'],
+            'laundry' => ['%laundry%', '%dry clean%', '%iron%'],
+            'fashion' => ['%fashion%', '%cloth%', '%shoe%', '%dress%'],
+        ];
+        if (isset($named[$key])) {
+            return Category::where(function ($query) use ($named, $key) {
+                foreach ($named[$key] as $like) {
+                    $query->orWhere('name', 'like', $like);
+                }
+            })->orderBy('id')->get();
+        }
         if ($key === 'restaurant') {
             $parent = Category::where('name', 'Restaurant')->whereNull('parent_id')->first();
+            $rows = $parent ? Category::where('parent_id', $parent->id)->orderBy('id')->get() : collect();
+            if ($parent && Schema::hasTable('products') && Product::where('is_active', true)->where('category_id', $parent->id)->exists()) {
+                $rows->prepend($parent);
+            }
 
-            return $parent ? Category::where('parent_id', $parent->id)->orderBy('id')->get() : collect();
+            return $rows;
         }
         if ($key === 'coffee') {
             return Category::where(function ($query) {
                 $query->where('name', 'like', '%Coffee%')
                     ->orWhere('name', 'like', '%Juice%')
-                    ->orWhere('name', 'like', '%Smoothie%');
+                    ->orWhere('name', 'like', '%Smoothie%')
+                    ->orWhere('name', 'like', '%Tea%');
             })->orderBy('id')->get();
         }
         $parent = Category::where('name', 'Bar')->whereNull('parent_id')->first();

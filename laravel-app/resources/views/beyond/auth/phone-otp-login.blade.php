@@ -19,7 +19,7 @@
     </form>
     <form method="POST" action="{{ url('/phone-login/resend') }}" class="mt-3">
         @csrf
-        <button type="submit" class="auth-links" style="background:none;border:0;cursor:pointer;color:#0b3f90;font-weight:600;">Resend code</button>
+        <button type="submit" class="auth-links" style="background:none;border:0;cursor:pointer;color:#C5A059;font-weight:600;">Resend code</button>
     </form>
 @else
     <p class="text-sm text-gray-600 mb-4" style="text-align:left;">

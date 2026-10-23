@@ -4,7 +4,7 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        background: #0c1830;
+        background: #0A0A0A;
         color: #f6f1e6;
         padding: 10px max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left));
         position: sticky;
@@ -29,7 +29,7 @@
         position: absolute;
         inset: -4px;
         border-radius: 50%;
-        background: conic-gradient(from 0deg, transparent 0 62%, #e1b368 84%, #fff6df 92%, transparent 100%);
+        background: conic-gradient(from 0deg, transparent 0 62%, #C5A059 84%, #fff6df 92%, transparent 100%);
         animation: sky-logo-spin 2.8s linear infinite;
         -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
         mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
@@ -56,7 +56,7 @@
         font-size: clamp(14px, 1.7vw, 20px);
         letter-spacing: 0.22em;
         text-transform: uppercase;
-        color: #e6d3a1;
+        color: #C5A059;
         white-space: nowrap;
     }
     .sky-hotel {
@@ -98,7 +98,7 @@
     }
     .sky-menus::-webkit-scrollbar { display: none; }
     .sky-menus a {
-        color: #e6d3a1;
+        color: #C5A059;
         font-size: 13px;
         font-weight: 600;
         letter-spacing: 0.05em;
@@ -113,7 +113,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 18px;
-        background: #0c1830;
+        background: #0A0A0A;
         padding: 14px max(22px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
         font-family: Inter, ui-sans-serif, system-ui, sans-serif;
         flex-shrink: 0;
@@ -124,18 +124,18 @@
         align-items: center;
         gap: 10px;
         margin: 0;
-        color: #e1b368;
+        color: #C5A059;
         font-size: 14px;
         white-space: nowrap;
     }
     .sky-credit a { color: inherit; text-decoration: none; white-space: nowrap; }
     .sky-credit a:hover { color: #f0cb86; }
     .sky-brand-text { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
-    .sky-version { margin: 0; color: #e1b368; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; white-space: nowrap; }
+    .sky-version { margin: 0; color: #C5A059; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; white-space: nowrap; }
     .sky-foot .sky-brand { margin-left: auto; flex: 0 1 auto; }
     .sky-foot-links { display: flex; align-items: center; justify-content: flex-start; gap: 28px; }
-    .sky-contact { gap: 8px; color: #e1b368; font-size: 14px; text-decoration: none; white-space: nowrap; }
-    .sky-contact svg { flex-shrink: 0; color: #e1b368; }
+    .sky-contact { gap: 8px; color: #C5A059; font-size: 14px; text-decoration: none; white-space: nowrap; }
+    .sky-contact svg { flex-shrink: 0; color: #C5A059; }
     .sky-contact:hover { color: #f0cb86; }
     @media (max-width: 1360px) {
         .sky-hotel, .sky-actions .sky-rule { display: none; }

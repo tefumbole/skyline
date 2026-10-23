@@ -3,7 +3,7 @@
 @section('title', $meta['label'].' · Skyline Hotel')
 
 @section('content')
-<div class="bg-[#0c1830] text-white min-h-[70vh] py-10 px-4">
+<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
     <div class="max-w-5xl mx-auto">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0"><a href="{{ url('/services') }}" class="hover:underline">Services</a></p>
         <h1 class="font-serif text-3xl text-white mt-2">{{ $meta['label'] }}</h1>
@@ -65,7 +65,7 @@
                     </select>
                     <textarea name="customer_comment" rows="2" placeholder="Note for the order" class="md:col-span-2 rounded-md bg-black border border-white/15 px-3 py-2 text-white">{{ old('customer_comment') }}</textarea>
                 </div>
-                <button type="submit" class="mt-4 bg-brand-gold text-[#0c1830] font-bold px-6 py-3 rounded-full">Place order</button>
+                <button type="submit" class="mt-4 bg-brand-gold text-[#0A0A0A] font-bold px-6 py-3 rounded-full">Place order</button>
             @endif
         </form>
     </div>

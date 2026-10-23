@@ -48,7 +48,7 @@
             position: absolute;
             inset: -4px;
             border-radius: 50%;
-            background: conic-gradient(from 0deg, transparent 0 62%, #e1b368 84%, #fff6df 92%, transparent 100%);
+            background: conic-gradient(from 0deg, transparent 0 62%, #C5A059 84%, #fff6df 92%, transparent 100%);
             animation: logo-spin 2.8s linear infinite;
             -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
             mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
@@ -135,7 +135,7 @@
             white-space: nowrap;
         }
         .menus a:hover, .menus a.on { color: #fff6df; }
-        .menus a.special { color: #e1b368; }
+        .menus a.special { color: #C5A059; }
         .hero {
             flex: 1 1 0;
             min-height: 0;
@@ -191,7 +191,7 @@
             font-weight: 600;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: #e1b368;
+            color: #C5A059;
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
         }
         .count-grid {
@@ -202,10 +202,10 @@
         .count-cell {
             min-width: clamp(52px, 11vw, 145px);
             text-align: center;
-            border: 1px solid rgba(225, 179, 104, 0.7);
+            border: 1px solid rgba(197, 160, 89, 0.75);
             border-radius: 12px;
             padding: 8px 12px 7px;
-            background: rgba(7, 17, 28, 0.62);
+            background: rgba(10, 10, 10, 0.72);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
         }
         .count-cell strong {
@@ -221,7 +221,7 @@
             font-size: clamp(9px, 1.6vw, 22px);
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #e1b368;
+            color: #C5A059;
         }
         .count.is-done .count-grid { display: none; }
         .count-done {
@@ -245,7 +245,7 @@
             align-items: center;
             gap: 10px;
             margin: 0;
-            color: #e1b368;
+            color: #C5A059;
             font-size: 14px;
             white-space: nowrap;
         }
@@ -264,7 +264,7 @@
         }
         .version {
             margin: 0;
-            color: #e1b368;
+            color: #C5A059;
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 0.08em;
@@ -279,12 +279,12 @@
         }
         .contact {
             gap: 8px;
-            color: #e1b368;
+            color: #C5A059;
             font-size: 14px;
             text-decoration: none;
             white-space: nowrap;
         }
-        .contact svg { flex-shrink: 0; color: #e1b368; }
+        .contact svg { flex-shrink: 0; color: #C5A059; }
         .contact:hover { color: #f0cb86; }
         @media (max-width: 1360px) {
             .hotel, .actions .rule { display: none; }

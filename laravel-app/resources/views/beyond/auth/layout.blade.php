@@ -18,7 +18,7 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: { blue: '#0b3f90', dark: '#083272', light: '#2563eb', gold: '#D4AF37', navy: '#0a2540' },
+                        brand: { blue: '#C5A059', dark: '#0A0A0A', light: '#e1b368', gold: '#C5A059', navy: '#0A0A0A' },
                     },
                 },
             },
@@ -105,7 +105,7 @@
         }
         .auth-title {
             margin: 0;
-            color: #0b3f90;
+            color: #C5A059;
             font-size: clamp(22px, 4.6vw, 28px);
             font-weight: 800;
             letter-spacing: 0.03em;
@@ -122,7 +122,7 @@
             width: 100%;
             height: 2px;
             margin: 18px 0 22px;
-            background: #0b3f90;
+            background: #C5A059;
             border: 0;
         }
         .auth-field {
@@ -137,7 +137,7 @@
             transform: translateY(-50%);
             width: 18px;
             height: 18px;
-            color: #0b3f90;
+            color: #C5A059;
             pointer-events: none;
         }
         .auth-input {
@@ -153,7 +153,7 @@
         .auth-input::placeholder { color: #9ca3af; }
         .auth-input:focus {
             outline: none;
-            box-shadow: 0 0 0 2px rgba(11, 63, 144, 0.28);
+            box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.45);
         }
         .auth-toggle {
             position: absolute;
@@ -167,15 +167,15 @@
             cursor: pointer;
             display: inline-flex;
         }
-        .auth-toggle:hover { color: #0b3f90; }
+        .auth-toggle:hover { color: #C5A059; }
         .auth-btn {
             width: 100%;
             height: 52px;
             margin-top: 6px;
             border: 0;
             border-radius: 999px;
-            background: #0b3f90;
-            color: #fff;
+            background: #C5A059;
+            color: #0A0A0A;
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
@@ -184,7 +184,7 @@
             justify-content: center;
             gap: 8px;
         }
-        .auth-btn:hover { background: #083272; }
+        .auth-btn:hover { background: #a6843e; }
         .auth-links {
             margin-top: 18px;
             display: flex;
@@ -206,7 +206,7 @@
             text-align: center;
             white-space: normal;
         }
-        .auth-links a:hover { color: #0b3f90; text-decoration: underline; }
+        .auth-links a:hover { color: #C5A059; text-decoration: underline; }
         .auth-links .wa { color: #16a34a; }
         .auth-alert {
             text-align: left;

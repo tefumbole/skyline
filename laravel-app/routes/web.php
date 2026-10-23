@@ -66,7 +66,7 @@ Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->nam
 Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
-Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => 'restaurant|coffee|bar', 'category' => '[0-9]+']);
+Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => 'supermarket|restaurant|coffee|bar|laundry|fashion', 'category' => '[0-9]+']);
 Route::get('/reviews', 'GuestReviewController@show')->name('beyond.reviews');
 Route::post('/reviews', 'GuestReviewController@store')->name('beyond.reviews.store');
 Route::post('/reviews/verify', 'GuestReviewController@verify')->name('beyond.reviews.verify');

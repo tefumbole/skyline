@@ -27,7 +27,7 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: { blue: '#0c1830', dark: '#07111c', light: '#1c3d66', gold: '#e1b368', navy: '#0c1830' },
+                        brand: { blue: '#0A0A0A', dark: '#070707', light: '#1a1a1a', gold: '#C5A059', navy: '#0A0A0A' },
                     },
                 },
             },

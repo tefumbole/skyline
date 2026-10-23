@@ -1,15 +1,40 @@
 @extends('beyond.layout')
 @section('title', 'Become a Member · Skyline Hotel')
 
+@push('head')
+<style>
+    .plan-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .plan-grid { grid-template-columns: 1fr 1fr; } }
+    .plan-card {
+        position: relative; display: flex; flex-direction: column; gap: 4px;
+        background: #fff; color: #111; border-radius: 18px; padding: 16px 16px 14px;
+        border: 1px solid rgba(0,0,0,.08); cursor: pointer; min-height: 148px;
+    }
+    .plan-card input { position: absolute; opacity: 0; }
+    .plan-card.is-on { background: #0A0A0A; border-color: #C5A059; }
+    .plan-badge {
+        align-self: flex-start; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+        font-weight: 700; border-radius: 999px; padding: 3px 8px; background: #111; color: #C5A059;
+    }
+    .plan-card.is-on .plan-badge { background: #C5A059; color: #111; }
+    .plan-name { font-weight: 700; }
+    .plan-card.is-on .plan-name, .plan-card.is-on .plan-meta { color: #fff; }
+    .plan-price { font-size: 1.35rem; font-weight: 800; }
+    .plan-card.is-on .plan-price { color: #C5A059; }
+    .plan-meta, .plan-hint { font-size: .85rem; color: #6b7280; }
+    .plan-card.is-on .plan-hint { color: rgba(255,255,255,.6); }
+</style>
+@endpush
+
 @section('content')
-<div class="bg-[#0c1830] text-white min-h-[70vh] py-10 px-4">
-    <div class="max-w-2xl mx-auto">
-        <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Skyline Hotel</p>
-        <h1 class="font-serif text-3xl text-white mt-2">Become a Member</h1>
+<div class="bg-[#F7F1E8] text-[#0A0A0A] min-h-[70vh] py-10 px-4">
+    <div class="max-w-4xl mx-auto">
+        <p class="text-[11px] tracking-[0.22em] uppercase text-[#C5A059] m-0">Skyline Hotel</p>
+        <h1 class="font-serif text-3xl text-[#0A0A0A] mt-2">Become a Member</h1>
         @if (empty($ready))
             <p class="mt-6 text-white/70">Membership is being prepared. Please try again shortly.</p>
         @else
-            <p class="text-white/70 text-sm mt-3">Members receive a 10% discount. The free offer, when it is open, lasts 90 days and has no registration fee. Paid plans are collected at the hotel when staff approve the application.</p>
+            <p class="text-black/70 text-sm mt-3">Members receive a 10% discount. The free offer, when it is open, lasts 90 days and has no registration fee. Paid plans are collected at the hotel when staff approve the application.</p>
 
             @if ($errors->any())
                 <div class="mt-6 bg-red-950/40 border border-red-400/40 text-red-200 rounded-xl px-4 py-3 text-sm">
@@ -23,52 +48,60 @@
                 <input type="hidden" name="selfie_data" id="selfie-data">
                 <input type="hidden" name="signature" id="member-signature" value="{{ old('signature') }}">
 
-                <fieldset class="rounded-xl border border-white/10 p-4 space-y-2">
-                    <legend class="px-1 text-sm font-semibold text-brand-gold">Plan</legend>
+                <div class="plan-grid">
                     @if ($promo)
-                        <label class="flex gap-3 items-start">
-                            <input type="radio" name="plan_choice" value="promo" @if(old('plan_choice', 'promo') === 'promo') checked @endif required>
-                            <span><strong>{{ $promo->name }}</strong><br><span class="text-sm text-white/60">{{ $promo->description }}</span></span>
+                        <label class="plan-card {{ old('plan_choice', 'promo') === 'promo' ? 'is-on' : '' }}">
+                            <input type="radio" name="plan_choice" value="promo" @if(old('plan_choice', 'promo') === 'promo') checked @endif required onchange="skyPlan(this)">
+                            <span class="plan-badge">Promotion</span>
+                            <span class="plan-name">{{ $promo->name }}</span>
+                            <span class="plan-price">0 <span class="text-sm font-semibold">XAF</span></span>
+                            <span class="plan-meta">{{ (int) ($promo->free_days ?: 90) }} days</span>
+                            <span class="plan-hint">Tap to continue</span>
                         </label>
                     @endif
                     @foreach ($plans as $plan)
-                        <label class="flex gap-3 items-start">
-                            <input type="radio" name="plan_choice" value="{{ $plan->id }}" @if(old('plan_choice') == $plan->id) checked @endif required>
-                            <span>{{ $plan->name }} — {{ number_format((float) $plan->fee, 0) }} XAF for {{ $plan->duration_months }} {{ $plan->duration_months == 1 ? 'month' : 'months' }}</span>
+                        @php $months = (int) $plan->duration_months; $span = $months === 1 ? '1 Month' : $months.' Months'; @endphp
+                        <label class="plan-card {{ (string) old('plan_choice') === (string) $plan->id ? 'is-on' : '' }}">
+                            <input type="radio" name="plan_choice" value="{{ $plan->id }}" @if((string) old('plan_choice') === (string) $plan->id) checked @endif required onchange="skyPlan(this)">
+                            <span class="plan-badge">{{ $span }}</span>
+                            <span class="plan-name">{{ $plan->name }}</span>
+                            <span class="plan-price">{{ number_format((float) $plan->fee, 0) }} <span class="text-sm font-semibold">XAF</span></span>
+                            <span class="plan-meta">{{ $span }}</span>
+                            <span class="plan-hint">Tap to continue</span>
                         </label>
                     @endforeach
-                </fieldset>
+                </div>
 
-                <input name="full_name" value="{{ old('full_name') }}" required placeholder="Full name" class="w-full rounded-md bg-black border border-white/15 px-3 py-2">
-                <input name="email" type="email" value="{{ old('email') }}" placeholder="Email, optional" class="w-full rounded-md bg-black border border-white/15 px-3 py-2">
-                <input name="phone" value="{{ old('phone') }}" required placeholder="WhatsApp number" class="w-full rounded-md bg-black border border-white/15 px-3 py-2">
-                <select name="nationality" required class="w-full rounded-md bg-black border border-white/15 px-3 py-2">
+                <input name="full_name" value="{{ old('full_name') }}" required placeholder="Full name" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
+                <input name="email" type="email" value="{{ old('email') }}" placeholder="Email, optional" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
+                <input name="phone" value="{{ old('phone') }}" required placeholder="WhatsApp number" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
+                <select name="nationality" required class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                     <option value="">Nationality</option>
                     @foreach ($countries as $country)
                         <option value="{{ $country }}" @if(old('nationality', 'Cameroon') === $country) selected @endif>{{ $country }}</option>
                     @endforeach
                 </select>
                 <div class="grid sm:grid-cols-2 gap-3">
-                    <select name="id_type" required class="rounded-md bg-black border border-white/15 px-3 py-2">
+                    <select name="id_type" required class="rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                         <option value="national_id" @if(old('id_type') === 'national_id') selected @endif>National ID</option>
                         <option value="passport" @if(old('id_type') === 'passport') selected @endif>Passport</option>
                     </select>
-                    <input name="id_number" value="{{ old('id_number') }}" required placeholder="ID number" class="rounded-md bg-black border border-white/15 px-3 py-2">
+                    <input name="id_number" value="{{ old('id_number') }}" required placeholder="ID number" class="rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                 </div>
-                <label class="block text-sm text-white/70">ID expiry
-                    <input type="date" name="id_expires_on" value="{{ old('id_expires_on') }}" required class="mt-1 w-full rounded-md bg-black border border-white/15 px-3 py-2 text-white">
+                <label class="block text-sm text-black/70">ID expiry
+                    <input type="date" name="id_expires_on" value="{{ old('id_expires_on') }}" required class="mt-1 w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                 </label>
-                <label class="block text-sm text-white/70">Photo of the ID
+                <label class="block text-sm text-black/70">Photo of the ID
                     <input type="file" id="id-photo-file" accept="image/*" capture="environment" required class="mt-1 block w-full text-sm">
                 </label>
-                <label class="block text-sm text-white/70">Selfie
+                <label class="block text-sm text-black/70">Selfie
                     <input type="file" id="selfie-file" accept="image/*" capture="user" required class="mt-1 block w-full text-sm">
                 </label>
 
                 @if ($agreement)
-                    <div class="rounded-xl border border-white/10 p-4">
+                    <div class="rounded-xl border border-black/10 bg-white p-4">
                         <h2 class="text-sm font-semibold text-brand-gold m-0">{{ $agreement->title }}</h2>
-                        <pre class="whitespace-pre-wrap text-sm text-white/75 mt-3 font-sans">{{ $agreement->body }}</pre>
+                        <pre class="whitespace-pre-wrap text-sm text-black/75 mt-3 font-sans">{{ $agreement->body }}</pre>
                         <label class="flex gap-2 mt-3 text-sm"><input type="checkbox" name="accept_agreement" value="1" required> I accept this agreement</label>
                     </div>
                 @endif
@@ -77,7 +110,7 @@
                     <button type="button" id="member-signature-open" class="inline-flex bg-white/10 border border-brand-gold/50 text-brand-gold font-semibold px-5 py-3 rounded-md">Sign the agreement</button>
                     <p id="member-signature-status" class="text-sm text-green-400 mt-2 mb-0 hidden">Signature added</p>
                 </div>
-                <button type="submit" class="w-full bg-brand-gold text-[#0c1830] font-bold py-3 rounded-full">Submit application</button>
+                <button type="submit" class="w-full bg-[#0A0A0A] text-[#C5A059] font-bold py-3 rounded-full">Submit application</button>
             </form>
         @endif
     </div>
@@ -117,7 +150,12 @@
     var input = document.getElementById('member-signature');
     var form = document.getElementById('member-form');
     if (!canvas || typeof SignaturePad === 'undefined') return;
-    var pad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)', penColor: 'rgb(12,24,48)' });
+    var pad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)', penColor: 'rgb(10,10,10)' });
+    window.skyPlan = function (input) {
+        var cards = document.querySelectorAll('.plan-card');
+        for (var i = 0; i < cards.length; i++) cards[i].classList.remove('is-on');
+        input.closest('.plan-card').classList.add('is-on');
+    };
     function resize() {
         var ratio = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = canvas.offsetWidth * ratio;

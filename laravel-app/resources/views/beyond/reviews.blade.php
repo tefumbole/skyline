@@ -8,29 +8,32 @@
     .review-score span {
         display: inline-flex; align-items: center; justify-content: center;
         width: 2.75rem; height: 2.75rem; border-radius: 999px;
-        border: 1px solid rgba(225,179,104,.7); color: #e1b368; font-weight: 700;
+        border: 1px solid rgba(197,160,89,.7); color: #C5A059; font-weight: 700;
     }
     .review-score input:checked + span,
-    .review-score input:focus + span { background: #e1b368; color: #0c1830; }
+    .review-score input:focus + span { background: #C5A059; color: #0A0A0A; }
     details > summary::-webkit-details-marker { display: none; }
 </style>
 @endpush
 
 @section('content')
-<div class="bg-[#0c1830] text-white min-h-[70vh] py-10 px-4">
-    <div class="max-w-xl mx-auto">
-        <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Skyline Hotel</p>
-        <h1 class="font-serif text-3xl text-white mt-2">Reviews</h1>
-        <p class="text-white/70 text-sm mt-3">
+<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-12 px-4">
+    <div class="max-w-xl mx-auto text-center">
+        <p class="text-[11px] tracking-[0.28em] uppercase text-brand-gold m-0">Skyline Hotel</p>
+        <h1 class="font-serif text-3xl sm:text-4xl text-white mt-3">How was your visit?</h1>
+        <p class="text-5xl font-serif text-[#C5A059] mt-6 mb-1">
+            {{ $summary['count'] ? number_format((float) $summary['average'], 1) : '—' }}<span class="text-2xl text-white/50">/5</span>
+        </p>
+        <p class="text-white/60 text-sm mt-2">
             @if ($summary['count'])
-                {{ $summary['average'] }} out of 5 from {{ $summary['count'] }} {{ $summary['count'] === 1 ? 'review' : 'reviews' }}
+                {{ $summary['count'] }} {{ $summary['count'] === 1 ? 'review' : 'reviews' }}
             @else
                 No reviews yet. Be the first.
             @endif
         </p>
 
         @if ($summary['rows']->isNotEmpty())
-            <div class="mt-4 space-y-3">
+            <div class="mt-8 space-y-3 text-left">
                 @foreach ($summary['rows']->take(8) as $review)
                     <article class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
                         <div class="flex justify-between gap-3 text-sm">
@@ -69,7 +72,7 @@
                         @csrf
                         <input type="text" name="otp" maxlength="6" required inputmode="numeric" autocomplete="one-time-code"
                                class="w-full rounded-md bg-black border border-white/15 px-3 py-3 text-center text-2xl tracking-widest font-bold text-white" placeholder="••••••">
-                        <button type="submit" class="w-full bg-brand-gold text-[#0c1830] font-bold py-3 rounded-md">Confirm review</button>
+                        <button type="submit" class="w-full bg-brand-gold text-[#0A0A0A] font-bold py-3 rounded-md">Confirm review</button>
                     </form>
                     <form method="POST" action="{{ route('beyond.reviews.resend') }}" class="mt-3 text-center">
                         @csrf
@@ -79,7 +82,7 @@
             @endif
 
             <details class="mt-8" @if($errors->any() && empty($verifyStep)) open @endif>
-                <summary class="list-none cursor-pointer inline-flex items-center justify-center bg-brand-gold text-[#0c1830] font-bold px-6 py-3 rounded-full">Add a review</summary>
+                <summary class="list-none cursor-pointer inline-flex items-center justify-center bg-brand-gold text-[#0A0A0A] font-bold px-6 py-3 rounded-full">Add a review</summary>
                 <form method="POST" action="{{ route('beyond.reviews.store') }}" id="guest-review-form" class="mt-6 space-y-5">
                     @csrf
                     <input type="hidden" name="reference" value="{{ old('reference', $reference) }}">
@@ -140,7 +143,7 @@
                         <p id="review-signature-status" class="text-sm text-green-400 mt-2 mb-0 hidden">Signature added</p>
                         <img id="review-signature-preview" alt="" class="hidden max-h-20 mt-3 rounded bg-white border border-white/10">
                     </div>
-                    <button type="submit" class="w-full bg-brand-gold text-[#0c1830] font-bold py-3 rounded-md">Submit review</button>
+                    <button type="submit" class="w-full bg-brand-gold text-[#0A0A0A] font-bold py-3 rounded-md">Submit review</button>
                 </form>
             </details>
         @endif
@@ -155,7 +158,7 @@
         <div class="mt-3 flex flex-wrap gap-2 justify-end">
             <button type="button" id="review-signature-clear" class="text-sm text-white/70 underline px-3 py-2">Clear</button>
             <button type="button" id="review-signature-close" class="px-4 py-2 text-sm text-white/80">Close</button>
-            <button type="button" id="review-signature-save" class="bg-brand-gold text-[#0c1830] font-semibold px-4 py-2 rounded-md text-sm">Save signature</button>
+            <button type="button" id="review-signature-save" class="bg-brand-gold text-[#0A0A0A] font-semibold px-4 py-2 rounded-md text-sm">Save signature</button>
         </div>
     </div>
 </div>

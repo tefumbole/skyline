@@ -5,9 +5,13 @@
 
 @section('content')
 
-<section class="py-10 bg-[#f7f4ee] min-h-screen">
+<section class="py-10 bg-[#F7F1E8] min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <form method="GET" action="{{ url('/events') }}" class="mb-8 flex flex-col md:flex-row gap-4 items-stretch md:items-end">
+        <div class="text-center mb-8">
+            <p class="text-[11px] tracking-[0.22em] uppercase text-[#C5A059] m-0">Skyline Hotel</p>
+            <h1 class="font-serif text-4xl text-[#0A0A0A] mt-2">Events</h1>
+        </div>
+        <form method="GET" action="{{ url('/events') }}" class="mb-8 bg-white rounded-2xl border border-black/5 shadow-sm p-4 flex flex-col md:flex-row gap-4 items-stretch md:items-end">
             <div class="flex-1">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
                 <input type="text" name="q" value="{{ request('q') }}" placeholder="Search events…"
@@ -30,7 +34,7 @@
                     @endforeach
                 </select>
             </div>
-            <button type="submit" class="px-6 py-2 bg-brand-blue text-white font-semibold rounded-lg hover:bg-brand-dark transition">Search</button>
+            <button type="submit" class="px-6 py-2 bg-[#0A0A0A] text-[#C5A059] font-semibold rounded-lg hover:bg-black transition">Search</button>
         </form>
 
         @if ($events->isEmpty())

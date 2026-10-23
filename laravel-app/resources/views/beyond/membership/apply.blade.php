@@ -48,10 +48,11 @@
                 <input type="hidden" name="selfie_data" id="selfie-data">
                 <input type="hidden" name="signature" id="member-signature" value="{{ old('signature') }}">
 
+                @php $chosenPlan = (string) old('plan_choice'); @endphp
                 <div class="plan-grid">
                     @if ($promo)
-                        <label class="plan-card {{ old('plan_choice', 'promo') === 'promo' ? 'is-on' : '' }}">
-                            <input type="radio" name="plan_choice" value="promo" @if(old('plan_choice', 'promo') === 'promo') checked @endif required onchange="skyPlan(this)">
+                        <label class="plan-card {{ $chosenPlan === 'promo' ? 'is-on' : '' }}" onclick="skyPlan(this)">
+                            <input type="radio" name="plan_choice" value="promo" @if($chosenPlan === 'promo') checked @endif required>
                             <span class="plan-badge">Promotion</span>
                             <span class="plan-name">{{ $promo->name }}</span>
                             <span class="plan-price">0 <span class="text-sm font-semibold">XAF</span></span>
@@ -61,8 +62,8 @@
                     @endif
                     @foreach ($plans as $plan)
                         @php $months = (int) $plan->duration_months; $span = $months === 1 ? '1 Month' : $months.' Months'; @endphp
-                        <label class="plan-card {{ (string) old('plan_choice') === (string) $plan->id ? 'is-on' : '' }}">
-                            <input type="radio" name="plan_choice" value="{{ $plan->id }}" @if((string) old('plan_choice') === (string) $plan->id) checked @endif required onchange="skyPlan(this)">
+                        <label class="plan-card {{ $chosenPlan === (string) $plan->id ? 'is-on' : '' }}" onclick="skyPlan(this)">
+                            <input type="radio" name="plan_choice" value="{{ $plan->id }}" @if($chosenPlan === (string) $plan->id) checked @endif required>
                             <span class="plan-badge">{{ $span }}</span>
                             <span class="plan-name">{{ $plan->name }}</span>
                             <span class="plan-price">{{ number_format((float) $plan->fee, 0) }} <span class="text-sm font-semibold">XAF</span></span>
@@ -72,6 +73,8 @@
                     @endforeach
                 </div>
 
+                <div id="member-details" class="space-y-4" @if(! $errors->any()) hidden @endif>
+                <p class="text-sm text-black/60 m-0"><button type="button" class="underline" onclick="document.getElementById('member-details').hidden = true">Change plan</button></p>
                 <input name="full_name" value="{{ old('full_name') }}" required placeholder="Full name" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                 <input name="email" type="email" value="{{ old('email') }}" placeholder="Email, optional" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
                 <input name="phone" value="{{ old('phone') }}" required placeholder="WhatsApp number" class="w-full rounded-md bg-white border border-black/10 text-[#0A0A0A] px-3 py-2">
@@ -111,6 +114,7 @@
                     <p id="member-signature-status" class="text-sm text-green-400 mt-2 mb-0 hidden">Signature added</p>
                 </div>
                 <button type="submit" class="w-full bg-[#0A0A0A] text-[#C5A059] font-bold py-3 rounded-full">Submit application</button>
+                </div>
             </form>
         @endif
     </div>
@@ -130,6 +134,19 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 <script>
+window.skyPlan = function (node) {
+    var card = node.closest ? (node.closest('.plan-card') || node) : node;
+    var input = card.querySelector ? card.querySelector('input[name="plan_choice"]') : null;
+    if (input) input.checked = true;
+    var cards = document.querySelectorAll('.plan-card');
+    for (var i = 0; i < cards.length; i++) cards[i].classList.remove('is-on');
+    if (card.classList) card.classList.add('is-on');
+    var details = document.getElementById('member-details');
+    if (details) {
+        details.hidden = false;
+        details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};
 (function () {
     function fileToData(input, hidden) {
         input.addEventListener('change', function () {
@@ -151,11 +168,6 @@
     var form = document.getElementById('member-form');
     if (!canvas || typeof SignaturePad === 'undefined') return;
     var pad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)', penColor: 'rgb(10,10,10)' });
-    window.skyPlan = function (input) {
-        var cards = document.querySelectorAll('.plan-card');
-        for (var i = 0; i < cards.length; i++) cards[i].classList.remove('is-on');
-        input.closest('.plan-card').classList.add('is-on');
-    };
     function resize() {
         var ratio = Math.max(window.devicePixelRatio || 1, 1);
         canvas.width = canvas.offsetWidth * ratio;

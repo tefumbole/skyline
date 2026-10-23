@@ -73,22 +73,25 @@ class CategoryController extends Controller
                 $nestedData['id'] = $category->id;
                 $nestedData['key'] = $key;
 
-                if($category->image)
-                    $nestedData['image'] = '<img src="'.url('public/images/category', $category->image).'" height="70" width="70">';
-                else
-                    $nestedData['image'] = '<img src="'.url('public/images/product/zummXD2dvAtI.png').'" height="80" width="80">';
+                $imageUrl = $category->image
+                    ? \App\Support\PosProductImage::catalogUrl('category', $category->image)
+                    : \App\Support\PosProductImage::url('zummXD2dvAtI.png');
+                $nestedData['image'] = '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('category/'.$category->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.e($imageUrl).'" height="70" width="70"></div>';
 
-                $nestedData['name'] = $category->name.($category->department ? ' ('.ucfirst($category->department).')' : '');
+                $label = e($category->name).($category->department ? ' ('.e(ucfirst($category->department)).')' : '');
+                $nestedData['name'] = '<a href="'.e(url('products?category_id='.$category->id)).'">'.$label.'</a>';
 
                 if($category->parent_id)
                     $nestedData['parent_id'] = Category::find($category->parent_id)->name;
                 else
                     $nestedData['parent_id'] = "N/A";
 
-                $nestedData['number_of_product'] = $category->product()->where('is_active', true)->count();
-                $nestedData['stock_qty'] = $category->product()->where('is_active', true)->sum('qty');
-                $total_price = $category->product()->where('is_active', true)->sum(DB::raw('price * qty'));
-                $total_cost = $category->product()->where('is_active', true)->sum(DB::raw('cost * qty'));
+                $productIds = $this->categoryTreeIds($category->id);
+                $categoryProducts = Product::where('is_active', true)->whereIn('category_id', $productIds);
+                $nestedData['number_of_product'] = (clone $categoryProducts)->count();
+                $nestedData['stock_qty'] = (clone $categoryProducts)->sum('qty');
+                $total_price = (clone $categoryProducts)->sum(DB::raw('price * qty'));
+                $total_cost = (clone $categoryProducts)->sum(DB::raw('cost * qty'));
 
                 if(config('currency_position') == 'prefix')
                     $nestedData['stock_worth'] = config('currency').' '.$total_price.' / '.config('currency').' '.$total_cost;
@@ -271,5 +274,53 @@ class CategoryController extends Controller
             unlink('public/images/category/'.$lims_category_data->image);
         $lims_category_data->save();
         return redirect('category')->with('not_permitted', 'Category deleted successfully');
+    }
+
+    public function pasteImage(Request $request, $id)
+    {
+        $role = Role::find(Auth::user()->role_id);
+        if (! $role || ! $role->hasPermissionTo('category')) {
+            return response()->json(['message' => 'You are not allowed to edit categories.'], 403);
+        }
+        $request->validate([
+            'image' => 'required|image|mimes:jpg,jpeg,png,gif,webp',
+        ]);
+        $category = Category::where('is_active', true)->findOrFail($id);
+        $stored = \App\Support\PosProductImage::storeUpload($request->file('image'), 'category');
+        if (! $stored) {
+            return response()->json(['message' => 'Could not save that image.'], 422);
+        }
+        $category->image = $stored;
+        $category->save();
+
+        return response()->json([
+            'url' => \App\Support\PosProductImage::catalogUrl('category', $stored).'?v='.time(),
+        ]);
+    }
+
+    protected function categoryTreeIds($id)
+    {
+        $id = (int) $id;
+        if ($id < 1) {
+            return [];
+        }
+        $children = [];
+        foreach (Category::where('is_active', true)->get(['id', 'parent_id']) as $row) {
+            $children[(int) $row->parent_id][] = (int) $row->id;
+        }
+        $ids = [];
+        $stack = [$id];
+        while ($stack) {
+            $current = array_pop($stack);
+            if (isset($ids[$current])) {
+                continue;
+            }
+            $ids[$current] = true;
+            foreach ($children[$current] ?? [] as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return array_keys($ids);
     }
 }

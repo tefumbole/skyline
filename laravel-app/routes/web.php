@@ -919,6 +919,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('category/import', 'CategoryController@import')->name('category.import');
 	Route::post('category/deletebyselection', 'CategoryController@deleteBySelection');
 	Route::post('category/category-data', 'CategoryController@categoryData');
+	Route::post('category/{id}/paste-image', 'CategoryController@pasteImage');
 	Route::resource('category', 'CategoryController');
 
 	Route::post('importbrand', 'BrandController@importBrand')->name('brand.import');
@@ -943,6 +944,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 
 	//Route::get('products/getbarcode', 'ProductController@getBarcode');
 	Route::post('products/product-data', 'ProductController@productData');
+	Route::post('products/{id}/paste-image', 'ProductController@pasteImage');
 	Route::post('products/inline-update', 'ProductController@inlineUpdate')->name('products.inline-update');
 	Route::post('products/product-data/vendor', 'ProductController@productDataVendor');
 	Route::get('products/gencode', 'ProductController@generateCode');

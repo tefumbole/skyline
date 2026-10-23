@@ -23,6 +23,7 @@
         <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans("file.Add Category")}}</button>&nbsp;
         <button class="btn btn-primary" data-toggle="modal" data-target="#importCategory"><i class="dripicons-copy"></i> {{trans('file.Import Category')}}</button>
+        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image.</p>
     </div>
     <div class="table-responsive">
         <table id="category-table" class="table" style="width: 100%">

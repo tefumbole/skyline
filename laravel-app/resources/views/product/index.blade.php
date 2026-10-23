@@ -27,12 +27,25 @@
         .product-modern table thead th { background: #f8fafc; border-bottom: 1px solid #d0d5dd !important; color: #344054; font-size: 13px; }
         .product-modern table td { border-top: 1px solid #eaecf0; vertical-align: middle; }
         .product-modern table img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid #e4e7ec; background: #f8fafc; }
-        .w2k-paste { display:inline-block; border-radius:10px; outline:none; cursor:copy; }
+        .w2k-paste { display:inline-block; border-radius:8px; outline:none; cursor:copy; }
         .w2k-paste:hover, .w2k-paste:focus { box-shadow:0 0 0 2px #C5A059; }
         .w2k-paste.is-saving { opacity:.55; }
-        #product-data-table td.js-inline { cursor:text; }
-        #product-data-table td.js-inline:hover { background:#fff8ea; }
-        #product-data-table .w2k-inline-input, #product-data-table .w2k-inline-select { width:100%; min-width:90px; }
+        .w2k-product-list-hint { margin:6px 0 0; color:#6b4f2a; font-size:13px; }
+        #product-data-table td.js-inline { cursor:text; position:relative; }
+        #product-data-table td.js-inline:hover { background:#fff8e8; box-shadow:inset 0 0 0 1px #c5a059; }
+        #product-data-table td.js-inline.is-saving { opacity:.65; }
+        #product-data-table .w2k-inline-input,
+        #product-data-table .w2k-inline-select {
+            width:100%;
+            min-width:72px;
+            border:1px solid #c5a059;
+            border-radius:8px;
+            padding:4px 8px;
+            background:#fffdf8;
+            font-size:13px;
+        }
+        #product-data-table td.js-inline-ok { animation:w2kInlineOk .7s ease; }
+        @keyframes w2kInlineOk { from { background:#e8f8ee; } to { background:transparent; } }
         .product-modern .form-control, .product-modern select.form-control { border: 1px solid #d0d5dd; border-radius: 8px; min-height: 36px; background: #fff; }
         .product-modern .dataTables_wrapper .dataTables_filter input,
         .product-modern .dataTables_wrapper .dataTables_length select { border: 1px solid #d0d5dd; border-radius: 8px; padding: 6px 10px; }
@@ -42,9 +55,10 @@
         <div>
             <h3>{{ __('file.product_list') }}</h3>
             @if(!empty($filterCategory))
-                <p style="margin:6px 0 0;color:#6b4f2a;">Products in <strong>{{ $filterCategory->name }}</strong>, including its subcategories. <a href="{{ url('products') }}">Show all products</a></p>
-            @elseif(!empty($all_permission) && in_array('products-edit', $all_permission))
-                <p style="margin:6px 0 0;color:#6b4f2a;">Click a product photo, then paste an image. Click the name, brand, category, or quantity to edit it.</p>
+                <p class="w2k-product-list-hint">Products in <strong>{{ $filterCategory->name }}</strong>, including its subcategories. <a href="{{ url('products') }}">Show all products</a></p>
+            @endif
+            @if(!empty($all_permission) && in_array('products-edit', $all_permission))
+                <p class="w2k-product-list-hint">Click a product photo, then paste an image. Click a name, quantity, price, cost, brand, category, or unit to change it. Press Enter or click away to save.</p>
             @endif
         </div>
         <div class="product-actions">
@@ -201,7 +215,11 @@
     });
 
     $(document).on("click", "tr.product-link td:not(:first-child, :last-child)", function(e) {
-        if ($(this).hasClass('js-inline') || $(e.target).closest('input, select, option, button, .w2k-paste, .w2k-inline-input, .w2k-inline-select').length) {
+        if ($(this).index() === 1 || $(this).hasClass('js-inline') || $(e.target).closest('input, select, option, button, .w2k-paste, .w2k-inline-input, .w2k-inline-select').length) {
+            if ($(this).index() === 1) {
+                var pasteBox = $(this).find('.w2k-paste').get(0);
+                if (pasteBox) pasteBox.focus();
+            }
             return;
         }
         productDetails( $(this).parent().data('product'), $(this).parent().data('imagedata') );
@@ -373,6 +391,7 @@
                     $tds.eq(4).addClass('js-inline').attr({'data-field':'brand_id','data-type':'select','data-value': data.brand_id || ''});
                     $tds.eq(5).addClass('js-inline').attr({'data-field':'category_id','data-type':'select','data-value': data.category_id || ''});
                     $tds.eq(6).addClass('js-inline').attr({'data-field':'qty','data-type':'number'});
+                    $tds.eq(7).addClass('js-inline').attr({'data-field':'unit_id','data-type':'select','data-value': data.unit_id || ''});
                     $tds.eq(8).addClass('js-inline').attr({'data-field':'price','data-type':'number'});
                     $tds.eq(9).addClass('js-inline').attr({'data-field':'cost','data-type':'number'});
                 }
@@ -600,6 +619,8 @@
                 }
                 var $worth = $td.closest('tr').children('td').eq(10);
                 if (display.stock_worth) $worth.text(display.stock_worth);
+                $td.addClass('js-inline-ok');
+                setTimeout(function () { $td.removeClass('js-inline-ok'); }, 700);
             })
             .fail(function (xhr) {
                 var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Could not save.';
@@ -641,9 +662,16 @@
             w2kSaveInline($td, field, value);
         });
         if (type === 'select') {
-            $input.on('change', function () { $input.trigger('w2k-save'); });
+            $input.on('change', function () {
+                $td.data('picked', 1);
+                $input.trigger('w2k-save');
+            });
             $input.on('blur', function () {
-                if ($td.data('editing')) $td.text($td.data('prev')).removeData('editing');
+                setTimeout(function () {
+                    if ($td.data('editing') && !$td.data('picked')) {
+                        $td.text($td.data('prev')).removeData('editing');
+                    }
+                }, 180);
             });
         } else {
             $input.on('blur', function () { $input.trigger('w2k-save'); });

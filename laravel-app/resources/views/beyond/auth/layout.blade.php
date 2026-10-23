@@ -26,19 +26,21 @@
     </script>
     <style>
         * { box-sizing: border-box; }
-        html, body { background: #0A0A0A; }
+        html { background: #0A0A0A; }
         body {
             margin: 0;
+            position: relative;
+            z-index: 0;
             font-family: Inter, ui-sans-serif, system-ui, sans-serif;
             min-height: 100vh;
-            background: #0A0A0A;
+            background: transparent;
         }
         body::before {
             content: "";
             position: fixed;
             z-index: -1;
             inset: -14%;
-            background: #0A0A0A url('{{ url('public/branding/chill-on-the-hill.jpg') }}?v=coffee') center center / cover no-repeat;
+            background: #0A0A0A url('{{ url('public/branding/chill-on-the-hill.jpg') }}?v=coffee2') center center / cover no-repeat;
         }
         .auth-page {
             min-height: 100vh;

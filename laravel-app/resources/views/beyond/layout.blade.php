@@ -227,11 +227,14 @@
 @php
     $navDefs = [
         'home'         => ['label' => 'Home', 'url' => url('/')],
+        'menu'         => ['label' => 'Menu', 'url' => url('/menu')],
         'events'       => ['label' => 'Events', 'url' => url('/events')],
         'rentals'      => ['label' => 'Rentals', 'url' => url('/rentals')],
         'apply'        => ['label' => 'Apply Now', 'url' => url('/apply-now'), 'special' => true],
         'permissions'  => ['label' => 'Permissions', 'url' => url('/permissions')],
         'about'        => ['label' => 'About Us', 'url' => url('/about')],
+        'services'     => ['label' => 'Services', 'url' => url('/services')],
+        'projects'     => ['label' => 'Projects', 'url' => url('/projects')],
         'gallery'      => ['label' => 'Gallery', 'url' => url('/gallery')],
     ];
     $navLinks = [];

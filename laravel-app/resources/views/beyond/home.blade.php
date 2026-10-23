@@ -111,6 +111,28 @@
             white-space: nowrap;
         }
         .login:hover { background: rgba(255, 255, 255, 0.08); }
+        .menus {
+            display: flex;
+            align-items: center;
+            gap: 6px 18px;
+            flex-shrink: 0;
+            overflow-x: auto;
+            background: #0c1830;
+            border-top: 1px solid rgba(225, 179, 104, 0.28);
+            padding: 8px max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left));
+            -webkit-overflow-scrolling: touch;
+        }
+        .menus a {
+            color: #e6d3a1;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .menus a:hover, .menus a.on { color: #fff6df; }
+        .menus a.special { color: #e1b368; }
         .hero {
             flex: 1 1 0;
             min-height: 0;
@@ -341,6 +363,25 @@
             <a class="login" href="{{ url('/login') }}">Admin login</a>
         </div>
     </header>
+    @php
+        $homeMenus = [
+            'home' => ['label' => 'Home', 'url' => url('/')],
+            'menu' => ['label' => 'Menu', 'url' => url('/menu')],
+            'events' => ['label' => 'Events', 'url' => url('/events')],
+            'rentals' => ['label' => 'Rentals', 'url' => url('/rentals')],
+            'apply' => ['label' => 'Apply Now', 'url' => url('/apply-now'), 'special' => true],
+            'permissions' => ['label' => 'Permissions', 'url' => url('/permissions')],
+            'about' => ['label' => 'About Us', 'url' => url('/about')],
+            'services' => ['label' => 'Services', 'url' => url('/services')],
+            'projects' => ['label' => 'Projects', 'url' => url('/projects')],
+            'gallery' => ['label' => 'Gallery', 'url' => url('/gallery')],
+        ];
+    @endphp
+    <nav class="menus" aria-label="Site">
+        @foreach($homeMenus as $item)
+            <a class="{{ !empty($item['special']) ? 'special' : '' }} {{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
+        @endforeach
+    </nav>
 
     <main class="hero">
         <div class="frame">

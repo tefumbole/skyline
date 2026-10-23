@@ -15,11 +15,14 @@ class SiteMenu
     {
         return [
             'home'         => 'Home',
+            'menu'         => 'Menu',
             'events'       => 'Events',
             'rentals'      => 'Rentals',
             'apply'        => 'Apply Now',
             'permissions'  => 'Permissions',
             'about'        => 'About Us',
+            'services'     => 'Services',
+            'projects'     => 'Projects',
             'gallery'      => 'Gallery',
             // Register Now removed — Training already covers course signup
             // Shareholders hidden from public nav (routes remain available)

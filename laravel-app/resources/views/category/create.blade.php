@@ -322,6 +322,10 @@
     } );
 
     var w2kPasteHover = null;
+    $(document).on('click', '.w2k-paste', function (e) {
+        e.stopPropagation();
+        this.focus();
+    });
     $(document).on('mouseenter', '.w2k-paste', function () { w2kPasteHover = this; });
     $(document).on('mouseleave', '.w2k-paste', function () { if (w2kPasteHover === this) w2kPasteHover = null; });
     $(document).on('paste', function (e) {

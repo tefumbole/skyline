@@ -30,6 +30,9 @@
         .w2k-paste { display:inline-block; border-radius:10px; outline:none; cursor:copy; }
         .w2k-paste:hover, .w2k-paste:focus { box-shadow:0 0 0 2px #C5A059; }
         .w2k-paste.is-saving { opacity:.55; }
+        #product-data-table td.js-inline { cursor:text; }
+        #product-data-table td.js-inline:hover { background:#fff8ea; }
+        #product-data-table .w2k-inline-input, #product-data-table .w2k-inline-select { width:100%; min-width:90px; }
         .product-modern .form-control, .product-modern select.form-control { border: 1px solid #d0d5dd; border-radius: 8px; min-height: 36px; background: #fff; }
         .product-modern .dataTables_wrapper .dataTables_filter input,
         .product-modern .dataTables_wrapper .dataTables_length select { border: 1px solid #d0d5dd; border-radius: 8px; padding: 6px 10px; }
@@ -41,7 +44,7 @@
             @if(!empty($filterCategory))
                 <p style="margin:6px 0 0;color:#6b4f2a;">Products in <strong>{{ $filterCategory->name }}</strong>, including its subcategories. <a href="{{ url('products') }}">Show all products</a></p>
             @elseif(!empty($all_permission) && in_array('products-edit', $all_permission))
-                <p style="margin:6px 0 0;color:#6b4f2a;">Click a product photo, then paste an image.</p>
+                <p style="margin:6px 0 0;color:#6b4f2a;">Click a product photo, then paste an image. Click the name, brand, category, or quantity to edit it.</p>
             @endif
         </div>
         <div class="product-actions">
@@ -177,7 +180,11 @@
     var is_admin_user = <?php echo json_encode(in_array(Auth::user()->role_id, [1, 2])) ?>;
     var can_manage_products = true || is_admin_user;
     var can_edit_products = all_permission.indexOf('products-edit') !== -1;
+    var can_inline_edit = can_edit_products;
     var productBrands = <?php echo json_encode($brands) ?>;
+    var brandOptions = (productBrands || []).map(function (brand) { return { id: brand.id, label: brand.title }; });
+    var categoryOptions = <?php echo json_encode($inlineCategories->map(function ($category) { return ['id' => $category->id, 'label' => $category->name]; })->values()) ?>;
+    var unitOptions = <?php echo json_encode($inlineUnits->map(function ($unit) { return ['id' => $unit->id, 'label' => $unit->unit_name]; })->values()) ?>;
     $.ajaxSetup({
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -194,7 +201,7 @@
     });
 
     $(document).on("click", "tr.product-link td:not(:first-child, :last-child)", function(e) {
-        if ($(e.target).closest('input, select, option, button, .product-inline, .w2k-paste').length) {
+        if ($(this).hasClass('js-inline') || $(e.target).closest('input, select, option, button, .w2k-paste, .w2k-inline-input, .w2k-inline-select').length) {
             return;
         }
         productDetails( $(this).parent().data('product'), $(this).parent().data('imagedata') );
@@ -359,6 +366,16 @@
                 $(row).addClass('product-link');
                 $(row).attr('data-product', data['product']);
                 $(row).attr('data-imagedata', data['imagedata']);
+                $(row).attr('data-id', data['id']);
+                if (can_inline_edit) {
+                    var $tds = $(row).children('td');
+                    $tds.eq(2).addClass('js-inline').attr({'data-field':'name','data-type':'text'});
+                    $tds.eq(4).addClass('js-inline').attr({'data-field':'brand_id','data-type':'select','data-value': data.brand_id || ''});
+                    $tds.eq(5).addClass('js-inline').attr({'data-field':'category_id','data-type':'select','data-value': data.category_id || ''});
+                    $tds.eq(6).addClass('js-inline').attr({'data-field':'qty','data-type':'number'});
+                    $tds.eq(8).addClass('js-inline').attr({'data-field':'price','data-type':'number'});
+                    $tds.eq(9).addClass('js-inline').attr({'data-field':'cost','data-type':'number'});
+                }
             },
             "columns": [
                 {"data": "key"},
@@ -389,49 +406,6 @@
                 {
                     "orderable": false,
                     'targets': [0, 1, 9, 10, 11]
-                },
-                {
-                    targets: 2,
-                    render: function (data, type, row) {
-                        if (type !== 'display' || !can_edit_products) {
-                            return data;
-                        }
-                        return '<input type="text" class="form-control product-inline product-inline-name" data-id="'+row.id+'" value="'+inlineAttr(data)+'">';
-                    }
-                },
-                {
-                    targets: 4,
-                    render: function (data, type, row) {
-                        if (type !== 'display' || !can_edit_products) {
-                            return data;
-                        }
-                        var html = '<select class="form-control product-inline product-inline-brand" data-id="'+row.id+'">';
-                        html += '<option value="">N/A</option>';
-                        for (var i = 0; i < productBrands.length; i++) {
-                            var brand = productBrands[i];
-                            html += '<option value="'+brand.id+'"'+(String(brand.id) === String(row.brand_id) ? ' selected' : '')+'>'+inlineAttr(brand.title)+'</option>';
-                        }
-                        html += '</select>';
-                        return html;
-                    }
-                },
-                {
-                    targets: 8,
-                    render: function (data, type, row) {
-                        if (type !== 'display' || !can_edit_products) {
-                            return data;
-                        }
-                        return '<input type="number" step="any" class="form-control product-inline product-inline-price" data-id="'+row.id+'" value="'+inlineAttr(data)+'">';
-                    }
-                },
-                {
-                    targets: 9,
-                    render: function (data, type, row) {
-                        if (type !== 'display' || !can_edit_products) {
-                            return data;
-                        }
-                        return '<input type="number" step="any" class="form-control product-inline product-inline-cost" data-id="'+row.id+'" value="'+inlineAttr(data)+'">';
-                    }
                 },
                 {
                     targets: 10,
@@ -604,41 +578,83 @@
             .replace(/</g, '&lt;');
     }
 
-    function saveProductInline($field) {
-        var $row = $field.closest('tr');
-        var id = $field.data('id');
-        $row.find('.product-inline-status').remove();
-        $.ajax({
-            url: '{{ route('products.inline-update') }}',
-            type: 'POST',
-            data: {
-                id: id,
-                name: $row.find('.product-inline-name').val(),
-                price: $row.find('.product-inline-price').val(),
-                cost: $row.find('.product-inline-cost').val(),
-                brand_id: $row.find('.product-inline-brand').val()
-            },
-            success: function (res) {
-                if (res.stock_worth) {
-                    $row.find('.product-inline-worth').text(res.stock_worth);
-                }
-                $field.after('<small class="product-inline-status text-success">Saved</small>');
-            },
-            error: function (xhr) {
-                var message = 'Could not save.';
-                if (xhr.responseJSON && xhr.responseJSON.error) {
-                    message = xhr.responseJSON.error;
-                }
-                $field.after('<small class="product-inline-status text-danger">'+inlineAttr(message)+'</small>');
-            }
+    function w2kSelectOptions(field, selected) {
+        var list = field === 'brand_id' ? brandOptions : (field === 'category_id' ? categoryOptions : unitOptions);
+        var html = field === 'brand_id' ? '<option value="">N/A</option>' : '<option value="">Select…</option>';
+        (list || []).forEach(function (opt) {
+            html += '<option value="'+opt.id+'"'+(String(opt.id) === String(selected) ? ' selected' : '')+'>'+inlineAttr(opt.label)+'</option>';
         });
+        return html;
     }
 
-    $(document).on('change', '.product-inline-name, .product-inline-price, .product-inline-cost, .product-inline-brand', function () {
-        saveProductInline($(this));
+    function w2kSaveInline($td, field, value) {
+        var id = $td.closest('tr').data('id');
+        $td.addClass('is-saving');
+        $.post("{{ route('product.quick-update') }}", { id: id, field: field, value: value })
+            .done(function (res) {
+                var display = res.display || {};
+                var labels = { name: display.name, brand_id: display.brand, category_id: display.category, qty: display.qty, unit_id: display.unit, price: display.price, cost: display.cost };
+                $td.text(labels[field] != null ? labels[field] : value);
+                if (res.ids && $td.data('type') === 'select') {
+                    $td.attr('data-value', res.ids[field] || '');
+                }
+                var $worth = $td.closest('tr').children('td').eq(10);
+                if (display.stock_worth) $worth.text(display.stock_worth);
+            })
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Could not save.';
+                alert(msg);
+                $td.text($td.data('prev') || '');
+            })
+            .always(function () {
+                $td.removeClass('is-saving').removeData('editing');
+            });
+    }
+
+    $(document).on('click', '#product-data-table td.js-inline', function (e) {
+        e.stopPropagation();
+        var $td = $(this);
+        if (!can_inline_edit || $td.data('editing')) return;
+        var field = $td.data('field');
+        var type = $td.data('type');
+        var current = $.trim($td.text());
+        $td.data('prev', current).data('editing', 1).empty();
+        var $input;
+        if (type === 'select') {
+            $input = $('<select class="w2k-inline-select form-control"></select>').html(w2kSelectOptions(field, $td.attr('data-value')));
+        } else {
+            $input = $('<input class="w2k-inline-input form-control">').attr({ type: type === 'number' ? 'number' : 'text', step: type === 'number' ? 'any' : undefined }).val(current === 'N/A' ? '' : current);
+        }
+        $td.append($input);
+        $input.focus().on('click', function (ev) { ev.stopPropagation(); });
+        $input.on('keydown', function (ev) {
+            if (ev.key === 'Enter') { ev.preventDefault(); $input.trigger('w2k-save'); }
+            if (ev.key === 'Escape') { $td.text($td.data('prev')).removeData('editing'); }
+        });
+        $input.on('w2k-save', function () {
+            if (!$td.data('editing')) return;
+            var value = $input.val();
+            if (String(value) === String($td.data('prev')) || (type === 'select' && String(value) === String($td.attr('data-value') || ''))) {
+                $td.text($td.data('prev')).removeData('editing');
+                return;
+            }
+            w2kSaveInline($td, field, value);
+        });
+        if (type === 'select') {
+            $input.on('change', function () { $input.trigger('w2k-save'); });
+            $input.on('blur', function () {
+                if ($td.data('editing')) $td.text($td.data('prev')).removeData('editing');
+            });
+        } else {
+            $input.on('blur', function () { $input.trigger('w2k-save'); });
+        }
     });
 
     var w2kPasteHover = null;
+    $(document).on('click', '.w2k-paste', function (e) {
+        e.stopPropagation();
+        this.focus();
+    });
     $(document).on('mouseenter', '.w2k-paste', function () { w2kPasteHover = this; });
     $(document).on('mouseleave', '.w2k-paste', function () { if (w2kPasteHover === this) w2kPasteHover = null; });
     $(document).on('paste', function (e) {

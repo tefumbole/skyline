@@ -35,11 +35,13 @@ class ProductController extends Controller
             if(empty($all_permission))
                 $all_permission[] = 'dummy text';
             $brands = Brand::where('is_active', true)->orderBy('title')->get(['id', 'title']);
+            $inlineCategories = Category::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+            $inlineUnits = Unit::where('is_active', true)->whereNull('base_unit')->orderBy('unit_name')->get(['id', 'unit_name']);
             $filterCategory = null;
             if ((int) $request->input('category_id') > 0) {
                 $filterCategory = Category::where('is_active', true)->find((int) $request->input('category_id'));
             }
-            return view('product.index', compact('all_permission', 'brands', 'filterCategory'));
+            return view('product.index', compact('all_permission', 'brands', 'inlineCategories', 'inlineUnits', 'filterCategory'));
         }
         else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
@@ -239,8 +241,10 @@ class ProductController extends Controller
                     $nestedData['brand'] = $product->brand->title;
                 else
                     $nestedData['brand'] = "N/A";
+                $nestedData['category_id'] = $product->category_id ? (int) $product->category_id : '';
                 $nestedData['category'] = $product->category->name;
                 $nestedData['qty'] = $product->qty;
+                $nestedData['unit_id'] = $product->unit_id ? (int) $product->unit_id : '';
                 if($product->unit_id)
                     $nestedData['unit'] = $product->unit->unit_name;
                 else
@@ -300,6 +304,105 @@ class ProductController extends Controller
         );
 
         echo json_encode($json_data);
+    }
+
+    public function quickUpdate(Request $request)
+    {
+        $role = Role::find(Auth::user()->role_id);
+        if (! $role || ! $role->hasPermissionTo('products-edit')) {
+            return response()->json(['message' => 'You are not allowed to edit products.'], 403);
+        }
+
+        $field = $request->input('field');
+        $allowed = ['name', 'qty', 'price', 'cost', 'brand_id', 'category_id', 'unit_id'];
+        if (! in_array($field, $allowed, true)) {
+            return response()->json(['message' => 'That field cannot be edited here.'], 422);
+        }
+
+        $product = Product::where('is_active', true)->find($request->input('id'));
+        if (! $product) {
+            return response()->json(['message' => 'Product was not found.'], 404);
+        }
+        $value = $request->input('value');
+
+        if ($field === 'name') {
+            $value = htmlspecialchars(trim((string) $value));
+            if ($value === '') {
+                return response()->json(['message' => 'Name cannot be empty.'], 422);
+            }
+            $taken = Product::where('name', $value)->where('is_active', 1)->where('id', '!=', $product->id)->exists();
+            if ($taken) {
+                return response()->json(['message' => 'Another product already uses this name.'], 422);
+            }
+            $product->name = $value;
+        } elseif (in_array($field, ['qty', 'price', 'cost'], true)) {
+            if ($value === '' || $value === null || ! is_numeric($value)) {
+                return response()->json(['message' => 'Enter a valid number.'], 422);
+            }
+            $product->{$field} = $value + 0;
+            if ($field === 'qty') {
+                $warehouse = Warehouse::where('is_active', true)->first();
+                if ($warehouse) {
+                    $row = Product_Warehouse::where('product_id', $product->id)->where('warehouse_id', $warehouse->id)->first();
+                    if ($row) {
+                        $row->update(['qty' => $product->qty]);
+                    } else {
+                        Product_Warehouse::create([
+                            'product_id' => $product->id,
+                            'warehouse_id' => $warehouse->id,
+                            'qty' => $product->qty,
+                        ]);
+                    }
+                }
+            }
+        } elseif ($field === 'brand_id') {
+            $product->brand_id = ($value === '' || $value === null) ? null : (int) $value;
+        } elseif ($field === 'category_id') {
+            if ($value === '' || $value === null) {
+                return response()->json(['message' => 'Choose a category.'], 422);
+            }
+            $product->category_id = (int) $value;
+        } elseif ($field === 'unit_id') {
+            $unitId = ($value === '' || $value === null) ? 0 : (int) $value;
+            if ($product->sale_unit_id == $product->unit_id || empty($product->sale_unit_id)) {
+                $product->sale_unit_id = $unitId;
+            }
+            if ($product->purchase_unit_id == $product->unit_id || empty($product->purchase_unit_id)) {
+                $product->purchase_unit_id = $unitId;
+            }
+            $product->unit_id = $unitId;
+        }
+
+        $product->save();
+        $product->load(['category', 'brand', 'unit']);
+
+        $qty = $product->qty;
+        $price = $product->price;
+        $cost = $product->cost;
+        if (config('currency_position') == 'prefix') {
+            $stockWorth = config('currency').' '.($qty * $price).' / '.config('currency').' '.($qty * $cost);
+        } else {
+            $stockWorth = ($qty * $price).' '.config('currency').' / '.($qty * $cost).' '.config('currency');
+        }
+
+        return response()->json([
+            'success' => true,
+            'display' => [
+                'name' => $product->name,
+                'qty' => $product->qty,
+                'price' => $product->price,
+                'cost' => $product->cost,
+                'brand' => $product->brand ? $product->brand->title : 'N/A',
+                'category' => $product->category ? $product->category->name : 'N/A',
+                'unit' => $product->unit ? $product->unit->unit_name : 'N/A',
+                'stock_worth' => $stockWorth,
+            ],
+            'ids' => [
+                'brand_id' => $product->brand_id,
+                'category_id' => $product->category_id,
+                'unit_id' => $product->unit_id,
+            ],
+        ]);
     }
 
     public function inlineUpdate(Request $request)
@@ -537,8 +640,10 @@ class ProductController extends Controller
                     $nestedData['brand'] = $product->brand->title;
                 else
                     $nestedData['brand'] = "N/A";
+                $nestedData['category_id'] = $product->category_id ? (int) $product->category_id : '';
                 $nestedData['category'] = $product->category->name;
                 $nestedData['qty'] = $product->qty;
+                $nestedData['unit_id'] = $product->unit_id ? (int) $product->unit_id : '';
                 if($product->unit_id)
                     $nestedData['unit'] = $product->unit->unit_name;
                 else
@@ -610,7 +715,8 @@ class ProductController extends Controller
             $lims_unit_list = Unit::where('is_active', true)->get();
             $lims_tax_list = Tax::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
-            return view('product.create',compact('lims_product_list', 'lims_brand_list', 'lims_category_list', 'lims_unit_list', 'lims_tax_list', 'lims_warehouse_list', 'role'));
+            $foodCategoryId = Category::where('is_active', true)->where('name', 'Food')->orderBy('id')->value('id');
+            return view('product.create',compact('lims_product_list', 'lims_brand_list', 'lims_category_list', 'lims_unit_list', 'lims_tax_list', 'lims_warehouse_list', 'role', 'foodCategoryId'));
         }
         else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
@@ -661,6 +767,25 @@ class ProductController extends Controller
         }
         elseif($data['type'] == 'digital')
             $data['cost'] = $data['unit_id'] = $data['purchase_unit_id'] = $data['sale_unit_id'] = 0;
+
+        if (($data['type'] ?? '') === 'standard' && empty($data['category_id'])) {
+            $foodId = Category::where('is_active', true)->where('name', 'Food')->orderBy('id')->value('id');
+            if ($foodId) {
+                $data['category_id'] = $foodId;
+            }
+        }
+        if (! isset($data['qty']) || $data['qty'] === '' || $data['qty'] === null) {
+            $data['qty'] = 0;
+        }
+        if (($data['type'] ?? '') === 'standard' && empty($data['unit_id'])) {
+            $piece = Unit::where('is_active', true)->where('unit_code', 'PC')->first()
+                ?: Unit::where('is_active', true)->whereNull('base_unit')->first();
+            if ($piece) {
+                $data['unit_id'] = $piece->id;
+                $data['sale_unit_id'] = $data['sale_unit_id'] ?? $piece->id;
+                $data['purchase_unit_id'] = $data['purchase_unit_id'] ?? $piece->id;
+            }
+        }
 
         $data['product_details'] = str_replace('"', '@', $data['product_details']);
 

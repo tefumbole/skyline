@@ -118,9 +118,10 @@
                                         <div class="input-group">
                                           <select name="category_id" required class="selectpicker form-control" data-live-search="true"   title="Select Category...">
                                             @foreach($lims_category_list as $category)
-                                                <option value="{{$category->id}}" {{ $general_setting->category == $category->id ? 'selected' : ''}}>{{$category->name}}</option>
+                                                <option value="{{$category->id}}" data-food="{{ strcasecmp($category->name, 'Food') === 0 ? '1' : '0' }}" {{ (int) ($foodCategoryId ?? 0) === (int) $category->id || (empty($foodCategoryId) && $general_setting->category == $category->id) ? 'selected' : ''}}>{{$category->name}}</option>
                                             @endforeach
                                           </select>
+                                          <small class="text-muted">Food menu items use the Food category. Stock is not required.</small>
                                       </div>
                                       <span class="validation-msg"></span>
                                     </div>
@@ -175,8 +176,8 @@
                                 </div>
                                 <div class="col-md-4 qty">
                                     <div class="form-group">
-                                        <label>{{trans('file.Quantity')}} *</strong> </label>
-                                        <input type="number" name="qty" required class="form-control" step="any" value="0">
+                                        <label>{{trans('file.Quantity')}}</strong> </label>
+                                        <input type="number" name="qty" class="form-control" step="any" value="0">
                                         <span class="validation-msg"></span>
                                     </div>
                                 </div>
@@ -395,6 +396,23 @@
       branding:false
     });
 
+    function skylineFoodStock() {
+        var selected = $('select[name="category_id"] option:selected');
+        var food = String(selected.attr('data-food')) === '1';
+        if (food) {
+            $('.qty').hide();
+            $('#alert-qty').hide();
+            $("input[name='qty']").prop('required', false).val(0);
+            $("select[name='unit_id']").prop('required', false);
+        } else if (!$('select[name="type"]').val() || $('select[name="type"]').val() === 'standard') {
+            $('.qty').show();
+            $('#alert-qty').show();
+            $("select[name='unit_id']").prop('required', true);
+        }
+    }
+    $('select[name="category_id"]').on('changed.bs.select change', skylineFoodStock);
+    skylineFoodStock();
+
     $('select[name="type"]').on('change', function() {
         $(".rent_price_per_hour").show();
         $(".rent_price_per_day").show();
@@ -443,6 +461,7 @@
             $("#cost").show(300);
             $("#unit").show(300);
             $("#alert-qty").show(300);
+            skylineFoodStock();
             $("#variant-option").show(300);
             $("#diffPrice-option").show(300);
             $("#digital").hide(300);

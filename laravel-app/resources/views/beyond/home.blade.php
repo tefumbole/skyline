@@ -33,7 +33,7 @@
             display: flex;
             align-items: center;
         }
-        .brand { gap: 14px; min-width: 0; flex: 1 1 auto; }
+        .brand { gap: 14px; min-width: 0; flex: 0 0 auto; }
         .actions { gap: 16px; flex: 0 0 auto; }
         .logo-mark {
             position: relative;
@@ -114,14 +114,17 @@
         .menus {
             display: flex;
             align-items: center;
-            gap: 6px 18px;
-            flex-shrink: 0;
+            justify-content: center;
+            gap: 6px 16px;
+            flex: 1 1 auto;
+            min-width: 0;
             overflow-x: auto;
-            background: #0c1830;
-            border-top: 1px solid rgba(225, 179, 104, 0.28);
-            padding: 8px max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left));
+            background: transparent;
+            padding: 0;
+            scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
         }
+        .menus::-webkit-scrollbar { display: none; }
         .menus a {
             color: #e6d3a1;
             font-size: 13px;
@@ -303,6 +306,8 @@
             }
             .hotel, .actions .rule { display: none; }
             .bar .brand { gap: 10px; overflow: hidden; }
+            .menus { justify-content: flex-start; gap: 6px 12px; }
+            .menus a { font-size: 11px; letter-spacing: 0.05em; }
             .event {
                 font-size: clamp(10px, 2.7vw, 15px);
                 letter-spacing: 0.04em;
@@ -357,29 +362,29 @@
             <span class="rule" aria-hidden="true"></span>
             <p class="event">Chill on the Hill</p>
         </div>
+        @php
+            $homeMenus = [
+                ['label' => 'Home', 'url' => url('/')],
+                ['label' => 'Menu', 'url' => url('/menu')],
+                ['label' => 'Events', 'url' => url('/events')],
+                ['label' => 'About', 'url' => url('/about')],
+                ['label' => 'Become a Member', 'url' => url('/register-now')],
+                ['label' => 'Services', 'url' => url('/services')],
+                ['label' => 'Gallery', 'url' => url('/gallery')],
+                ['label' => 'Reviews', 'url' => url('/reviews')],
+            ];
+        @endphp
+        <nav class="menus" aria-label="Site">
+            @foreach($homeMenus as $item)
+                <a class="{{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
+            @endforeach
+        </nav>
         <div class="actions">
             <span class="hotel">Skyline Hotel Bamenda</span>
             <span class="rule" aria-hidden="true"></span>
             <a class="login" href="{{ url('/login') }}">Admin login</a>
         </div>
     </header>
-    @php
-        $homeMenus = [
-            ['label' => 'Home', 'url' => url('/')],
-            ['label' => 'Menu', 'url' => url('/menu')],
-            ['label' => 'Events', 'url' => url('/events')],
-            ['label' => 'About', 'url' => url('/about')],
-            ['label' => 'Become a Member', 'url' => url('/register-now')],
-            ['label' => 'Services', 'url' => url('/services')],
-            ['label' => 'Gallery', 'url' => url('/gallery')],
-            ['label' => 'Reviews', 'url' => url('/reviews')],
-        ];
-    @endphp
-    <nav class="menus" aria-label="Site">
-        @foreach($homeMenus as $item)
-            <a class="{{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
-        @endforeach
-    </nav>
 
     <main class="hero">
         <div class="frame">

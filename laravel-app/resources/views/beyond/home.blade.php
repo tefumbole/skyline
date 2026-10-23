@@ -114,8 +114,8 @@
         .menus {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 6px 16px;
+            justify-content: flex-start;
+            gap: 6px 12px;
             flex: 1 1 auto;
             min-width: 0;
             overflow-x: auto;
@@ -129,7 +129,7 @@
             color: #e6d3a1;
             font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
             text-decoration: none;
             white-space: nowrap;
@@ -286,6 +286,9 @@
         }
         .contact svg { flex-shrink: 0; color: #e1b368; }
         .contact:hover { color: #f0cb86; }
+        @media (max-width: 1360px) {
+            .hotel, .actions .rule { display: none; }
+        }
         @media (max-width: 1180px) {
             .foot { flex-wrap: wrap; row-gap: 8px; }
             .foot .brand { flex: 1 1 100%; min-width: 0; margin-left: 0; justify-content: flex-end; }

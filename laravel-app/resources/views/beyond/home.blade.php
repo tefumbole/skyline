@@ -6,7 +6,7 @@
     <title>Chill on the Hill | Skyline Hotel Bamenda</title>
     <meta name="description" content="Skyline Hotel Bamenda presents Chill on the Hill, 24 December 2026 to 2 January 2027.">
     <link rel="icon" href="{{ url('public/branding/skyline-logo.png') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    @include('beyond.partials.site-chrome-style')
     <style>
         * { box-sizing: border-box; }
         html, body { margin: 0; background: #07111c; }
@@ -357,37 +357,7 @@
     </style>
 </head>
 <body>
-    <header class="bar">
-        <div class="brand">
-            <span class="logo-mark">
-                <img class="logo" src="{{ url('public/branding/skyline-logo.png') }}" alt="Skyline Hotel">
-            </span>
-            <span class="rule" aria-hidden="true"></span>
-            <p class="event">Chill on the Hill</p>
-        </div>
-        @php
-            $homeMenus = [
-                ['label' => 'Home', 'url' => url('/')],
-                ['label' => 'Menu', 'url' => url('/menu')],
-                ['label' => 'Events', 'url' => url('/events')],
-                ['label' => 'About', 'url' => url('/about')],
-                ['label' => 'Become a Member', 'url' => url('/register-now')],
-                ['label' => 'Services', 'url' => url('/services')],
-                ['label' => 'Gallery', 'url' => url('/gallery')],
-                ['label' => 'Reviews', 'url' => url('/reviews')],
-            ];
-        @endphp
-        <nav class="menus" aria-label="Site">
-            @foreach($homeMenus as $item)
-                <a class="{{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
-            @endforeach
-        </nav>
-        <div class="actions">
-            <span class="hotel">Skyline Hotel Bamenda</span>
-            <span class="rule" aria-hidden="true"></span>
-            <a class="login" href="{{ url('/login') }}">Admin login</a>
-        </div>
-    </header>
+    @include('beyond.partials.site-header')
 
     <main class="hero">
         <div class="frame">
@@ -408,32 +378,7 @@
         </div>
     </main>
 
-    <footer class="foot">
-        <div class="foot-links">
-            <a class="contact" href="mailto:info@skylinehotel.org">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>
-                info@skylinehotel.org
-            </a>
-            <a class="contact" href="https://www.skylinehotel.org">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-                www.skylinehotel.org
-            </a>
-            <a class="contact" href="https://wa.me/237694677541" target="_blank" rel="noopener">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6.5 3.5h3l1.5 4-2 1.2a12 12 0 0 0 6.3 6.3l1.2-2 4 1.5v3A2 2 0 0 1 18.5 19 15 15 0 0 1 5 5.5a2 2 0 0 1 1.5-2z"/></svg>
-                +237 694 677 541
-            </a>
-        </div>
-        <div class="brand">
-            <span class="logo-mark">
-                <img class="logo" src="{{ url('public/branding/skyline-logo.png') }}" alt="">
-            </span>
-            <span class="rule" aria-hidden="true"></span>
-            <div class="brand-text">
-                <p class="credit">Developed By <span aria-hidden="true">|</span> Sr. Engr. Tefu R. Mbole <span aria-hidden="true">|</span> <a href="https://wa.me/237675321739" target="_blank" rel="noopener">237 675 321 739</a></p>
-                <p class="version">{{ \App\Support\AppVersion::erp() }}</p>
-            </div>
-        </div>
-    </footer>
+    @include('beyond.partials.site-footer')
     <script>
         (function () {
             var root = document.getElementById('opening-countdown');

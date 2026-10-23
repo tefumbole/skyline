@@ -7,13 +7,8 @@
     <style>
         :root { --navy:#0c1830; --ink:#07111c; --gold:#e1b368; --paper:#f7f4ee; }
         * { box-sizing: border-box; }
-        body { margin:0; font-family: Georgia, "Times New Roman", serif; background:var(--paper); color:var(--ink); }
-        header { background:var(--navy); color:#fff6df; padding:14px 18px 10px; }
-        header .top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-        header a { color:#fff6df; text-decoration:none; font-family: system-ui, sans-serif; font-size:14px; }
-        header a.on, header a:hover { color:var(--gold); }
-        header nav { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:10px; }
-        main { max-width:980px; margin:0 auto; padding:20px 16px 48px; }
+        body { margin:0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:var(--paper); color:var(--ink); min-height:100vh; display:flex; flex-direction:column; }
+        main { flex:1; width:100%; max-width:980px; margin:0 auto; padding:20px 16px 48px; }
         h1,h2 { font-weight:500; }
         .card { background:#fff; border:1px solid rgba(12,24,48,.12); border-radius:14px; padding:16px; margin:0 0 14px; }
         label { display:block; font-size:14px; margin:10px 0 4px; }
@@ -37,29 +32,15 @@
         @keyframes fill { 50% { filter:brightness(1.2); } }
         @media (prefers-reduced-motion: reduce) { .steam, .glass { animation:none; } }
     </style>
+    @include('beyond.partials.site-chrome-style')
 </head>
 <body>
-<header>
-    <div class="top"><strong>Skyline Hotel</strong></div>
-    <nav>
-        @foreach([
-            'Home' => url('/'),
-            'Menu' => url('/menu'),
-            'Events' => url('/events'),
-            'About' => url('/about'),
-            'Become a Member' => url('/register-now'),
-            'Services' => url('/services'),
-            'Gallery' => url('/gallery'),
-            'Reviews' => url('/reviews'),
-        ] as $label => $href)
-            <a class="{{ rtrim(url()->current(), '/') === rtrim($href, '/') ? 'on' : '' }}" href="{{ $href }}">{{ $label }}</a>
-        @endforeach
-    </nav>
-</header>
+@include('beyond.partials.site-header')
 <main>
     @if(session('message'))<div class="alert ok">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert bad">{{ session('not_permitted') }}</div>@endif
     @yield('content')
 </main>
+@include('beyond.partials.site-footer')
 </body>
 </html>

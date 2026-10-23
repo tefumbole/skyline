@@ -23,11 +23,12 @@ class PublicHotelMenusTest extends TestCase
         $home->assertStatus(200);
         $home->assertSee('Become a Member');
         $home->assertSee('Reviews');
+        $home->assertSee('Chill on the Hill');
         $home->assertDontSee('Apply Now');
 
-        $this->get('/register-now')->assertStatus(200)->assertSee('Become a Member');
-        $this->get('/reviews')->assertStatus(200)->assertSee('Add a review');
-        $this->get('/services')->assertStatus(200)->assertSee('Restaurant')->assertSee('Coffee');
+        $this->get('/register-now')->assertStatus(200)->assertSee('Become a Member')->assertSee('sky-menus');
+        $this->get('/reviews')->assertStatus(200)->assertSee('Add a review')->assertSee('Chill on the Hill');
+        $this->get('/services')->assertStatus(200)->assertSee('Restaurant')->assertSee('Coffee')->assertSee('sky-bar');
         $this->get('/services/restaurant')->assertStatus(200)->assertSee('Choose quantities');
 
         $png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

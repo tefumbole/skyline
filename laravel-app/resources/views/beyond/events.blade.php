@@ -5,7 +5,7 @@
 
 @section('content')
 
-<section class="py-10 bg-gray-50 min-h-screen">
+<section class="py-10 bg-[#f7f4ee] min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <form method="GET" action="{{ url('/events') }}" class="mb-8 flex flex-col md:flex-row gap-4 items-stretch md:items-end">
             <div class="flex-1">

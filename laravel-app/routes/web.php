@@ -66,6 +66,14 @@ Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->nam
 Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
+Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => 'restaurant|coffee|bar', 'category' => '[0-9]+']);
+Route::get('/reviews', 'GuestReviewController@show')->name('beyond.reviews');
+Route::post('/reviews', 'GuestReviewController@store')->name('beyond.reviews.store');
+Route::post('/reviews/verify', 'GuestReviewController@verify')->name('beyond.reviews.verify');
+Route::post('/reviews/resend-otp', 'GuestReviewController@resendOtp')->name('beyond.reviews.resend');
+Route::get('/register-now', 'MembershipPublicController@apply')->name('beyond.register');
+Route::post('/register-now', 'MembershipPublicController@store')->name('membership.apply.store');
+Route::get('/membership/confirmation/{reference}', 'MembershipPublicController@confirmation')->name('membership.confirmation');
 Route::get('/projects', 'BeyondController@projects')->name('beyond.projects');
 Route::get('/gallery', 'BeyondController@gallery')->name('beyond.gallery');
 Route::get('/contact', 'BeyondController@contact')->name('beyond.contact');
@@ -85,8 +93,6 @@ Route::get('/api/public/events', 'PublicEventController@apiList');
 Route::get('/api/public/events/{slug}', 'PublicEventController@apiShow');
 Route::get('/trainings', function () { abort(404); })->name('beyond.trainings');
 Route::get('/directory/phone-lookup', 'PublicPhoneLookupController@lookup')->middleware('throttle:40,1')->name('directory.phone-lookup');
-Route::get('/register-now', function () { abort(404); })->name('beyond.register');
-Route::post('/register-now', function () { abort(404); })->name('training.register');
 Route::get('/registration-confirmation/{reference}', function () { abort(404); })->name('training.registered');
 Route::redirect('/registration', '/register-now');
 
@@ -456,6 +462,10 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin', 'HomeController@index');
 
     // Site Content management (Admin/Owner) — reorder public + side menus
+    Route::get('/admin/guest-reviews', 'GuestReviewAdminController@index')->name('guest-reviews.index');
+    Route::get('/admin/membership', 'MembershipPublicController@admin')->name('membership.admin');
+    Route::post('/admin/membership/{id}/approve', 'MembershipPublicController@approve')->name('membership.admin.approve');
+    Route::post('/admin/membership/{id}/reject', 'MembershipPublicController@reject')->name('membership.admin.reject');
     Route::get('/admin/site-content', 'SiteContentController@index')->name('site-content.index');
     Route::post('/admin/site-content/landing-menu', 'SiteContentController@saveLandingMenu')->name('site-content.landing-menu');
     Route::post('/admin/site-content/side-menu', 'SiteContentController@saveSideMenu')->name('site-content.side-menu');

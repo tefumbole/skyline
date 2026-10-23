@@ -24,7 +24,30 @@ class BeyondController extends Controller
     public function services()
     {
         return view('beyond.services', [
-            'services' => $this->servicesList(),
+            'catalog' => \App\Support\ServiceCatalog::services(),
+        ]);
+    }
+
+    public function serviceShow($service, $category = null)
+    {
+        if (! \App\Support\ServiceCatalog::exists($service)) {
+            abort(404);
+        }
+        $categories = \App\Support\ServiceCatalog::categories($service);
+        if ($category !== null && ! $categories->firstWhere('id', (int) $category)) {
+            abort(404);
+        }
+
+        return view('beyond.service-show', [
+            'service' => $service,
+            'meta' => \App\Support\ServiceCatalog::services()[$service],
+            'categories' => $categories,
+            'current' => $category ? $categories->firstWhere('id', (int) $category) : null,
+            'items' => \App\Support\ServiceCatalog::products($service, $category),
+            'tables' => \Illuminate\Support\Facades\Schema::hasTable('restaurant_tables')
+                ? \App\RestaurantTable::orderBy('name')->get()
+                : collect(),
+            'token' => \Illuminate\Support\Str::random(40),
         ]);
     }
 
@@ -63,18 +86,5 @@ class BeyondController extends Controller
     public function events()
     {
         return view('beyond.events', ['events' => []]);
-    }
-
-    private function servicesList()
-    {
-        return [
-            ['emoji' => '🤖', 'title' => 'Artificial Intelligence', 'description' => 'Cutting-edge AI solutions for business automation and intelligent decision-making'],
-            ['emoji' => '☁️', 'title' => 'Cloud Computing', 'description' => 'Scalable cloud infrastructure and migration services for modern enterprises'],
-            ['emoji' => '🔒', 'title' => 'Cyber Security', 'description' => 'Comprehensive security solutions to protect your digital assets and data'],
-            ['emoji' => '💼', 'title' => 'General IT Consultancy', 'description' => 'Expert IT guidance and strategic consulting for digital transformation'],
-            ['emoji' => '📞', 'title' => 'VoIP', 'description' => 'Reliable voice over IP solutions for seamless business communication'],
-            ['emoji' => '🌐', 'title' => 'Network Infrastructure Design', 'description' => 'Robust network architecture and infrastructure planning for optimal performance'],
-            ['emoji' => '📹', 'title' => 'CCTV and More', 'description' => 'Advanced surveillance and security systems for comprehensive monitoring'],
-        ];
     }
 }

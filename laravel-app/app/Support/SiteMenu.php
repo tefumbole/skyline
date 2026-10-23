@@ -14,16 +14,14 @@ class SiteMenu
     public static function landingItems()
     {
         return [
-            'home'         => 'Home',
-            'menu'         => 'Menu',
-            'events'       => 'Events',
-            'rentals'      => 'Rentals',
-            'apply'        => 'Apply Now',
-            'permissions'  => 'Permissions',
-            'about'        => 'About Us',
-            'services'     => 'Services',
-            'projects'     => 'Projects',
-            'gallery'      => 'Gallery',
+            'home'     => 'Home',
+            'menu'     => 'Menu',
+            'events'   => 'Events',
+            'about'    => 'About',
+            'register' => 'Become a Member',
+            'services' => 'Services',
+            'gallery'  => 'Gallery',
+            'reviews'  => 'Reviews',
             // Register Now removed — Training already covers course signup
             // Shareholders hidden from public nav (routes remain available)
             // Contact is merged into About Us (#contact) — not a separate nav item

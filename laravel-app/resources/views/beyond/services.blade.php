@@ -1,47 +1,37 @@
 @extends('beyond.layout')
 
-@section('title', 'Our Services')
-@section('meta_description', 'Comprehensive IT consultancy, AI solutions, cloud computing, cybersecurity, VoIP, network infrastructure, and CCTV services in Kigali, Rwanda.')
+@section('title', 'Services · Skyline Hotel')
+@section('meta_description', 'Restaurant, coffee and tea, and bar at Skyline Hotel.')
 
 @section('content')
+<div class="bg-[#0c1830] text-white min-h-[70vh] py-10 px-4">
+    <div class="max-w-5xl mx-auto">
+        <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Skyline Hotel</p>
+        <h1 class="font-serif text-3xl md:text-4xl text-white mt-2">Services</h1>
+        <p class="text-white/70 text-sm mt-2 max-w-2xl">Browse the kitchen, the coffee bar, and the drinks list. Every order is one bill.</p>
 
-@include('beyond.partials.hero', [
-    'title' => \App\Support\SiteContent::html('services.hero_title', 'Our <span class="text-brand-gold">Services</span>'),
-    'subtitle' => \App\Support\SiteContent::text('services.hero_subtitle', 'Comprehensive technology solutions tailored to your needs'),
-])
-
-<section class="py-16 bg-white">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-12">
-            <h2 class="text-4xl font-bold text-brand-blue">{{ \App\Support\SiteContent::text('services.heading', 'Explore Our Expertise') }}</h2>
-            <p class="text-xl text-gray-600 mt-4">{{ \App\Support\SiteContent::text('services.subheading', "From IT infrastructure to cutting-edge AI solutions, we've got you covered.") }}</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            @foreach ($services as $service)
-                <div class="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 flex flex-col">
-                    <div class="text-6xl mb-4 flex-shrink-0">{{ $service['emoji'] }}</div>
-                    <h3 class="text-2xl font-bold text-brand-blue mb-3">{{ $service['title'] }}</h3>
-                    <p class="text-gray-700 text-sm flex-grow mb-4">{{ $service['description'] }}</p>
-                    <a href="https://wa.me/237675321739?text={{ urlencode('Hello Beyond Enterprise, I would like a quote for ' . $service['title']) }}"
-                       target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-2 bg-brand-blue hover:bg-brand-dark text-white px-6 py-3 rounded-md text-sm font-semibold self-start">
-                        <i data-lucide="message-circle" class="w-4 h-4"></i> Get a Quote
-                    </a>
-                </div>
+        <div class="mt-8 grid gap-5 md:grid-cols-2">
+            @foreach ($catalog as $key => $svc)
+                @php $cats = \App\Support\ServiceCatalog::categories($key); @endphp
+                <article class="rounded-2xl border border-brand-gold/40 bg-white/[0.04] p-6 flex flex-col">
+                    <h2 class="text-xl font-bold text-white m-0">
+                        <a href="{{ route('beyond.services.show', $key) }}" class="hover:text-brand-gold">{{ $svc['label'] }}</a>
+                    </h2>
+                    <p class="text-white/75 text-sm mt-3 mb-0">{{ $svc['blurb'] }}</p>
+                    <div class="flex flex-wrap gap-2 mt-5 flex-1 content-start">
+                        @forelse ($cats as $cat)
+                            <a href="{{ route('beyond.services.show', [$key, $cat->id]) }}"
+                               class="inline-flex items-center rounded-full border border-brand-gold/40 hover:bg-brand-gold/10 px-3 py-1.5 text-sm text-white/90">
+                                {{ $cat->name }}
+                            </a>
+                        @empty
+                            <p class="text-white/50 text-sm italic m-0">Nothing in this list yet.</p>
+                        @endforelse
+                    </div>
+                    <a href="{{ route('beyond.services.show', $key) }}" class="mt-5 inline-flex self-start text-xs font-bold tracking-[0.14em] uppercase bg-brand-gold text-[#0c1830] rounded-full px-4 py-2">Browse</a>
+                </article>
             @endforeach
         </div>
     </div>
-</section>
-
-<section class="py-16 bg-gradient-to-r from-brand-blue to-brand-light">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 class="text-4xl font-bold text-white mb-6">Ready to Get Started?</h2>
-        <p class="text-xl text-gray-200 mb-8">Contact us today to discuss your project requirements and receive a customized quote.</p>
-        <a href="https://wa.me/237675321739" target="_blank" rel="noopener"
-           class="inline-flex items-center gap-2 bg-brand-gold text-brand-blue px-8 py-4 text-lg font-bold rounded-lg shadow-xl hover:shadow-2xl">
-            <i data-lucide="message-circle" class="w-5 h-5"></i> Chat on WhatsApp
-        </a>
-    </div>
-</section>
-
+</div>
 @endsection

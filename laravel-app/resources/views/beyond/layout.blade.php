@@ -226,23 +226,17 @@
 
 @php
     $navDefs = [
-        'home'         => ['label' => 'Home', 'url' => url('/')],
-        'menu'         => ['label' => 'Menu', 'url' => url('/menu')],
-        'events'       => ['label' => 'Events', 'url' => url('/events')],
-        'rentals'      => ['label' => 'Rentals', 'url' => url('/rentals')],
-        'apply'        => ['label' => 'Apply Now', 'url' => url('/apply-now'), 'special' => true],
-        'permissions'  => ['label' => 'Permissions', 'url' => url('/permissions')],
-        'about'        => ['label' => 'About Us', 'url' => url('/about')],
-        'services'     => ['label' => 'Services', 'url' => url('/services')],
-        'projects'     => ['label' => 'Projects', 'url' => url('/projects')],
-        'gallery'      => ['label' => 'Gallery', 'url' => url('/gallery')],
+        'home'     => ['label' => 'Home', 'url' => url('/')],
+        'menu'     => ['label' => 'Menu', 'url' => url('/menu')],
+        'events'   => ['label' => 'Events', 'url' => url('/events')],
+        'about'    => ['label' => 'About', 'url' => url('/about')],
+        'register' => ['label' => 'Become a Member', 'url' => url('/register-now')],
+        'services' => ['label' => 'Services', 'url' => url('/services')],
+        'gallery'  => ['label' => 'Gallery', 'url' => url('/gallery')],
+        'reviews'  => ['label' => 'Reviews', 'url' => url('/reviews')],
     ];
     $navLinks = [];
-    foreach (\App\Support\SiteMenu::landingOrder() as $navKey) {
-        // Legacy saved menus may still include removed/hidden keys
-        if (in_array($navKey, ['contact', 'register', 'shareholders'], true)) {
-            continue;
-        }
+    foreach (array_keys(\App\Support\SiteMenu::landingItems()) as $navKey) {
         if (isset($navDefs[$navKey])) {
             $navLinks[] = $navDefs[$navKey];
         }

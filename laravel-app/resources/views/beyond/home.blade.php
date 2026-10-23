@@ -365,21 +365,19 @@
     </header>
     @php
         $homeMenus = [
-            'home' => ['label' => 'Home', 'url' => url('/')],
-            'menu' => ['label' => 'Menu', 'url' => url('/menu')],
-            'events' => ['label' => 'Events', 'url' => url('/events')],
-            'rentals' => ['label' => 'Rentals', 'url' => url('/rentals')],
-            'apply' => ['label' => 'Apply Now', 'url' => url('/apply-now'), 'special' => true],
-            'permissions' => ['label' => 'Permissions', 'url' => url('/permissions')],
-            'about' => ['label' => 'About Us', 'url' => url('/about')],
-            'services' => ['label' => 'Services', 'url' => url('/services')],
-            'projects' => ['label' => 'Projects', 'url' => url('/projects')],
-            'gallery' => ['label' => 'Gallery', 'url' => url('/gallery')],
+            ['label' => 'Home', 'url' => url('/')],
+            ['label' => 'Menu', 'url' => url('/menu')],
+            ['label' => 'Events', 'url' => url('/events')],
+            ['label' => 'About', 'url' => url('/about')],
+            ['label' => 'Become a Member', 'url' => url('/register-now')],
+            ['label' => 'Services', 'url' => url('/services')],
+            ['label' => 'Gallery', 'url' => url('/gallery')],
+            ['label' => 'Reviews', 'url' => url('/reviews')],
         ];
     @endphp
     <nav class="menus" aria-label="Site">
         @foreach($homeMenus as $item)
-            <a class="{{ !empty($item['special']) ? 'special' : '' }} {{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
+            <a class="{{ $item['label'] === 'Home' ? 'on' : '' }}" href="{{ $item['url'] }}">{{ $item['label'] }}</a>
         @endforeach
     </nav>
 

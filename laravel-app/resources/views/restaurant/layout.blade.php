@@ -8,8 +8,11 @@
         :root { --navy:#0c1830; --ink:#07111c; --gold:#e1b368; --paper:#f7f4ee; }
         * { box-sizing: border-box; }
         body { margin:0; font-family: Georgia, "Times New Roman", serif; background:var(--paper); color:var(--ink); }
-        header { background:var(--navy); color:#fff6df; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
-        header a { color:var(--gold); text-decoration:none; }
+        header { background:var(--navy); color:#fff6df; padding:14px 18px 10px; }
+        header .top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        header a { color:#fff6df; text-decoration:none; font-family: system-ui, sans-serif; font-size:14px; }
+        header a.on, header a:hover { color:var(--gold); }
+        header nav { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:10px; }
         main { max-width:980px; margin:0 auto; padding:20px 16px 48px; }
         h1,h2 { font-weight:500; }
         .card { background:#fff; border:1px solid rgba(12,24,48,.12); border-radius:14px; padding:16px; margin:0 0 14px; }
@@ -37,11 +40,21 @@
 </head>
 <body>
 <header>
-    <strong>Skyline Hotel</strong>
-    <span>
-        <a href="{{ route('restaurant.menu') }}">Menu</a>
-        <a href="{{ url('/') }}" style="margin-left:14px;">Skyline Hotel</a>
-    </span>
+    <div class="top"><strong>Skyline Hotel</strong></div>
+    <nav>
+        @foreach([
+            'Home' => url('/'),
+            'Menu' => url('/menu'),
+            'Events' => url('/events'),
+            'About' => url('/about'),
+            'Become a Member' => url('/register-now'),
+            'Services' => url('/services'),
+            'Gallery' => url('/gallery'),
+            'Reviews' => url('/reviews'),
+        ] as $label => $href)
+            <a class="{{ rtrim(url()->current(), '/') === rtrim($href, '/') ? 'on' : '' }}" href="{{ $href }}">{{ $label }}</a>
+        @endforeach
+    </nav>
 </header>
 <main>
     @if(session('message'))<div class="alert ok">{{ session('message') }}</div>@endif

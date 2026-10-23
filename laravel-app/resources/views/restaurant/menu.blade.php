@@ -10,7 +10,7 @@
             <h2>{{ $section['title'] }}</h2>
             @foreach($section['blocks'] as $block)
                 <div class="card">
-                    <h2>{{ $block['title'] }}</h2>
+                    <h2 id="{{ \Illuminate\Support\Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
                     @forelse($block['products'] as $product)
                         <div class="row" style="align-items:flex-end; margin-bottom:10px;">
                             <div>

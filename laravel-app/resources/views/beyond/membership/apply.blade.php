@@ -144,7 +144,9 @@ window.skyPlan = function (node) {
     var details = document.getElementById('member-details');
     if (details) {
         details.hidden = false;
-        details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var name = details.querySelector('[name="full_name"]');
+        if (name) name.focus();
+        else details.scrollIntoView({ block: 'start' });
     }
 };
 (function () {

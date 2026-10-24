@@ -4261,5 +4261,6 @@
             })();
         </script>
       @endif
+      <script src="{{ asset('public/js/money-format.js') }}?v=1"></script>
       </body>
     </html>

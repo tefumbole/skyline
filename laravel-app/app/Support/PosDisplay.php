@@ -10,7 +10,7 @@ class PosDisplay
      */
     public static function name($name, $price)
     {
-        $label = trim((string) $name);
+        $label = trim(str_replace("\xc2\xa0", ' ', (string) $name));
         $amount = (float) $price;
         if ($label === '' || $amount <= 0) {
             return $label;

@@ -1704,7 +1704,7 @@ class SaleController extends Controller
             $baseProductsLimit = $canSearchAllProducts ? 900 : 300;
             $variantProductsLimit = $canSearchAllProducts ? 400 : 180;
 
-            $baseProductQuery = Product::select('id', 'name', 'code', 'image')
+            $baseProductQuery = Product::select('id', 'name', 'code', 'image', 'price')
                 ->ActiveFeatured()
                 ->whereNull('is_variant')
                 ->orderBy('id', 'desc')
@@ -1719,7 +1719,7 @@ class SaleController extends Controller
                 $product->base_image = $images[0];
             }
 
-            $variantProductQuery = Product::select('id', 'name', 'code', 'image')
+            $variantProductQuery = Product::select('id', 'name', 'code', 'image', 'price')
                 ->ActiveFeatured()
                 ->whereNotNull('is_variant')
                 ->with(['variant' => function ($query) {
@@ -1834,7 +1834,7 @@ class SaleController extends Controller
                                     ['categories.parent_id', $category_id],
                                     ['products.is_active', true],
                                     ['brand_id', $brand_id]
-                                ])->select('products.name', 'products.code', 'products.image')->get();
+                                ])->select('products.name', 'products.code', 'products.image', 'products.price')->get();
         }
         elseif(($category_id != 0) && ($brand_id == 0)){
             $lims_product_list = DB::table('products')
@@ -1845,14 +1845,14 @@ class SaleController extends Controller
                                 ])->orWhere([
                                     ['categories.parent_id', $category_id],
                                     ['products.is_active', true]
-                                ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
+                                ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.price', 'products.is_variant')->get();
         }
         elseif(($category_id == 0) && ($brand_id != 0)){
             $lims_product_list = Product::where([
                                 ['brand_id', $brand_id],
                                 ['is_active', true]
                             ])
-                            ->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')
+                            ->select('products.id', 'products.name', 'products.code', 'products.image', 'products.price', 'products.is_variant')
                             ->get();
         }
         else
@@ -1864,16 +1864,18 @@ class SaleController extends Controller
                 $lims_product_data = Product::select('id')->find($product->id);
                 $lims_product_variant_data = $lims_product_data->variant()->orderBy('position')->get();
                 foreach ($lims_product_variant_data as $key => $variant) {
-                    $data['name'][$index] = $product->name.' ['.$variant->name.']';
+                    $data['name'][$index] = \App\Support\PosDisplay::name($product->name.' ['.$variant->name.']', $product->price);
                     $data['code'][$index] = $variant->pivot['item_code'];
+                    $data['price'][$index] = $product->price;
                     $images = explode(",", $product->image);
                     $data['image'][$index] = $images[0];
                     $index++;
                 }
             }
             else {
-                $data['name'][$index] = $product->name;
+                $data['name'][$index] = \App\Support\PosDisplay::name($product->name, $product->price);
                 $data['code'][$index] = $product->code;
+                $data['price'][$index] = $product->price;
                 $images = explode(",", $product->image);
                 $data['image'][$index] = $images[0];
                 $index++;
@@ -1888,7 +1890,7 @@ class SaleController extends Controller
         $lims_product_list = Product::where([
             ['is_active', true],
             ['featured', true]
-        ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.is_variant')->get();
+        ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.price', 'products.is_variant')->get();
 
         $index = 0;
         foreach ($lims_product_list as $product) {
@@ -1896,16 +1898,18 @@ class SaleController extends Controller
                 $lims_product_data = Product::select('id')->find($product->id);
                 $lims_product_variant_data = $lims_product_data->variant()->orderBy('position')->get();
                 foreach ($lims_product_variant_data as $key => $variant) {
-                    $data['name'][$index] = $product->name.' ['.$variant->name.']';
+                    $data['name'][$index] = \App\Support\PosDisplay::name($product->name.' ['.$variant->name.']', $product->price);
                     $data['code'][$index] = $variant->pivot['item_code'];
+                    $data['price'][$index] = $product->price;
                     $images = explode(",", $product->image);
                     $data['image'][$index] = $images[0];
                     $index++;
                 }
             }
             else {
-                $data['name'][$index] = $product->name;
+                $data['name'][$index] = \App\Support\PosDisplay::name($product->name, $product->price);
                 $data['code'][$index] = $product->code;
+                $data['price'][$index] = $product->price;
                 $images = explode(",", $product->image);
                 $data['image'][$index] = $images[0];
                 $index++;

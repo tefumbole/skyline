@@ -306,5 +306,6 @@
 })();
 </script>
 @include('components.image_paste_script')
+<script src="{{ asset('public/js/money-format.js') }}?v=1"></script>
 </body>
 </html>

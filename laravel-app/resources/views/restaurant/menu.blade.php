@@ -134,7 +134,7 @@
                                         <span class="menu-dots"></span>
                                         <span class="menu-item-price">
                                             @if((float) $product->price > 0)
-                                                {{ number_format((float) $product->price, 0) }}
+                                                {{ number_format((float) $product->price, 0, '.', ',') }}
                                             @else
                                                 —
                                             @endif

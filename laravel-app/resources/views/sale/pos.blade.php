@@ -151,21 +151,34 @@
         }
         body.beyond-pos-active #customer-balance-panel { color: #3f2a12 !important; }
         body.beyond-pos-active .pos-section .payment-buttons .btn { border-radius: 10px; font-weight: 700; }
-        body.beyond-pos-active .pos-section .product-img img {
-            width: 100%;
-            max-height: 90px;
+        body.beyond-pos-active .pos-product-grid .product-img {
+            width: auto;
+            margin-bottom: 12px;
+            padding: 15px 7px 8px;
+            cursor: pointer;
+            text-align: center;
+            text-transform: capitalize;
+        }
+        body.beyond-pos-active .pos-product-grid .product-img img,
+        body.beyond-pos-active .pos-section .category-img img {
+            height: 70px;
+            max-height: 70px;
+            width: auto;
+            max-width: 100%;
             object-fit: contain;
             display: block;
             margin: 0 auto;
             background: #f5f7fb;
         }
-        body.beyond-pos-active .pos-section .product-img p {
-            font-size: 12px;
-            line-height: 1.25;
-            max-height: 2.5em;
-            overflow: hidden;
-            margin: 4px 0 0;
+        body.beyond-pos-active .pos-product-grid .product-img p {
+            font-size: 14px;
+            line-height: 1.3;
+            max-height: none;
+            overflow: visible;
+            margin: 15px 0 0;
+            text-align: center;
         }
+        body.beyond-pos-active .pos-product-grid .product-img span { display: none; }
         body.beyond-pos-active .pos-section .table-container [class*="dripicons-"]:before,
         body.beyond-pos-active .pos-section .payment-buttons [class*="dripicons-"]:before,
         body.beyond-pos-active .pos-section .btn [class*="dripicons-"]:before {
@@ -2029,59 +2042,15 @@
                             <button class="btn btn-block btn-danger" id="featured-filter">{{trans('file.Featured')}}</button>
                         </div>
                         <div class="col-md-12 mt-1 table-container">
-                            <table id="product-table" class="table no-shadow product-list">
-                                <thead class="d-none">
-                                <tr>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @for ($i=0; $i < ceil($product_number/5); $i++)
-                                    <tr>
-                                        <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[0+$i*5]->name, $lims_product_list[0+$i*5]->price) }}" data-product ="{{$lims_product_list[0+$i*5]->code . ' (' . $lims_product_list[0+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[0+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[0+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                            <p>{{ \App\Support\PosDisplay::name($lims_product_list[0+$i*5]->name, $lims_product_list[0+$i*5]->price) }}</p>
-                                            <span>{{$lims_product_list[0+$i*5]->code}}</span>
-                                        </td>
-                                        @if(!empty($lims_product_list[1+$i*5]))
-                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[1+$i*5]->name, $lims_product_list[1+$i*5]->price) }}" data-product ="{{$lims_product_list[1+$i*5]->code . ' (' . $lims_product_list[1+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[1+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[1+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[1+$i*5]->name, $lims_product_list[1+$i*5]->price) }}</p>
-                                                <span>{{$lims_product_list[1+$i*5]->code}}</span>
-                                            </td>
-                                        @else
-                                            <td style="border:none;"></td>
-                                        @endif
-                                        @if(!empty($lims_product_list[2+$i*5]))
-                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[2+$i*5]->name, $lims_product_list[2+$i*5]->price) }}" data-product ="{{$lims_product_list[2+$i*5]->code . ' (' . $lims_product_list[2+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[2+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[2+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[2+$i*5]->name, $lims_product_list[2+$i*5]->price) }}</p>
-                                                <span>{{$lims_product_list[2+$i*5]->code}}</span>
-                                            </td>
-                                        @else
-                                            <td style="border:none;"></td>
-                                        @endif
-                                        @if(!empty($lims_product_list[3+$i*5]))
-                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[3+$i*5]->name, $lims_product_list[3+$i*5]->price) }}" data-product ="{{$lims_product_list[3+$i*5]->code . ' (' . $lims_product_list[3+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[3+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[3+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[3+$i*5]->name, $lims_product_list[3+$i*5]->price) }}</p>
-                                                <span>{{$lims_product_list[3+$i*5]->code}}</span>
-                                            </td>
-                                        @else
-                                            <td style="border:none;"></td>
-                                        @endif
-                                        @if(!empty($lims_product_list[4+$i*5]))
-                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[4+$i*5]->name, $lims_product_list[4+$i*5]->price) }}" data-product ="{{$lims_product_list[4+$i*5]->code . ' (' . $lims_product_list[4+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[4+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[4+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[4+$i*5]->name, $lims_product_list[4+$i*5]->price) }}</p>
-                                                <span>{{$lims_product_list[4+$i*5]->code}}</span>
-                                            </td>
-                                        @else
-                                            <td style="border:none;"></td>
-                                        @endif
-                                    </tr>
-                                @endfor
-                                </tbody>
-                            </table>
+                            <div class="row ml-2 mt-3 pos-product-grid" id="product-grid">
+                                @foreach($lims_product_list as $product)
+                                    @php $posName = \App\Support\PosDisplay::name($product->name, $product->price ?? 0); @endphp
+                                    <div class="col-md-3 product-img sound-btn text-center" title="{{ $posName }}" data-product="{{ $product->code . ' (' . $product->name . ')' }}">
+                                        <img src="{{ $product->base_image ? asset('public/images/product/'.$product->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                        <p class="text-center">{{ $posName }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2810,12 +2779,12 @@
                         $row.find('.discount-value').val(localStorageProductDiscount[i]);
                         $row.find('.tax-rate').val(localStorageTaxRate[i]);
                         $row.find('.net_unit_price').val(localStorageNetUnitPrice[i]);
-                        $row.find('.product_price_change').attr("value", localStorageNetUnitPrice[i]);
+                        $row.find('.product_price_change').val(formatMoney(localStorageNetUnitPrice[i]));
                         $row.find('.tax-value').val(localStorageTaxValue[i]);
                         $row.find('.tax-name').val(localStorageTaxName[i]);
                         $row.find('.tax-method').val(localStorageTaxMethod[i]);
-                        $row.find('.product-price').text(localStorageSubTotalUnit[i]);
-                        $row.find('.sub-total').text(localStorageSubTotal[i]);
+                        $row.find('.product-price').text(formatMoney(localStorageSubTotalUnit[i]));
+                        $row.find('.sub-total').text(formatMoney(localStorageSubTotal[i]));
                         $row.find('.subtotal-value').val(localStorageSubTotal[i]);
                         $row.find('.product-id').val(localStorageProductId[i]);
                         $row.find('.product-code').val(localStorageProductCode[i]);
@@ -3097,8 +3066,8 @@
 
         var id = posCustomerId();
         if (id) {
-            $('#customer-deposit-balance').text(parseFloat(deposit[id] || 0).toFixed(2));
-            $('#customer-amount-owing').text(parseFloat(customer_owing[id] || 0).toFixed(2));
+            $('#customer-deposit-balance').text(formatMoney(deposit[id] || 0));
+            $('#customer-amount-owing').text(formatMoney(customer_owing[id] || 0));
             $('#customer-balance-panel').show();
         }
         if (id) {
@@ -3245,46 +3214,22 @@
         });
 
         function populateProduct(data) {
-            var tableData = '<table id="product-table" class="table no-shadow product-list"> <thead class="d-none"> <tr> <th></th> <th></th> <th></th> <th></th> <th></th> </tr></thead> <tbody><tr>';
-
-            if (Object.keys(data).length != 0) {
-                $.each(data['name'], function(index) {
-                    var product_info = data['code'][index]+' (' + data['name'][index] + ')';
-                    if(index % 5 == 0 && index != 0)
-                        tableData += '</tr><tr><td class="product-img sound-btn" title="'+data['name'][index]+'" data-product = "'+product_info+'"><img  src="'+window.POS_PRODUCT_IMAGE_BASE+data['image'][index]+'" width="100%" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p>'+data['name'][index]+'</p><span>'+data['code'][index]+'</span></td>';
-                    else
-                        tableData += '<td class="product-img sound-btn" title="'+data['name'][index]+'" data-product = "'+product_info+'"><img  src="'+window.POS_PRODUCT_IMAGE_BASE+data['image'][index]+'" width="100%" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p>'+data['name'][index]+'</p><span>'+data['code'][index]+'</span></td>';
+            var html = '<div class="row ml-2 mt-3 pos-product-grid">';
+            var names = (data && data.name) ? data.name : [];
+            if (names.length) {
+                $.each(names, function(index) {
+                    var label = posDisplayName(data.name[index], data.price ? data.price[index] : 0);
+                    var safeLabel = $('<div>').text(label).html();
+                    var productInfo = $('<div>').text(data.code[index] + ' (' + data.name[index] + ')').html();
+                    var image = data.image[index] ? window.POS_PRODUCT_IMAGE_BASE + data.image[index] : window.POS_PRODUCT_IMAGE_BASE + 'zummXD2dvAtI.png';
+                    html += '<div class="col-md-3 product-img sound-btn text-center" title="'+safeLabel+'" data-product="'+productInfo+'">';
+                    html += '<img src="'+image+'" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p class="text-center">'+safeLabel+'</p></div>';
                 });
-
-                if(data['name'].length % 5){
-                    var number = 5 - (data['name'].length % 5);
-                    while(number > 0)
-                    {
-                        tableData += '<td style="border:none;"></td>';
-                        number--;
-                    }
-                }
-
-                tableData += '</tr></tbody></table>';
-                $(".table-container").html(tableData);
-                $('#product-table').DataTable( {
-                    "order": [],
-                    'pageLength': product_row_number,
-                    'language': {
-                        'paginate': {
-                            'previous': '<i class="fa fa-angle-left"></i>',
-                            'next': '<i class="fa fa-angle-right"></i>'
-                        }
-                    },
-                    dom: 'tp'
-                });
-                $('table.product-list').hide();
-                $('table.product-list').show(500);
+            } else {
+                html += '<div class="col-md-12 text-center">No data available</div>';
             }
-            else{
-                tableData += '<td class="text-center">No data avaialable</td></tr></tbody></table>'
-                $(".table-container").html(tableData);
-            }
+            html += '</div>';
+            $(".table-container").html(html);
         }
 
         $('select[name="customer_id"]').on('change', function() {
@@ -3294,8 +3239,8 @@
                 customer_group_rate = (data / 100);
             });
             if (id) {
-                $('#customer-deposit-balance').text(parseFloat(deposit[id] || 0).toFixed(2));
-                $('#customer-amount-owing').text(parseFloat(customer_owing[id] || 0).toFixed(2));
+                $('#customer-deposit-balance').text(formatMoney(deposit[id] || 0));
+                $('#customer-amount-owing').text(formatMoney(customer_owing[id] || 0));
                 $('#customer-balance-panel').show();
             } else {
                 $('#customer-balance-panel').hide();
@@ -3622,7 +3567,7 @@
 
         function changePrice(selectObject){
             rowindex = selectObject.parentNode.closest('tr').rowIndex - 1;
-            product_price[rowindex] = selectObject.value;
+            product_price[rowindex] = moneyNumber(selectObject.value);
             var edit_qty = localStorageQty[rowindex];
 
             checkQuantity(edit_qty, false);
@@ -3631,9 +3576,9 @@
         $('button[name="update_btn"]').on("click", function() {
             var edit_discount = $('input[name="edit_discount"]').val();
             var edit_qty = $('input[name="edit_qty"]').val();
-            var edit_unit_price = $('input[name="edit_unit_price"]').val();
+            var edit_unit_price = moneyNumber($('input[name="edit_unit_price"]').val());
 
-            if (parseFloat(edit_discount) > parseFloat(edit_unit_price)) {
+            if (moneyNumber(edit_discount) > edit_unit_price) {
                 alert('Invalid Discount Input!');
                 return;
             }
@@ -3654,9 +3599,9 @@
                 var row_unit_operator = unit_operator[rowindex].slice(0, unit_operator[rowindex].indexOf(","));
                 var row_unit_operation_value = unit_operation_value[rowindex].slice(0, unit_operation_value[rowindex].indexOf(","));
                 if (row_unit_operator == '*') {
-                    product_price[rowindex] = $('input[name="edit_unit_price"]').val() / row_unit_operation_value;
+                    product_price[rowindex] = moneyNumber($('input[name="edit_unit_price"]').val()) / row_unit_operation_value;
                 } else {
-                    product_price[rowindex] = $('input[name="edit_unit_price"]').val() * row_unit_operation_value;
+                    product_price[rowindex] = moneyNumber($('input[name="edit_unit_price"]').val()) * row_unit_operation_value;
                 }
                 var position = $('select[name="edit_unit"]').val();
                 var temp_operator = temp_unit_operator[position];
@@ -3681,7 +3626,7 @@
                 localStorage.setItem("localStorageSaleUnitOperationValue", localStorageSaleUnitOperationValue);
             }
             else {
-                product_price[rowindex] = $('input[name="edit_unit_price"]').val();
+                product_price[rowindex] = moneyNumber($('input[name="edit_unit_price"]').val());
             }
             checkQuantity(edit_qty, false);
         });
@@ -3705,8 +3650,8 @@
         $(".payment-btn").on("click", function() {
             var audio = $("#mysoundclip2")[0];
             audio.play();
-            $('input[name="paid_amount"]').val($("#grand-total").text());
-            $('input[name="paying_amount"]').val($("#grand-total").text());
+            $('input[name="paid_amount"]').val(moneyNumber($("#grand-total").text()));
+            $('input[name="paying_amount"]').val(moneyNumber($("#grand-total").text()));
             $('.qc').data('initial', 1);
         });
 
@@ -3866,7 +3811,7 @@
                 alert('Paying amount cannot be bigger than recieved amount');
                 $(this).val('');
             }
-            else if( $(this).val() > parseFloat($('#grand-total').text()) ){
+            else if( moneyNumber($(this).val()) > moneyNumber($('#grand-total').text()) ){
                 alert('Paying amount cannot be bigger than grand total');
                 $(this).val('');
             }
@@ -3920,7 +3865,7 @@
         });
 
         function change(paying_amount, paid_amount) {
-            $("#change").text( parseFloat(paying_amount - paid_amount).toFixed(2) );
+            $("#change").text( formatMoney(paying_amount - paid_amount) );
         }
 
         function confirmDelete() {
@@ -4041,6 +3986,15 @@
             });
         }
 
+        function moneyNumber(value) {
+            var n = parseFloat(String(value == null ? '' : value).replace(/,/g, ''));
+            return isFinite(n) ? n : 0;
+        }
+
+        function formatMoney(value) {
+            return Math.round(moneyNumber(value)).toLocaleString('en-US');
+        }
+
         function posDisplayName(name, price) {
             var label = String(name || '').trim();
             var amount = parseFloat(price);
@@ -4066,7 +4020,7 @@
             var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
             cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';
             @if(in_array("price-change", $all_permission))
-                cols += '<td class="col-sm-2"><input onchange="changePrice(this)" onkeyup="changePrice(this)" type="number" class="product_price_change form-control" /></td>';
+                cols += '<td class="col-sm-2"><input onchange="changePrice(this)" onkeyup="changePrice(this)" type="text" class="product_price_change form-control" inputmode="decimal" /></td>';
             @else
                 cols += '<td class="col-sm-2 product-price"></td>';
             @endif
@@ -4188,7 +4142,7 @@
                 row_product_price = product_price[rowindex];
                 $("#edit_unit").hide();
             }
-            $('input[name="edit_unit_price"]').val(row_product_price.toFixed(2));
+            $('input[name="edit_unit_price"]').val(formatMoney(row_product_price));
             $('.selectpicker').selectpicker('refresh');
         }
 
@@ -4210,7 +4164,7 @@
                         else if(value['type'] == 'fixed'){
                             if(parseFloat($('input[name="grand_total"]').val()) >= value['minimum_amount']) {
                                 $('input[name="grand_total"]').val($('input[name="grand_total"]').val() - value['amount']);
-                                $('#grand-total').text(parseFloat($('input[name="grand_total"]').val()).toFixed(2));
+                                $('#grand-total').text(formatMoney($('input[name="grand_total"]').val()));
                                 if(!$('input[name="coupon_active"]').val())
                                     alert('Congratulation! You got '+value['amount']+' '+currency+' discount');
                                 $(".coupon-check").prop("disabled",true);
@@ -4219,7 +4173,7 @@
                                 $("#coupon-modal").modal('hide');
                                 $('input[name="coupon_id"]').val(value['id']);
                                 $('input[name="coupon_discount"]').val(value['amount']);
-                                $('#coupon-text').text(parseFloat(value['amount']).toFixed(2));
+                                $('#coupon-text').text(formatMoney(value['amount']));
                             }
                             else
                                 alert('Grand Total is not sufficient for discount! Required '+value['minimum_amount']+' '+currency);
@@ -4229,7 +4183,7 @@
                             var coupon_discount = grand_total * (value['amount'] / 100);
                             grand_total = grand_total - coupon_discount;
                             $('input[name="grand_total"]').val(grand_total);
-                            $('#grand-total').text(parseFloat(grand_total).toFixed(2));
+                            $('#grand-total').text(formatMoney(grand_total));
                             if(!$('input[name="coupon_active"]').val())
                                 alert('Congratulation! You got '+value['amount']+'% discount');
                             $(".coupon-check").prop("disabled",true);
@@ -4238,7 +4192,7 @@
                             $("#coupon-modal").modal('hide');
                             $('input[name="coupon_id"]').val(value['id']);
                             $('input[name="coupon_discount"]').val(coupon_discount);
-                            $('#coupon-text').text(parseFloat(coupon_discount).toFixed(2));
+                            $('#coupon-text').text(formatMoney(coupon_discount));
                         }
                     }
                 });
@@ -4346,10 +4300,10 @@
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.discount-value').val((product_discount[rowindex] * quantity).toFixed(2));
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.tax-rate').val(tax_rate[rowindex].toFixed(2));
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.net_unit_price').val(net_unit_price.toFixed(2));
-            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product_price_change').attr("value", net_unit_price.toFixed(2))
+            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product_price_change').val(formatMoney(net_unit_price))
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.tax-value').val(tax.toFixed(2));
-            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-price').text(sub_total_unit.toFixed(2));
-            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.sub-total').text(sub_total.toFixed(2));
+            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-price').text(formatMoney(sub_total_unit));
+            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.sub-total').text(formatMoney(sub_total));
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.subtotal-value').val(sub_total.toFixed(2));
 
             localStorageProductDiscount.splice(rowindex, 1, (product_discount[rowindex] * quantity).toFixed(2));
@@ -4399,7 +4353,7 @@
             //Sum of subtotal
             var total = 0;
             $(".sub-total").each(function() {
-                total += parseFloat($(this).text());
+                total += moneyNumber($(this).text());
             });
             $('input[name="total_price"]').val(total.toFixed(2));
 
@@ -4424,7 +4378,7 @@
             var order_discount = parseFloat($('input[name="order_discount"]').val());
             if (!order_discount)
                 order_discount = 0.00;
-            $("#discount").text(order_discount.toFixed(2));
+            $("#discount").text(formatMoney(order_discount));
 
             var shipping_cost = parseFloat($('input[name="shipping_cost"]').val());
             if (!shipping_cost)
@@ -4443,11 +4397,11 @@
 
             $('#item').text(item);
             $('input[name="item"]').val($('table.order-list tbody tr:last').index() + 1);
-            $('#subtotal').text(subtotal.toFixed(2));
-            $('#tax').text(order_tax.toFixed(2));
+            $('#subtotal').text(formatMoney(subtotal));
+            $('#tax').text(formatMoney(order_tax));
             $('input[name="order_tax"]').val(order_tax.toFixed(2));
-            $('#shipping-cost').text(shipping_cost.toFixed(2));
-            $('#grand-total').text(grand_total.toFixed(2));
+            $('#shipping-cost').text(formatMoney(shipping_cost));
+            $('#grand-total').text(formatMoney(grand_total));
             $('input[name="grand_total"]').val(grand_total.toFixed(2));
         }
 
@@ -4565,17 +4519,19 @@
 
         });
 
-        $('#product-table').DataTable( {
-            "order": [],
-            'pageLength': product_row_number,
-            'language': {
-                'paginate': {
-                    'previous': '<i class="fa fa-angle-left"></i>',
-                    'next': '<i class="fa fa-angle-right"></i>'
-                }
-            },
-            dom: 'tp'
-        });
+        if ($('#product-table').length) {
+            $('#product-table').DataTable( {
+                "order": [],
+                'pageLength': product_row_number,
+                'language': {
+                    'paginate': {
+                        'previous': '<i class="fa fa-angle-left"></i>',
+                        'next': '<i class="fa fa-angle-right"></i>'
+                    }
+                },
+                dom: 'tp'
+            });
+        }
     </script>
 @endsection
 @section('scripts')

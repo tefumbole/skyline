@@ -39,14 +39,6 @@
             <h1>{{ $lanes[$lane] ?? 'Orders' }} · {{ $tabs[$tab] ?? '' }}</h1>
         </header>
         <nav class="sky-tabs">
-            @foreach($lanes as $laneKey => $laneLabel)
-                @php $laneTotal = (int) ($counts[$laneKey]['awaiting'] ?? 0); @endphp
-                <a class="{{ $lane === $laneKey ? 'active' : '' }}" href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => 'awaiting']) }}">
-                    {{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif
-                </a>
-            @endforeach
-        </nav>
-        <nav class="sky-tabs">
             @foreach($tabs as $tabKey => $tabLabel)
                 @php $tabCount = (int) ($counts[$lane][$tabKey] ?? 0); @endphp
                 <a class="{{ $tab === $tabKey ? 'active' : '' }}" href="{{ route('restaurant.orders', ['lane' => $lane, 'tab' => $tabKey]) }}">

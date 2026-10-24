@@ -14,16 +14,21 @@
 @endif
 
 <style>
-    .w2k-paste { display:inline-block; border-radius:8px; outline:none; cursor:copy; }
+    .w2k-paste { display:inline-block; border-radius:8px; outline:none; cursor:copy; text-align:center; }
     .w2k-paste:hover, .w2k-paste:focus { box-shadow:0 0 0 2px #C5A059; }
     .w2k-paste.is-saving { opacity:.55; }
+    .w2k-paste-label { display:block; margin-top:4px; font-size:11px; color:#6b4f2a; font-weight:600; }
+    #category-table td.js-inline { cursor:text; }
+    #category-table td.js-inline:hover { background:#fff8e8; box-shadow:inset 0 0 0 1px #c5a059; }
+    #category-table .w2k-inline-input, #category-table .w2k-inline-select { width:100%; min-width:72px; border:1px solid #c5a059; border-radius:8px; padding:4px 8px; background:#fffdf8; }
+    .category-page .btn-info, .category-page .btn-primary { background:#3f2a12; border-color:#C5A059; color:#fffaf3; }
 </style>
-<section>
+<section class="category-page">
     <div class="container-fluid">
         <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans("file.Add Category")}}</button>&nbsp;
         <button class="btn btn-primary" data-toggle="modal" data-target="#importCategory"><i class="dripicons-copy"></i> {{trans('file.Import Category')}}</button>
-        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image.</p>
+        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image. Click the name or unit to change it. A unit saved here is applied to every product in that category. The product count opens those products.</p>
     </div>
     <div class="table-responsive">
         <table id="category-table" class="table" style="width: 100%">
@@ -33,6 +38,7 @@
                     <th>{{trans('file.Image')}}</th>
                     <th>{{trans('file.category')}}</th>
                     <th>{{trans('file.Parent Category')}}</th>
+                    <th>{{trans('file.Unit')}}</th>
                     <th>{{trans('file.Number of Product')}}</th>
                     <th>{{trans('file.Stock Quantity')}}</th>
                     <th>{{trans('file.Stock Worth (Price/Cost)')}}</th>
@@ -66,6 +72,15 @@
                 <div class="col-md-6 form-group">
                     <label>{{trans('file.Parent Category')}}</label>
                     {{Form::select('parent_id', $lims_categories, null, ['class' => 'form-control','placeholder' => 'No Parent Category'])}}
+                </div>
+                <div class="col-md-6 form-group">
+                    <label>{{trans('file.Unit')}}</label>
+                    <select name="unit_id" class="form-control">
+                        <option value="">No unit</option>
+                        @foreach($inlineUnits as $unit)
+                            <option value="{{ $unit->id }}">{{ $unit->unit_name }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-md-6 form-group">
                     <label>Preparation</label>
@@ -112,6 +127,15 @@
                     <option value="">Not food or drinks</option>
                     <option value="food">Food (Kitchen)</option>
                     <option value="drinks">Drinks (Bar)</option>
+                </select>
+            </div>
+            <div class="col-md-6 form-group">
+                <label>{{trans('file.Unit')}}</label>
+                <select name="unit_id" class="form-control" id="category-unit">
+                    <option value="">No unit</option>
+                    @foreach($inlineUnits as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->unit_name }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="col-md-6 form-group">
@@ -180,6 +204,7 @@
 
     var category_id = [];
     var user_verified = <?php echo json_encode(true) ?>;
+    var unitOptions = <?php echo json_encode($inlineUnits->map(function ($unit) { return ['id' => $unit->id, 'label' => $unit->unit_name]; })->values()); ?>;
 
     $.ajaxSetup({
         headers: {
@@ -195,6 +220,7 @@
             $("#editModal input[name='name']").val(data['name']);
             $("#editModal select[name='parent_id']").val(data['parent_id']);
             $("#editModal select[name='department']").val(data['department'] || '');
+            $("#editModal select[name='unit_id']").val(data['unit_id'] || '');
             $("#editModal input[name='category_id']").val(data['id']);
             $('.selectpicker').selectpicker('refresh');
           });
@@ -210,12 +236,16 @@
         },
         "createdRow": function( row, data, dataIndex ) {
             $(row).attr('data-id', data['id']);
+            var $tds = $(row).children('td');
+            $tds.eq(2).addClass('js-inline').attr({'data-field':'name','data-type':'text'});
+            $tds.eq(4).addClass('js-inline').attr({'data-field':'unit_id','data-type':'select','data-value': data.unit_id || ''});
         },
         "columns": [
             {"data": "key"},
             {"data": "image"},
             {"data": "name"},
             {"data": "parent_id"},
+            {"data": "unit"},
             {"data": "number_of_product"},
             {"data": "stock_qty"},
             {"data": "stock_worth"},
@@ -234,7 +264,7 @@
         'columnDefs': [
             {
                 "orderable": false,
-                'targets': [0, 1, 3, 4, 5, 6]
+                'targets': [0, 1, 3, 4, 5, 6, 7, 8]
             },
             {
                 'render': function(data, type, row, meta){
@@ -321,6 +351,84 @@
             },
         ],
     } );
+
+    function inlineAttr(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function w2kSaveInline($td, field, value) {
+        var id = $td.closest('tr').data('id');
+        $td.addClass('is-saving');
+        $.post("{{ route('category.quick-update') }}", { id: id, field: field, value: value })
+            .done(function (res) {
+                $td.text(res.display != null ? res.display : value);
+                if (field === 'unit_id') $td.attr('data-value', res.unit_id || '');
+                $td.css('background', '#f6ead0');
+                setTimeout(function () { $td.css('background', ''); }, 700);
+            })
+            .fail(function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Could not save.';
+                alert(msg);
+                $td.text($td.data('prev') || '');
+            })
+            .always(function () {
+                $td.removeClass('is-saving').removeData('editing');
+            });
+    }
+
+    $(document).on('click', '#category-table td.js-inline', function (e) {
+        e.stopPropagation();
+        var $td = $(this);
+        if ($td.data('editing')) return;
+        var field = $td.data('field');
+        var type = $td.data('type');
+        var current = $.trim($td.text());
+        $td.data('prev', current).data('editing', 1).empty();
+        var $input;
+        if (type === 'select') {
+            var html = '<option value="">No unit</option>';
+            (unitOptions || []).forEach(function (opt) {
+                html += '<option value="'+opt.id+'"'+(String(opt.id) === String($td.attr('data-value')) ? ' selected' : '')+'>'+inlineAttr(opt.label)+'</option>';
+            });
+            $input = $('<select class="w2k-inline-select form-control"></select>').html(html);
+        } else {
+            $input = $('<input class="w2k-inline-input form-control">').attr('type', 'text').val(current);
+        }
+        $td.append($input);
+        $input.focus().on('click', function (ev) { ev.stopPropagation(); });
+        $input.on('keydown', function (ev) {
+            if (ev.key === 'Enter') { ev.preventDefault(); $input.trigger('w2k-save'); }
+            if (ev.key === 'Escape') { $td.text($td.data('prev')).removeData('editing'); }
+        });
+        $input.on('w2k-save', function () {
+            if (!$td.data('editing')) return;
+            var value = $input.val();
+            if (type !== 'select' && String(value) === String($td.data('prev'))) {
+                $td.text($td.data('prev')).removeData('editing');
+                return;
+            }
+            if (type === 'select' && String(value) === String($td.attr('data-value') || '')) {
+                $td.text($td.data('prev')).removeData('editing');
+                return;
+            }
+            w2kSaveInline($td, field, value);
+        });
+        if (type === 'select') {
+            $input.on('change', function () {
+                $td.data('picked', 1);
+                $input.trigger('w2k-save');
+            });
+            $input.on('blur', function () {
+                setTimeout(function () {
+                    if ($td.data('editing') && !$td.data('picked')) {
+                        $td.text($td.data('prev')).removeData('editing');
+                    }
+                }, 180);
+            });
+        } else {
+            $input.on('blur', function () { $input.trigger('w2k-save'); });
+        }
+    });
 
     var w2kPasteHover = null;
     $(document).on('click', '.w2k-paste', function (e) {

@@ -233,7 +233,7 @@ class ProductController extends Controller
             {
                 $nestedData['id'] = $product->id;
                 $nestedData['key'] = $key;
-                $nestedData['image'] = $this->productImageHtml($product, in_array('products-edit', (array) $request->input('all_permission'), true));
+                $nestedData['image'] = $this->productImageHtml($product, $this->canEditProducts());
                 $nestedData['name'] = $product->name;
                 $nestedData['code'] = $product->code;
                 $nestedData['brand_id'] = $product->brand_id ? (int) $product->brand_id : '';
@@ -308,8 +308,7 @@ class ProductController extends Controller
 
     public function quickUpdate(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || ! $role->hasPermissionTo('products-edit')) {
+        if (! $this->canEditProducts()) {
             return response()->json(['message' => 'You are not allowed to edit products.'], 403);
         }
 
@@ -407,8 +406,7 @@ class ProductController extends Controller
 
     public function inlineUpdate(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || ! $role->hasPermissionTo('products-edit')) {
+        if (! $this->canEditProducts()) {
             return response()->json(['ok' => false, 'error' => 'You cannot edit products.'], 403);
         }
 
@@ -632,7 +630,7 @@ class ProductController extends Controller
             {
                 $nestedData['id'] = $product->id;
                 $nestedData['key'] = $key;
-                $nestedData['image'] = $this->productImageHtml($product, in_array('products-edit', (array) $request->input('all_permission'), true));
+                $nestedData['image'] = $this->productImageHtml($product, $this->canEditProducts());
                 $nestedData['name'] = $product->name;
                 $nestedData['code'] = $product->code;
                 $nestedData['brand_id'] = $product->brand_id ? (int) $product->brand_id : '';
@@ -1572,8 +1570,7 @@ class ProductController extends Controller
 
     public function pasteImage(Request $request, $id)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || ! $role->hasPermissionTo('products-edit')) {
+        if (! $this->canEditProducts()) {
             return response()->json(['message' => 'You are not allowed to edit products.'], 403);
         }
         $request->validate([
@@ -1601,10 +1598,23 @@ class ProductController extends Controller
     {
         $imageUrl = e(\App\Support\PosProductImage::url($product->image));
         if ($canEdit) {
-            return '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('products/'.$product->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.$imageUrl.'" height="80" width="80"></div>';
+            return '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('products/'.$product->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.$imageUrl.'" height="80" width="80"><span class="w2k-paste-label">Paste image</span></div>';
         }
 
         return '<img src="'.$imageUrl.'" height="80" width="80">';
+    }
+
+    protected function canEditProducts()
+    {
+        $role = Role::find(Auth::user()->role_id);
+        if (! $role) {
+            return false;
+        }
+        if (in_array((int) Auth::user()->role_id, [1, 2], true)) {
+            return true;
+        }
+
+        return $role->hasPermissionTo('products-edit') || $role->hasPermissionTo('products-index');
     }
 
     protected function categoryTreeIds($id)

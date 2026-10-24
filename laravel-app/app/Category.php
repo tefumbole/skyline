@@ -10,7 +10,7 @@ class Category extends Model
     use BelongsToCloudTenant;
     protected $fillable =[
 
-        "name", 'image', "parent_id", "department", "service", "is_active"
+        "name", 'image', "parent_id", "unit_id", "department", "service", "is_active"
     ];
 
     public function product()

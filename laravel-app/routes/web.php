@@ -921,6 +921,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('category/import', 'CategoryController@import')->name('category.import');
 	Route::post('category/deletebyselection', 'CategoryController@deleteBySelection');
 	Route::post('category/category-data', 'CategoryController@categoryData');
+	Route::post('category/quick-update', 'CategoryController@quickUpdate')->name('category.quick-update');
 	Route::post('category/{id}/paste-image', 'CategoryController@pasteImage');
 	Route::resource('category', 'CategoryController');
 

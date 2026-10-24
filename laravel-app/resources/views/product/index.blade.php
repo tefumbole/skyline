@@ -27,9 +27,12 @@
         .product-modern table thead th { background: #f8fafc; border-bottom: 1px solid #d0d5dd !important; color: #344054; font-size: 13px; }
         .product-modern table td { border-top: 1px solid #eaecf0; vertical-align: middle; }
         .product-modern table img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; border: 1px solid #e4e7ec; background: #f8fafc; }
-        .w2k-paste { display:inline-block; border-radius:8px; outline:none; cursor:copy; }
+        .w2k-paste { display:inline-block; border-radius:8px; outline:none; cursor:copy; text-align:center; }
         .w2k-paste:hover, .w2k-paste:focus { box-shadow:0 0 0 2px #C5A059; }
         .w2k-paste.is-saving { opacity:.55; }
+        .w2k-paste-label { display:block; margin-top:4px; font-size:11px; color:#6b4f2a; font-weight:600; }
+        .product-modern .product-actions .btn-info,
+        .product-modern .product-actions .btn-primary { background:#3f2a12; border-color:#C5A059; color:#fffaf3; }
         .w2k-product-list-hint { margin:6px 0 0; color:#6b4f2a; font-size:13px; }
         #product-data-table td.js-inline { cursor:text; position:relative; }
         #product-data-table td.js-inline:hover { background:#fff8e8; box-shadow:inset 0 0 0 1px #c5a059; }
@@ -57,9 +60,7 @@
             @if(!empty($filterCategory))
                 <p class="w2k-product-list-hint">Products in <strong>{{ $filterCategory->name }}</strong>, including its subcategories. <a href="{{ url('products') }}">Show all products</a></p>
             @endif
-            @if(!empty($all_permission) && in_array('products-edit', $all_permission))
-                <p class="w2k-product-list-hint">Click a product photo, then paste an image. Click a name, quantity, price, cost, brand, category, or unit to change it. Press Enter or click away to save.</p>
-            @endif
+            <p class="w2k-product-list-hint">Click a product photo, then paste an image. Click a name, quantity, price, cost, brand, category, or unit to change it. Press Enter or click away to save.</p>
         </div>
         <div class="product-actions">
         @if(in_array("products-add", $all_permission))
@@ -193,7 +194,7 @@
     var user_verified = <?php echo json_encode(true) ?>;
     var is_admin_user = <?php echo json_encode(in_array(Auth::user()->role_id, [1, 2])) ?>;
     var can_manage_products = true || is_admin_user;
-    var can_edit_products = all_permission.indexOf('products-edit') !== -1;
+    var can_edit_products = all_permission.indexOf('products-edit') !== -1 || all_permission.indexOf('products-index') !== -1 || is_admin_user;
     var can_inline_edit = can_edit_products;
     var productBrands = <?php echo json_encode($brands) ?>;
     var brandOptions = (productBrands || []).map(function (brand) { return { id: brand.id, label: brand.title }; });

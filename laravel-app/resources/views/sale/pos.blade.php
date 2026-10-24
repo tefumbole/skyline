@@ -28,9 +28,31 @@
         body.beyond-pos-active .pos-section .btn-primary,
         body.beyond-pos-active .pos-section .btn-info,
         body.beyond-pos-active .pos-section .btn-success { border-radius: 8px; }
-        body.beyond-pos-active .pos-section .menu-btn { border-color: #0b3f90; color: #0b3f90; border-radius: 8px; }
+        body.beyond-pos-active .pos-section .menu-btn { border-color: #C5A059; color: #3f2a12; background: #fffaf3; border-radius: 8px; }
+        body.beyond-pos-active .pos-section .menu-btn:hover { background: #f6ead0; color: #1a1208; }
         body.beyond-pos-active .pos-section .grand-total,
-        body.beyond-pos-active .pos-section .total-section { background: linear-gradient(135deg, #0b3f90, #072f6b) !important; color: #fff !important; border-radius: 10px; }
+        body.beyond-pos-active .pos-section .total-section { background: linear-gradient(135deg, #3f2a12, #1a1208) !important; color: #fffaf3 !important; border-radius: 10px; }
+        body.beyond-pos-active .pos-section .bootstrap-select > .dropdown-toggle,
+        body.beyond-pos-active .pos-section .bootstrap-select .filter-option,
+        body.beyond-pos-active .pos-section .bootstrap-select .filter-option-inner-inner,
+        body.beyond-pos-active .pos-section .btn-link,
+        body.beyond-pos-active .pos-section .product-title,
+        body.beyond-pos-active .pos-section .product-title strong { color: #3f2a12 !important; }
+        body.beyond-pos-active .pos-section .minus,
+        body.beyond-pos-active .pos-section .plus,
+        body.beyond-pos-active .pos-section .btn-default.minus,
+        body.beyond-pos-active .pos-section .btn-default.plus {
+            background: #f6ead0 !important;
+            color: #3f2a12 !important;
+            border: 1px solid #C5A059 !important;
+        }
+        body.beyond-pos-active #category-filter,
+        body.beyond-pos-active #brand-filter {
+            background: #3f2a12 !important;
+            border-color: #C5A059 !important;
+            color: #fffaf3 !important;
+        }
+        body.beyond-pos-active #customer-balance-panel { color: #3f2a12 !important; }
         body.beyond-pos-active .pos-section .payment-buttons .btn { border-radius: 10px; font-weight: 700; }
         body.beyond-pos-active .pos-section .product-img img {
             width: 100%;
@@ -1936,37 +1958,37 @@
                                 <tbody>
                                 @for ($i=0; $i < ceil($product_number/5); $i++)
                                     <tr>
-                                        <td class="product-img sound-btn" title="{{$lims_product_list[0+$i*5]->name}}" data-product ="{{$lims_product_list[0+$i*5]->code . ' (' . $lims_product_list[0+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[0+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[0+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                            <p>{{$lims_product_list[0+$i*5]->name}}</p>
+                                        <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[0+$i*5]->name, $lims_product_list[0+$i*5]->price) }}" data-product ="{{$lims_product_list[0+$i*5]->code . ' (' . $lims_product_list[0+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[0+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[0+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                            <p>{{ \App\Support\PosDisplay::name($lims_product_list[0+$i*5]->name, $lims_product_list[0+$i*5]->price) }}</p>
                                             <span>{{$lims_product_list[0+$i*5]->code}}</span>
                                         </td>
                                         @if(!empty($lims_product_list[1+$i*5]))
-                                            <td class="product-img sound-btn" title="{{$lims_product_list[1+$i*5]->name}}" data-product ="{{$lims_product_list[1+$i*5]->code . ' (' . $lims_product_list[1+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[1+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[1+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{$lims_product_list[1+$i*5]->name}}</p>
+                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[1+$i*5]->name, $lims_product_list[1+$i*5]->price) }}" data-product ="{{$lims_product_list[1+$i*5]->code . ' (' . $lims_product_list[1+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[1+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[1+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[1+$i*5]->name, $lims_product_list[1+$i*5]->price) }}</p>
                                                 <span>{{$lims_product_list[1+$i*5]->code}}</span>
                                             </td>
                                         @else
                                             <td style="border:none;"></td>
                                         @endif
                                         @if(!empty($lims_product_list[2+$i*5]))
-                                            <td class="product-img sound-btn" title="{{$lims_product_list[2+$i*5]->name}}" data-product ="{{$lims_product_list[2+$i*5]->code . ' (' . $lims_product_list[2+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[2+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[2+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{$lims_product_list[2+$i*5]->name}}</p>
+                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[2+$i*5]->name, $lims_product_list[2+$i*5]->price) }}" data-product ="{{$lims_product_list[2+$i*5]->code . ' (' . $lims_product_list[2+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[2+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[2+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[2+$i*5]->name, $lims_product_list[2+$i*5]->price) }}</p>
                                                 <span>{{$lims_product_list[2+$i*5]->code}}</span>
                                             </td>
                                         @else
                                             <td style="border:none;"></td>
                                         @endif
                                         @if(!empty($lims_product_list[3+$i*5]))
-                                            <td class="product-img sound-btn" title="{{$lims_product_list[3+$i*5]->name}}" data-product ="{{$lims_product_list[3+$i*5]->code . ' (' . $lims_product_list[3+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[3+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[3+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{$lims_product_list[3+$i*5]->name}}</p>
+                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[3+$i*5]->name, $lims_product_list[3+$i*5]->price) }}" data-product ="{{$lims_product_list[3+$i*5]->code . ' (' . $lims_product_list[3+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[3+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[3+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[3+$i*5]->name, $lims_product_list[3+$i*5]->price) }}</p>
                                                 <span>{{$lims_product_list[3+$i*5]->code}}</span>
                                             </td>
                                         @else
                                             <td style="border:none;"></td>
                                         @endif
                                         @if(!empty($lims_product_list[4+$i*5]))
-                                            <td class="product-img sound-btn" title="{{$lims_product_list[4+$i*5]->name}}" data-product ="{{$lims_product_list[4+$i*5]->code . ' (' . $lims_product_list[4+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[4+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[4+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
-                                                <p>{{$lims_product_list[4+$i*5]->name}}</p>
+                                            <td class="product-img sound-btn" title="{{ \App\Support\PosDisplay::name($lims_product_list[4+$i*5]->name, $lims_product_list[4+$i*5]->price) }}" data-product ="{{$lims_product_list[4+$i*5]->code . ' (' . $lims_product_list[4+$i*5]->name . ')'}}"><img  src="{{ $lims_product_list[4+$i*5]->base_image ? asset('public/images/product/'.$lims_product_list[4+$i*5]->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" width="100%" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                                <p>{{ \App\Support\PosDisplay::name($lims_product_list[4+$i*5]->name, $lims_product_list[4+$i*5]->price) }}</p>
                                                 <span>{{$lims_product_list[4+$i*5]->code}}</span>
                                             </td>
                                         @else
@@ -3929,15 +3951,27 @@
             });
         }
 
+        function posDisplayName(name, price) {
+            var label = String(name || '').trim();
+            var amount = parseFloat(price);
+            if (!label || !isFinite(amount) || amount <= 0) return label;
+            var plain = String(Math.round(amount));
+            var grouped = plain.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            var pattern = new RegExp('\\s+(?:' + plain + '|' + grouped.replace(/,/g, '\\,') + ')(?:\\.00)?$');
+            var shortName = label.replace(pattern, '').trim();
+            return shortName || label;
+        }
+
         function addNewProduct(data){
             var newRow = $("<tr>");
             var cols = '';
+            var lineName = $('<div>').text(posDisplayName(data[0], data[2])).html();
             temp_unit_name = (data[6]).split(',');
             pos = product_code.indexOf(data[1]);
             @if(in_array("price-change", $all_permission))
-                cols += '<td class="col-sm-5 product-title"><strong>' + data[0] + '</strong><br>' + data[1] + '<a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a><p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong><br>' + data[1] + '<a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a><p>In Stock: <span class="in-stock"></span></p></td>';
             @else
-                cols += '<td class="col-sm-5 product-title"><button type="button" class="edit-product btn btn-link"><strong>' + data[0] + '</strong></button><br>' + data[1] + '<p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><button type="button" class="edit-product btn btn-link"><strong>' + lineName + '</strong></button><br>' + data[1] + '<p>In Stock: <span class="in-stock"></span></p></td>';
             @endif
             var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
             cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';

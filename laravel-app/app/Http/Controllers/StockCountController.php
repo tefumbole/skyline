@@ -62,8 +62,11 @@ class StockCountController extends Controller
                 $csvData[]=$product->name.','.$product->code.','.$product->qty.','.'';
             }
             $filename= date('Ymd').'-'.date('his'). ".csv";
-            $file_path= public_path().'/stock_count/'.$filename;
+            $file_path= $this->stockCountDirectory().'/'.$filename;
             $file = fopen($file_path, "w+");
+            if ($file === false) {
+                return redirect()->back()->with('not_permitted', 'The stock count file could not be created.');
+            }
             foreach ($csvData as $cellData){
               fputcsv($file, explode(',', $cellData));
             }
@@ -90,6 +93,7 @@ class StockCountController extends Controller
         $data = $request->all();
         $document = $request->final_file;
         $documentName = date('Ymd').'-'.date('his'). ".csv";
+        $this->stockCountDirectory();
         $document->move('public/stock_count/', $documentName);
         $data['final_file'] = $documentName;
         $lims_stock_count_data = StockCount::find($data['stock_count_id']);
@@ -176,5 +180,14 @@ class StockCountController extends Controller
     public function destroy($id)
     {
         //
+    }
+
+    protected function stockCountDirectory()
+    {
+        $dir = public_path('stock_count');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        return $dir;
     }
 }

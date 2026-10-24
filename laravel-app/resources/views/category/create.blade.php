@@ -28,7 +28,7 @@
         <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans("file.Add Category")}}</button>&nbsp;
         <button class="btn btn-primary" data-toggle="modal" data-target="#importCategory"><i class="dripicons-copy"></i> {{trans('file.Import Category')}}</button>
-        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image. Click the name or unit to change it. A unit saved here is applied to every product in that category. The product count opens those products.</p>
+        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image. Click the name, parent category, or unit to change it. A unit saved here is applied to every product in that category. The product count opens those products.</p>
     </div>
     <div class="table-responsive">
         <table id="category-table" class="table" style="width: 100%">
@@ -205,6 +205,7 @@
     var category_id = [];
     var user_verified = <?php echo json_encode(true) ?>;
     var unitOptions = <?php echo json_encode($inlineUnits->map(function ($unit) { return ['id' => $unit->id, 'label' => $unit->unit_name]; })->values()); ?>;
+    var parentOptions = <?php echo json_encode($lims_category_all->map(function ($category) { return ['id' => $category->id, 'label' => $category->name]; })->values()); ?>;
 
     $.ajaxSetup({
         headers: {
@@ -238,6 +239,7 @@
             $(row).attr('data-id', data['id']);
             var $tds = $(row).children('td');
             $tds.eq(2).addClass('js-inline').attr({'data-field':'name','data-type':'text'});
+            $tds.eq(3).addClass('js-inline').attr({'data-field':'parent_id','data-type':'select','data-value': data.parent_value || ''});
             $tds.eq(4).addClass('js-inline').attr({'data-field':'unit_id','data-type':'select','data-value': data.unit_id || ''});
         },
         "columns": [
@@ -363,6 +365,7 @@
             .done(function (res) {
                 $td.text(res.display != null ? res.display : value);
                 if (field === 'unit_id') $td.attr('data-value', res.unit_id || '');
+                if (field === 'parent_id') $td.attr('data-value', res.parent_id || '');
                 $td.css('background', '#f6ead0');
                 setTimeout(function () { $td.css('background', ''); }, 700);
             })
@@ -386,8 +389,11 @@
         $td.data('prev', current).data('editing', 1).empty();
         var $input;
         if (type === 'select') {
-            var html = '<option value="">No unit</option>';
-            (unitOptions || []).forEach(function (opt) {
+            var list = field === 'parent_id' ? parentOptions : unitOptions;
+            var ownId = String($td.closest('tr').data('id') || '');
+            var html = '<option value="">'+(field === 'parent_id' ? 'No parent' : 'No unit')+'</option>';
+            (list || []).forEach(function (opt) {
+                if (field === 'parent_id' && String(opt.id) === ownId) return;
                 html += '<option value="'+opt.id+'"'+(String(opt.id) === String($td.attr('data-value')) ? ' selected' : '')+'>'+inlineAttr(opt.label)+'</option>';
             });
             $input = $('<select class="w2k-inline-select form-control"></select>').html(html);

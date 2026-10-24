@@ -86,10 +86,9 @@ class CategoryController extends Controller
                 $nestedData['unit_id'] = $category->unit_id ? (int) $category->unit_id : '';
                 $nestedData['unit'] = ($category->unit_id && isset($unitNames[$category->unit_id])) ? $unitNames[$category->unit_id] : 'N/A';
 
-                if($category->parent_id)
-                    $nestedData['parent_id'] = Category::find($category->parent_id)->name;
-                else
-                    $nestedData['parent_id'] = "N/A";
+                $parent = $category->parent_id ? Category::find($category->parent_id) : null;
+                $nestedData['parent_value'] = $parent ? (int) $parent->id : '';
+                $nestedData['parent_id'] = $parent ? $parent->name : 'N/A';
 
                 $productIds = $this->categoryTreeIds($category->id);
                 $categoryProducts = Product::where('is_active', true)->whereIn('category_id', $productIds);
@@ -331,6 +330,19 @@ class CategoryController extends Controller
             $this->applyCategoryUnit($category, $unitId);
             $category->refresh();
             $display = $category->unit_id ? optional(Unit::find($category->unit_id))->unit_name : 'N/A';
+        } elseif ($field === 'parent_id') {
+            $parentId = ($value === '' || $value === null) ? null : (int) $value;
+            if ($parentId) {
+                if (! Category::where('is_active', true)->where('id', $parentId)->exists()) {
+                    return response()->json(['message' => 'Choose a parent from the list.'], 422);
+                }
+                if (in_array($parentId, $this->categoryTreeIds($category->id), true)) {
+                    return response()->json(['message' => 'Choose a parent that is not this category or one inside it.'], 422);
+                }
+            }
+            $category->parent_id = $parentId;
+            $category->save();
+            $display = $parentId ? Category::where('id', $parentId)->value('name') : 'N/A';
         } else {
             return response()->json(['message' => 'That field cannot be edited here.'], 422);
         }
@@ -339,6 +351,7 @@ class CategoryController extends Controller
             'success' => true,
             'display' => $display,
             'unit_id' => $category->unit_id,
+            'parent_id' => $category->parent_id,
         ]);
     }
 

@@ -32,12 +32,18 @@
         body.beyond-pos-active .pos-section .menu-btn:hover { background: #f6ead0; color: #1a1208; }
         body.beyond-pos-active .pos-section .grand-total,
         body.beyond-pos-active .pos-section .total-section { background: linear-gradient(135deg, #3f2a12, #1a1208) !important; color: #fffaf3 !important; border-radius: 10px; }
-        body.beyond-pos-active .payment-amount {
+        body.beyond-pos-active .pos-pay-bar {
             position: fixed;
             left: 240px;
             right: 0;
-            bottom: 62px;
+            bottom: 0;
             z-index: 1000;
+            background: #fff;
+            box-shadow: 0 -8px 24px rgba(26, 18, 8, .16);
+        }
+        body.beyond-pos-active.modal-open .pos-pay-bar { z-index: 1; }
+        body.beyond-pos-active .payment-amount {
+            position: static;
             margin: 0;
             padding: 8px 18px;
             background: #1a1208 !important;
@@ -61,10 +67,24 @@
             line-height: 1;
         }
         body.beyond-pos-active .payment-options {
-            left: 240px;
-            width: calc(100% - 240px);
+            position: static;
+            left: auto;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 10px 10px;
+            background: #fff;
         }
-        body.beyond-pos-active .pos-section { padding-bottom: 140px; }
+        body.beyond-pos-active .payment-options .column-5 {
+            float: none;
+            flex: 1 1 150px;
+            min-width: 150px;
+            margin: 0;
+            padding: 0;
+        }
+        body.beyond-pos-active .payment-options .btn-custom { min-height: 46px; }
+        body.beyond-pos-active .pos-section { padding-bottom: 280px; }
         body.beyond-pos-active #myTable .pos-qty {
             display: flex;
             flex-wrap: nowrap;
@@ -107,8 +127,7 @@
         body.beyond-pos-active .pos-order-note label { color: #3f2a12; font-weight: 700; }
         body.beyond-pos-active #pay-later-btn { background: #3f2a12 !important; color: #fffaf3 !important; border: 2px solid #C5A059 !important; }
         @media (max-width: 767px) {
-            body.beyond-pos-active .payment-amount,
-            body.beyond-pos-active .payment-options { left: 0; width: 100%; }
+            body.beyond-pos-active .pos-pay-bar { left: 0; }
         }
         body.beyond-pos-active .pos-section .bootstrap-select > .dropdown-toggle,
         body.beyond-pos-active .pos-section .bootstrap-select .filter-option,
@@ -1613,6 +1632,7 @@
                                         <label for="pos-order-note">Order note</label>
                                         <input type="text" id="pos-order-note" name="customer_comment" class="form-control" maxlength="500" placeholder="Note for the whole order">
                                     </div>
+                                    <div class="pos-pay-bar">
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
                                     </div>
@@ -1662,6 +1682,7 @@
                                             <div class="column-5">
                                                 <button style="background-color: #ffc107;" type="button" class="btn btn-custom" data-toggle="modal" data-target="#recentTransaction"><i class="dripicons-clock"></i> Recent transaction</button>
                                             </div>
+                                    </div>
                                     </div>
                                 </div>
                             </div>

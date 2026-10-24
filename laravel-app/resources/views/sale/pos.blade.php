@@ -32,6 +32,84 @@
         body.beyond-pos-active .pos-section .menu-btn:hover { background: #f6ead0; color: #1a1208; }
         body.beyond-pos-active .pos-section .grand-total,
         body.beyond-pos-active .pos-section .total-section { background: linear-gradient(135deg, #3f2a12, #1a1208) !important; color: #fffaf3 !important; border-radius: 10px; }
+        body.beyond-pos-active .payment-amount {
+            position: fixed;
+            left: 240px;
+            right: 0;
+            bottom: 62px;
+            z-index: 1000;
+            margin: 0;
+            padding: 8px 18px;
+            background: #1a1208 !important;
+            border-top: 3px solid #C5A059;
+            text-align: center;
+        }
+        body.beyond-pos-active .payment-amount h2 {
+            margin: 0;
+            color: #fffaf3 !important;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        body.beyond-pos-active .payment-amount #grand-total {
+            display: inline-block;
+            margin-left: 10px;
+            color: #C5A059 !important;
+            font-size: 2.4rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        body.beyond-pos-active .payment-options {
+            left: 240px;
+            width: calc(100% - 240px);
+        }
+        body.beyond-pos-active .pos-section { padding-bottom: 140px; }
+        body.beyond-pos-active #myTable .pos-qty {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 4px;
+            width: 112px;
+            max-width: 100%;
+        }
+        body.beyond-pos-active #myTable .pos-qty .minus,
+        body.beyond-pos-active #myTable .pos-qty .plus {
+            flex: 0 0 30px;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            line-height: 28px;
+        }
+        body.beyond-pos-active #myTable .pos-qty .qty {
+            width: 36px;
+            min-width: 36px;
+            max-width: 36px;
+            height: 30px;
+            padding: 0;
+            text-align: center;
+        }
+        body.beyond-pos-active .pos-line-name { display: flex; align-items: center; gap: 8px; }
+        body.beyond-pos-active .pos-note-btn {
+            flex: 0 0 28px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid #C5A059;
+            background: #fffaf3;
+            color: #3f2a12;
+            font-weight: 800;
+            line-height: 1;
+            padding: 0;
+        }
+        body.beyond-pos-active .pos-item-note { margin-top: 6px; }
+        body.beyond-pos-active .pos-order-note { margin: 10px 0 16px; }
+        body.beyond-pos-active .pos-order-note label { color: #3f2a12; font-weight: 700; }
+        body.beyond-pos-active #pay-later-btn { background: #3f2a12 !important; color: #fffaf3 !important; border: 2px solid #C5A059 !important; }
+        @media (max-width: 767px) {
+            body.beyond-pos-active .payment-amount,
+            body.beyond-pos-active .payment-options { left: 0; width: 100%; }
+        }
         body.beyond-pos-active .pos-section .bootstrap-select > .dropdown-toggle,
         body.beyond-pos-active .pos-section .bootstrap-select .filter-option,
         body.beyond-pos-active .pos-section .bootstrap-select .filter-option-inner-inner,
@@ -1376,10 +1454,11 @@
                                             <table id="myTable" class="table table-hover table-striped order-list table-fixed">
                                                 <thead>
                                                 <tr>
-                                                    <th class="col-sm-5">{{trans('file.product')}}</th>
+                                                    <th class="col-sm-4">{{trans('file.product')}}</th>
                                                     <th class="col-sm-2">{{trans('file.Price')}}</th>
-                                                    <th class="col-sm-2">{{trans('file.Quantity')}}</th>
-                                                    <th class="col-sm-3">{{trans('file.Subtotal')}}</th>
+                                                    <th class="col-sm-3">{{trans('file.Quantity')}}</th>
+                                                    <th class="col-sm-2">{{trans('file.Subtotal')}}</th>
+                                                    <th class="col-sm-1"></th>
                                                 </tr>
                                                 </thead>
                                                 <tbody id="tbody-id">
@@ -1483,10 +1562,6 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <div class="col-sm-3">
-                                            <label>Order note</label>
-                                            <input type="text" name="customer_comment" class="form-control" placeholder="Guest comment">
-                                        </div>
                                     </div>
                                     <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
                                         <div role="document" class="modal-dialog">
@@ -1534,6 +1609,10 @@
                                         })();
                                     </script>
                                     @endif
+                                    <div class="pos-order-note">
+                                        <label for="pos-order-note">Order note</label>
+                                        <input type="text" id="pos-order-note" name="customer_comment" class="form-control" maxlength="500" placeholder="Note for the whole order">
+                                    </div>
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
                                     </div>
@@ -1542,7 +1621,7 @@
                                         {{--                            <button style="background: #0984e3" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-card-btn"><i class="fa fa-credit-card"></i> Card</button>--}}
                                         {{--                        </div>--}}
                                         <div class="column-5">
-                                            <button style="background-color: #213170" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to Payments</button>
+                                            <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to payment</button>
                                         </div>
 
                                             @if(in_array("JE-method", $all_permission))
@@ -2655,11 +2734,34 @@
                     }
                 }
                 var $title = $row.find("td.product-title");
-                $title.removeClass("col-sm-3").addClass("col-sm-5");
+                $title.removeClass("col-sm-3 col-sm-5").addClass("col-sm-4");
                 $title.find("br, p").remove();
                 $title.contents().filter(function () {
                     return this.nodeType === 3 && $.trim(this.nodeValue) !== "";
                 }).remove();
+                var $oldNote = $row.find('input[name="item_comment[]"]').filter(function () {
+                    return !$(this).closest("td").hasClass("product-title");
+                });
+                if ($oldNote.length) {
+                    $oldNote.addClass("pos-item-note").css("display", $.trim($oldNote.val()) ? "" : "none");
+                    $title.append($oldNote);
+                    $oldNote.closest("td").not($title).remove();
+                }
+                if (!$title.find(".pos-note-btn").length) {
+                    var $name = $title.find("strong").first();
+                    if ($name.length) {
+                        $name.wrap('<div class="pos-line-name"></div>');
+                        $name.after('<button type="button" class="pos-note-btn" title="Add a note">+</button>');
+                    }
+                }
+                $row.find(".sub-total").closest("td").removeClass("col-sm-3").addClass("col-sm-2");
+                var $qtyCell = $row.find(".qty").closest("td");
+                $qtyCell.removeClass("col-sm-2").addClass("col-sm-3 pos-qty-cell");
+                if (!$qtyCell.find(".pos-qty").length && $qtyCell.find(".qty").length) {
+                    var $wrap = $('<div class="pos-qty"></div>');
+                    $wrap.append($qtyCell.find(".minus")).append($qtyCell.find(".qty")).append($qtyCell.find(".plus"));
+                    $qtyCell.empty().append($wrap);
+                }
             });
         }
 
@@ -3332,6 +3434,21 @@
             });
         }
 
+        $("#myTable").on('click', '.pos-note-btn', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var $note = $(this).closest('td').find('.pos-item-note');
+            $note.toggle();
+            if ($note.is(':visible')) $note.focus();
+        });
+
+        $(document).on('input', '#pos-order-note', function () {
+            $('textarea[name="sale_note"]').val(this.value);
+        });
+        $(document).on('click', '.payment-btn', function () {
+            $('textarea[name="sale_note"]').val($('#pos-order-note').val() || '');
+        });
+
         $("#myTable").on('click', '.plus', function() {
             rowindex = $(this).closest('tr').index();
             var qty = $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ') .qty').val();
@@ -3972,9 +4089,9 @@
             temp_unit_name = (data[6]).split(',');
             pos = product_code.indexOf(data[1]);
             @if(in_array("price-change", $all_permission))
-                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong><a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a></td>';
+                cols += '<td class="col-sm-4 product-title"><div class="pos-line-name"><strong>' + lineName + '</strong><button type="button" class="pos-note-btn" title="Add a note">+</button><a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a></div><input type="text" name="item_comment[]" class="form-control pos-item-note" placeholder="Item note" style="display:none"></td>';
             @else
-                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong></td>';
+                cols += '<td class="col-sm-4 product-title"><div class="pos-line-name"><strong>' + lineName + '</strong><button type="button" class="pos-note-btn" title="Add a note">+</button></div><input type="text" name="item_comment[]" class="form-control pos-item-note" placeholder="Item note" style="display:none"></td>';
             @endif
             var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
             cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';
@@ -3983,9 +4100,8 @@
             @else
                 cols += '<td class="col-sm-2 product-price"></td>';
             @endif
-                cols += '<td class="col-sm-2"><div class="input-group"><span class="input-group-btn"><button type="button" class="btn btn-default minus"><span class="dripicons-minus"></span></button></span><input type="text" name="qty[]" class="form-control qty numkey input-number" step="any" required><span class="input-group-btn"><button type="button" class="btn btn-default plus"><span class="dripicons-plus"></span></button></span></div></td>';
+                cols += '<td class="col-sm-3 pos-qty-cell"><div class="pos-qty"><button type="button" class="btn btn-default minus"><span class="dripicons-minus"></span></button><input type="text" name="qty[]" class="form-control qty numkey input-number" step="any" required><button type="button" class="btn btn-default plus"><span class="dripicons-plus"></span></button></div></td>';
             cols += '<td class="col-sm-2 sub-total"></td>';
-            cols += '<td><input type="text" name="item_comment[]" class="form-control" placeholder="Item note"></td>';
             cols += '<td class="col-sm-1"><button type="button" class="ibtnDel btn btn-danger btn-sm"><i class="dripicons-cross"></i></button></td>';
             cols += '<input type="hidden" class="product-code" name="product_code[]" value="' + data[1] + '"/>';
             cols += '<input type="hidden" class="product-id" name="product_id[]" value="' + data[9] + '"/>';

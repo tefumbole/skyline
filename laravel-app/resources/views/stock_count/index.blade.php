@@ -28,29 +28,37 @@
             </thead>
             <tbody>
                 @foreach($lims_stock_count_all as $key => $stock_count)
-                <?php 
+                <?php
                     $warehouse = DB::table('warehouses')->find($stock_count->warehouse_id);
+                    $warehouseName = $warehouse->name ?? '';
                     $category_name = [];
                     $brand_name = [];
                     $initial_file = 'public/stock_count/' . $stock_count->initial_file;
                     $final_file = 'public/stock_count/' . $stock_count->final_file;
+                    $countedAt = $stock_count->created_at;
+                    $countedStamp = $countedAt instanceof \DateTimeInterface ? $countedAt->getTimestamp() : strtotime((string) $countedAt);
+                    $dateFormat = $general_setting->date_format ?? 'd-m-Y';
                 ?>
                 <tr>
                     <td>{{$key}}</td>
-                    <td>{{ date($general_setting->date_format, strtotime($stock_count->created_at->toDateString())) . ' '. $stock_count->created_at->toTimeString() }}</td>
+                    <td>{{ date($dateFormat, $countedStamp) . ' '. ($countedAt instanceof \DateTimeInterface ? $countedAt->format('H:i:s') : '') }}</td>
                     <td>{{ $stock_count->reference_no }}</td>
-                    <td>{{ $warehouse->name }}</td>
+                    <td>{{ $warehouseName }}</td>
                     <td>
                         @if($stock_count->category_id)
                             @foreach(explode(",",$stock_count->category_id) as $cat_key=>$category_id)
                             @php
                                 $category = \DB::table('categories')->find($category_id);
-                                $category_name[] = $category->name;
+                                if ($category) {
+                                    $category_name[] = $category->name;
+                                }
                             @endphp
-                                @if($cat_key)
-                                    {{', ' . $category->name}}
-                                @else
-                                    {{$category->name}}
+                                @if($category)
+                                    @if($cat_key)
+                                        {{', ' . $category->name}}
+                                    @else
+                                        {{$category->name}}
+                                    @endif
                                 @endif
                             @endforeach
                         @endif
@@ -60,12 +68,16 @@
                             @foreach(explode(",",$stock_count->brand_id) as $brand_key=>$brand_id)
                             @php
                                 $brand = \DB::table('brands')->find($brand_id);
-                                $brand_name[] = $brand->title;
+                                if ($brand) {
+                                    $brand_name[] = $brand->title;
+                                }
                             @endphp
-                                @if($brand_key)
-                                    {{', '.$brand->title}}
-                                @else
-                                    {{$brand->title}}
+                                @if($brand)
+                                    @if($brand_key)
+                                        {{', '.$brand->title}}
+                                    @else
+                                        {{$brand->title}}
+                                    @endif
                                 @endif
                             @endforeach
                         @endif
@@ -87,7 +99,7 @@
                     </td>
                     <td>
                         @if($stock_count->final_file)
-                            <div class="badge badge-success final-report" data-stock_count='["{{date($general_setting->date_format, strtotime($stock_count->created_at->toDateString()))}}", "{{$stock_count->reference_no}}", "{{$warehouse->name}}", "{{$type}}", "{{implode(", ", $category_name)}}", "{{implode(", ", $brand_name)}}", "{{$initial_file}}", "{{$final_file}}", "{{$stock_count->id}}"]'>{{trans('file.Final Report')}}
+                            <div class="badge badge-success final-report" data-stock_count='["{{date($dateFormat, $countedStamp)}}", "{{$stock_count->reference_no}}", "{{$warehouseName}}", "{{$type}}", "{{implode(", ", $category_name)}}", "{{implode(", ", $brand_name)}}", "{{$initial_file}}", "{{$final_file}}", "{{$stock_count->id}}"]'>{{trans('file.Final Report')}}
                             </div>
                         @else
                             <div style="cursor: pointer;" class="badge badge-primary finalize" data-id="{{$stock_count->id}}">{{trans('file.Finalize')}}

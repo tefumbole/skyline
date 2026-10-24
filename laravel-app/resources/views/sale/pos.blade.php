@@ -1644,19 +1644,8 @@
                                             <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to payment</button>
                                         </div>
 
-                                            @if(in_array("JE-method", $all_permission))
-                                                <div class="column-5">
-                                                    <button style="background: #0984e3" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-card-btn"><i class="fa fa-credit-card"></i> JE </button>
-                                                </div>
-                                            @endif
                                             <div class="column-5">
                                                 <button style="background-color: #00cec9" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="cash-btn"><i class="fa fa-money"></i> Cash</button>
-                                            </div>
-                                            <div class="column-5">
-                                                <button style="background-color: #5f27cd" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-btn"><i class="fa fa-credit-card-alt"></i> Credit</button>
-                                            </div>
-                                            <div class="column-5">
-                                                <button style="background-color: #45cd27" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="group-credit-btn"><i class="fa fa-credit-card-alt"></i> Group Credit</button>
                                             </div>
                                             <div class="column-5">
                                                 {{--                                <button style="background-color: #e28d02" type="button" class="btn btn-custom" data-toggle="modal" data-target="#add-payment" id="><i class="dripicons-flag"></i> </button>--}}
@@ -1717,11 +1706,6 @@
                                                                 <option value="1">Cash</option>
                                                                 <option value="8">Momo/Orange</option>
                                                                 <option value="9">Send to Payment</option>
-                                                                <option value="10">Credit</option>
-                                                                <option value="11">Group Credit</option>
-                                                                @if(in_array("JE-method", $all_permission))
-                                                                    <option value="3">JE</option>
-                                                                @endif
                                                                 <option value="6">Deposit</option>
                                                             </select>
                                                         </div>
@@ -3755,17 +3739,6 @@
             giftCard();
         });
 
-        $("#credit-card-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(3);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('input[name="paying_amount"]').prop('readonly', false);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').hide();
-            $('div.debit').show();
-            $('div.credit').show();
-            creditCard();
-        });
-
         $("#orange-btn").on("click",function() {
             $('select[name="paid_by_id_select"]').val(8);
             $('input[name="paid_amount"]').prop('readonly', false);
@@ -3804,30 +3777,6 @@
             $('input[name="paid_amount"]').prop('readonly', true);
             $('.selectpicker').selectpicker('refresh');
             $('div.qc').hide();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
-        });
-
-        $("#credit-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(10);
-            $('select[name="paid_by_id_select"]').prop('disabled', true);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('input[name="paid_amount"]').prop('readonly', true);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').show();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
-        });
-
-        $("#group-credit-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(11);
-            $('select[name="paid_by_id_select"]').prop('disabled', true);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('input[name="paid_amount"]').prop('readonly', true);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').show();
             $('div.debit').hide();
             $('div.credit').show();
             hide();

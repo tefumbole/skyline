@@ -64,6 +64,7 @@
             line-height: 1em;
         }
         body.beyond-pos-active .pos-section .btn-default .dripicons-plus:before { font-size: 16px; }
+        #myTable td:has(> .batch-no) { display: none !important; }
     </style>
     <script>document.body.classList.add('beyond-pos-active');</script>
     @if(false)
@@ -1353,8 +1354,7 @@
                                             <table id="myTable" class="table table-hover table-striped order-list table-fixed">
                                                 <thead>
                                                 <tr>
-                                                    <th class="col-sm-3">{{trans('file.product')}}</th>
-                                                    <th class="col-sm-2">{{trans('file.Batch No')}}</th>
+                                                    <th class="col-sm-5">{{trans('file.product')}}</th>
                                                     <th class="col-sm-2">{{trans('file.Price')}}</th>
                                                     <th class="col-sm-2">{{trans('file.Quantity')}}</th>
                                                     <th class="col-sm-3">{{trans('file.Subtotal')}}</th>
@@ -2619,11 +2619,31 @@
             ].forEach(function (k) { localStorage.removeItem(k); });
         }
 
+        function hidePosBatchColumn() {
+            $("#tbody-id tr").each(function () {
+                var $row = $(this);
+                var $batchCell = $row.children("td").filter(function () {
+                    return $(this).find(".batch-no").length > 0;
+                });
+                if (!$batchCell.length) {
+                    $row.find("td.product-title").removeClass("col-sm-3").addClass("col-sm-5");
+                    return;
+                }
+                var batchId = $batchCell.find(".product-batch-id").val() || "";
+                $batchCell.remove();
+                if (!$row.find("input.product-batch-id").length) {
+                    $row.append('<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="' + $("<div>").text(batchId).html() + '"/>');
+                }
+                $row.find("td.product-title").removeClass("col-sm-3").addClass("col-sm-5");
+            });
+        }
+
         // Restoring a corrupt cart from localStorage previously threw and killed all POS JS
         // (product click/search handlers never bound). Guard and discard bad state.
         try {
             if (localStorage.getItem("tbody-id")) {
                 $("#tbody-id").html(localStorage.getItem("tbody-id"));
+                hidePosBatchColumn();
             }
 
             if (getSavedValue("localStorageQty")) {
@@ -3915,16 +3935,12 @@
             temp_unit_name = (data[6]).split(',');
             pos = product_code.indexOf(data[1]);
             @if(in_array("price-change", $all_permission))
-                cols += '<td class="col-sm-3 product-title"><strong>' + data[0] + '</strong><br>' + data[1] + '<a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a><p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><strong>' + data[0] + '</strong><br>' + data[1] + '<a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a><p>In Stock: <span class="in-stock"></span></p></td>';
             @else
-                cols += '<td class="col-sm-3 product-title"><button type="button" class="edit-product btn btn-link"><strong>' + data[0] + '</strong></button><br>' + data[1] + '<p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><button type="button" class="edit-product btn btn-link"><strong>' + data[0] + '</strong></button><br>' + data[1] + '<p>In Stock: <span class="in-stock"></span></p></td>';
             @endif
-            if(data[12]) {
-                cols += '<td class="col-sm-2"><input type="text" title="'+product_expired_date[pos]+'" class="form-control batch-no product_expired_date" value="'+batch_no[pos]+'" required/> <input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+product_batch_id[pos]+'"/> </td>';
-            }
-            else {
-                cols += '<td class="col-sm-2"><input type="text" class="form-control batch-no" disabled/> <input type="hidden" class="product-batch-id" name="product_batch_id[]"/> </td>';
-            }
+            var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
+            cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';
             @if(in_array("price-change", $all_permission))
                 cols += '<td class="col-sm-2"><input onchange="changePrice(this)" onkeyup="changePrice(this)" type="number" class="product_price_change form-control" /></td>';
             @else

@@ -183,6 +183,9 @@
             .side-navbar .main-menu {
                 flex: 1 1 auto;
                 min-height: 0;
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .sidebar-user-panel {
@@ -520,34 +523,67 @@
 
             .beyond-module-tabs {
                 background: #0c1830;
-                border-bottom-color: rgba(225, 179, 104, 0.35);
+                border-bottom-color: #C5A059;
             }
             .beyond-module-tabs-label {
-                color: #e1b368;
+                color: #C5A059;
             }
             .beyond-module-tab,
             .beyond-module-tab[class*="tone-"] {
-                background: transparent;
-                border-color: rgba(225, 179, 104, 0.55);
-                color: #fff6df;
+                background: #fffaf3;
+                border: 2px solid #C5A059;
+                color: #3f2a12 !important;
             }
             .beyond-module-tab i,
             .beyond-module-tab[class*="tone-"] i {
-                color: #e1b368 !important;
+                color: #8a6230 !important;
             }
             .beyond-module-tab:hover {
-                background: rgba(225, 179, 104, 0.16);
+                background: #f6ead0;
+                border-color: #8a6230;
+                color: #1a1208 !important;
                 box-shadow: none;
+            }
+            .beyond-module-tab:hover i {
+                color: #1a1208 !important;
             }
             .beyond-module-tab.is-active,
             .beyond-module-tab[class*="tone-"].is-active {
-                background: #e1b368 !important;
-                border-color: #e1b368 !important;
-                color: #07111c !important;
+                background: #C5A059 !important;
+                border-color: #8a6230 !important;
+                color: #1a1208 !important;
+                box-shadow: 0 4px 12px rgba(63, 42, 18, 0.18);
             }
             .beyond-module-tab.is-active i,
             .beyond-module-tab[class*="tone-"].is-active i {
-                color: #07111c !important;
+                color: #1a1208 !important;
+            }
+            #beyond-module-tabs .beyond-module-tab,
+            #beyond-module-tabs .beyond-module-tab[class*="tone-"] {
+                background: transparent;
+                border-color: #C5A059;
+                color: #fff6df !important;
+            }
+            #beyond-module-tabs .beyond-module-tab i,
+            #beyond-module-tabs .beyond-module-tab[class*="tone-"] i {
+                color: #C5A059 !important;
+            }
+            #beyond-module-tabs .beyond-module-tab:hover {
+                background: rgba(197, 160, 89, 0.22);
+                color: #fff !important;
+            }
+            #beyond-module-tabs .beyond-module-tab:hover i {
+                color: #fff6df !important;
+            }
+            #beyond-module-tabs .beyond-module-tab.is-active,
+            #beyond-module-tabs .beyond-module-tab[class*="tone-"].is-active {
+                background: #C5A059 !important;
+                border-color: #C5A059 !important;
+                color: #1a1208 !important;
+            }
+            #beyond-module-tabs .beyond-module-tab.is-active i,
+            #beyond-module-tabs .beyond-module-tab[class*="tone-"].is-active i {
+                color: #1a1208 !important;
             }
 
             .header .navbar {
@@ -1593,7 +1629,7 @@
                             }
                         @endphp
                         @if($restaurantMenu)
-                            <li><a href="#restaurant-orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
+                            <li><a href="#restaurant-orders" data-nav-key="orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
                                 <ul id="restaurant-orders" class="collapse list-unstyled">
                                     @php
                                         $orderLanes = \App\Services\Restaurant\RestaurantAccess::lanes();
@@ -2214,7 +2250,7 @@
                             }
                         @endphp
                         @if(Auth::check() && in_array((int) Auth::user()->role_id, [1, 2], true))
-                            <li id="mai-voice-menu"><a href="{{ route('mai.voice') }}"><i class="fa fa-phone"></i><span>MAI Voice</span></a></li>
+                            <li id="mai-voice-menu"><a href="{{ route('mai.voice') }}" data-nav-key="mai-voice"><i class="fa fa-phone"></i><span>MAI Voice</span></a></li>
                         @endif
                         @if($whatsapp_module_active)
                             <li><a href="#whatsapp-module" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-whatsapp"></i><span>WhatsApp Hub</span></a>
@@ -3022,12 +3058,16 @@
                                 if (anchor === 'timesheet-admin-module') return 'timesheet-admin';
                                 if (anchor === 'staff-permissions') return 'permissions';
                                 if (anchor === 'online_invitation') return 'invitations';
+                                if (anchor === 'restaurant-orders') return 'orders';
                                 // Generic: #foo-module → foo (keeps future modules in sync)
                                 if (/-module$/.test(anchor)) return anchor.replace(/-module$/, '');
                                 return anchor;
                             }
                             if (/\/admin\/site-content/.test(href)) return 'site-content';
+                            if (/\/admin\/guest-reviews/.test(href)) return 'guest-reviews';
+                            if (/\/admin\/membership/.test(href)) return 'membership';
                             if (/\/admin\/leaders/.test(href)) return 'leaders';
+                            if (/mai\/voice|mai-voice/.test(href)) return 'mai-voice';
                             if (/\/admin\/events/.test(href)) return 'events';
                             if (/\/admin\/contracts/.test(href)) return 'contracts';
                             if (/\/admin\/?$/.test(href) || /\/dashboard\/?$/.test(href)) return 'dashboard';

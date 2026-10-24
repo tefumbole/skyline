@@ -58,6 +58,7 @@ Route::get('/', 'BeyondController@home')->name('beyond.home');
 Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');
 Route::post('/menu', 'RestaurantMenuController@checkout')->name('restaurant.checkout');
 Route::get('/order-confirm/{sale}/{token}', 'RestaurantMenuController@confirmation')->name('restaurant.public.confirm');
+Route::post('/order-confirm/{sale}/{token}/note', 'RestaurantMenuController@note')->name('restaurant.public.note');
 Route::get('/order-track/{sale}/{token}', 'RestaurantTrackingController@show')->name('restaurant.track');
 Route::get('/order-review/{sale}/{token}', 'RestaurantTrackingController@review')->name('restaurant.review');
 Route::post('/order-review/{sale}/{token}', 'RestaurantTrackingController@storeReview')->name('restaurant.review.store');

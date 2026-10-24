@@ -1,14 +1,21 @@
 @php
-    $skyMenus = [
-        ['label' => 'Home', 'url' => url('/')],
-        ['label' => 'Menu', 'url' => url('/menu')],
-        ['label' => 'Events', 'url' => url('/events')],
-        ['label' => 'About', 'url' => url('/about')],
-        ['label' => 'Become a Member', 'url' => url('/register-now')],
-        ['label' => 'Services', 'url' => url('/services')],
-        ['label' => 'Gallery', 'url' => url('/gallery')],
-        ['label' => 'Reviews', 'url' => url('/reviews')],
+    $skyLabels = \App\Support\SiteMenu::landingItems();
+    $skyUrls = [
+        'home' => url('/'),
+        'menu' => url('/menu'),
+        'events' => url('/events'),
+        'about' => url('/about'),
+        'register' => url('/register-now'),
+        'services' => url('/services'),
+        'gallery' => url('/gallery'),
+        'reviews' => url('/reviews'),
     ];
+    $skyMenus = [];
+    foreach (\App\Support\SiteMenu::landingOrder() as $skyKey) {
+        if (isset($skyLabels[$skyKey], $skyUrls[$skyKey])) {
+            $skyMenus[] = ['label' => $skyLabels[$skyKey], 'url' => $skyUrls[$skyKey]];
+        }
+    }
     $skyHere = rtrim(url()->current(), '/');
 @endphp
 <header class="sky-bar">

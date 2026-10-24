@@ -248,6 +248,52 @@ class RestaurantOrderWorkflowTest extends TestCase
         $this->post('/menu', $payload)->assertRedirect();
         $this->assertSame(1, Sale::count());
         $this->assertSame('online', RestaurantOrderItem::where('product_id', $food->id)->value('lane'));
+        $this->assertNull(RestaurantOrderItem::where('product_id', $food->id)->value('customer_comment'));
+    }
+
+    public function test_public_menu_saves_the_note_at_checkout()
+    {
+        $food = $this->product('Pepper Soup', 'food');
+        $this->get('/menu')
+            ->assertOk()
+            ->assertDontSee('Note, optional')
+            ->assertDontSee('Note for the order');
+
+        $this->post('/menu', [
+            'name' => 'Guest',
+            'phone' => '675321701',
+            'service_type' => 'take_away',
+            'checkout_token' => 'menu-note-later',
+            'product_id' => [$food->id],
+            'qty' => [1],
+            'customer_comment' => 'too early',
+            'item_comment' => ['no pepper'],
+        ])->assertRedirect();
+
+        $order = RestaurantOrder::first();
+        $this->assertNull($order->customer_comment);
+        $this->get('/order-confirm/'.$order->sale_id.'/'.$order->token)
+            ->assertOk()
+            ->assertSee('Note, optional');
+
+        $this->post('/order-confirm/'.$order->sale_id.'/'.$order->token.'/note', [
+            'customer_comment' => 'no pepper',
+        ])->assertRedirect();
+
+        $this->assertSame('no pepper', $order->fresh()->customer_comment);
+        $this->assertSame('no pepper', Sale::find($order->sale_id)->sale_note);
+
+        $sale = Sale::find($order->sale_id);
+        $this->post('/order-confirm/'.$order->sale_id.'/'.$order->token.'/note', [
+            'customer_comment' => 'extra ice',
+            'next' => 'pay',
+        ])->assertRedirect('/pay/invoice/'.$sale->id.'/'.\App\Support\SalePayQr::token($sale));
+        $this->assertSame('extra ice', $order->fresh()->customer_comment);
+
+        $this->post('/order-confirm/'.$order->sale_id.'/wrong-token/note', [
+            'customer_comment' => 'changed',
+        ])->assertNotFound();
+        $this->assertSame('extra ice', $order->fresh()->customer_comment);
     }
 
     public function test_review_saves_scores()

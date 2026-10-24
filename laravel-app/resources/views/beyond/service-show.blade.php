@@ -63,7 +63,6 @@
                             <option value="{{ $table->id }}" @if((string) old('restaurant_table_id') === (string) $table->id) selected @endif>{{ $table->name }}</option>
                         @endforeach
                     </select>
-                    <textarea name="customer_comment" rows="2" placeholder="Note for the order" class="md:col-span-2 rounded-md bg-black border border-white/15 px-3 py-2 text-white">{{ old('customer_comment') }}</textarea>
                 </div>
                 <button type="submit" class="mt-4 bg-brand-gold text-[#0A0A0A] font-bold px-6 py-3 rounded-full">Place order</button>
             @endif

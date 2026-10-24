@@ -56,12 +56,10 @@ class RestaurantMenuController extends Controller
         $items = [];
         $productIds = (array) $request->input('product_id', []);
         $qtys = (array) $request->input('qty', []);
-        $comments = (array) $request->input('item_comment', []);
         foreach ($productIds as $i => $productId) {
             $items[] = [
                 'product_id' => $productId,
                 'qty' => isset($qtys[$i]) ? $qtys[$i] : 0,
-                'comment' => isset($comments[$i]) ? $comments[$i] : null,
             ];
         }
 
@@ -72,7 +70,6 @@ class RestaurantMenuController extends Controller
                 'country' => $request->input('country'),
                 'service_type' => $request->input('service_type'),
                 'restaurant_table_id' => $request->input('restaurant_table_id'),
-                'customer_comment' => $request->input('customer_comment'),
                 'checkout_token' => $request->input('checkout_token'),
                 'items' => $items,
             ]);
@@ -110,5 +107,37 @@ class RestaurantMenuController extends Controller
             'staff' => collect(),
             'public' => true,
         ]);
+    }
+
+    public function note(Request $request, $sale, $token)
+    {
+        $sale = Sale::findOrFail($sale);
+        $order = RestaurantOrder::where('sale_id', $sale->id)->firstOrFail();
+        if (! hash_equals((string) $order->token, (string) $token)) {
+            abort(404);
+        }
+
+        $note = trim((string) $request->input('customer_comment', ''));
+        if (strlen($note) > 500) {
+            return back()->with('not_permitted', 'Keep the note under 500 characters.');
+        }
+
+        $order->customer_comment = $note !== '' ? $note : null;
+        $order->save();
+        $sale->sale_note = $order->customer_comment;
+        $sale->save();
+
+        $redirect = $request->input('next') === 'pay'
+            ? redirect(\App\Support\SalePayQr::payUrl($sale))
+            : redirect()->route('restaurant.public.confirm', [
+                'sale' => $sale->id,
+                'token' => $order->token,
+            ]);
+
+        if ($request->input('next') === 'pay' && $note === '') {
+            return $redirect;
+        }
+
+        return $redirect->with('message', $note !== '' ? 'Note saved.' : 'Note cleared.');
     }
 }

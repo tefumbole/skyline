@@ -91,7 +91,8 @@
                             {{ \App\Services\Restaurant\RestaurantDepartment::label($item->lane ?: $item->department) }}
                             · {{ $statusLabels[$item->status] ?? $item->status }}
                         </span>
-                        @if($item->customer_comment)<p class="sky-note">Note: {{ $item->customer_comment }}</p>@endif
+                        @if(optional($order)->customer_comment)<p class="sky-note">Note: {{ $order->customer_comment }}</p>@endif
+                        @if($item->customer_comment)<p class="sky-note">Item note: {{ $item->customer_comment }}</p>@endif
                         <p class="sky-meta">
                             @if($item->ready_at)
                                 Ready {{ $item->ready_at->format('H:i') }}

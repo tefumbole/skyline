@@ -126,7 +126,7 @@
         }
         .menus::-webkit-scrollbar { display: none; }
         .menus a {
-            color: #e6d3a1;
+            color: #C5A059;
             font-size: 13px;
             font-weight: 600;
             letter-spacing: 0.05em;

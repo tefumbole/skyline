@@ -48,10 +48,6 @@
         color: #C5A059; background: transparent; font-size: 1.35rem; cursor: pointer;
     }
     .menu-qty-num { min-width: 1.6rem; text-align: center; font-family: Lora, serif; font-size: 1.2rem; color: #F7F1E8; }
-    .menu-note {
-        flex: 1; min-width: 0; border: 0; border-bottom: 1px solid rgba(197,160,89,.35);
-        background: transparent; color: #F7F1E8; padding: .4rem .2rem; font-size: .9rem;
-    }
     .menu-details {
         max-width: 1180px; margin: 1rem auto 0; background: #111; border: 1px solid rgba(197,160,89,.35);
         border-radius: 1.25rem; padding: 1.1rem;
@@ -152,7 +148,6 @@
                                     <button type="button" class="menu-qty-btn" onclick="skyMenuBump(this, -1)" aria-label="Less">−</button>
                                     <span class="menu-qty-num">0</span>
                                     <button type="button" class="menu-qty-btn" onclick="skyMenuBump(this, 1)" aria-label="More">+</button>
-                                    <input class="menu-note" type="text" name="item_comment[]" maxlength="255" placeholder="Note, optional">
                                     <input type="hidden" name="product_id[]" value="{{ $product->id }}">
                                     <input type="hidden" name="qty[]" value="0">
                                 </div>
@@ -181,7 +176,6 @@
                     <option value="{{ $table->id }}" @if((string) old('restaurant_table_id') === (string) $table->id) selected @endif>{{ $table->name }}@if($table->capacity) · {{ $table->capacity }}@endif</option>
                 @endforeach
             </select>
-            <textarea name="customer_comment" rows="2" class="md:col-span-2" placeholder="Note for the order">{{ old('customer_comment') }}</textarea>
         </div>
         <p class="mt-4 mb-0"><button type="submit" class="menu-order">Place order</button></p>
     </div>

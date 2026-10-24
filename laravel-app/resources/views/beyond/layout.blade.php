@@ -237,7 +237,7 @@
         'reviews'  => ['label' => 'Reviews', 'url' => url('/reviews')],
     ];
     $navLinks = [];
-    foreach (array_keys(\App\Support\SiteMenu::landingItems()) as $navKey) {
+    foreach (\App\Support\SiteMenu::landingOrder() as $navKey) {
         if (isset($navDefs[$navKey])) {
             $navLinks[] = $navDefs[$navKey];
         }

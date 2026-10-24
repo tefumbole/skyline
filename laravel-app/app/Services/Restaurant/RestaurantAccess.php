@@ -113,11 +113,11 @@ class RestaurantAccess
             return true;
         }
         $lane = $item ? $item->lane : null;
-        if ($lane === 'coffee' || $lane === 'restaurant') {
-            return self::can($user, 'kitchen-orders') || self::can($user, 'orders-'.$lane.'-index');
+        if ($lane === 'restaurant') {
+            return self::can($user, 'kitchen-orders') || self::can($user, 'orders-restaurant-index');
         }
-        if ($lane === 'bar') {
-            return self::can($user, 'bar-orders') || self::can($user, 'orders-bar-index');
+        if ($lane === 'bar' || $lane === 'coffee') {
+            return self::can($user, 'bar-orders') || self::can($user, 'orders-bar-index') || self::can($user, 'orders-coffee-index');
         }
         if ($lane === 'online') {
             return self::can($user, 'orders-online-index') || self::canDepartment($user, $item ? $item->department : null);
@@ -130,7 +130,6 @@ class RestaurantAccess
     {
         return [
             ['Orders', 'orders-index', 'orders-add', 'orders-edit', 'orders-delete'],
-            ['Coffee & Tea', 'orders-coffee-index', 'orders-coffee-add', 'orders-coffee-edit', 'orders-coffee-delete'],
             ['Restaurant', 'orders-restaurant-index', 'orders-restaurant-add', 'orders-restaurant-edit', 'orders-restaurant-delete'],
             ['Bar', 'orders-bar-index', 'orders-bar-add', 'orders-bar-edit', 'orders-bar-delete'],
             ['Online orders', 'orders-online-index', 'orders-online-add', 'orders-online-edit', 'orders-online-delete'],
@@ -144,7 +143,6 @@ class RestaurantAccess
     public static function lanes()
     {
         return [
-            'coffee' => 'Coffee & Tea',
             'restaurant' => 'Restaurant',
             'bar' => 'Bar',
             'online' => 'Online orders',
@@ -182,8 +180,11 @@ class RestaurantAccess
         if (self::can($user, 'orders-index') || self::can($user, 'orders-'.$lane.'-index') || self::can($user, 'order-logs')) {
             return true;
         }
-        if ($lane === 'coffee' || $lane === 'restaurant') {
+        if ($lane === 'restaurant') {
             return self::can($user, 'kitchen-orders');
+        }
+        if ($lane === 'online') {
+            return self::can($user, 'kitchen-orders') || self::can($user, 'bar-orders') || self::can($user, 'waiter-orders');
         }
         if ($lane === 'bar') {
             return self::can($user, 'bar-orders');
@@ -270,19 +271,51 @@ class RestaurantAccess
     protected static function countQueues()
     {
         $counts = [];
-        $rows = RestaurantOrderItem::query()
-            ->select('lane', 'status', DB::raw('count(*) as total'))
-            ->groupBy('lane', 'status')
-            ->get();
-        foreach ($rows as $row) {
-            $lane = $row->lane ?: 'restaurant';
-            $status = $row->status === 'preparing' ? 'accepted' : $row->status;
-            if (! isset($counts[$lane][$status])) {
-                $counts[$lane][$status] = 0;
+        foreach (array_keys(self::lanes()) as $lane) {
+            $rows = self::applyLane(RestaurantOrderItem::query(), $lane)
+                ->select('status', DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->get();
+            foreach ($rows as $row) {
+                $status = $row->status === 'preparing' ? 'accepted' : $row->status;
+                if (! isset($counts[$lane][$status])) {
+                    $counts[$lane][$status] = 0;
+                }
+                $counts[$lane][$status] += (int) $row->total;
             }
-            $counts[$lane][$status] += (int) $row->total;
         }
 
         return $counts;
+    }
+
+    public static function applyLane($query, $lane)
+    {
+        if ($lane === 'online') {
+            return $query->whereHas('order', function ($order) {
+                $order->where('source', 'frontend');
+            });
+        }
+        if ($lane === 'restaurant') {
+            return $query->where(function ($items) {
+                $items->where('lane', 'restaurant')
+                    ->orWhere(function ($food) {
+                        $food->where('department', 'food')->where(function ($older) {
+                            $older->whereNull('lane')->orWhere('lane', 'online');
+                        });
+                    });
+            });
+        }
+        if ($lane === 'bar') {
+            return $query->where(function ($items) {
+                $items->whereIn('lane', ['bar', 'coffee'])
+                    ->orWhere(function ($drinks) {
+                        $drinks->where('department', 'drinks')->where(function ($older) {
+                            $older->whereNull('lane')->orWhere('lane', 'online');
+                        });
+                    });
+            });
+        }
+
+        return $query->where('lane', $lane);
     }
 }

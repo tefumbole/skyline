@@ -247,7 +247,8 @@ class RestaurantOrderWorkflowTest extends TestCase
         $this->assertSame(1, Sale::count());
         $this->post('/menu', $payload)->assertRedirect();
         $this->assertSame(1, Sale::count());
-        $this->assertSame('online', RestaurantOrderItem::where('product_id', $food->id)->value('lane'));
+        $this->assertSame('restaurant', RestaurantOrderItem::where('product_id', $food->id)->value('lane'));
+        $this->assertSame('frontend', RestaurantOrder::first()->source);
         $this->assertNull(RestaurantOrderItem::where('product_id', $food->id)->value('customer_comment'));
     }
 
@@ -423,7 +424,7 @@ class RestaurantOrderWorkflowTest extends TestCase
         $this->assertSame(1, RestaurantOrder::where('sale_id', $sale->id)->count());
         $this->assertSame('restaurant', $order->items()->where('product_id', $food->id)->value('lane'));
         $this->assertSame('bar', $order->items()->where('product_id', $drink->id)->value('lane'));
-        $this->assertSame('coffee', $order->items()->where('product_id', $coffee->id)->value('lane'));
+        $this->assertSame('bar', $order->items()->where('product_id', $coffee->id)->value('lane'));
         $this->assertSame($order->id, $service->attachFromRequest($sale, Request::create('/', 'POST', [
             'service_type' => 'dine_in',
         ]))->id);
@@ -438,16 +439,17 @@ class RestaurantOrderWorkflowTest extends TestCase
             'order_source' => 'frontend',
             'service_type' => 'take_away',
         ]));
-        $this->assertSame('online', $online->items()->value('lane'));
+        $this->assertSame('restaurant', $online->items()->value('lane'));
+        $this->assertSame('frontend', $online->source);
         $this->assertSame('food', $online->items()->value('department'));
 
         $chef = $this->user('LaneChef', 1);
-        $coffeeItem = $order->items()->where('lane', 'coffee')->first();
+        $coffeeItem = $order->items()->where('product_id', $coffee->id)->first();
         \App\Services\Restaurant\RestaurantAccess::forgetCounts();
-        $before = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['coffee']['awaiting'] ?? 0);
+        $before = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['bar']['awaiting'] ?? 0);
         $service->accept($coffeeItem, $chef, null);
         \App\Services\Restaurant\RestaurantAccess::forgetCounts();
-        $after = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['coffee']['awaiting'] ?? 0);
+        $after = (int) (\App\Services\Restaurant\RestaurantAccess::queueCounts()['bar']['awaiting'] ?? 0);
         $this->assertSame('preparing', $coffeeItem->fresh()->status);
         $this->assertSame($before - 1, $after);
         $this->assertEquals(20, (float) $coffee->fresh()->qty);

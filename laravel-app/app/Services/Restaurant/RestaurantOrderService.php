@@ -34,7 +34,6 @@ class RestaurantOrderService
         }
 
         $lines = Product_Sale::where('sale_id', $sale->id)->orderBy('id')->get();
-        $online = $request->input('order_source') === 'frontend';
         $routed = [];
         foreach ($lines as $index => $line) {
             $categoryId = $line->category_id;
@@ -45,9 +44,6 @@ class RestaurantOrderService
             list($lane, $department) = RestaurantDepartment::laneAndDepartment($categoryId);
             if (! $lane || ! $department) {
                 continue;
-            }
-            if ($online) {
-                $lane = 'online';
             }
             $routed[] = ['line' => $line, 'department' => $department, 'lane' => $lane, 'index' => $index];
         }

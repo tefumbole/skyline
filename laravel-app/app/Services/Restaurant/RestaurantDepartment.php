@@ -45,38 +45,59 @@ class RestaurantDepartment
             }
         }
         foreach ($chain as $category) {
-            $service = self::service($category);
-            $name = strtolower(trim((string) $category->name));
-            if ($service === 'coffee' || $name === 'coffee' || $name === 'coffee & tea') {
-                return ['coffee', 'drinks'];
-            }
-            if ($service === 'restaurant' || $name === 'food' || $name === 'restaurant') {
+            if (self::isFood($category)) {
                 return ['restaurant', 'food'];
-            }
-            if ($name === 'drinks' || $name === 'bar') {
-                return ['bar', 'drinks'];
             }
         }
         foreach ($chain as $category) {
-            $department = self::normalize($category->department);
-            if ($department === 'drinks') {
+            if (self::isDrink($category)) {
                 return ['bar', 'drinks'];
-            }
-            if ($department === 'food') {
-                return ['restaurant', 'food'];
             }
         }
 
         return [null, null];
     }
 
+    protected static function isFood($category)
+    {
+        $name = strtolower(trim((string) $category->name));
+        $service = self::service($category);
+        if (self::normalize(isset($category->department) ? $category->department : null) === 'food') {
+            return true;
+        }
+        if ($service === 'restaurant' || $service === 'food') {
+            return true;
+        }
+
+        return in_array($name, ['food', 'restaurant', 'complements', 'complement', 'sides'], true);
+    }
+
+    protected static function isDrink($category)
+    {
+        $name = strtolower(trim((string) $category->name));
+        $service = self::service($category);
+        if (self::normalize(isset($category->department) ? $category->department : null) === 'drinks') {
+            return true;
+        }
+        if (in_array($service, ['bar', 'coffee', 'drinks'], true)) {
+            return true;
+        }
+        foreach (['drink', 'bar', 'coffee', 'tea', 'whisk', 'wine', 'cocktail', 'smoothie', 'mocktail', 'spirit', 'beer', 'juice', 'cognac', 'vodka', 'gin', 'aperitif', 'champagne', 'soda', 'liquor'] as $needle) {
+            if (strpos($name, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function label($lane)
     {
         $map = [
-            'coffee' => 'Coffee & Tea',
+            'coffee' => 'Bar',
             'restaurant' => 'Restaurant',
             'bar' => 'Bar',
-            'online' => 'Online order',
+            'online' => 'Online orders',
             'food' => 'Restaurant',
             'drinks' => 'Bar',
         ];

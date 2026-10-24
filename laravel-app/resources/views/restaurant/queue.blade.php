@@ -45,7 +45,6 @@
                     {{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif
                 </a>
             @endforeach
-            <a href="{{ route('restaurant.help', ['topic' => \App\Services\Restaurant\RestaurantAccess::helpHashForLane($lane)]) }}">Help</a>
         </nav>
         <nav class="sky-tabs">
             @foreach($tabs as $tabKey => $tabLabel)

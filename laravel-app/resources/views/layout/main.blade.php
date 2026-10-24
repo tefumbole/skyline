@@ -1636,7 +1636,7 @@
                                         $orderTabs = \App\Services\Restaurant\RestaurantAccess::statuses();
                                         $orderCounts = \App\Services\Restaurant\RestaurantAccess::queueCounts();
                                         $onOrders = request()->routeIs('restaurant.orders');
-                                        $openLane = $onOrders ? request()->query('lane', 'coffee') : request()->query('lane', '');
+                                        $openLane = $onOrders ? request()->query('lane', 'restaurant') : request()->query('lane', '');
                                     @endphp
                                     @foreach($orderLanes as $laneKey => $laneLabel)
                                         @if(\App\Services\Restaurant\RestaurantAccess::seeLane(auth()->user(), $laneKey))
@@ -1659,10 +1659,6 @@
                                             </li>
                                         @endif
                                     @endforeach
-                                    <li><a href="{{ route('restaurant.help', $openLane ? ['topic' => \App\Services\Restaurant\RestaurantAccess::helpHashForLane($openLane)] : []) }}">Help</a></li>
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders'))
-                                        <li id="restaurant-pos-menu"><a href="{{ route('sale.pos') }}">POS</a></li>
-                                    @endif
                                 </ul>
                             </li>
                         @endif

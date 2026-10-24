@@ -64,17 +64,7 @@ class RestaurantOrderController extends Controller
         $status = $tab === 'accepted' ? 'preparing' : $tab;
         $items = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.waitress', 'order.placedBy', 'acceptedBy', 'productSale'])
             ->where(function ($query) use ($lane) {
-                $query->where('lane', $lane);
-                if ($lane === 'restaurant') {
-                    $query->orWhere(function ($fallback) {
-                        $fallback->whereNull('lane')->where('department', 'food');
-                    });
-                }
-                if ($lane === 'bar') {
-                    $query->orWhere(function ($fallback) {
-                        $fallback->whereNull('lane')->where('department', 'drinks');
-                    });
-                }
+                RestaurantAccess::applyLane($query, $lane);
             })
             ->where('status', $status)
             ->orderBy($tab === 'delivered' ? 'id' : 'id', $tab === 'delivered' ? 'desc' : 'asc')
@@ -82,7 +72,7 @@ class RestaurantOrderController extends Controller
             ->get();
 
         return view('restaurant.queue', [
-            'lanes' => RestaurantAccess::lanes(),
+            'lanes' => $lanes,
             'lane' => $lane,
             'tabs' => $tabs,
             'tab' => $tab,
@@ -111,7 +101,7 @@ class RestaurantOrderController extends Controller
     public function ready(Request $request)
     {
         return redirect()->route('restaurant.orders', [
-            'lane' => 'coffee',
+            'lane' => 'bar',
             'tab' => 'ready',
         ]);
     }
@@ -231,9 +221,10 @@ class RestaurantOrderController extends Controller
                 $rows = RestaurantOrderItem::with(['order.sale', 'order.placedBy', 'order.waitress'])
                     ->where('status', 'awaiting')
                     ->where(function ($query) use ($lanes) {
-                        $query->whereIn('lane', $lanes);
-                        if (in_array('restaurant', $lanes, true)) {
-                            $query->orWhereNull('lane');
+                        foreach ($lanes as $lane) {
+                            $query->orWhere(function ($match) use ($lane) {
+                                RestaurantAccess::applyLane($match, $lane);
+                            });
                         }
                     })
                     ->orderBy('id', 'desc')
@@ -241,7 +232,13 @@ class RestaurantOrderController extends Controller
                     ->get();
                 foreach ($rows as $row) {
                     $sale = $row->order ? $row->order->sale : null;
-                    $lane = $row->lane ?: 'restaurant';
+                    $lane = $row->lane ?: ($row->department === 'drinks' ? 'bar' : 'restaurant');
+                    if ($lane === 'coffee') {
+                        $lane = 'bar';
+                    }
+                    if ($lane === 'online') {
+                        $lane = $row->department === 'drinks' ? 'bar' : 'restaurant';
+                    }
                     $placer = optional(optional($row->order)->placedBy)->name
                         ?: optional(optional($row->order)->waitress)->name;
                     $items[] = [
@@ -332,19 +329,7 @@ class RestaurantOrderController extends Controller
             if (! RestaurantAccess::seeLane($request->user(), $lane)) {
                 return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
             }
-            $query->where(function ($q) use ($lane) {
-                $q->where('lane', $lane);
-                if ($lane === 'restaurant') {
-                    $q->orWhere(function ($fallback) {
-                        $fallback->whereNull('lane')->where('department', 'food');
-                    });
-                }
-                if ($lane === 'bar') {
-                    $q->orWhere(function ($fallback) {
-                        $fallback->whereNull('lane')->where('department', 'drinks');
-                    });
-                }
-            });
+            RestaurantAccess::applyLane($query, $lane);
         }
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->input('date'));

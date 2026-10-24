@@ -208,8 +208,8 @@ class WhatsAppMessage
         $msg .= "*{$customerName}* submitted a quote on quotation *{$referenceNo}*.\n\n";
         $msg .= self::bullet('Reference', $referenceNo);
         $msg .= self::bullet('Mode', $modeLabel);
-        $msg .= self::bullet('Original total', number_format((float) $originalTotal, 2));
-        $msg .= self::bullet('Proposed total', number_format((float) $proposedTotal, 2));
+        $msg .= self::bullet('Original total', \App\Support\Money::format((float) $originalTotal));
+        $msg .= self::bullet('Proposed total', \App\Support\Money::format((float) $proposedTotal));
         if ($clientNote !== '' && $clientNote !== null) {
             $msg .= "\n*Client note:*\n{$clientNote}\n";
         }
@@ -227,7 +227,7 @@ class WhatsAppMessage
         $msg .= self::greeting($customerName);
         $msg .= "Thank you for signing. Please find your official quotation PDF from *".self::companyName()."*.\n\n";
         $msg .= self::bullet('Reference', $referenceNo);
-        $msg .= self::bullet('Total', number_format((float) $grandTotal, 2));
+        $msg .= self::bullet('Total', \App\Support\Money::format((float) $grandTotal));
         $msg .= self::footer();
 
         return $msg;
@@ -239,7 +239,7 @@ class WhatsAppMessage
         $msg .= self::greeting($customerName);
         $msg .= "Please find your quotation PDF from *".self::companyName()."*.\n\n";
         $msg .= self::bullet('Reference', $referenceNo);
-        $msg .= self::bullet('Total', number_format((float) $grandTotal, 2));
+        $msg .= self::bullet('Total', \App\Support\Money::format((float) $grandTotal));
         $msg .= self::footer();
 
         return $msg;
@@ -252,7 +252,7 @@ class WhatsAppMessage
         $msg .= "A copy of quotation *{$referenceNo}* for *{$customerName}* is attached.\n\n";
         $msg .= self::bullet('Reference', $referenceNo);
         $msg .= self::bullet('Client', $customerName);
-        $msg .= self::bullet('Total', number_format((float) $grandTotal, 2));
+        $msg .= self::bullet('Total', \App\Support\Money::format((float) $grandTotal));
         $msg .= self::footer();
 
         return $msg;
@@ -271,7 +271,7 @@ class WhatsAppMessage
         }
         $msg .= self::bullet('Reference', $referenceNo);
         $msg .= self::bullet('Client', $customerName);
-        $msg .= self::bullet('Total', number_format((float) $grandTotal, 2));
+        $msg .= self::bullet('Total', \App\Support\Money::format((float) $grandTotal));
         $msg .= self::footer();
 
         return $msg;
@@ -385,7 +385,7 @@ class WhatsAppMessage
             $unitPrice = $line['unit_price'] ?? $line['net_unit_price'] ?? $line['price'] ?? null;
             $msg .= ($index + 1).") {$name}";
             if ($unitPrice !== '' && $unitPrice !== null && is_numeric($unitPrice)) {
-                $msg .= ' @ '.number_format((float) $unitPrice, 2);
+                $msg .= ' @ '.\App\Support\Money::format((float) $unitPrice);
             }
             if ($qty !== '' && $qty !== null) {
                 $msg .= " × {$qty}";
@@ -411,21 +411,21 @@ class WhatsAppMessage
             ? (bool) $options['show_discount']
             : ($discount > 0);
         $formattedGrand = is_numeric($grandTotal)
-            ? number_format((float) $grandTotal, 2)
+            ? \App\Support\Money::format((float) $grandTotal)
             : (string) $grandTotal;
 
         $msg = "\n*Amount:*\n";
         if ($subtotal > 0) {
-            $msg .= self::bullet('Subtotal', number_format($subtotal, 2));
+            $msg .= self::bullet('Subtotal', \App\Support\Money::format($subtotal));
         }
         if ($showDiscount && $discount > 0) {
-            $msg .= self::bullet('Discount', '-'.number_format($discount, 2));
+            $msg .= self::bullet('Discount', '-'.\App\Support\Money::format($discount));
         }
         if ($tax > 0) {
-            $msg .= self::bullet('Tax', number_format($tax, 2));
+            $msg .= self::bullet('Tax', \App\Support\Money::format($tax));
         }
         if ($shipping > 0) {
-            $msg .= self::bullet('Shipping', number_format($shipping, 2));
+            $msg .= self::bullet('Shipping', \App\Support\Money::format($shipping));
         }
         $msg .= self::bullet('Total due', $formattedGrand);
 
@@ -487,7 +487,7 @@ class WhatsAppMessage
         $company = self::companyName();
         $money = function ($amount) use ($currencyCode) {
             $formatted = is_numeric($amount)
-                ? number_format((float) $amount, 2)
+                ? \App\Support\Money::format((float) $amount)
                 : (string) $amount;
             return $currencyCode !== '' ? trim($currencyCode.' '.$formatted) : $formatted;
         };

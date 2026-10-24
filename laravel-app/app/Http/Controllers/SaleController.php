@@ -824,12 +824,17 @@ class SaleController extends Controller
             if($cash_register_data) {
                 $lims_payment_data->cash_register_id = $cash_register_data->id;
             }
-            if(!array_key_exists('credit', $data)) {
+            if(!array_key_exists('credit', $data) || $data['credit'] === '' || $data['credit'] === null) {
                 $lims_account_data = Account::where('is_default', true)->first();
             }else{
                 $lims_account_data = Account::where('id', $data['credit'])->first();
             }
-            $lims_payment_data->account_id = $lims_account_data->id;
+            if (! $lims_account_data) {
+                $lims_account_data = Account::where('is_active', true)->first();
+            }
+            if ($lims_account_data) {
+                $lims_payment_data->account_id = $lims_account_data->id;
+            }
             $lims_payment_data->sale_id = $lims_sale_data->id;
             $data['payment_reference'] = 'spr-'.date("Ymd").'-'.date("his");
             $lims_payment_data->payment_reference = $data['payment_reference'];

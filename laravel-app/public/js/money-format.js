@@ -3,17 +3,45 @@
         return;
     }
 
-    function formatText(text) {
-        if (!text || text.indexOf('.00') === -1 || /hour|hrs/i.test(text)) {
+    function moneyHint(el) {
+        var blob = '';
+        var node = el;
+        for (var i = 0; i < 4 && node; i++) {
+            blob += ' ' + (node.className || '') + ' ' + (node.id || '');
+            node = node.parentElement;
+        }
+        return blob;
+    }
+
+    function looksLikeMoney(hint) {
+        if (/\b(id|code|phone|qty|quantity|reference|rate|hour|date)\b/i.test(hint)) {
+            return false;
+        }
+        return /price|total|amount|paid|balance|cost|grand|subtotal|owing|deposit|discount|salary|fee|revenue|expense/i.test(hint);
+    }
+
+    function formatText(text, hint) {
+        if (!text || /hour|hrs/i.test(text)) {
             return text;
         }
-        return text.replace(/(^|[^\d.,])(-?\d{1,3}(?:,\d{3})*|-?\d+)\.00(?![\d%])/g, function (match, prefix, number) {
-            var amount = Math.round(Number(String(number).replace(/,/g, '')));
-            if (!isFinite(amount)) {
-                return match;
+        var formatted = text;
+        if (text.indexOf('.00') !== -1) {
+            formatted = text.replace(/(^|[^\d.,])(-?\d{1,3}(?:,\d{3})*|-?\d+)\.00(?![\d%])/g, function (match, prefix, number) {
+                var amount = Math.round(Number(String(number).replace(/,/g, '')));
+                if (!isFinite(amount)) {
+                    return match;
+                }
+                return prefix + amount.toLocaleString('en-US');
+            });
+        }
+        var trimmed = formatted.trim();
+        if (/^-?\d{4,}$/.test(trimmed) && looksLikeMoney(hint || '')) {
+            var whole = Number(trimmed);
+            if (isFinite(whole) && (whole < 1900 || whole > 2099)) {
+                formatted = formatted.replace(trimmed, whole.toLocaleString('en-US'));
             }
-            return prefix + amount.toLocaleString('en-US');
-        });
+        }
+        return formatted;
     }
 
     function skip(node) {
@@ -36,7 +64,7 @@
         if (!node || node.nodeType !== 3 || skip(node)) {
             return;
         }
-        var next = formatText(node.nodeValue);
+        var next = formatText(node.nodeValue, moneyHint(node.parentElement));
         if (next !== node.nodeValue) {
             node.nodeValue = next;
         }

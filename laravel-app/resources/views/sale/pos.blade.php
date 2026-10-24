@@ -2647,16 +2647,19 @@
                 var $batchCell = $row.children("td").filter(function () {
                     return $(this).find(".batch-no").length > 0;
                 });
-                if (!$batchCell.length) {
-                    $row.find("td.product-title").removeClass("col-sm-3").addClass("col-sm-5");
-                    return;
+                if ($batchCell.length) {
+                    var batchId = $batchCell.find(".product-batch-id").val() || "";
+                    $batchCell.remove();
+                    if (!$row.find("input.product-batch-id").length) {
+                        $row.append('<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="' + $("<div>").text(batchId).html() + '"/>');
+                    }
                 }
-                var batchId = $batchCell.find(".product-batch-id").val() || "";
-                $batchCell.remove();
-                if (!$row.find("input.product-batch-id").length) {
-                    $row.append('<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="' + $("<div>").text(batchId).html() + '"/>');
-                }
-                $row.find("td.product-title").removeClass("col-sm-3").addClass("col-sm-5");
+                var $title = $row.find("td.product-title");
+                $title.removeClass("col-sm-3").addClass("col-sm-5");
+                $title.find("br, p").remove();
+                $title.contents().filter(function () {
+                    return this.nodeType === 3 && $.trim(this.nodeValue) !== "";
+                }).remove();
             });
         }
 
@@ -3969,9 +3972,9 @@
             temp_unit_name = (data[6]).split(',');
             pos = product_code.indexOf(data[1]);
             @if(in_array("price-change", $all_permission))
-                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong><br>' + data[1] + '<a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a><p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong><a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a></td>';
             @else
-                cols += '<td class="col-sm-5 product-title"><button type="button" class="edit-product btn btn-link"><strong>' + lineName + '</strong></button><br>' + data[1] + '<p>In Stock: <span class="in-stock"></span></p></td>';
+                cols += '<td class="col-sm-5 product-title"><strong>' + lineName + '</strong></td>';
             @endif
             var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
             cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';

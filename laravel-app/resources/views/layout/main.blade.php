@@ -4109,8 +4109,31 @@
                           return p;
                       }
                   }
+                  function queryParam(search, name) {
+                      var query = (search || '').replace(/^\?/, '');
+                      if (!query) return '';
+                      var parts = query.split('&');
+                      for (var i = 0; i < parts.length; i++) {
+                          var pair = parts[i].split('=');
+                          var key = decodeURIComponent((pair[0] || '').replace(/\+/g, ' '));
+                          if (key === name) {
+                              return decodeURIComponent((pair[1] || '').replace(/\+/g, ' '));
+                          }
+                      }
+                      return '';
+                  }
+                  function searchOf(href) {
+                      try {
+                          var a = document.createElement('a');
+                          a.href = href;
+                          return a.search || '';
+                      } catch (e) {
+                          return '';
+                      }
+                  }
                   var path = (window.location.pathname || '').replace(/\/+$/, '') || '/';
                   var here = path + (window.location.search || '');
+                  var hereLane = queryParam(window.location.search, 'lane');
                   var $peopleSub = null;
                   $('#people .people-sub a[href]').each(function () {
                       if (linkKey($(this).attr('href')) === here) {
@@ -4147,7 +4170,7 @@
                       return;
                   }
                   var best = null;
-                  var bestLen = -1;
+                  var bestScore = -1;
                   $('#side-main-menu ul.collapse > li > a[href]').each(function () {
                       var href = $(this).attr('href') || '';
                       if (!href || href.charAt(0) === '#' || href.indexOf('javascript') === 0) {
@@ -4158,8 +4181,13 @@
                           return;
                       }
                       if (path === p || path.indexOf(p + '/') === 0) {
-                          if (p.length > bestLen) {
-                              bestLen = p.length;
+                          var linkLane = queryParam(searchOf(href), 'lane');
+                          if (hereLane && linkLane && linkLane !== hereLane) {
+                              return;
+                          }
+                          var score = p.length + (path === p ? 100 : 0) + (hereLane && linkLane === hereLane ? 1000 : 0);
+                          if (score > bestScore) {
+                              bestScore = score;
                               best = this;
                           }
                       }

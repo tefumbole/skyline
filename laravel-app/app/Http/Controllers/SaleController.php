@@ -827,17 +827,11 @@ class SaleController extends Controller
             if($cash_register_data) {
                 $lims_payment_data->cash_register_id = $cash_register_data->id;
             }
-            if(!array_key_exists('credit', $data) || $data['credit'] === '' || $data['credit'] === null) {
-                $lims_account_data = Account::where('is_default', true)->first();
-            }else{
-                $lims_account_data = Account::where('id', $data['credit'])->first();
-            }
-            if (! $lims_account_data) {
-                $lims_account_data = Account::where('is_active', true)->first();
-            }
-            if ($lims_account_data) {
-                $lims_payment_data->account_id = $lims_account_data->id;
-            }
+            $creditId = (! array_key_exists('credit', $data) || $data['credit'] === '' || $data['credit'] === null)
+                ? null
+                : $data['credit'];
+            $lims_account_data = $this->paymentAccount($creditId);
+            $lims_payment_data->account_id = $lims_account_data->id;
             $lims_payment_data->sale_id = $lims_sale_data->id;
             $data['payment_reference'] = 'spr-'.date("Ymd").'-'.date("his");
             $lims_payment_data->payment_reference = $data['payment_reference'];
@@ -2720,6 +2714,36 @@ class SaleController extends Controller
         }
 
         return null;
+    }
+
+    private function paymentAccount($creditId = null)
+    {
+        $account = null;
+        if ($creditId !== null && $creditId !== '') {
+            $account = Account::find($creditId);
+        }
+        if (! $account) {
+            $account = Account::where('is_default', true)->first();
+        }
+        if (! $account) {
+            $account = Account::where('is_active', true)->first();
+        }
+        if (! $account) {
+            $account = Account::query()->orderBy('id')->first();
+        }
+        if (! $account) {
+            $account = Account::create([
+                'account_no' => 'CASH-001',
+                'name' => 'Cash',
+                'initial_balance' => 0,
+                'total_balance' => 0,
+                'is_default' => 1,
+                'is_active' => 1,
+                'is_default_debit' => 0,
+            ]);
+        }
+
+        return $account;
     }
 
     private function paymentStatusForBalance($paidAmount, $balance)

@@ -54,9 +54,12 @@ class SaleInvoiceVerifyController extends Controller
             ];
         }
 
+        $setting = isset($setting) ? $setting : GeneralSetting::first();
+
         return view('beyond.invoice.verify', [
             'error' => $error,
             'data' => $payload,
+            'siteTitle' => optional($setting)->site_title ?: 'Chill On The Hill',
         ]);
     }
 }

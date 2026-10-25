@@ -494,9 +494,7 @@ class WhatsAppMessage
 
         $msg = self::statusBlock('🧾', 'Sale Confirmed');
         $msg .= self::greeting($customerName);
-        $msg .= "Thank you for shopping with *{$company}*. Your order is confirmed.\n\n";
-        $msg .= self::bullet('Order Number', $referenceNo);
-        $msg .= self::bullet('Order Date', $orderDate);
+        $msg .= "Thank you for shopping with *{$company}*. Your order is confirmed.\n";
 
         if (! empty($lines)) {
             $msg .= "\n*Items:*\n";
@@ -520,17 +518,10 @@ class WhatsAppMessage
         }
 
         $msg .= "\n━━━━━━━━━━━━━━━━\n";
+        $msg .= self::bullet('Order Number', $referenceNo);
+        $msg .= self::bullet('Order Date', $orderDate);
         $msg .= self::bullet('Total', $money($grandTotal));
         $msg .= self::bullet('Payment', $payingMethod ?: '—');
-        if (trim((string) $billingAddress) !== '') {
-            $msg .= self::bullet('Billing', $billingAddress);
-        }
-        if (trim((string) $deliveryAddress) !== '') {
-            $msg .= self::bullet('Delivery', $deliveryAddress);
-        }
-        if (trim((string) $billerName) !== '') {
-            $msg .= self::bullet('Served by', $billerName);
-        }
 
         $msg .= "\nThank you for choosing *{$company}*.";
         $msg .= self::footer();

@@ -1,7 +1,7 @@
 @extends('beyond.layout')
 
 @section('title', 'Invoice Verification')
-@section('meta_description', 'Verify a Beyond Enterprise sales invoice.')
+@section('meta_description', 'Verify a sales invoice.')
 
 @section('content')
 <div class="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4 py-16">
@@ -15,6 +15,10 @@
                 <p class="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
                     Status: Valid
                 </p>
+                <p class="mt-4 text-sm text-gray-500">Date of sale</p>
+                <p class="text-base font-semibold text-gray-900">{{ $data['created_at'] }}</p>
+                <p class="mt-3 text-sm text-gray-500">Amount</p>
+                <p class="text-2xl font-extrabold text-gray-900">{{ number_format((float) $data['amount'], 2) }} {{ $data['currency'] }}</p>
             @else
                 <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
                     <i data-lucide="x-circle" class="w-9 h-9 text-red-500"></i>
@@ -56,7 +60,7 @@
                     <span class="font-semibold text-gray-900">{{ $data['payment_status'] }}</span>
                 </div>
             @endif
-            <p class="text-center text-xs text-gray-400 pt-4 mt-4 border-t">Beyond Enterprise · Sales Invoice Verification</p>
+            <p class="text-center text-xs text-gray-400 pt-4 mt-4 border-t">{{ $siteTitle ?? 'Chill On The Hill' }} · Sales Invoice Verification</p>
         </div>
     </div>
 </div>

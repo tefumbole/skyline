@@ -1587,13 +1587,34 @@
                                         </div>
                                         <div class="col-sm-3">
                                             <label>Waitress / waiter</label>
+                                            @php
+                                                $posWaiterId = (int) auth()->id();
+                                                $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
+                                                $posWaiterIds = [];
+                                                foreach ($posWaiters as $posWaiter) {
+                                                    $posWaiterIds[] = (int) $posWaiter->id;
+                                                }
+                                            @endphp
                                             <select name="waitress_user_id" class="form-control">
-                                                <option value="">Unassigned</option>
-                                                @foreach(\App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders') as $person)
-                                                    <option value="{{ $person->id }}">{{ $person->name }}</option>
+                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
+                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
+                                                @endif
+                                                @foreach($posWaiters as $person)
+                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
+                                        @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                        <div class="col-sm-3">
+                                            <label for="restaurant_table_id">Assign table</label>
+                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
+                                                <option value="">Select table</option>
+                                                @foreach(\App\RestaurantTable::numbered() as $table)
+                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        @endif
                                     </div>
                                     <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
                                         <div role="document" class="modal-dialog">
@@ -1649,27 +1670,16 @@
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0</span></h2>
                                     </div>
-                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
-                                    <div class="pos-table-pick">
-                                        <label for="restaurant_table_id">Table number</label>
-                                        <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
-                                            <option value="">Select table number</option>
-                                            @foreach(\App\RestaurantTable::numbered() as $table)
-                                                <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    @endif
                                     <div class="payment-options">
                                         {{--                        <div class="column-5">--}}
                                         {{--                            <button style="background: #0984e3" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-card-btn"><i class="fa fa-credit-card"></i> Card</button>--}}
                                         {{--                        </div>--}}
                                         <div class="column-5">
-                                            <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-check"></i> Submit</button>
+                                            <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" id="pay-later-btn"><i class="fa fa-check"></i> Submit</button>
                                         </div>
 
                                             <div class="column-5">
-                                                <button style="background-color: #00cec9" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="cash-btn"><i class="fa fa-money"></i> Cash</button>
+                                                <button style="background-color: #00cec9" type="button" class="btn btn-custom payment-btn" id="cash-btn"><i class="fa fa-money"></i> Cash</button>
                                             </div>
                                             <div class="column-5">
                                                 {{--                                <button style="background-color: #e28d02" type="button" class="btn btn-custom" data-toggle="modal" data-target="#add-payment" id="><i class="dripicons-flag"></i> </button>--}}
@@ -3717,25 +3727,29 @@
             hide();
         });
 
-        $("#cash-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(1);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').show();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
+        function submitPosSale(paidById, paidAmount) {
+            var rownumber = $('table.order-list tbody tr:last').index();
+            if (rownumber < 0) {
+                alert("Please insert product to order table!");
+                return;
+            }
+            var total = moneyNumber($("#grand-total").text());
+            $('input[name="sale_status"]').val(1);
+            $('select[name="paid_by_id_select"]').val(paidById);
+            $('input[name="paid_by_id"]').val(paidById);
+            $('input[name="paying_amount"]').prop('required', false).val(total);
+            $('input[name="paid_amount"]').prop('required', false).prop('readonly', false).val(paidAmount);
+            $('.payment-form').submit();
+        }
+
+        $("#cash-btn").on("click", function(e) {
+            e.preventDefault();
+            submitPosSale(1, moneyNumber($("#grand-total").text()));
         });
 
-        $("#pay-later-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(9);
-            $('input[name="paid_amount"]').val(0);
-            $('input[name="paid_amount"]').prop('readonly', true);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').hide();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
+        $("#pay-later-btn").on("click", function(e) {
+            e.preventDefault();
+            submitPosSale(9, 0);
         });
 
         $("#deposit-btn").on("click",function() {

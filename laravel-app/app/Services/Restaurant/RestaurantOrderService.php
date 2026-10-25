@@ -55,6 +55,9 @@ class RestaurantOrderService
         $service = $request->input('service_type');
 
         $waitressId = $this->staffId($request->input('waitress_user_id'));
+        if (! $waitressId && $request->input('order_source') !== 'frontend' && auth()->id()) {
+            $waitressId = $this->staffId(auth()->id());
+        }
         $comments = (array) $request->input('item_comment', []);
 
         $order = RestaurantOrder::create([
@@ -398,31 +401,42 @@ class RestaurantOrderService
 
     protected function orderNotice(RestaurantOrder $order, $title, $note = '', $actionLabel = 'TRACK ORDER', $actionUrl = null)
     {
-        $order->load(['items.productSale', 'sale']);
+        $order->load(['items.productSale', 'sale', 'diningTable', 'waitress']);
         $sale = $order->sale ?: Sale::find($order->sale_id);
         $actionUrl = $actionUrl ?: $order->trackUrl();
         $rows = ['*'.$title.'*'];
         if ($sale) {
-            $rows[] = $sale->reference_no;
+            $rows[] = '• Order: '.$sale->reference_no;
         }
-        $rows[] = $order->serviceLabel();
+        $rows[] = '• Service: '.$order->serviceLabel();
+        if ($order->diningTable) {
+            $rows[] = '• Table: '.$order->diningTable->name;
+        }
+        if ($order->waitress) {
+            $rows[] = '• Waiter: '.$order->waitress->name;
+        }
         if ($note !== '') {
-            $rows[] = $note;
+            $rows[] = '• '.$note;
         }
         $rows[] = '';
         $rows[] = '*Products*';
         foreach ($order->items as $item) {
             $amount = $this->lineAmount($item);
-            $rows[] = $item->product_name.($amount !== '' ? ' — '.$amount : '');
-            $rows[] = 'Qty '.$this->qty($item).' · '.$this->itemStatusLabel($item->status);
+            $rows[] = '• '.$item->product_name.($amount !== '' ? ' — '.$amount : '');
+            $detail = 'Qty '.$this->qty($item).' · '.$this->itemStatusLabel($item->status);
+            if (trim((string) $item->customer_comment) !== '') {
+                $detail .= ' · '.$item->customer_comment;
+            }
+            $rows[] = '  • '.$detail;
         }
         if ($sale) {
             $rows[] = '';
-            $rows[] = '*Total* '.Money::format($sale->grand_total);
+            $rows[] = '*Total*';
+            $rows[] = '• '.Money::format($sale->grand_total);
         }
         $rows[] = '';
         $rows[] = '*Order status*';
-        $rows[] = $this->orderStatusLabel($order);
+        $rows[] = '• '.$this->orderStatusLabel($order);
         $rows[] = '';
         $rows[] = '*'.$actionLabel.'*';
         $rows[] = $actionUrl;

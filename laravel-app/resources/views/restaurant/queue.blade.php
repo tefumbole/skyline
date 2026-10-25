@@ -25,6 +25,9 @@
             background:#f6f0e4; color:#6a5420; font-size:12px; font-weight:700;
         }
         .sky-pill.late { background:#fde8e8; color:#8a1f1f; }
+        .sky-pay { display:inline-block; margin-top:8px; margin-left:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+        .sky-pay.paid { background:#e3f6e8; color:#1f6a35; }
+        .sky-pay.pending { background:#fdecdb; color:#8a5a1f; }
         .sky-head h1 { margin:2px 0 0; font-size:28px; font-weight:700; color:#0c1830; }
         .sky-actions .btn-primary { background:#0c1830; border-color:#0c1830; color:#e1b368; font-weight:700; border-radius:999px; }
         .sky-empty { background:#fff; border:1px dashed #d7deea; border-radius:16px; padding:28px; color:#5c6b80; }
@@ -82,6 +85,9 @@
                             {{ \App\Services\Restaurant\RestaurantDepartment::label($item->lane ?: $item->department) }}
                             · {{ $statusLabels[$item->status] ?? $item->status }}
                         </span>
+                        @if($order)
+                            <span class="sky-pay {{ $order->isPaid() ? 'paid' : 'pending' }}">{{ $order->paymentLabel() }}</span>
+                        @endif
                         @if(optional($order)->customer_comment)<p class="sky-note">Note: {{ $order->customer_comment }}</p>@endif
                         @if($item->customer_comment)<p class="sky-note">Item note: {{ $item->customer_comment }}</p>@endif
                         <p class="sky-meta">

@@ -1743,6 +1743,11 @@
                                                                 <option value="6">Deposit</option>
                                                             </select>
                                                         </div>
+                                                        <div class="col-md-6 mt-1 momo-phone-field" style="display:none;">
+                                                            <label>Momo phone number</label>
+                                                            <input type="text" name="momo_phone" class="form-control" placeholder="e.g. 2376XXXXXXXX">
+                                                            <small class="text-muted">Defaults to the customer's phone. Edit to charge a different number.</small>
+                                                        </div>
                                                         <div class="col-md-6 mt-1 debit">
                                                             <input type="hidden" name="debit" value="">
                                                             <label>{{trans('file.Debit')}}</label>
@@ -3705,6 +3710,25 @@
             giftCard();
         });
 
+        function customerPhone() {
+            var text = $('select[name="customer_id"] option:selected').text() || '';
+            var match = text.match(/\(([^)]+)\)\s*$/);
+            return match ? match[1].trim() : '';
+        }
+
+        function toggleMomoPhone(show) {
+            var field = $('.momo-phone-field');
+            if (show) {
+                var current = $('input[name="momo_phone"]').val();
+                if (! current) {
+                    $('input[name="momo_phone"]').val(customerPhone());
+                }
+                field.show();
+            } else {
+                field.hide();
+            }
+        }
+
         $("#orange-btn").on("click",function() {
             $('select[name="paid_by_id_select"]').val(8);
             $('input[name="paid_amount"]').prop('readonly', false);
@@ -3714,6 +3738,7 @@
             $('div.debit').hide();
             $('div.credit').show();
             hide();
+            toggleMomoPhone(true);
         });
 
         $("#momo-btn").on("click",function() {
@@ -3725,6 +3750,7 @@
             $('div.debit').hide();
             $('div.credit').show();
             hide();
+            toggleMomoPhone(true);
         });
 
         function submitPosSale(paidById, paidAmount) {
@@ -3778,6 +3804,7 @@
             var id = $(this).val();
             $(".payment-form").off("submit");
             $('input[name="paid_amount"]').prop('readonly', false);
+            toggleMomoPhone(id == 8);
 
             if($('input[name="paid_amount"]').val() == 0) {
                 $('input[name="paid_amount"]').val($('input[name="paying_amount"]').val());

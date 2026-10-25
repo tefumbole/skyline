@@ -433,6 +433,9 @@ class RestaurantOrderService
             $rows[] = '';
             $rows[] = '*Total*';
             $rows[] = '• '.Money::format($sale->grand_total);
+            $rows[] = '';
+            $rows[] = '*Payment*';
+            $rows[] = '• '.$order->paymentLabel();
         }
         $rows[] = '';
         $rows[] = '*Order status*';

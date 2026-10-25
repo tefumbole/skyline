@@ -52,6 +52,29 @@ class RestaurantOrder extends Model
         return url('/order-review/'.$this->sale_id.'/'.$this->token);
     }
 
+    public function isPaid()
+    {
+        $sale = $this->relationLoaded('sale') ? $this->sale : $this->sale()->first();
+
+        return $sale ? (int) $sale->payment_status === 4 : false;
+    }
+
+    public function paymentLabel()
+    {
+        $sale = $this->relationLoaded('sale') ? $this->sale : $this->sale()->first();
+        if (! $sale) {
+            return 'Pending';
+        }
+        switch ((int) $sale->payment_status) {
+            case 4:
+                return 'Paid';
+            case 3:
+                return 'Part paid';
+            default:
+                return 'Pending';
+        }
+    }
+
     public function serviceLabel()
     {
         if ($this->service_type === 'dine_in') {

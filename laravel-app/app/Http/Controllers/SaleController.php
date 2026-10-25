@@ -412,9 +412,38 @@ class SaleController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
+    /**
+     * POS amounts are shown with thousands separators (e.g. 26,000). Strip commas and
+     * spaces from money fields before any arithmetic so values stay well-formed numbers.
+     */
+    protected function stripAmountSeparators(array $data)
+    {
+        $scalarKeys = [
+            'grand_total', 'paid_amount', 'paying_amount', 'total_price', 'total_tax',
+            'total_discount', 'order_tax', 'order_discount', 'order_tax_rate',
+            'shipping_cost', 'coupon_discount', 'used_points',
+        ];
+        foreach ($scalarKeys as $key) {
+            if (isset($data[$key]) && is_string($data[$key])) {
+                $data[$key] = str_replace([',', ' '], '', $data[$key]);
+            }
+        }
+        $arrayKeys = ['net_unit_price', 'tax', 'discount', 'subtotal', 'tax_rate', 'qty'];
+        foreach ($arrayKeys as $key) {
+            if (isset($data[$key]) && is_array($data[$key])) {
+                $data[$key] = array_map(function ($value) {
+                    return is_string($value) ? str_replace([',', ' '], '', $value) : $value;
+                }, $data[$key]);
+            }
+        }
+
+        return $data;
+    }
+
     public function store(Request $request)
     {
         $data = $request->all();
+        $data = $this->stripAmountSeparators($data);
         if(isset($request->reference_no)) {
             $this->validate($request, [
                 'reference_no' => [
@@ -778,7 +807,7 @@ class SaleController extends Controller
                     return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
                 }
                 $route = route('pos.payment_check');
-                $mtn_number = $lims_customer_data->phone_number;
+                $mtn_number = ! empty($data['momo_phone']) ? preg_replace('/[^0-9]/', '', (string) $data['momo_phone']) : $lims_customer_data->phone_number;
                 $amount = $lims_sale_data->grand_total;
                 $link = $this->mobileMoneyRequestLink($token, $amount, $route, $lims_sale_data->id, $mtn_number);
                 if ($link == false) {

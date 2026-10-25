@@ -773,7 +773,10 @@ class SaleController extends Controller
 
                 $data['status'] = 0;
 
-                $token = getenv("MOMO_TOKEN");
+                $token = config('services.campay.token') ?: getenv('CAMPAY_TOKEN') ?: getenv('MOMO_TOKEN');
+                if (! $token) {
+                    return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
+                }
                 $route = route('pos.payment_check');
                 $mtn_number = $lims_customer_data->phone_number;
                 $amount = $lims_sale_data->grand_total;
@@ -982,11 +985,8 @@ class SaleController extends Controller
         $role = Role::find(Auth::user()->role_id);
         $role->revokePermissionTo('search_all_products');
 
-        if($data['paid_by_id'] == 9) {
-            if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
-                return $to->with('message', $message);
-            }
-            return back()->with('message', $message)        ;
+        if($data['paid_by_id'] == 9 && (string) $lims_sale_data->sale_status !== '1') {
+            return back()->with('message', $message);
         }
 
         if ($data['payment_status'] == 4) {
@@ -1006,17 +1006,11 @@ class SaleController extends Controller
 
         if($data['pos'] == 1) {
             if($lims_sale_data->sale_status == '1') {
-                if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
-                    return $to->with('message', $message);
-                }
                 return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
             }
             return redirect('pos')->with('message', $message);
         }else{
             if($lims_sale_data->sale_status == '1') {
-                if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
-                    return $to->with('message', $message);
-                }
                 return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
             }
             return redirect('sales')->with('message', $message);

@@ -18,7 +18,7 @@
                 <p class="mt-4 text-sm text-gray-500">Date of sale</p>
                 <p class="text-base font-semibold text-gray-900">{{ $data['created_at'] }}</p>
                 <p class="mt-3 text-sm text-gray-500">Amount</p>
-                <p class="text-2xl font-extrabold text-gray-900">{{ number_format((float) $data['amount'], 2) }} {{ $data['currency'] }}</p>
+                <p class="text-2xl font-extrabold text-gray-900">{{ \App\Support\Money::format($data['amount']) }} {{ $data['currency'] }}</p>
             @else
                 <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
                     <i data-lucide="x-circle" class="w-9 h-9 text-red-500"></i>
@@ -45,15 +45,15 @@
                 </div>
                 <div class="flex justify-between border-b py-2.5">
                     <span class="text-gray-500">Amount</span>
-                    <span class="font-bold text-brand-blue">{{ number_format((float) $data['amount'], 2) }} {{ $data['currency'] }}</span>
+                    <span class="font-bold text-brand-blue">{{ \App\Support\Money::format($data['amount']) }} {{ $data['currency'] }}</span>
                 </div>
                 <div class="flex justify-between border-b py-2.5">
                     <span class="text-gray-500">Amount paid</span>
-                    <span class="text-gray-800">{{ number_format((float) $data['paid'], 2) }}</span>
+                    <span class="text-gray-800">{{ \App\Support\Money::format($data['paid']) }}</span>
                 </div>
                 <div class="flex justify-between border-b py-2.5">
                     <span class="text-gray-500">Amount pending</span>
-                    <span class="text-gray-800">{{ number_format((float) $data['pending'], 2) }}</span>
+                    <span class="text-gray-800">{{ \App\Support\Money::format($data['pending']) }}</span>
                 </div>
                 <div class="flex justify-between py-2.5">
                     <span class="text-gray-500">Payment status</span>

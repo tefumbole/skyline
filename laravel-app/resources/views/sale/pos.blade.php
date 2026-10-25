@@ -1451,9 +1451,9 @@
                                                     @endif
                                                 </div>
                                                 <div id="customer-balance-panel" class="mt-1" style="display:none;font-size:12px;color:#0b3f90;">
-                                                    <span>Deposit balance: <strong id="customer-deposit-balance">0.00</strong></span>
+                                                    <span>Deposit balance: <strong id="customer-deposit-balance">0</strong></span>
                                                     <span class="mx-2">|</span>
-                                                    <span>Amount owing: <strong id="customer-amount-owing">0.00</strong></span>
+                                                    <span>Amount owing: <strong id="customer-amount-owing">0</strong></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1555,19 +1555,19 @@
                                                             <span class="totals-title">{{trans('file.Items')}}</span><span id="item">0</span>
                                                         </div>
                                                         <div class="col-sm-4">
-                                                            <span class="totals-title">{{trans('file.Total')}}</span><span id="subtotal">0.00</span>
+                                                            <span class="totals-title">{{trans('file.Total')}}</span><span id="subtotal">0</span>
                                                         </div>
                                                         <div class="col-sm-4">
-                                                            <span class="totals-title">{{trans('file.Discount')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#order-discount-modal"> <i class="dripicons-document-edit"></i></button></span><span id="discount">0.00</span>
+                                                            <span class="totals-title">{{trans('file.Discount')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#order-discount-modal"> <i class="dripicons-document-edit"></i></button></span><span id="discount">0</span>
                                                         </div>
                                                         <div class="col-sm-4">
-                                                            <span class="totals-title">{{trans('file.Coupon')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#coupon-modal"><i class="dripicons-document-edit"></i></button></span><span id="coupon-text">0.00</span>
+                                                            <span class="totals-title">{{trans('file.Coupon')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#coupon-modal"><i class="dripicons-document-edit"></i></button></span><span id="coupon-text">0</span>
                                                         </div>
                                                         <div class="col-sm-4">
-                                                            <span class="totals-title">{{trans('file.Tax')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#order-tax"><i class="dripicons-document-edit"></i></button></span><span id="tax">0.00</span>
+                                                            <span class="totals-title">{{trans('file.Tax')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#order-tax"><i class="dripicons-document-edit"></i></button></span><span id="tax">0</span>
                                                         </div>
                                                         <div class="col-sm-4">
-                                                            <span class="totals-title">{{trans('file.Shipping')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#shipping-cost-modal"><i class="dripicons-document-edit"></i></button></span><span id="shipping-cost">0.00</span>
+                                                            <span class="totals-title">{{trans('file.Shipping')}} <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#shipping-cost-modal"><i class="dripicons-document-edit"></i></button></span><span id="shipping-cost">0</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1647,7 +1647,7 @@
                                     </div>
                                     <div class="pos-pay-bar">
                                     <div class="payment-amount">
-                                        <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
+                                        <h2>{{trans('file.grand total')}} <span id="grand-total">0</span></h2>
                                     </div>
                                     @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
                                     <div class="pos-table-pick">
@@ -1721,7 +1721,7 @@
                                                         </div>
                                                         <div class="col-md-6 mt-1">
                                                             <label>{{trans('file.Change')}} : </label>
-                                                            <p id="change" class="ml-2">0.00</p>
+                                                            <p id="change" class="ml-2">0</p>
                                                         </div>
                                                         <div class="col-md-6 mt-1">
                                                             <input type="hidden" name="paid_by_id">
@@ -4077,7 +4077,7 @@
             unit_operation_value.splice(rowindex, 0, data[8]);
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.qty').val(1);
             $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product_price').val(product_price[rowindex]);
-            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product_price_change').attr("value", product_price[rowindex]);
+            $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product_price_change').attr("value", formatMoney(product_price[rowindex]));
             localStorageQty.splice(rowindex, 0, 1);
             localStorageProductId.splice(rowindex, 0, data[9]);
             localStorageProductCode.splice(rowindex, 0, data[1]);

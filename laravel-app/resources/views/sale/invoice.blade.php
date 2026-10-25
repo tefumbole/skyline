@@ -276,12 +276,12 @@
                 @endphp
                 <tr><td colspan="2" class="thermal-name">{{ $product_name }}</td></tr>
                 <tr>
-                    <td>{{ $qty + 0 }} × {{ number_format($unit_price, 2) }}</td>
-                    <td class="amt">{{ number_format($lineTotal, 2) }}</td>
+                    <td>{{ $qty + 0 }} × {{ \App\Support\Money::format($unit_price) }}</td>
+                    <td class="amt">{{ \App\Support\Money::format($lineTotal) }}</td>
                 </tr>
                 <tr>
                     <td>{{ trans('file.Tax') }}@if($lineTaxRate > 0) ({{ rtrim(rtrim(number_format($lineTaxRate, 2), '0'), '.') }}%)@endif</td>
-                    <td class="amt">{{ number_format($lineTax, 2) }}</td>
+                    <td class="amt">{{ \App\Support\Money::format($lineTax) }}</td>
                 </tr>
             @endforeach
         </table>
@@ -296,28 +296,28 @@
         <table class="thermal-lines">
             <tr>
                 <td>{{ trans('file.Discount') }}</td>
-                <td class="amt">{{ number_format($orderDiscount + $couponDiscount, 2) }}</td>
+                <td class="amt">{{ \App\Support\Money::format($orderDiscount + $couponDiscount) }}</td>
             </tr>
             <tr>
                 <td>{{ trans('file.Tax') }}@if($orderTax > 0 && (float) ($lims_sale_data->order_tax_rate ?? 0) > 0) ({{ rtrim(rtrim(number_format((float) $lims_sale_data->order_tax_rate, 2), '0'), '.') }}%)@endif</td>
-                <td class="amt">{{ number_format($taxTotal, 2) }}</td>
+                <td class="amt">{{ \App\Support\Money::format($taxTotal) }}</td>
             </tr>
             <tr>
                 <td><strong>{{ trans('file.Total') }}</strong></td>
-                <td class="amt"><strong>{{ number_format((float) $lims_sale_data->grand_total, 2) }}</strong></td>
+                <td class="amt"><strong>{{ \App\Support\Money::format($lims_sale_data->grand_total) }}</strong></td>
             </tr>
             <tr>
                 <td>{{ trans('file.Paying Amount') }}</td>
-                <td class="amt">{{ number_format($paidAmount, 2) }}</td>
+                <td class="amt">{{ \App\Support\Money::format($paidAmount) }}</td>
             </tr>
             <tr>
                 <td>{{ trans('file.Pending Amount') }}</td>
-                <td class="amt">{{ number_format(max(0, $dueAmount), 2) }}</td>
+                <td class="amt">{{ \App\Support\Money::format(max(0, $dueAmount)) }}</td>
             </tr>
             @foreach($lims_payment_data as $payment_data)
                 <tr>
                     <td>{{ $payment_data->paying_method }}</td>
-                    <td class="amt">{{ number_format((float) $payment_data->amount, 2) }}</td>
+                    <td class="amt">{{ \App\Support\Money::format($payment_data->amount) }}</td>
                 </tr>
             @endforeach
             <tr>

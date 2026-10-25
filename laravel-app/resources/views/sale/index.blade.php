@@ -1069,7 +1069,7 @@
                 if (isMiniInvoice) {
                     var money = function (n) {
                         var v = parseSaleAmt(n);
-                        return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
                     };
                     var row = function (label, amount, bold) {
                         var open = bold ? '<strong>' : '';

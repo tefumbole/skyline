@@ -462,6 +462,6 @@
     }
 </script>
 @include('components.whatsapp_phone_script')
-<script src="{{ asset('public/js/money-format.js') }}?v=2"></script>
+<script src="{{ asset('public/js/money-format.js') }}?v=3"></script>
 </body>
 </html>

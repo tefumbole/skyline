@@ -126,6 +126,15 @@
         body.beyond-pos-active .pos-order-note { margin: 10px 0 16px; }
         body.beyond-pos-active .pos-order-note label { color: #3f2a12; font-weight: 700; }
         body.beyond-pos-active #pay-later-btn { background: #3f2a12 !important; color: #fffaf3 !important; border: 2px solid #C5A059 !important; }
+        body.beyond-pos-active .pos-table-pick {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px 0;
+            background: #fff;
+        }
+        body.beyond-pos-active .pos-table-pick label { margin: 0; color: #3f2a12; font-weight: 800; white-space: nowrap; }
+        body.beyond-pos-active .pos-table-pick select { max-width: 280px; border: 2px solid #C5A059; border-radius: 8px; color: #1a1208; font-weight: 700; }
         @media (max-width: 767px) {
             body.beyond-pos-active .pos-pay-bar { left: 0; }
         }
@@ -1577,15 +1586,6 @@
                                             </select>
                                         </div>
                                         <div class="col-sm-3">
-                                            <label>Table <button type="button" class="btn btn-link btn-sm" data-toggle="modal" data-target="#create-table-modal">Create table</button></label>
-                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
-                                                <option value="">Optional for take away</option>
-                                                @foreach(\App\RestaurantTable::where('is_active', 1)->orderBy('name')->get() as $table)
-                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->description) · {{ $table->description }}@endif @if($table->capacity)({{ $table->capacity }} persons)@endif</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-sm-3">
                                             <label>Waitress / waiter</label>
                                             <select name="waitress_user_id" class="form-control">
                                                 <option value="">Unassigned</option>
@@ -1649,12 +1649,23 @@
                                     <div class="payment-amount">
                                         <h2>{{trans('file.grand total')}} <span id="grand-total">0.00</span></h2>
                                     </div>
+                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                    <div class="pos-table-pick">
+                                        <label for="restaurant_table_id">Table number</label>
+                                        <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
+                                            <option value="">Select table number</option>
+                                            @foreach(\App\RestaurantTable::numbered() as $table)
+                                                <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @endif
                                     <div class="payment-options">
                                         {{--                        <div class="column-5">--}}
                                         {{--                            <button style="background: #0984e3" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="credit-card-btn"><i class="fa fa-credit-card"></i> Card</button>--}}
                                         {{--                        </div>--}}
                                         <div class="column-5">
-                                            <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-paypal"></i> Send to payment</button>
+                                            <button style="background-color: #3f2a12" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="pay-later-btn"><i class="fa fa-check"></i> Submit</button>
                                         </div>
 
                                             <div class="column-5">

@@ -455,6 +455,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/orders/items/{item}/reject', 'RestaurantOrderController@reject')->name('restaurant.reject');
     Route::post('/orders/items/{item}/deny', 'RestaurantOrderController@deny')->name('restaurant.deny');
     Route::post('/orders/{order}/waitress', 'RestaurantOrderController@assignWaitress')->name('restaurant.waitress');
+    Route::get('/orders/tables', 'RestaurantOrderController@tables')->name('restaurant.tables');
     Route::post('/orders/tables', 'RestaurantOrderController@storeTable')->name('restaurant.tables.store');
 
     // Auth::routes already registers POST /logout → LoginController@logout (overridden).

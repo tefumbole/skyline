@@ -367,6 +367,18 @@ class RestaurantOrderController extends Controller
         return view('restaurant.logs', compact('items', 'rejections', 'tables', 'staffList'));
     }
 
+    public function tables(Request $request)
+    {
+        if (! RestaurantAccess::canSeeOrders($request->user()) && ! RestaurantAccess::can($request->user(), 'sales-add')) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $tables = RestaurantTable::query()->get()->sortBy(function ($table) {
+            return preg_match('/(\d+)/', (string) $table->name, $match) ? (int) $match[1] : 100000;
+        })->values();
+
+        return view('restaurant.tables', compact('tables'));
+    }
+
     public function storeTable(Request $request)
     {
         if (! RestaurantAccess::can($request->user(), 'order-logs')

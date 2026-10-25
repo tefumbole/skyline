@@ -15,6 +15,7 @@ use App\RestaurantOrderEvent;
 use App\RestaurantOrderItem;
 use App\RestaurantTable;
 use App\Sale;
+use App\Support\Money;
 use App\Unit;
 use App\User;
 use App\Warehouse;
@@ -233,11 +234,8 @@ class RestaurantOrderService
         $item->expected_ready_at = $timed ? now()->addMinutes($minutes) : null;
         $item->save();
         $this->event($item->order, $item, 'accepted', $user->id, $timed ? $minutes.' min' : null);
-        $text = RestaurantDepartment::label($item->lane ?: $item->department).' accepted '.$item->product_name.' (x'.$this->qty($item).').';
-        if ($timed) {
-            $text .= ' Ready in about '.$minutes.' minutes.';
-        }
-        $this->notify($item->order, $text);
+        $note = $timed ? 'Ready in about '.$minutes.' minutes.' : '';
+        $this->notify($item->order, $this->orderNotice($item->order, 'Order accepted', $note));
 
         return $item;
     }
@@ -258,7 +256,7 @@ class RestaurantOrderService
         $item->expected_ready_at = now()->addMinutes($minutes);
         $item->save();
         $this->event($item->order, $item, 'estimate_revised', $user->id, $minutes.' min');
-        $this->notify($item->order, 'Updated time for '.$item->product_name.': about '.$minutes.' minutes.');
+        $this->notify($item->order, $this->orderNotice($item->order, 'Preparation time updated', 'About '.$minutes.' minutes for '.$item->product_name.'.'));
 
         return $item;
     }
@@ -271,7 +269,7 @@ class RestaurantOrderService
         $item->ready_at = now();
         $item->save();
         $this->event($item->order, $item, 'ready', $user->id, null);
-        $this->notify($item->order, $item->product_name.' is ready. '.$item->order->serviceLabel().'.');
+        $this->notify($item->order, $this->orderNotice($item->order, 'Ready for delivery', $item->product_name.' is ready.'));
 
         return $item;
     }
@@ -286,7 +284,7 @@ class RestaurantOrderService
         $order = $item->order()->with('items', 'sale.customer')->first();
         $this->event($order, $item, 'delivered', $user->id, null);
         $word = $order->service_type === 'take_away' ? 'handed over' : 'served';
-        $this->notify($order, $item->product_name.' has been '.$word.'.');
+        $this->notify($order, $this->orderNotice($order, 'Order '.$word, $item->product_name.' has been '.$word.'.'));
         if ($order->isFulfilled()) {
             $this->sendReviewLink($order);
         }
@@ -358,7 +356,7 @@ class RestaurantOrderService
         $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
         $this->event($order, $item, 'denied', $user->id, $reason);
         if ($order) {
-            $this->notify($order, $item->product_name.' was not accepted. '.$reason.'. This item will not be billed.');
+            $this->notify($order, $this->orderNotice($order, 'Item not accepted', $item->product_name.' was not accepted. '.$reason.'. This item will not be billed.'));
         }
 
         return $item;
@@ -386,7 +384,7 @@ class RestaurantOrderService
         $order->save();
         $sale = $order->sale ?: Sale::find($order->sale_id);
         $ref = $sale ? $sale->reference_no : $order->sale_id;
-        $this->notify($order, 'Please review order '.$ref.'. Delivery time, food, environment and service: '.$order->reviewUrl());
+        $this->notify($order, $this->orderNotice($order, 'Please review order '.$ref, 'Delivery time, food, environment and service.', 'REVIEW ORDER', $order->reviewUrl()));
     }
 
     public function notifyReceived(RestaurantOrder $order)
@@ -395,15 +393,98 @@ class RestaurantOrderService
         if (! $sale) {
             return;
         }
-        $lines = $order->items->map(function ($item) {
-            return $item->product_name.' x'.$this->qty($item);
-        })->implode(', ');
-        $text = 'Skyline Hotel received order '.$sale->reference_no.' ('.$order->serviceLabel().').';
-        if ($lines !== '') {
-            $text .= ' '.$lines.'.';
+        $this->notify($order, $this->orderNotice($order, 'Order received'));
+    }
+
+    protected function orderNotice(RestaurantOrder $order, $title, $note = '', $actionLabel = 'TRACK ORDER', $actionUrl = null)
+    {
+        $order->load(['items.productSale', 'sale']);
+        $sale = $order->sale ?: Sale::find($order->sale_id);
+        $actionUrl = $actionUrl ?: $order->trackUrl();
+        $rows = ['*'.$title.'*'];
+        if ($sale) {
+            $rows[] = $sale->reference_no;
         }
-        $text .= ' Total '.number_format((float) $sale->grand_total, 0).'. Track: '.$order->trackUrl();
-        $this->notify($order, $text);
+        $rows[] = $order->serviceLabel();
+        if ($note !== '') {
+            $rows[] = $note;
+        }
+        $rows[] = '';
+        $rows[] = '*Products*';
+        foreach ($order->items as $item) {
+            $amount = $this->lineAmount($item);
+            $rows[] = $item->product_name.($amount !== '' ? ' — '.$amount : '');
+            $rows[] = 'Qty '.$this->qty($item).' · '.$this->itemStatusLabel($item->status);
+        }
+        if ($sale) {
+            $rows[] = '';
+            $rows[] = '*Total* '.Money::format($sale->grand_total);
+        }
+        $rows[] = '';
+        $rows[] = '*Order status*';
+        $rows[] = $this->orderStatusLabel($order);
+        $rows[] = '';
+        $rows[] = '*'.$actionLabel.'*';
+        $rows[] = $actionUrl;
+        if ($actionUrl !== $order->trackUrl()) {
+            $rows[] = '';
+            $rows[] = '*TRACK ORDER*';
+            $rows[] = $order->trackUrl();
+        }
+
+        return implode("\n", $rows);
+    }
+
+    protected function lineAmount(RestaurantOrderItem $item)
+    {
+        if ($item->status === 'rejected') {
+            return 'Not billed';
+        }
+        $line = $item->productSale;
+        if (! $line && $item->product_sale_id) {
+            $line = Product_Sale::find($item->product_sale_id);
+        }
+        if ($line) {
+            $qty = (float) ($item->qty ?: $line->qty);
+            $total = (float) $line->total;
+            $unit = $qty > 0 ? $total / $qty : (float) $line->net_unit_price;
+            if ($qty > 1) {
+                return Money::format($unit).' each · '.Money::format($total);
+            }
+
+            return Money::format($total > 0 ? $total : $unit);
+        }
+        $product = $item->product_id ? Product::find($item->product_id) : null;
+
+        return $product ? Money::format($product->price) : '';
+    }
+
+    protected function itemStatusLabel($status)
+    {
+        $labels = [
+            'awaiting' => 'Awaiting',
+            'preparing' => 'Accepted',
+            'ready' => 'Ready for Delivery',
+            'hold' => 'On Hold',
+            'delivered' => 'Delivered',
+            'cancelled' => 'Cancelled',
+            'rejected' => 'Not accepted',
+        ];
+
+        return isset($labels[$status]) ? $labels[$status] : ucfirst((string) $status);
+    }
+
+    protected function orderStatusLabel(RestaurantOrder $order)
+    {
+        $statuses = $order->items->pluck('status')->filter()->unique()->values();
+        if ($statuses->count() === 1) {
+            return $this->itemStatusLabel($statuses->first());
+        }
+        if ($statuses->isEmpty()) {
+            return 'Received';
+        }
+
+        return 'In progress';
     }
 
     protected function notify(RestaurantOrder $order, $body)
@@ -417,8 +498,12 @@ class RestaurantOrderService
             if (! $customer || ! $customer->phone_number) {
                 return;
             }
+            $message = (string) $body;
+            if (strpos($message, (string) $order->trackUrl()) === false) {
+                $message .= "\n\n*TRACK ORDER*\n".$order->trackUrl();
+            }
             app(\App\Services\Messaging\NotificationRouter::class)
-                ->sendWhatsAppTextWithLink($customer->phone_number, $body."\n".$order->trackUrl());
+                ->sendWhatsAppTextWithLink($customer->phone_number, $message);
         } catch (\Throwable $e) {
             \Log::warning('restaurant notify: '.$e->getMessage());
         }

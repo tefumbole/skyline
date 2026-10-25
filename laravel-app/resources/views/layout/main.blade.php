@@ -1659,6 +1659,7 @@
                                             </li>
                                         @endif
                                     @endforeach
+                                    <li id="restaurant-tables-menu"><a href="{{ route('restaurant.tables') }}">Tables</a></li>
                                 </ul>
                             </li>
                         @endif

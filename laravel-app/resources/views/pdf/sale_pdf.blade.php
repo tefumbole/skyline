@@ -63,7 +63,6 @@
     $totalProductTax = 0;
     $totalProductDiscount = 0;
     $totalProductSubtotal = 0;
-    $invoiceQrUrl = \App\Support\SaleInvoiceQr::scanUrl($lims_sale_data);
     $payQrUrl = \App\Support\SalePayQr::payUrl($lims_sale_data);
 @endphp
 
@@ -271,7 +270,6 @@
     ])
     <div class="inv-qr" style="margin:0 0 6px;">
         <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($payQrUrl, 'QRCODE').'" height="52" width="52" alt="pay">'; ?>
-        <?php echo '<img src="data:image/png;base64,'.DNS2D::getBarcodePNG($invoiceQrUrl, 'QRCODE').'" height="52" width="52" alt="qrcode">'; ?>
     </div>
     <div class="inv-barcode">
         <?php echo '<img src="data:image/png;base64,'.DNS1D::getBarcodePNG($lims_sale_data->reference_no, 'C128').'" height="24" width="160" alt="barcode">'; ?>

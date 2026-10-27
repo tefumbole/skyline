@@ -93,21 +93,38 @@
             </div>
 
             @if ($items->isNotEmpty())
-                <div class="mt-6 grid gap-3 md:grid-cols-2">
-                    <input name="name" value="{{ old('name') }}" required placeholder="Your name" class="rounded-md bg-black border border-white/15 px-3 py-2 text-white">
-                    <input name="phone" value="{{ old('phone') }}" required placeholder="WhatsApp number" class="rounded-md bg-black border border-white/15 px-3 py-2 text-white">
-                    <select name="service_type" class="rounded-md bg-black border border-white/15 px-3 py-2 text-white">
-                        <option value="dine_in" @if(old('service_type', 'dine_in') === 'dine_in') selected @endif>Dine in</option>
-                        <option value="take_away" @if(old('service_type') === 'take_away') selected @endif>Take away</option>
-                    </select>
-                    <select name="restaurant_table_id" class="rounded-md bg-black border border-white/15 px-3 py-2 text-white">
-                        <option value="">Table, if dining in</option>
-                        @foreach ($tables as $table)
-                            <option value="{{ $table->id }}" @if((string) old('restaurant_table_id') === (string) $table->id) selected @endif>{{ $table->name }}</option>
-                        @endforeach
-                    </select>
+                <div class="mt-8 rounded-3xl border border-brand-gold/35 bg-gradient-to-b from-[#1a140b] to-black/40 p-5 sm:p-6 shadow-[0_16px_40px_rgba(0,0,0,.35)]">
+                    <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Checkout</p>
+                    <h2 class="text-xl font-semibold text-white mt-1 mb-1">Your details</h2>
+                    <p class="text-sm text-white/55 mb-5">One bill for everything you added above.</p>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Name</span>
+                            <input name="name" value="{{ old('name') }}" required placeholder="Your name" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-brand-gold">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">WhatsApp</span>
+                            <input name="phone" value="{{ old('phone') }}" required placeholder="6XX XXX XXX" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-brand-gold">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Service</span>
+                            <select name="service_type" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white outline-none focus:border-brand-gold">
+                                <option value="dine_in" @if(old('service_type', 'dine_in') === 'dine_in') selected @endif>Dine in</option>
+                                <option value="take_away" @if(old('service_type') === 'take_away') selected @endif>Take away</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Table</span>
+                            <select name="restaurant_table_id" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white outline-none focus:border-brand-gold">
+                                <option value="">No table — take away or assign later</option>
+                                @foreach ($tables as $table)
+                                    <option value="{{ $table->id }}" @if((string) old('restaurant_table_id') === (string) $table->id) selected @endif>{{ $table->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                    <button type="submit" class="mt-6 w-full sm:w-auto bg-brand-gold text-[#0A0A0A] font-bold tracking-[0.12em] uppercase px-8 py-3.5 rounded-full">Place order</button>
                 </div>
-                <button type="submit" class="mt-4 bg-brand-gold text-[#0A0A0A] font-bold px-6 py-3 rounded-full">Place order</button>
             @endif
         </form>
     </div>

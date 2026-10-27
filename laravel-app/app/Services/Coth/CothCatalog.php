@@ -2,7 +2,6 @@
 
 namespace App\Services\Coth;
 
-use App\Category;
 use App\CothSection;
 use App\CothSetting;
 use App\CothSlot;
@@ -127,16 +126,22 @@ class CothCatalog
 
     protected function seedCategoryAndEvent(CothSetting $settings = null)
     {
-        if (Schema::hasTable('categories') && ! Category::where('name', 'Chill on the Hill')->whereNull('parent_id')->exists()) {
-            try {
-                Category::create([
-                    'name' => 'Chill on the Hill',
-                    'parent_id' => null,
-                    'is_active' => 1,
-                ]);
-            } catch (\Throwable $e) {
-                \Log::warning('coth category: '.$e->getMessage());
+        if (Schema::hasTable('categories') && ! \Illuminate\Support\Facades\DB::table('categories')->where('name', 'Chill on the Hill')->whereNull('parent_id')->exists()) {
+            $now = date('Y-m-d H:i:s');
+            $row = [
+                'name' => 'Chill on the Hill',
+                'parent_id' => null,
+                'is_active' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            if (Schema::hasColumn('categories', 'cloud_tenant_id')) {
+                $row['cloud_tenant_id'] = \Illuminate\Support\Facades\DB::table('categories')
+                    ->whereNotNull('cloud_tenant_id')
+                    ->orderBy('id')
+                    ->value('cloud_tenant_id');
             }
+            \Illuminate\Support\Facades\DB::table('categories')->insert($row);
         }
 
         if (! Schema::hasTable('btw_events') || ! Schema::hasTable('event_publications')) {

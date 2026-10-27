@@ -128,7 +128,7 @@
                     @if($pub->registration_url)
                         <a href="{{ $pub->registration_url }}" target="_blank" rel="noopener"
                            class="block text-center px-6 py-3 bg-brand-blue text-white font-semibold rounded-lg hover:bg-brand-dark transition">
-                            Register Now
+                            {{ \Illuminate\Support\Str::contains($pub->registration_url, 'chill-on-the-hill') ? 'Reserve a table' : 'Register Now' }}
                         </a>
                     @endif
                     @if($pub->ticket_url)

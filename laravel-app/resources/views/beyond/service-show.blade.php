@@ -2,6 +2,16 @@
 
 @section('title', $meta['label'].' · Skyline Hotel')
 
+@push('head')
+<style>
+    .svc-cats { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .svc-cats::-webkit-scrollbar { display: none; }
+    .svc-qty input[type=number]::-webkit-outer-spin-button,
+    .svc-qty input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .svc-qty input[type=number] { -moz-appearance: textfield; }
+</style>
+@endpush
+
 @section('content')
 <div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
     <div class="max-w-5xl mx-auto">
@@ -9,10 +19,28 @@
         <h1 class="font-serif text-3xl text-white mt-2">{{ $meta['label'] }}</h1>
         <p class="text-white/70 text-sm mt-2">{{ $meta['blurb'] }} Choose quantities and place one order.</p>
 
-        <div class="flex flex-wrap gap-2 mt-6">
-            <a href="{{ route('beyond.services.show', $service) }}" class="rounded-full border px-3 py-1.5 text-sm {{ $current ? 'border-white/20 text-white/70' : 'border-brand-gold text-brand-gold' }}">All</a>
+        <div class="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 overflow-x-auto pb-1 svc-cats">
+            <a href="{{ route('beyond.services.show', $service) }}"
+               class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 {{ $current ? 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' : 'border-brand-gold bg-brand-gold/15' }}">
+                <span class="w-12 h-12 rounded-full flex items-center justify-center {{ $current ? 'border border-brand-gold/50 text-brand-gold' : 'bg-brand-gold text-[#0A0A0A]' }}">
+                    <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                </span>
+                <span class="text-sm font-semibold leading-tight {{ $current ? 'text-white/90' : 'text-brand-gold' }}">All</span>
+            </a>
             @foreach ($categories as $cat)
-                <a href="{{ route('beyond.services.show', [$service, $cat->id]) }}" class="rounded-full border px-3 py-1.5 text-sm {{ $current && (int) $current->id === (int) $cat->id ? 'border-brand-gold text-brand-gold' : 'border-white/20 text-white/80' }}">{{ $cat->name }}</a>
+                @php $active = $current && (int) $current['id'] === (int) $cat['id']; @endphp
+                <a href="{{ route('beyond.services.show', [$service, $cat['id']]) }}"
+                   class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
+                    <span class="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden {{ $active ? 'bg-brand-gold text-[#0A0A0A]' : 'border border-brand-gold/50 text-brand-gold' }}">
+                        @if ($cat['image'])
+                            <img src="{{ $cat['image'] }}" alt="" class="w-full h-full object-cover">
+                        @else
+                            <i data-lucide="{{ $cat['icon'] }}" class="w-6 h-6"></i>
+                        @endif
+                    </span>
+                    <span class="text-sm font-semibold leading-tight {{ $active ? 'text-brand-gold' : 'text-white/90' }}">{{ $cat['name'] }}</span>
+                    <span class="text-[11px] text-white/45">{{ $cat['count'] }}</span>
+                </a>
             @endforeach
         </div>
 
@@ -30,18 +58,33 @@
             <input type="hidden" name="checkout_token" value="{{ $token }}">
             <div class="space-y-3">
                 @forelse ($items as $product)
-                    <label class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    @php
+                        $img = \App\Support\ServiceCatalog::productImage($product);
+                        $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
+                    @endphp
+                    <label class="flex items-center gap-3 sm:gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
-                        <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-20 rounded-md bg-black border border-white/15 px-2 py-2 text-white">
-                        <span class="flex-1">
-                            <span class="block font-semibold">{{ $product->name }}</span>
-                            <span class="text-sm text-white/60">
+                        @if ($img)
+                            <img src="{{ $img }}" alt="{{ $product->name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-white/5 border border-brand-gold/20 shrink-0" loading="lazy">
+                        @else
+                            <span class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/5 flex items-center justify-center text-brand-gold/70 shrink-0">
+                                <i data-lucide="{{ $icon }}" class="w-7 h-7"></i>
+                            </span>
+                        @endif
+                        <span class="flex-1 min-w-0">
+                            <span class="block font-semibold leading-snug">{{ $product->name }}</span>
+                            <span class="text-sm text-brand-gold font-bold">
                                 @if ((float) $product->price > 0)
                                     {{ number_format((float) $product->price, 0) }} XAF
                                 @else
                                     Ask for the price
                                 @endif
                             </span>
+                        </span>
+                        <span class="flex items-center gap-2 shrink-0 svc-qty">
+                            <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
+                            <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-14 text-center rounded-md bg-black border border-white/15 px-2 py-2 text-white tabular-nums">
+                            <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="1" aria-label="Increase">+</button>
                         </span>
                     </label>
                 @empty
@@ -70,3 +113,22 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.svc-qty button[data-step]');
+        if (!btn) return;
+        e.preventDefault();
+        var input = btn.parentElement.querySelector('input[type=number]');
+        if (!input) return;
+        var current = parseInt(input.value, 10);
+        if (isNaN(current)) current = 0;
+        var next = current + parseInt(btn.getAttribute('data-step'), 10);
+        if (next < 0) next = 0;
+        input.value = next;
+    });
+})();
+</script>
+@endpush

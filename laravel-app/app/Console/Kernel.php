@@ -49,6 +49,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('rental:return-reminders')->everyFiveMinutes();
         $schedule->command('bookings:send-reminders')->everyMinute();
         $schedule->command('events:publish-scheduled')->everyMinute();
+        $schedule->command('coth:release-holds')->everyMinute();
         $schedule->command('events:process-reminders')->everyMinute();
         $schedule->command('tasks:process')->everyMinute()->withoutOverlapping(10);
         $schedule->command('announcements:process')->everyMinute()->withoutOverlapping(60);

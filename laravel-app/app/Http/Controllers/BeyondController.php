@@ -33,6 +33,10 @@ class BeyondController extends Controller
         if (! \App\Support\ServiceCatalog::exists($service)) {
             abort(404);
         }
+        $meta = \App\Support\ServiceCatalog::services()[$service];
+        if (! empty($meta['reservation'])) {
+            return redirect('/chill-on-the-hill');
+        }
         $categories = \App\Support\ServiceCatalog::categories($service);
         if ($category !== null && ! $categories->firstWhere('id', (int) $category)) {
             abort(404);
@@ -40,7 +44,7 @@ class BeyondController extends Controller
 
         return view('beyond.service-show', [
             'service' => $service,
-            'meta' => \App\Support\ServiceCatalog::services()[$service],
+            'meta' => $meta,
             'categories' => $categories,
             'current' => $category ? $categories->firstWhere('id', (int) $category) : null,
             'items' => \App\Support\ServiceCatalog::products($service, $category),

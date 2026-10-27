@@ -154,16 +154,14 @@ class CategoryController extends Controller
                     return $query->where('is_active', 1);
                 }),
             ],
-            'image' => 'image|mimes:jpg,jpeg,png,gif',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp',
         ]);
         $image = $request->image;
         if ($image) {
-            $ext = pathinfo($image->getClientOriginalName(), PATHINFO_EXTENSION);
-            $imageName = date("Ymdhis");
-            $imageName = $imageName . '.' . $ext;
-            $image->move('public/images/category', $imageName);
-
-            $lims_category_data['image'] = $imageName;
+            $stored = \App\Support\PosProductImage::storeUpload($image, 'category');
+            if ($stored) {
+                $lims_category_data['image'] = $stored;
+            }
         }
         $lims_category_data['name'] = $request->name;
         $lims_category_data['parent_id'] = $request->parent_id;
@@ -192,7 +190,7 @@ class CategoryController extends Controller
                     return $query->where('is_active', 1);
                 }),
             ],
-            'image' => 'image|mimes:jpg,jpeg,png,gif',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp',
         ]);
 
         $input = $request->except('image');
@@ -200,15 +198,21 @@ class CategoryController extends Controller
             $input['department'] = null;
         }
         $input['unit_id'] = ! empty($input['unit_id']) ? (int) $input['unit_id'] : null;
+        $lims_category_data = Category::findOrFail($request->category_id);
         $image = $request->image;
         if ($image) {
-            $ext = pathinfo($image->getClientOriginalName(), PATHINFO_EXTENSION);
-            $imageName = date("Ymdhis");
-            $imageName = $imageName . '.' . $ext;
-            $image->move('public/images/category', $imageName);
-            $input['image'] = $imageName;
+            $stored = \App\Support\PosProductImage::storeUpload($image, 'category');
+            if ($stored) {
+                $previous = basename((string) $lims_category_data->image);
+                $input['image'] = $stored;
+                if ($previous !== '' && $previous !== $stored && $previous !== 'zummXD2dvAtI.png') {
+                    $previousPath = public_path('images/category/'.$previous);
+                    if (is_file($previousPath)) {
+                        @unlink($previousPath);
+                    }
+                }
+            }
         }
-        $lims_category_data = Category::findOrFail($request->category_id);
         $lims_category_data->update($input);
         if ($request->filled('unit_id')) {
             $this->applyCategoryUnit($lims_category_data, (int) $request->unit_id);
@@ -390,7 +394,7 @@ class CategoryController extends Controller
         $category->save();
 
         return response()->json([
-            'url' => \App\Support\PosProductImage::catalogUrl('category', $stored).'?v='.time(),
+            'url' => \App\Support\PosProductImage::catalogUrl('category', $stored),
         ]);
     }
 

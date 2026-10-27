@@ -799,12 +799,8 @@ class ProductController extends Controller
         $images = $request->image;
         $image_names = [];
         if($images) {
-            foreach ($images as $key => $image) {
-                $imageName = $image->getClientOriginalName();
-                $image->move('public/images/product', $imageName);
-                $image_names[] = $imageName;
-            }
-            $data['image'] = implode(",", $image_names);
+            $image_names = $this->storedProductImageNames($images);
+            $data['image'] = $image_names ? implode(",", $image_names) : 'zummXD2dvAtI.png';
         }
         else {
             $data['image'] = 'zummXD2dvAtI.png';
@@ -936,15 +932,10 @@ class ProductController extends Controller
         $images = $request->image;
         $image_names = [];
         if($images) {
-            foreach ($images as $key => $image) {
-                $imageName = $image->getClientOriginalName();
-                $image->move('public/images/product', $imageName);
-                $image_names[] = $imageName;
-            }
-            if($lims_product_data->image != 'zummXD2dvAtI.png') {
+            $image_names = $this->storedProductImageNames($images);
+            if ($image_names && $lims_product_data->image != 'zummXD2dvAtI.png') {
                 $data['image'] = $lims_product_data->image.','.implode(",", $image_names);
-            }
-            else{
+            } elseif ($image_names) {
                 $data['image'] = implode(",", $image_names);
             }
         }
@@ -1590,7 +1581,7 @@ class ProductController extends Controller
         $product->save();
 
         return response()->json([
-            'url' => \App\Support\PosProductImage::url($stored).'?v='.time(),
+            'url' => \App\Support\PosProductImage::url($stored),
         ]);
     }
 
@@ -1641,5 +1632,18 @@ class ProductController extends Controller
         }
 
         return array_keys($ids);
+    }
+
+    protected function storedProductImageNames($images)
+    {
+        $names = [];
+        foreach ((array) $images as $image) {
+            $stored = \App\Support\PosProductImage::storeUpload($image, 'product');
+            if ($stored) {
+                $names[] = $stored;
+            }
+        }
+
+        return $names;
     }
 }

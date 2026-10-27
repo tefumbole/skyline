@@ -6,9 +6,12 @@ class PosProductImage
 {
     // POS tiles draw the photo at about 70–120px. 240px is 2× that, so it stays sharp
     // on a retina screen and a JPEG stays well under 45KB.
+    // Category photos are also the service banner, so they keep a wider edge.
     const MAX_BYTES = 17408;
     const THUMB_EDGE = 240;
     const ORIGINAL_EDGE = 240;
+    const CATEGORY_EDGE = 960;
+    const CATEGORY_MAX_BYTES = 163840;
 
     public static function url($filename, $ensureThumb = false)
     {
@@ -18,15 +21,15 @@ class PosProductImage
         }
         $thumb = public_path('images/product/thumbs/'.$filename);
         if (is_file($thumb) && filesize($thumb) > 0) {
-            return self::assetFile('images/product/thumbs/'.$filename);
+            return self::versioned('images/product/thumbs/'.$filename);
         }
         $orig = public_path('images/product/'.$filename);
         if ($filename !== 'zummXD2dvAtI.png' && is_file($orig) && filesize($orig) > 0) {
-            return self::assetFile('images/product/'.$filename);
+            return self::versioned('images/product/'.$filename);
         }
         $placeholder = public_path('images/product/zummXD2dvAtI.png');
         if (is_file($placeholder)) {
-            return self::assetFile('images/product/zummXD2dvAtI.png');
+            return self::versioned('images/product/zummXD2dvAtI.png');
         }
 
         return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
@@ -37,7 +40,7 @@ class PosProductImage
         $filename = self::firstName($filename);
         $path = public_path('images/'.$subdir.'/'.$filename);
         if ($filename !== 'zummXD2dvAtI.png' && is_file($path) && filesize($path) > 0) {
-            return self::assetFile('images/'.$subdir.'/'.$filename);
+            return self::versioned('images/'.$subdir.'/'.$filename);
         }
 
         return self::url('zummXD2dvAtI.png');
@@ -53,7 +56,7 @@ class PosProductImage
             foreach (['images/product/'.$name, 'images/product/thumbs/'.$name] as $relative) {
                 $path = public_path($relative);
                 if (is_file($path) && filesize($path) > 0) {
-                    return self::assetFile($relative).'?v='.filemtime($path);
+                    return self::versioned($relative);
                 }
             }
         }
@@ -94,7 +97,8 @@ class PosProductImage
         $tmpPath = $dir.DIRECTORY_SEPARATOR.$tmpName;
         $jpgName = $stamp.'.jpg';
         $jpgPath = $dir.DIRECTORY_SEPARATOR.$jpgName;
-        $ok = self::optimizeTo($tmpPath, $jpgPath, self::ORIGINAL_EDGE, self::MAX_BYTES);
+        list($edge, $maxBytes) = self::limitsFor($subdir);
+        $ok = self::optimizeTo($tmpPath, $jpgPath, $edge, $maxBytes);
         if ($ok && is_file($jpgPath) && filesize($jpgPath) > 0) {
             if ($jpgPath !== $tmpPath) {
                 @unlink($tmpPath);
@@ -152,7 +156,7 @@ class PosProductImage
         return self::optimizeFile($sourcePath, self::ORIGINAL_EDGE);
     }
 
-    public static function optimizeFile($sourcePath, $maxEdge = self::ORIGINAL_EDGE)
+    public static function optimizeFile($sourcePath, $maxEdge = self::ORIGINAL_EDGE, $maxBytes = self::MAX_BYTES)
     {
         if (! is_file($sourcePath)) {
             return false;
@@ -163,11 +167,104 @@ class PosProductImage
             return false;
         }
         $wide = max((int) $info[0], (int) $info[1]);
-        if ($size > 0 && $size <= self::MAX_BYTES && $wide <= $maxEdge) {
+        if ($size > 0 && $size <= $maxBytes && $wide <= $maxEdge) {
             return false;
         }
 
-        return self::optimizeTo($sourcePath, $sourcePath, $maxEdge, self::MAX_BYTES);
+        return self::optimizeTo($sourcePath, $sourcePath, $maxEdge, $maxBytes);
+    }
+
+    /**
+     * Shrink every photo already stored for products or categories.
+     * Renames (png/webp to jpg) are returned so the database can follow them.
+     */
+    public static function optimizeCatalog($subdir)
+    {
+        $dir = public_path('images/'.$subdir);
+        $stats = [
+            'scanned' => 0,
+            'optimized' => 0,
+            'renamed' => [],
+            'bytes_before' => 0,
+            'bytes_after' => 0,
+        ];
+        if (! is_dir($dir)) {
+            return $stats;
+        }
+        list($edge, $maxBytes) = self::limitsFor($subdir);
+        foreach (scandir($dir) as $name) {
+            if ($name === '.' || $name === '..' || $name === 'thumbs') {
+                continue;
+            }
+            $path = $dir.DIRECTORY_SEPARATOR.$name;
+            if (! is_file($path)) {
+                continue;
+            }
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                continue;
+            }
+            $stats['scanned']++;
+            $before = (int) filesize($path);
+            $stats['bytes_before'] += $before;
+            if ($name === 'zummXD2dvAtI.png') {
+                self::shrinkPlaceholder($path);
+                $after = (int) @filesize($path);
+                $stats['bytes_after'] += $after > 0 ? $after : $before;
+                if ($after > 0 && $after < $before) {
+                    $stats['optimized']++;
+                }
+                continue;
+            }
+            $workingName = self::ensureJpegName($path);
+            $working = $dir.DIRECTORY_SEPARATOR.$workingName;
+            $finalName = $workingName;
+            $finalPath = $working;
+            $extNow = strtolower(pathinfo($workingName, PATHINFO_EXTENSION));
+            if (! in_array($extNow, ['jpg', 'jpeg'], true)) {
+                $jpgPath = $dir.DIRECTORY_SEPARATOR.preg_replace('/\.[^.]+$/', '.jpg', $workingName);
+                if (is_file($jpgPath)) {
+                    $jpgPath = $dir.DIRECTORY_SEPARATOR.preg_replace('/\.[^.]+$/', '-'.substr(md5($workingName), 0, 4).'.jpg', $workingName);
+                }
+                if (self::optimizeTo($working, $jpgPath, $edge, $maxBytes) && is_file($jpgPath) && filesize($jpgPath) > 0) {
+                    if ($jpgPath !== $working && is_file($working)) {
+                        @unlink($working);
+                    }
+                    $finalPath = $jpgPath;
+                    $finalName = basename($jpgPath);
+                }
+            } else {
+                self::optimizeFile($finalPath, $edge, $maxBytes);
+            }
+            if ($finalName !== $name) {
+                $stats['renamed'][$name] = $finalName;
+                if ($subdir === 'product') {
+                    $oldThumb = public_path('images/product/thumbs/'.$name);
+                    if (is_file($oldThumb)) {
+                        @unlink($oldThumb);
+                    }
+                }
+            }
+            $after = is_file($finalPath) ? (int) filesize($finalPath) : $before;
+            $stats['bytes_after'] += $after;
+            if ($after < $before || $finalName !== $name) {
+                $stats['optimized']++;
+                if ($subdir === 'product' && is_file($finalPath)) {
+                    self::writeThumb($finalPath, $finalName);
+                }
+            }
+        }
+
+        return $stats;
+    }
+
+    public static function limitsFor($subdir)
+    {
+        if ($subdir === 'category') {
+            return [self::CATEGORY_EDGE, self::CATEGORY_MAX_BYTES];
+        }
+
+        return [self::ORIGINAL_EDGE, self::MAX_BYTES];
     }
 
     public static function resizeTo($sourcePath, $destPath, $maxEdge, $quality)
@@ -222,7 +319,7 @@ class PosProductImage
             $destPath = preg_replace('/\.[^.]+$/', '.jpg', $destPath);
         }
         $edges = [];
-        foreach ([(int) $maxEdge, 200, 160, 120] as $edge) {
+        foreach ([(int) $maxEdge, 720, 480, 240, 200, 160, 120] as $edge) {
             if ($edge > 0 && $edge <= (int) $maxEdge && ! in_array($edge, $edges, true)) {
                 $edges[] = $edge;
             }
@@ -369,6 +466,72 @@ class PosProductImage
         imagefilledpolygon($im, $tie, 4, $gold);
         imagefilledrectangle($im, 150, 278, 195, 330, $gold);
         imagefilledrectangle($im, 205, 278, 250, 330, $gold);
+    }
+
+    /**
+     * The default product photo is referenced by name all over the POS, so it
+     * stays a PNG. Shrink it in place instead of renaming it to .jpg.
+     */
+    protected static function shrinkPlaceholder($path)
+    {
+        if (! is_file($path) || ! function_exists('imagecreatetruecolor')) {
+            return false;
+        }
+        $info = @getimagesize($path);
+        if (! $info) {
+            return false;
+        }
+        $before = (int) filesize($path);
+        $wide = max((int) $info[0], (int) $info[1]);
+        if ($before > 0 && $before <= 40960 && $wide <= self::THUMB_EDGE) {
+            return false;
+        }
+        $src = self::loadImage($path, $info[2]);
+        if (! $src) {
+            return false;
+        }
+        $origW = imagesx($src);
+        $origH = imagesy($src);
+        $edge = self::THUMB_EDGE;
+        $scale = ($origW > $edge || $origH > $edge) ? $edge / max($origW, $origH) : 1;
+        $nw = max(1, (int) round($origW * $scale));
+        $nh = max(1, (int) round($origH * $scale));
+        $dst = imagecreatetruecolor($nw, $nh);
+        if (! $dst) {
+            imagedestroy($src);
+
+            return false;
+        }
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $clear = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+        imagefilledrectangle($dst, 0, 0, $nw, $nh, $clear);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $origW, $origH);
+        imagedestroy($src);
+        imagetruecolortopalette($dst, true, 128);
+        $tmp = $path.'.tmp'.mt_rand(1000, 9999);
+        $ok = @imagepng($dst, $tmp, 9);
+        imagedestroy($dst);
+        if ($ok && is_file($tmp) && filesize($tmp) > 0 && filesize($tmp) < $before && @rename($tmp, $path)) {
+            @chmod($path, 0644);
+
+            return true;
+        }
+        @unlink($tmp);
+
+        return false;
+    }
+
+    protected static function versioned($relative)
+    {
+        $relative = ltrim(str_replace('\\', '/', $relative), '/');
+        $url = self::assetFile($relative);
+        $path = public_path($relative);
+        if (is_file($path)) {
+            return $url.'?v='.filemtime($path);
+        }
+
+        return $url;
     }
 
     protected static function assetFile($relative)

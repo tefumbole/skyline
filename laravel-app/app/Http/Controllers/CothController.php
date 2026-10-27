@@ -122,7 +122,7 @@ class CothController extends Controller
         } catch (\Throwable $e) {
             return back()->withInput()->with('not_permitted', 'Enter a valid WhatsApp number.');
         }
-        $this->sendOtp($reservation);
+        $this->dispatchReservationOtp($reservation);
 
         return redirect()->route('coth.checkout', $reservation->public_token);
     }
@@ -157,7 +157,7 @@ class CothController extends Controller
     public function resendOtp($token)
     {
         $reservation = CothReservation::where('public_token', $token)->where('status', 'held')->firstOrFail();
-        $this->sendOtp($reservation);
+        $this->dispatchReservationOtp($reservation);
 
         return back()->with('message', 'A new code was sent.');
     }
@@ -224,7 +224,7 @@ class CothController extends Controller
         ]);
     }
 
-    protected function sendOtp(CothReservation $reservation)
+    protected function dispatchReservationOtp(CothReservation $reservation)
     {
         try {
             $auth = app(BeyondAuthService::class);

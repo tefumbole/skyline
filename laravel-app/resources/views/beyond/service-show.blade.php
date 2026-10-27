@@ -113,15 +113,6 @@
                                 <option value="take_away" @if(old('service_type') === 'take_away') selected @endif>Take away</option>
                             </select>
                         </label>
-                        <label class="block">
-                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Table</span>
-                            <select name="restaurant_table_id" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white outline-none focus:border-brand-gold">
-                                <option value="">No table — take away or assign later</option>
-                                @foreach ($tables as $table)
-                                    <option value="{{ $table->id }}" @if((string) old('restaurant_table_id') === (string) $table->id) selected @endif>{{ $table->name }}</option>
-                                @endforeach
-                            </select>
-                        </label>
                     </div>
                     <button type="submit" class="mt-6 w-full sm:w-auto bg-brand-gold text-[#0A0A0A] font-bold tracking-[0.12em] uppercase px-8 py-3.5 rounded-full">Place order</button>
                 </div>

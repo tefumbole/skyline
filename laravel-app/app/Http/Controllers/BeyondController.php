@@ -48,9 +48,6 @@ class BeyondController extends Controller
             'categories' => $categories,
             'current' => $category ? $categories->firstWhere('id', (int) $category) : null,
             'items' => \App\Support\ServiceCatalog::products($service, $category),
-            'tables' => \Illuminate\Support\Facades\Schema::hasTable('restaurant_tables')
-                ? \App\RestaurantTable::orderBy('name')->get()
-                : collect(),
             'token' => \Illuminate\Support\Str::random(40),
         ]);
     }

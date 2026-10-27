@@ -49,9 +49,6 @@ class RestaurantMenuController extends Controller
             'service_type' => 'required|in:dine_in,take_away',
             'checkout_token' => 'required|string|max:64',
         ]);
-        if ($request->input('service_type') === 'dine_in' && ! $request->input('restaurant_table_id')) {
-            return back()->withInput()->with('not_permitted', 'Choose a table for dine in.');
-        }
 
         $items = [];
         $productIds = (array) $request->input('product_id', []);

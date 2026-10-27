@@ -18,7 +18,8 @@ class SiteMenu
             'menu'     => 'Menu',
             'events'   => 'Events',
             'about'    => 'About',
-            'register' => 'Become a Member',
+            // Membership disabled for now — hidden from the public nav.
+            // 'register' => 'Become a Member',
             'services' => 'Services',
             'gallery'  => 'Gallery',
             'reviews'  => 'Reviews',

@@ -1,7 +1,7 @@
 @extends('beyond.layout')
 
 @section('title', 'Services · Skyline Hotel')
-@section('meta_description', 'Restaurant, coffee, bar, laundry, fashion, and the shop at Skyline Hotel.')
+@section('meta_description', 'Restaurant, coffee, and bar at Skyline Hotel.')
 @section('body_class', 'bg-[#0A0A0A]')
 
 @section('content')

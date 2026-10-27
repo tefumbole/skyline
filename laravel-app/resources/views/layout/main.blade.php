@@ -1458,7 +1458,8 @@
                         @if(in_array((int) Auth::user()->role_id, [1, 2], true))
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
                             <li><a href="{{ url('/admin/guest-reviews') }}" data-nav-key="guest-reviews"> <i class="dripicons-message"></i><span>Guest Reviews</span></a></li>
-                            <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li>
+                            {{-- Membership disabled for now --}}
+                            {{-- <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li> --}}
                             <li><a href="{{ url('/admin/leaders') }}" data-nav-key="leaders"> <i class="dripicons-user-group"></i><span>About Us Leaders</span></a></li>
                         @endif
                         <?php

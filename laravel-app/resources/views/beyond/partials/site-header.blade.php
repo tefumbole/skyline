@@ -32,8 +32,6 @@
         @endforeach
     </nav>
     <div class="sky-actions">
-        <span class="sky-hotel">Skyline Hotel Bamenda</span>
-        <span class="sky-rule" aria-hidden="true"></span>
         <a class="sky-login" href="{{ url('/login') }}">Admin login</a>
     </div>
 </header>

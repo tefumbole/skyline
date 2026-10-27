@@ -67,15 +67,21 @@ Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->nam
 Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
-Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => 'supermarket|restaurant|coffee|bar|laundry|fashion', 'category' => '[0-9]+']);
+Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => '[0-9]+', 'category' => '[0-9]+']);
 Route::get('/reviews', 'GuestReviewController@show')->name('beyond.reviews');
 Route::post('/reviews', 'GuestReviewController@store')->name('beyond.reviews.store');
 Route::post('/reviews/verify', 'GuestReviewController@verify')->name('beyond.reviews.verify');
 Route::post('/reviews/resend-otp', 'GuestReviewController@resendOtp')->name('beyond.reviews.resend');
-Route::get('/register-now', 'MembershipPublicController@apply')->name('beyond.register');
-Route::get('/register-now/details', 'MembershipPublicController@details')->name('membership.apply.details');
-Route::post('/register-now', 'MembershipPublicController@store')->name('membership.apply.store');
-Route::get('/membership/confirmation/{reference}', 'MembershipPublicController@confirmation')->name('membership.confirmation');
+// Membership disabled for now — public signup turned off (route names kept so existing links resolve).
+Route::get('/register-now', function () { return redirect('/'); })->name('beyond.register');
+Route::get('/register-now/details', function () { return redirect('/'); })->name('membership.apply.details');
+Route::post('/register-now', function () { return redirect('/'); })->name('membership.apply.store');
+Route::get('/membership/confirmation/{reference}', function () { return redirect('/'); })->name('membership.confirmation');
+// Original membership routes (re-enable to restore):
+// Route::get('/register-now', 'MembershipPublicController@apply')->name('beyond.register');
+// Route::get('/register-now/details', 'MembershipPublicController@details')->name('membership.apply.details');
+// Route::post('/register-now', 'MembershipPublicController@store')->name('membership.apply.store');
+// Route::get('/membership/confirmation/{reference}', 'MembershipPublicController@confirmation')->name('membership.confirmation');
 Route::get('/projects', 'BeyondController@projects')->name('beyond.projects');
 Route::get('/gallery', 'BeyondController@gallery')->name('beyond.gallery');
 Route::get('/contact', 'BeyondController@contact')->name('beyond.contact');

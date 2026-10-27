@@ -87,7 +87,7 @@
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 6px 12px;
+        gap: 8px 10px;
         flex: 1 1 auto;
         min-width: 0;
         overflow-x: auto;
@@ -99,15 +99,24 @@
     .sky-menus::-webkit-scrollbar { display: none; }
     .sky-menus a {
         color: #C5A059;
-        font-size: 13px;
+        font-size: 16px;
         font-weight: 600;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         text-decoration: none;
         white-space: nowrap;
         font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        padding: 10px 16px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        line-height: 1;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
     }
-    .sky-menus a:hover, .sky-menus a.on { color: #fff6df; }
+    .sky-menus a:hover, .sky-menus a.on {
+        color: #fff6df;
+        background: rgba(197, 160, 89, 0.14);
+        border-color: rgba(197, 160, 89, 0.5);
+    }
     .sky-foot {
         display: flex;
         align-items: center;
@@ -150,7 +159,7 @@
     @media (max-width: 860px) {
         .sky-bar { gap: 10px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); }
         .sky-bar .sky-brand { gap: 10px; overflow: hidden; }
-        .sky-menus a { font-size: 11px; letter-spacing: 0.05em; }
+        .sky-menus a { font-size: 13px; letter-spacing: 0.05em; padding: 8px 12px; }
         .sky-event { font-size: clamp(10px, 2.7vw, 15px); letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; }
     }
     @media (max-width: 640px) {

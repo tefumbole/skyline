@@ -1,31 +1,33 @@
 @extends('beyond.layout')
 @section('title', 'Choose a table · Chill on the Hill')
-@section('body_class', 'coth-body')
+@section('body_class', 'bg-[#0A0A0A]')
 @push('head')
 <style>
-    .coth-body { background: #06091c; }
-    .coth-wrap {
-        background:
-            radial-gradient(900px 480px at 15% -10%, #1b2a5e 0%, rgba(27,42,94,0) 60%),
-            radial-gradient(900px 520px at 100% 0%, #142148 0%, rgba(20,33,72,0) 55%),
-            linear-gradient(180deg, #0b1332 0%, #080c22 100%);
-    }
+    .coth-wrap { background: #0A0A0A; }
     .coth-sec {
         border: 1px solid rgba(197,160,89,.30);
-        background: linear-gradient(180deg, rgba(27,42,94,.55), rgba(10,16,38,.55));
+        background: rgba(255,255,255,.03);
     }
-    .coth-sec.is-active { border-color: #C5A059; background: linear-gradient(180deg, rgba(197,160,89,.18), rgba(10,16,38,.4)); }
+    .coth-sec.is-active { border-color: #C5A059; background: rgba(197,160,89,.12); }
     .coth-card {
-        border: 1px solid rgba(197,160,89,.38);
-        background: linear-gradient(180deg, rgba(23,36,80,.65) 0%, rgba(10,15,36,.75) 100%);
-        box-shadow: 0 18px 44px rgba(0,0,0,.45);
+        border: 1px solid rgba(197,160,89,.35);
+        background: rgba(255,255,255,.03);
+        box-shadow: 0 18px 40px rgba(0,0,0,.45);
         transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
     .coth-card .coth-art {
+        position: relative;
         background:
-            radial-gradient(240px 150px at 50% 32%, rgba(40,60,120,.6), rgba(10,15,36,0) 70%),
-            linear-gradient(180deg, #101c42 0%, #0a1130 100%);
+            radial-gradient(240px 150px at 50% 38%, rgba(197,160,89,.12), rgba(10,10,10,0) 70%),
+            #0c0c0c;
     }
+    /* Feather the artwork's dark-blue backdrop into the black card so there is no hard rectangle. */
+    .coth-card .coth-art::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+        box-shadow: inset 0 0 34px 20px #0c0c0c;
+    }
+    .coth-card .coth-art img { position: relative; z-index: 0; }
+    .coth-card .coth-pill { z-index: 2; }
     a.coth-card:hover { border-color: rgba(197,160,89,.85); box-shadow: 0 22px 54px rgba(0,0,0,.6); transform: translateY(-2px); }
     .coth-card.is-selected, a.coth-card:focus-visible {
         border-color: #E8C878; outline: none;
@@ -33,11 +35,11 @@
     }
     .coth-pill {
         border: 1px solid rgba(197,160,89,.9); color: #E8C878;
-        background: rgba(10,15,36,.6); letter-spacing: .18em;
+        background: rgba(10,10,10,.6); letter-spacing: .18em;
     }
     .coth-dot { width: 8px; height: 8px; border-radius: 9999px; display: inline-block; }
     .coth-taken img { filter: grayscale(.7) brightness(.72); }
-    .coth-summary { background: linear-gradient(180deg, rgba(23,36,80,.98), rgba(10,15,36,.98)); border-top: 1px solid rgba(197,160,89,.5); }
+    .coth-summary { background: linear-gradient(180deg, rgba(20,16,8,.98), rgba(10,10,10,.98)); border-top: 1px solid rgba(197,160,89,.5); }
 </style>
 @endpush
 @section('content')

@@ -78,6 +78,9 @@
         margin-bottom: 6px;
     }
 </style>
+@php
+    $galleryReturn = request()->is('admin/gallery') ? '/admin/gallery' : '/admin/site-content?tab=gallery';
+@endphp
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
     <h5 class="mb-0"><i class="dripicons-photo-group"></i> Gallery</h5>
@@ -90,6 +93,7 @@
 {{-- Hero fields --}}
 <form method="POST" action="{{ route('site-content.content', 'gallery') }}" class="mb-4" style="max-width:820px;">
     @csrf
+    <input type="hidden" name="return_to" value="{{ $galleryReturn }}">
     @foreach($pageSchema['fields'] as $key => $field)
         @php [$type, $label, $default] = $field; @endphp
         <div class="form-group">
@@ -111,6 +115,7 @@
 <div class="gallery-upload-zone">
     <form method="POST" action="{{ route('site-content.gallery.store') }}" enctype="multipart/form-data" id="gallery-add-form">
         @csrf
+        <input type="hidden" name="return_to" value="{{ $galleryReturn }}">
         <div class="row">
             <div class="col-md-4 form-group">
                 <label class="font-weight-bold">Type <span class="text-danger">*</span></label>
@@ -118,7 +123,7 @@
                     <option value="">-- Choose --</option>
                     <optgroup label="Files">
                         @foreach(['image' => 'Image', 'video' => 'Video file', 'audio' => 'Audio file'] as $k => $label)
-                            <option value="{{ $k }}">{{ $label }}</option>
+                            <option value="{{ $k }}" @if($k === 'image') selected @endif>{{ $label }}</option>
                         @endforeach
                     </optgroup>
                     <optgroup label="Social links">
@@ -146,6 +151,22 @@
             <label class="font-weight-bold">Description / caption</label>
             <textarea name="description" rows="2" class="form-control" placeholder="Optional description shown under the media"></textarea>
         </div>
+        <div class="row">
+            <div class="col-md-6 form-group">
+                <label class="font-weight-bold">Event</label>
+                <select name="event_id" class="form-control">
+                    <option value="">No event</option>
+                    @foreach(($events ?? collect()) as $event)
+                        <option value="{{ $event->id }}">{{ $event->name }}@if($event->event_start_at) — {{ $event->event_start_at->format('j M Y') }}@endif</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-6 form-group">
+                <label class="font-weight-bold">Or type an event name</label>
+                <input type="text" name="event_label" class="form-control" maxlength="120" placeholder="Used when the event is not in the list">
+            </div>
+        </div>
+        <p class="text-muted" style="font-size:13px;">The event you pick, or the name you type, becomes the heading above those photos. Leave both empty to file this under General.</p>
         <button type="submit" class="btn btn-primary"><i class="dripicons-plus"></i> Add to gallery</button>
     </form>
 </div>
@@ -158,6 +179,7 @@
 
     <form method="POST" action="{{ route('site-content.gallery.reorder') }}" id="gallery-reorder-form">
         @csrf
+        <input type="hidden" name="return_to" value="{{ $galleryReturn }}">
         <ul class="gallery-admin-grid" id="gallery-reorder-list">
             @foreach($galleryItems as $item)
                 <li class="gallery-admin-card" data-id="{{ $item->id }}">
@@ -169,7 +191,7 @@
                     </button>
                     <div class="thumb">
                         @if($item->type === 'image' && $item->file_path)
-                            <img src="{{ $item->fileUrl() }}" alt="">
+                            <img src="{{ $item->thumbUrl() }}" alt="">
                         @elseif($item->type === 'video' && $item->file_path)
                             <video src="{{ $item->fileUrl() }}" muted></video>
                         @elseif(in_array($item->type, ['youtube','youtube_short','tiktok','instagram','facebook']))
@@ -201,6 +223,13 @@
                             <input type="text" class="form-control form-control-sm mb-2 gallery-edit-title" value="{{ $item->title }}" placeholder="Title">
                             <textarea class="form-control form-control-sm mb-2 gallery-edit-desc" rows="2" placeholder="Caption">{{ $item->description }}</textarea>
                             <input type="url" class="form-control form-control-sm mb-2 gallery-edit-url" value="{{ $item->media_url }}" placeholder="Link (for social types)">
+                            <select class="form-control form-control-sm mb-2 gallery-edit-event">
+                                <option value="">No event</option>
+                                @foreach(($events ?? collect()) as $event)
+                                    <option value="{{ $event->id }}" @if($item->event_id === $event->id) selected @endif>{{ $event->name }}@if($event->event_start_at) — {{ $event->event_start_at->format('j M Y') }}@endif</option>
+                                @endforeach
+                            </select>
+                            <input type="text" class="form-control form-control-sm mb-2 gallery-edit-event-label" value="{{ $item->event_label }}" maxlength="120" placeholder="Or type an event name">
                             <button type="button" class="btn btn-sm btn-outline-primary save-gallery-edit" data-id="{{ $item->id }}">Update</button>
                         </div>
                     </div>
@@ -217,13 +246,17 @@
 @foreach($galleryItems as $item)
     <form id="gallery-del-{{ $item->id }}" method="POST" action="{{ route('site-content.gallery.delete', $item->id) }}" class="d-none">
         @csrf
+        <input type="hidden" name="return_to" value="{{ $galleryReturn }}">
     </form>
     <form id="gallery-upd-{{ $item->id }}" method="POST" action="{{ route('site-content.gallery.update', $item->id) }}" enctype="multipart/form-data" class="d-none">
         @csrf
+        <input type="hidden" name="return_to" value="{{ $galleryReturn }}">
         <input type="hidden" name="type" class="upd-type" value="{{ $item->type }}">
         <input type="hidden" name="title" class="upd-title" value="{{ $item->title }}">
         <input type="hidden" name="description" class="upd-description" value="{{ $item->description }}">
         <input type="hidden" name="media_url" class="upd-media_url" value="{{ $item->media_url }}">
+        <input type="hidden" name="event_id" class="upd-event-id" value="{{ $item->event_id }}">
+        <input type="hidden" name="event_label" class="upd-event-label" value="{{ $item->event_label }}">
     </form>
 @endforeach
 
@@ -318,6 +351,8 @@
             f.querySelector('.upd-title').value = card.querySelector('.gallery-edit-title').value;
             f.querySelector('.upd-description').value = card.querySelector('.gallery-edit-desc').value;
             f.querySelector('.upd-media_url').value = card.querySelector('.gallery-edit-url').value;
+            f.querySelector('.upd-event-id').value = card.querySelector('.gallery-edit-event').value;
+            f.querySelector('.upd-event-label').value = card.querySelector('.gallery-edit-event-label').value;
             f.submit();
         });
     });

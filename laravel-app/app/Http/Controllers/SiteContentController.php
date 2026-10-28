@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Event;
 use App\GalleryItem;
 use App\SiteSetting;
 use App\Support\GalleryEmbed;
@@ -38,11 +39,35 @@ class SiteContentController extends Controller
             'peopleOrder'  => SiteMenu::peopleOrder(),
             'schema'       => SiteContent::orderedSchema(),
             'pageSchema'   => SiteContent::pageSchema($tab),
-            'galleryItems' => $tab === 'gallery' ? GalleryItem::where('board', 'gallery')->ordered()->get() : collect(),
+            'galleryItems' => $tab === 'gallery' ? GalleryItem::where('board', 'gallery')->with('event')->ordered()->get() : collect(),
             'galleryTypes' => GalleryEmbed::types(),
+            'events' => $tab === 'gallery' ? $this->galleryEvents() : collect(),
         ];
 
         return view('site_content.index', $data);
+    }
+
+    public function gallery()
+    {
+        $this->authorizeAdmin();
+
+        return view('gallery.admin', [
+            'galleryItems' => GalleryItem::where('board', 'gallery')->with('event')->ordered()->get(),
+            'galleryTypes' => GalleryEmbed::types(),
+            'pageSchema' => SiteContent::pageSchema('gallery'),
+            'events' => $this->galleryEvents(),
+        ]);
+    }
+
+    protected function galleryEvents()
+    {
+        return Event::query()
+            ->where(function ($query) {
+                $query->whereNull('internal_status')->orWhere('internal_status', '!=', 'cancelled');
+            })
+            ->orderByDesc('event_start_at')
+            ->orderByDesc('created_at')
+            ->get(['id', 'name', 'event_start_at']);
     }
 
     public function saveLandingMenu(Request $request)
@@ -126,7 +151,7 @@ class SiteContentController extends Controller
             }
         }
 
-        return redirect('/admin/site-content?tab=' . $page)->with('message', ucfirst($page) . ' content saved.');
+        return $this->galleryRedirect(ucfirst($page).' content saved.', '/admin/site-content?tab='.$page);
     }
 
     public function storeGalleryItem(Request $request)
@@ -140,6 +165,8 @@ class SiteContentController extends Controller
             'description' => 'nullable|string|max:2000',
             'media_url'   => 'nullable|url|max:2048',
             'file'        => 'nullable|file|max:51200',
+            'event_id'    => 'nullable|string|max:64',
+            'event_label' => 'nullable|string|max:120',
         ]);
 
         $type = $request->input('type');
@@ -159,7 +186,7 @@ class SiteContentController extends Controller
 
         $maxSort = (int) GalleryItem::max('sort_order');
 
-        GalleryItem::create([
+        GalleryItem::create(array_merge([
             'type'        => $type,
             'board'       => 'gallery',
             'title'       => $request->input('title'),
@@ -168,9 +195,9 @@ class SiteContentController extends Controller
             'media_url'   => $request->input('media_url'),
             'sort_order'  => $maxSort + 1,
             'is_published'=> true,
-        ]);
+        ], $this->galleryEventInput($request)));
 
-        return redirect('/admin/site-content?tab=gallery')->with('message', 'Gallery item added.');
+        return $this->galleryRedirect('Gallery item added.');
     }
 
     public function updateGalleryItem(Request $request, $id)
@@ -186,6 +213,8 @@ class SiteContentController extends Controller
             'description' => 'nullable|string|max:2000',
             'media_url'   => 'nullable|url|max:2048',
             'file'        => 'nullable|file|max:51200',
+            'event_id'    => 'nullable|string|max:64',
+            'event_label' => 'nullable|string|max:120',
         ]);
 
         $type = $request->input('type');
@@ -197,15 +226,15 @@ class SiteContentController extends Controller
             $filePath = null;
         }
 
-        $item->update([
+        $item->update(array_merge([
             'type'        => $type,
             'title'       => $request->input('title'),
             'description' => $request->input('description'),
             'file_path'   => $filePath,
             'media_url'   => $request->input('media_url'),
-        ]);
+        ], $this->galleryEventInput($request)));
 
-        return redirect('/admin/site-content?tab=gallery')->with('message', 'Gallery item updated.');
+        return $this->galleryRedirect('Gallery item updated.');
     }
 
     public function deleteGalleryItem($id)
@@ -213,7 +242,7 @@ class SiteContentController extends Controller
         $this->authorizeAdmin();
         GalleryItem::findOrFail($id)->delete();
 
-        return redirect('/admin/site-content?tab=gallery')->with('message', 'Gallery item removed.');
+        return $this->galleryRedirect('Gallery item removed.');
     }
 
     public function reorderGalleryItems(Request $request)
@@ -225,7 +254,32 @@ class SiteContentController extends Controller
             GalleryItem::where('id', $id)->update(['sort_order' => $pos]);
         }
 
-        return redirect('/admin/site-content?tab=gallery')->with('message', 'Gallery order saved.');
+        return $this->galleryRedirect('Gallery order saved.');
+    }
+
+    private function galleryRedirect($message, $fallback = '/admin/gallery')
+    {
+        $return = (string) request()->input('return_to');
+        $allowed = ['/admin/gallery', '/admin/site-content?tab=gallery'];
+        if (! in_array($return, $allowed, true)) {
+            $return = $fallback;
+        }
+
+        return redirect($return)->with('message', $message);
+    }
+
+    private function galleryEventInput(Request $request)
+    {
+        $eventId = trim((string) $request->input('event_id'));
+        if ($eventId !== '' && ! Event::where('id', $eventId)->exists()) {
+            $eventId = '';
+        }
+        $label = trim((string) $request->input('event_label'));
+
+        return [
+            'event_id' => $eventId !== '' ? $eventId : null,
+            'event_label' => $label !== '' ? mb_substr($label, 0, 120) : null,
+        ];
     }
 
     private function storeGalleryFile($file, $type)

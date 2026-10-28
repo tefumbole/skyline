@@ -502,8 +502,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/membership', 'MembershipPublicController@admin')->name('membership.admin');
     Route::post('/admin/membership/{id}/approve', 'MembershipPublicController@approve')->name('membership.admin.approve');
     Route::post('/admin/membership/{id}/reject', 'MembershipPublicController@reject')->name('membership.admin.reject');
-    Route::get('/admin/gallery', 'MediaBoardController@gallery')->name('admin.gallery');
-    Route::post('/admin/gallery', 'MediaBoardController@storeGallery')->name('admin.gallery.store');
+    Route::get('/admin/gallery', 'SiteContentController@gallery')->name('admin.gallery');
     Route::get('/admin/menu', 'MediaBoardController@menu')->name('admin.menu');
     Route::post('/admin/menu', 'MediaBoardController@storeMenu')->name('admin.menu.store');
     Route::post('/admin/media/{id}/delete', 'MediaBoardController@destroy')->name('admin.media.delete');

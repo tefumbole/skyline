@@ -13,17 +13,30 @@
 
 <section class="py-6 sm:py-8 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        @php
+            $groups = [];
+            foreach ($items as $item) {
+                $key = $item->eventKey();
+                if (! isset($groups[$key])) {
+                    $groups[$key] = ['label' => $item->eventHeading(), 'items' => []];
+                }
+                $groups[$key]['items'][] = $item;
+            }
+        @endphp
         @if ($items->isEmpty())
             <div class="text-center py-12 text-gray-500">
                 <i data-lucide="image" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
-                <p class="text-base">Gallery items will appear here once added in Site Content.</p>
+                <p class="text-base">Gallery items will appear here once added in the admin Gallery.</p>
             </div>
         @else
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                @foreach ($items as $item)
-                    @include('beyond.partials.gallery_item', ['item' => $item])
-                @endforeach
-            </div>
+            @foreach ($groups as $group)
+                <h2 class="font-serif text-2xl text-[#3f2a12] border-b-2 border-brand-gold pb-2 mb-4 mt-8">{{ $group['label'] }}</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    @foreach ($group['items'] as $item)
+                        @include('beyond.partials.gallery_item', ['item' => $item])
+                    @endforeach
+                </div>
+            @endforeach
         @endif
     </div>
 </section>

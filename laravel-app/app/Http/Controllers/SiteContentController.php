@@ -6,6 +6,7 @@ use App\Event;
 use App\GalleryItem;
 use App\SiteSetting;
 use App\Support\GalleryEmbed;
+use App\Support\GalleryImage;
 use App\Support\SiteContent;
 use App\Support\SiteMenu;
 use Illuminate\Http\Request;
@@ -171,13 +172,16 @@ class SiteContentController extends Controller
 
         $type = $request->input('type');
         $filePath = null;
+        $thumbPath = null;
 
         if (in_array($type, GalleryEmbed::fileTypes(), true)) {
             $file = $request->file('file');
             if (! $file || ! $file->isValid()) {
                 return back()->withErrors(['file' => 'Please upload a file for this media type.'])->withInput();
             }
-            $filePath = $this->storeGalleryFile($file, $type);
+            $stored = $this->storeGalleryFile($file, $type);
+            $filePath = $stored['file'];
+            $thumbPath = $stored['thumb'];
         } elseif (in_array($type, GalleryEmbed::urlTypes(), true)) {
             if (! $request->filled('media_url')) {
                 return back()->withErrors(['media_url' => 'Please paste a link for this media type.'])->withInput();
@@ -192,6 +196,7 @@ class SiteContentController extends Controller
             'title'       => $request->input('title'),
             'description' => $request->input('description'),
             'file_path'   => $filePath,
+            'thumb_path'  => $thumbPath,
             'media_url'   => $request->input('media_url'),
             'sort_order'  => $maxSort + 1,
             'is_published'=> true,
@@ -219,11 +224,19 @@ class SiteContentController extends Controller
 
         $type = $request->input('type');
         $filePath = $item->file_path;
+        $thumbPath = $item->thumb_path;
 
         if ($request->hasFile('file') && $request->file('file')->isValid()) {
-            $filePath = $this->storeGalleryFile($request->file('file'), $type);
+            $stored = $this->storeGalleryFile($request->file('file'), $type);
+            $this->forgetStoredFile($filePath, $stored['file']);
+            $this->forgetStoredFile($thumbPath, $stored['thumb']);
+            $filePath = $stored['file'];
+            $thumbPath = $stored['thumb'];
         } elseif (in_array($type, GalleryEmbed::urlTypes(), true)) {
+            $this->forgetStoredFile($filePath);
+            $this->forgetStoredFile($thumbPath);
             $filePath = null;
+            $thumbPath = null;
         }
 
         $item->update(array_merge([
@@ -231,6 +244,7 @@ class SiteContentController extends Controller
             'title'       => $request->input('title'),
             'description' => $request->input('description'),
             'file_path'   => $filePath,
+            'thumb_path'  => $thumbPath,
             'media_url'   => $request->input('media_url'),
         ], $this->galleryEventInput($request)));
 
@@ -288,11 +302,32 @@ class SiteContentController extends Controller
         if (! is_dir($dir)) {
             @mkdir($dir, 0775, true);
         }
+        if ($type === 'image') {
+            $pair = GalleryImage::storeUpload($file, $dir);
+            if ($pair) {
+                return $pair;
+            }
+        }
         $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
-        $name = 'gallery_' . $type . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $name = 'gallery_'.$type.'_'.time().'_'.bin2hex(random_bytes(4)).'.'.$ext;
         $file->move($dir, $name);
 
-        return 'images/gallery/' . $name;
+        return ['file' => 'images/gallery/'.$name, 'thumb' => null];
+    }
+
+    private function forgetStoredFile($path, $keep = null)
+    {
+        if (! $path || $path === $keep) {
+            return;
+        }
+        $relative = ltrim(str_replace('\\', '/', $path), '/');
+        if (! preg_match('#^images/(gallery|menu)/[^/]+$#', $relative)) {
+            return;
+        }
+        $absolute = public_path($relative);
+        if (is_file($absolute)) {
+            @unlink($absolute);
+        }
     }
 
     private function saveOrder(Request $request, $settingKey, array $items)

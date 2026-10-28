@@ -96,7 +96,7 @@
         <div class="max-w-[1180px] mx-auto px-4 pt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
             @foreach($photos as $photo)
                 <figure class="m-0 rounded-2xl overflow-hidden border border-brand-gold/35 bg-black">
-                    <img src="{{ $photo->fileUrl() }}" alt="{{ $photo->title }}" class="w-full h-52 object-cover" loading="lazy">
+                    <img src="{{ $photo->thumbUrl() }}" alt="{{ $photo->title }}" class="w-full h-52 object-cover" loading="lazy" decoding="async">
                 </figure>
             @endforeach
         </div>

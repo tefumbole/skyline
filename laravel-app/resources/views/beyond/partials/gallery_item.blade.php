@@ -3,9 +3,10 @@
 <div class="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col h-full">
     <div class="relative bg-gray-100 flex items-center justify-center overflow-hidden min-h-[280px]">
         @if ($item->type === 'image' && $card['file_url'])
-            <img src="{{ $card['file_url'] }}" alt="{{ $item->title ?: 'Gallery image' }}"
+            <img src="{{ $item->thumbUrl() }}" alt="{{ $item->title ?: 'Gallery image' }}"
                  class="w-full h-full object-cover max-h-[420px] cursor-zoom-in gallery-lightbox-trigger"
-                 data-full="{{ $card['file_url'] }}">
+                 loading="lazy" decoding="async"
+                 data-full="{{ $item->fileUrl() }}">
         @elseif ($item->type === 'video' && $card['file_url'])
             <video controls playsinline class="w-full max-h-[420px] bg-black">
                 <source src="{{ $card['file_url'] }}">

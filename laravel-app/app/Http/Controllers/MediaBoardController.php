@@ -34,6 +34,10 @@ class MediaBoardController extends Controller
         $this->authorizeAdmin();
         $board = $request->input('board') === 'menu' ? 'menu' : 'gallery';
         $item = GalleryItem::where('board', $board)->findOrFail($id);
+        GalleryImage::deleteStored($item->file_path);
+        if ($item->thumb_path !== $item->file_path) {
+            GalleryImage::deleteStored($item->thumb_path);
+        }
         $item->delete();
 
         return redirect($this->path($board))->with('message', 'Image removed.');

@@ -229,7 +229,7 @@ class SiteContentController extends Controller
         if ($request->hasFile('file') && $request->file('file')->isValid()) {
             $stored = $this->storeGalleryFile($request->file('file'), $type);
             $this->forgetStoredFile($filePath, $stored['file']);
-            $this->forgetStoredFile($thumbPath, $stored['thumb']);
+            $this->forgetStoredFile($thumbPath, isset($stored['thumb']) ? $stored['thumb'] : null);
             $filePath = $stored['file'];
             $thumbPath = $stored['thumb'];
         } elseif (in_array($type, GalleryEmbed::urlTypes(), true)) {
@@ -254,7 +254,12 @@ class SiteContentController extends Controller
     public function deleteGalleryItem($id)
     {
         $this->authorizeAdmin();
-        GalleryItem::findOrFail($id)->delete();
+        $item = GalleryItem::findOrFail($id);
+        GalleryImage::deleteStored($item->file_path);
+        if ($item->thumb_path !== $item->file_path) {
+            GalleryImage::deleteStored($item->thumb_path);
+        }
+        $item->delete();
 
         return $this->galleryRedirect('Gallery item removed.');
     }
@@ -320,14 +325,7 @@ class SiteContentController extends Controller
         if (! $path || $path === $keep) {
             return;
         }
-        $relative = ltrim(str_replace('\\', '/', $path), '/');
-        if (! preg_match('#^images/(gallery|menu)/[^/]+$#', $relative)) {
-            return;
-        }
-        $absolute = public_path($relative);
-        if (is_file($absolute)) {
-            @unlink($absolute);
-        }
+        GalleryImage::deleteStored($path);
     }
 
     private function saveOrder(Request $request, $settingKey, array $items)

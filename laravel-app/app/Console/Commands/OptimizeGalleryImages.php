@@ -27,6 +27,7 @@ class OptimizeGalleryImages extends Command
             $full = public_path($item->file_path);
             $thumb = $item->thumb_path ? public_path($item->thumb_path) : null;
             if (GalleryImage::alreadyFitted($full, $thumb)) {
+                $this->collapseDuplicateThumb($item);
                 $skipped++;
                 continue;
             }
@@ -63,9 +64,38 @@ class OptimizeGalleryImages extends Command
             $this->line('Shrunk '.$item->id.' ('.$this->kb($oldBytes).' KB -> '.$this->kb($newBytes).' KB)');
         }
 
-        $this->info('Shrunk '.$done.', already fitted '.$skipped.', failed '.$failed.'. '.$this->kb($before).' KB -> '.$this->kb($after).' KB.');
+        $keep = [];
+        foreach (GalleryItem::query()->whereNotNull('file_path')->get(['file_path', 'thumb_path']) as $row) {
+            if ($row->file_path) {
+                $keep[] = ltrim(str_replace('\\', '/', $row->file_path), '/');
+            }
+            if ($row->thumb_path) {
+                $keep[] = ltrim(str_replace('\\', '/', $row->thumb_path), '/');
+            }
+        }
+        $removed = GalleryImage::removeUnreferenced(['images/gallery', 'images/menu'], $keep);
+
+        $this->info('Shrunk '.$done.', already fitted '.$skipped.', failed '.$failed.', removed '.$removed.' unused file'.($removed === 1 ? '' : 's').'. '.$this->kb($before).' KB -> '.$this->kb($after).' KB.');
 
         return 0;
+    }
+
+    protected function collapseDuplicateThumb(GalleryItem $item)
+    {
+        if (! $item->thumb_path || $item->thumb_path === $item->file_path) {
+            return;
+        }
+        $full = public_path($item->file_path);
+        $thumb = public_path($item->thumb_path);
+        if (! is_file($full) || ! is_file($thumb)) {
+            return;
+        }
+        if (filesize($full) !== filesize($thumb) || md5_file($full) !== md5_file($thumb)) {
+            return;
+        }
+        @unlink($thumb);
+        $item->thumb_path = $item->file_path;
+        $item->save();
     }
 
     protected function kb($bytes)

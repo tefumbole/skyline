@@ -92,19 +92,20 @@ class GalleryImage
         $fullDest = rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$fullName;
         $cardDest = rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$cardName;
 
+        $fitsOnCard = $loaded['w'] <= self::CARD && $loaded['h'] <= self::CARD;
         $full = self::fit($loaded['im'], $loaded['w'], $loaded['h'], self::FULL, self::FULL);
-        $card = self::fit($loaded['im'], $loaded['w'], $loaded['h'], self::CARD, self::CARD);
+        $card = $fitsOnCard ? null : self::fit($loaded['im'], $loaded['w'], $loaded['h'], self::CARD, self::CARD);
         imagedestroy($loaded['im']);
 
         $okFull = $full && self::saveJpeg($full, $fullDest, self::FULL_MAX_BYTES);
-        $okCard = $card && self::saveJpeg($card, $cardDest, self::CARD_MAX_BYTES);
+        $okCard = $fitsOnCard || ($card && self::saveJpeg($card, $cardDest, self::CARD_MAX_BYTES));
         if ($full) {
             imagedestroy($full);
         }
         if ($card) {
             imagedestroy($card);
         }
-        if (! $okFull || ! $okCard || ! is_file($fullDest) || ! is_file($cardDest)) {
+        if (! $okFull || ! $okCard || ! is_file($fullDest) || (! $fitsOnCard && ! is_file($cardDest))) {
             @unlink($fullDest);
             @unlink($cardDest);
 
@@ -115,8 +116,63 @@ class GalleryImage
 
         return [
             'file' => $relative.'/'.$fullName,
-            'thumb' => $relative.'/'.$cardName,
+            'thumb' => $fitsOnCard ? $relative.'/'.$fullName : $relative.'/'.$cardName,
         ];
+    }
+
+    public static function deleteStored($path)
+    {
+        $absolute = self::storedFile($path);
+        if ($absolute && is_file($absolute)) {
+            @unlink($absolute);
+        }
+    }
+
+    /**
+     * Drop image files left behind after a replacement or a removed gallery item.
+     */
+    public static function removeUnreferenced(array $relativeDirs, array $keep)
+    {
+        $keep = array_fill_keys($keep, true);
+        $removed = 0;
+        foreach ($relativeDirs as $relative) {
+            $dir = public_path($relative);
+            if (! is_dir($dir)) {
+                continue;
+            }
+            foreach (scandir($dir) as $name) {
+                if ($name === '.' || $name === '..') {
+                    continue;
+                }
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                    continue;
+                }
+                $stored = trim($relative, '/').'/'.$name;
+                if (isset($keep[$stored])) {
+                    continue;
+                }
+                $path = $dir.DIRECTORY_SEPARATOR.$name;
+                if (is_file($path) && @unlink($path)) {
+                    $removed++;
+                }
+            }
+        }
+
+        return $removed;
+    }
+
+    protected static function storedFile($path)
+    {
+        if (! $path) {
+            return null;
+        }
+        $relative = ltrim(str_replace('\\', '/', $path), '/');
+        if (! preg_match('#^images/(gallery|menu)/[^/]+$#', $relative)) {
+            return null;
+        }
+
+        return public_path($relative);
     }
 
     protected static function relativeDir($dir)

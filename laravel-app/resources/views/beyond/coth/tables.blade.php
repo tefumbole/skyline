@@ -1,10 +1,14 @@
 @extends('beyond.layout')
 @section('title', 'Choose a table · Chill on the Hill')
-@section('body_class', 'bg-[#140E0A]')
+@section('body_class', empty($section) ? 'bg-[#140E0A] coth-exp-fit' : 'bg-[#140E0A]')
 @push('head')
 <style>
+    body.coth-exp-fit { height: 100dvh; max-height: 100dvh; overflow: hidden; }
+    body.coth-exp-fit main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .coth-wrap { background: #140E0A; color: #F6EFE4; }
-    .coth-exp-hero { position: relative; height: 280px; overflow: hidden; }
+    .coth-wrap.is-fit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 10px; }
+    .coth-exp-hero { position: relative; height: 280px; overflow: hidden; flex: 0 0 auto; }
+    .coth-wrap.is-fit .coth-exp-hero { height: 16vh; min-height: 88px; max-height: 150px; }
     .coth-exp-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
     .coth-exp-hero::after {
         content: ""; position: absolute; inset: 0;
@@ -27,30 +31,59 @@
     .coth-flow-line { flex: 1; height: 2px; margin-top: 13px; background: rgba(246,239,228,.18); min-width: 18px; }
     .coth-flow-step.is-done + .coth-flow-line { background: #C6A15B; }
     .coth-exp-h { font-family: Georgia, "Times New Roman", serif; font-size: clamp(34px, 4vw, 52px); font-weight: 500; margin: 28px 0 16px; }
+    .coth-wrap.is-fit .coth-exp-stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .coth-wrap.is-fit .coth-exp-head { align-items: center; }
+    .coth-wrap.is-fit .coth-exp-title { font-size: clamp(28px, 3vw, 40px); margin: 2px 0; }
+    .coth-wrap.is-fit .coth-exp-h { margin: 6px 0 8px; font-size: clamp(26px, 2.6vw, 34px); }
     .coth-exp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .coth-wrap.is-fit .coth-exp-grid { flex: 1 1 auto; min-height: 0; gap: 12px; }
     .coth-exp-card {
         display: flex; flex-direction: column; border: 1px solid rgba(198,161,91,.55); border-radius: 18px;
-        overflow: hidden; background: #1C1410; color: inherit; text-decoration: none; min-height: 100%;
+        overflow: hidden; background: #1C1410; color: inherit; text-decoration: none; min-height: 100%; position: relative;
     }
+    .coth-wrap.is-fit .coth-exp-card { height: 100%; min-height: 0; }
     .coth-exp-card:hover { border-color: #E8C878; }
     .coth-exp-photo { height: 210px; background: #24160F; display: flex; align-items: center; justify-content: center; padding: 8px; }
+    .coth-wrap.is-fit .coth-exp-photo { flex: 1 1 auto; height: auto; min-height: 0; padding: 4px; }
+    .coth-exp-card.is-collapsed .coth-exp-photo { display: none; }
     .coth-exp-photo img { width: 100%; height: 100%; object-fit: contain; }
     .coth-exp-body { padding: 16px 16px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; }
+    .coth-wrap.is-fit .coth-exp-body { flex: 0 0 auto; padding: 8px 12px 10px; }
     .coth-exp-body h3 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; margin: 0; }
+    .coth-wrap.is-fit .coth-exp-body h3 { font-size: 18px; }
     .coth-exp-count {
         margin-top: 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: rgba(246,239,228,.8);
         font-size: 13px; padding: 4px 12px;
     }
+    .coth-wrap.is-fit .coth-exp-count { margin-top: 6px; }
     .coth-exp-pin { margin: 12px 0; color: #E8C878; }
+    .coth-wrap.is-fit .coth-exp-pin { margin: 6px 0; }
     .coth-exp-go {
         margin-top: auto; width: 100%; border: 1px solid rgba(232,200,120,.7); color: #E8C878; border-radius: 12px;
-        padding: 10px 12px; font-size: 15px;
+        padding: 10px 12px; font-size: 15px; text-align: center;
     }
-    @media (max-width: 980px) {
+    .coth-wrap.is-fit .coth-exp-go { padding: 7px 10px; font-size: 14px; }
+    .coth-fold {
+        position: absolute; top: 8px; right: 8px; z-index: 3; width: 28px; height: 28px; border-radius: 999px;
+        border: 1px solid rgba(232,200,120,.7); background: rgba(20,14,10,.72); color: #E8C878;
+        display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+        transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .coth-fold:hover, .coth-fold:focus-visible {
+        background: #F0D078; color: #1A1008; border-color: #F0D078;
+        box-shadow: 0 0 0 2px #F0D078, 0 8px 18px rgba(240,208,120,.35); outline: none;
+    }
+    .coth-fold svg { transition: transform .15s ease; }
+    .coth-exp-card.is-collapsed .coth-fold svg, details.coth-card:not([open]) .coth-fold svg { transform: rotate(180deg); }
+    @media (max-width: 1100px) {
+        body.coth-exp-fit { height: auto; max-height: none; overflow: auto; }
+        body.coth-exp-fit main { display: block; overflow: visible; }
+        .coth-wrap.is-fit { display: block; overflow: visible; }
         .coth-exp-hero { height: 180px; }
         .coth-exp-head, .coth-flow { display: block; min-width: 0; }
         .coth-flow { display: flex; margin-top: 16px; }
         .coth-exp-grid { grid-template-columns: 1fr 1fr; }
+        .coth-wrap.is-fit .coth-exp-photo { height: 160px; flex: none; }
     }
     @media (max-width: 640px) {
         .coth-exp-grid { grid-template-columns: 1fr; }
@@ -79,6 +112,7 @@
     }
     .coth-card .coth-art img { position: relative; z-index: 0; }
     .coth-card .coth-pill { z-index: 2; }
+    details.coth-card { position: relative; }
     details.coth-card > summary { list-style: none; cursor: pointer; }
     details.coth-card > summary::-webkit-details-marker { display: none; }
     details.coth-card[open] { border-color: #E8C878; }
@@ -125,11 +159,11 @@
         4 => ['Reserve', ''],
     ];
 @endphp
-<div class="coth-wrap text-white min-h-[70vh] pb-28">
+<div class="coth-wrap text-white {{ $section ? 'min-h-[70vh] pb-28' : 'is-fit' }}">
     <div class="coth-exp-hero">
         <img src="{{ $hero }}" alt="Lounge seating at Chill on the Hill, looking over Bamenda">
     </div>
-    <div class="max-w-6xl mx-auto px-4">
+    <div class="max-w-6xl mx-auto px-4 {{ $section ? '' : 'coth-exp-stage' }}">
         <div class="coth-exp-head">
             <div>
                 <a href="{{ route('coth.index') }}" class="coth-exp-kicker">&larr; ALL DATES</a>
@@ -166,21 +200,24 @@
             <h2 class="coth-exp-h">Choose your experience</h2>
             <div class="coth-exp-grid">
                 @foreach ($cards as $card)
-                    <a href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}" class="coth-exp-card">
-                        <span class="coth-exp-photo">
+                    <article class="coth-exp-card">
+                        <button type="button" class="coth-fold" aria-expanded="true" aria-label="Collapse {{ $card['section']->name }}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 14l6-6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <a href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}" class="coth-exp-photo">
                             @if (! empty($card['image']))
                                 <img src="{{ $card['image'] }}" alt="{{ $card['section']->name }}">
                             @endif
-                        </span>
+                        </a>
                         <span class="coth-exp-body">
                             <h3>{{ $card['section']->name }}</h3>
                             <span class="coth-exp-count">{{ $card['open'] }} available</span>
                             <span class="coth-exp-pin" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>
                             </span>
-                            <span class="coth-exp-go">View tables &nbsp;&rarr;</span>
+                            <a class="coth-exp-go" href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}">View tables &nbsp;&rarr;</a>
                         </span>
-                    </a>
+                    </article>
                 @endforeach
             </div>
         @endif
@@ -235,18 +272,18 @@
                             $sample = $rows[0]['table'];
                             $chip = $chipFor($sample);
                             $remaining = 0;
-                            $taken = 0;
                             foreach ($rows as $row) {
                                 if ($row['available']) {
                                     $remaining++;
-                                } elseif (in_array($row['state'], ['Booked', 'Held'], true)) {
-                                    $taken++;
                                 }
                             }
                             $parts = explode('-', $groupKey, 2);
                             $groupLabel = ucfirst(strtolower($parts[0])).'-'.($parts[1] ?? '');
                         @endphp
                         <details class="coth-card rounded-3xl overflow-hidden">
+                            <button type="button" class="coth-fold" aria-expanded="false" aria-label="Collapse {{ $groupLabel }}">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 14l6-6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
                             <summary class="block">
                                 <div class="coth-art relative px-4 pt-5 pb-3 flex items-center justify-center">
                                     <img src="{{ $artFor($sample) }}" alt="{{ $groupLabel }} {{ $sample->capacity }} separate seats" class="w-full max-w-[300px] h-44 object-contain" loading="lazy">
@@ -263,15 +300,14 @@
                                         {{ $section->name }} · {{ $sample->capacity }} seats
                                         @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
                                     </p>
-                                    <div class="flex items-center justify-between text-sm font-semibold">
-                                        <span class="text-red-300">{{ $taken }} taken</span>
+                                    <div class="text-sm font-semibold">
                                         <span class="text-emerald-300">{{ $remaining }} remaining</span>
                                     </div>
                                     <span class="mt-4 block text-center border border-brand-gold/50 text-brand-gold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">See each table</span>
                                 </div>
                             </summary>
                             <div class="px-4 pb-4">
-                                <p class="text-sm text-white/80 mb-2">{{ $remaining }} available · {{ $taken }} taken</p>
+                                <p class="text-sm text-white/80 mb-2">{{ $remaining }} remaining</p>
                                 @foreach ($rows as $row)
                                     @php
                                         $table = $row['table'];
@@ -296,5 +332,22 @@
         @endif
     </div>
 </div>
+<script>
+document.querySelectorAll('.coth-fold').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var card = btn.closest('.coth-exp-card, details.coth-card');
+        if (!card) return;
+        if (card.tagName === 'DETAILS') {
+            card.open = !card.open;
+            btn.setAttribute('aria-expanded', card.open ? 'true' : 'false');
+            return;
+        }
+        var collapsed = card.classList.toggle('is-collapsed');
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+});
+</script>
 
 @endsection

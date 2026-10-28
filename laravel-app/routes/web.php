@@ -70,6 +70,7 @@ Route::get('/services', 'BeyondController@services')->name('beyond.services');
 Route::get('/chill-on-the-hill', 'CothController@index')->name('coth.index');
 Route::get('/chill-on-the-hill/tables', 'CothController@tables')->name('coth.tables');
 Route::get('/chill-on-the-hill/book', 'CothController@book')->name('coth.book');
+Route::post('/chill-on-the-hill/resolve-phone', 'CothController@resolvePhone')->name('coth.resolve-phone');
 Route::post('/chill-on-the-hill/hold', 'CothController@hold')->name('coth.hold');
 Route::get('/chill-on-the-hill/checkout/{token}', 'CothController@checkout')->name('coth.checkout');
 Route::post('/chill-on-the-hill/checkout/{token}/otp', 'CothController@verifyOtp')->name('coth.otp');

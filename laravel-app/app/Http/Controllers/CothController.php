@@ -100,6 +100,45 @@ class CothController extends Controller
         ]);
     }
 
+    /**
+     * Look up the name a Cameroonian number is registered under at Campay.
+     * Only Cameroon numbers (country code 237) are sent to Campay; others
+     * come back with an empty name so the person types it manually.
+     */
+    public function resolvePhone(Request $request)
+    {
+        $data = $request->validate(['phone' => 'required|string|max:32']);
+        try {
+            $normalized = \App\Support\WhatsAppPhone::sanitizeForStorage($data['phone']);
+        } catch (\Throwable $e) {
+            $normalized = '';
+        }
+        if ($normalized === '' || strlen($normalized) < 10) {
+            return response()->json(['message' => 'Enter a valid phone number.'], 422);
+        }
+        $display = '+'.$normalized;
+        $name = '';
+        $source = '';
+        if (substr($normalized, 0, 3) === '237') {
+            try {
+                $resolved = app(\App\Services\Cloud\CloudCampayBillingProvider::class)->holderName($normalized);
+                if ($resolved !== '') {
+                    $name = $resolved;
+                    $source = 'campay';
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('coth resolve: '.$e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'phone' => $normalized,
+            'display_phone' => $display,
+            'name' => $name,
+            'source' => $source,
+        ]);
+    }
+
     public function hold(Request $request, CothReservationService $reservations)
     {
         $data = $request->validate([

@@ -121,7 +121,7 @@ class CothController extends Controller
         $source = '';
         if (substr($normalized, 0, 3) === '237') {
             try {
-                $resolved = app(\App\Services\Cloud\CloudCampayBillingProvider::class)->holderName($normalized);
+                $resolved = app(\App\Services\Coth\CothHolderLookup::class)->name($normalized);
                 if ($resolved !== '') {
                     $name = $resolved;
                     $source = 'campay';

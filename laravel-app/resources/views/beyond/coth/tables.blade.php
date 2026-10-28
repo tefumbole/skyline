@@ -44,15 +44,12 @@
 @endpush
 @section('content')
 @php
-    $artFor = function ($table) {
-        if ($table->isCouch()) {
-            $name = 'couch';
-        } else {
-            $cap = (int) $table->capacity;
-            $name = in_array($cap, [2, 3, 4, 6, 8, 10], true) ? $cap : ($cap <= 2 ? 2 : ($cap >= 10 ? 10 : ($cap % 2 === 0 ? $cap : $cap + 1)));
-            if (! in_array((int) $name, [2, 3, 4, 6, 8, 10], true)) { $name = 4; }
-        }
-        return asset('public/images/coth/tables/'.$name.'.png');
+    $visuals = app(\App\Services\Coth\CothVisualLibrary::class);
+    $artFor = function ($table) use ($visuals) {
+        return $visuals->assetFor($table);
+    };
+    $chipFor = function ($table) use ($visuals) {
+        return $visuals->chipFor($table);
     };
     $statusMeta = function ($state) {
         switch ($state) {
@@ -155,7 +152,12 @@
                                         <span class="coth-dot" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}
                                     </span>
                                 </div>
-                                <p class="text-xs text-white/60 mt-1 mb-3">{{ $section->name }} · {{ $table->capacity }} seats @if($table->isCouch())· Lounge couch @endif</p>
+                                <p class="text-xs text-white/60 mt-1 mb-3">
+                                    {{ $section->name }} · {{ $table->capacity }} seats
+                                    @php $chip = $chipFor($table); @endphp
+                                    @if ($chip && $chip !== 'Lounge couch')· <span class="text-brand-gold">{{ $chip }}</span>@endif
+                                    @if($table->isCouch())· Lounge couch @endif
+                                </p>
 
                                 <div class="mt-auto space-y-0.5 text-sm">
                                     @if ($row['quote']['discounted'])

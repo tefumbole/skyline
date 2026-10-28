@@ -72,10 +72,17 @@ Route::get('/chill-on-the-hill/tables', 'CothController@tables')->name('coth.tab
 Route::get('/chill-on-the-hill/book', 'CothController@book')->name('coth.book');
 Route::post('/chill-on-the-hill/resolve-phone', 'CothController@resolvePhone')->name('coth.resolve-phone');
 Route::post('/chill-on-the-hill/hold', 'CothController@hold')->name('coth.hold');
+// Back-compat: /checkout now routes to the correct 3-stage page.
 Route::get('/chill-on-the-hill/checkout/{token}', 'CothController@checkout')->name('coth.checkout');
-Route::post('/chill-on-the-hill/checkout/{token}/otp', 'CothController@verifyOtp')->name('coth.otp');
-Route::post('/chill-on-the-hill/checkout/{token}/resend', 'CothController@resendOtp')->name('coth.resend');
-Route::post('/chill-on-the-hill/checkout/{token}/pay', 'CothController@pay')->name('coth.pay');
+
+// Stage 2: Verify phone.
+Route::get('/chill-on-the-hill/verify/{token}', 'CothController@verify')->name('coth.verify');
+Route::post('/chill-on-the-hill/verify/{token}/otp', 'CothController@verifyOtp')->name('coth.otp');
+Route::post('/chill-on-the-hill/verify/{token}/resend', 'CothController@resendOtp')->name('coth.resend');
+
+// Stage 3: Payment.
+Route::get('/chill-on-the-hill/payment/{token}', 'CothController@payment')->name('coth.payment');
+Route::post('/chill-on-the-hill/payment/{token}/pay', 'CothController@pay')->name('coth.pay');
 Route::get('/chill-on-the-hill/payment/campay', 'CothController@campayReturn')->name('coth.campay');
 Route::get('/chill-on-the-hill/payment/stripe', 'CothController@stripeReturn')->name('coth.stripe');
 Route::get('/chill-on-the-hill/reservation/{token}', 'CothController@show')->name('coth.show');
@@ -486,9 +493,12 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/guest-reviews', 'GuestReviewAdminController@index')->name('guest-reviews.index');
     Route::get('/admin/coth', 'CothAdminController@index')->name('coth.admin');
     Route::get('/admin/coth/export', 'CothAdminController@export')->name('coth.admin.export');
+    Route::get('/admin/coth/seating', 'CothAdminController@seating')->name('coth.admin.seating');
     Route::post('/admin/coth/settings', 'CothAdminController@updateSettings')->name('coth.admin.settings');
     Route::post('/admin/coth/tables/{id}', 'CothAdminController@updateTable')->name('coth.admin.table');
     Route::post('/admin/coth/slots/{id}', 'CothAdminController@updateSlot')->name('coth.admin.slot');
+    Route::post('/admin/coth/chair-inventory', 'CothAdminController@updateChairInventory')->name('coth.admin.chair_inventory');
+    Route::post('/admin/coth/reservation/{id}/amend-chairs', 'CothAdminController@amendChairs')->name('coth.admin.amend_chairs');
     Route::get('/admin/membership', 'MembershipPublicController@admin')->name('membership.admin');
     Route::post('/admin/membership/{id}/approve', 'MembershipPublicController@approve')->name('membership.admin.approve');
     Route::post('/admin/membership/{id}/reject', 'MembershipPublicController@reject')->name('membership.admin.reject');

@@ -16,9 +16,12 @@ class CothHolderLookup
     public function name($phoneDigits)
     {
         $digits = preg_replace('/\D/', '', (string) $phoneDigits);
-        if ($digits === '' || substr($digits, 0, 3) !== '237') {
+        if ($digits === '' || strlen($digits) < 10) {
             return '';
         }
+        // Campay's holder_info only knows CEMAC subscribers; sending another
+        // country's number just comes back empty, which is fine - callers
+        // treat an empty string as "type the name yourself".
         $token = $this->accessToken();
         if ($token === '') {
             return '';

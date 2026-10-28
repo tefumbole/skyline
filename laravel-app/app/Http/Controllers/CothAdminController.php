@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\CothAudit;
+use App\CothExtraChairInventory;
 use App\CothReservation;
 use App\CothSection;
 use App\CothSetting;
@@ -10,17 +11,26 @@ use App\CothSlot;
 use App\CothTable;
 use App\Event;
 use App\Services\Coth\CothCatalog;
+use App\Services\Coth\CothPaymentService;
+use App\Services\Coth\CothPricing;
+use App\Services\Coth\CothReservationService;
+use App\Services\Coth\CothVisualLibrary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CothAdminController extends Controller
 {
-    public function index(Request $request, CothCatalog $catalog)
+    public function index(Request $request, CothCatalog $catalog, CothVisualLibrary $visuals)
     {
         $this->authorizeStaff();
         $query = $this->filtered($request);
         $reservations = $query->with('table.section')->orderBy('event_date')->orderBy('id', 'desc')->paginate(40);
         $date = $request->query('availability', $catalog->eventDates()[0]);
+        $chairInventory = CothExtraChairInventory::orderBy('event_date')->get()->keyBy(function ($row) {
+            return $row->event_date->toDateString();
+        });
 
         return view('coth.admin', [
             'reservations' => $reservations,
@@ -35,6 +45,37 @@ class CothAdminController extends Controller
             }),
             'filters' => $request->only(['date', 'section', 'table', 'customer', 'payment']),
             'event' => optional(CothSetting::query()->first())->event_id ? Event::find(CothSetting::query()->first()->event_id) : null,
+            'visuals' => $visuals,
+            'chairInventory' => $chairInventory,
+            'pricing' => app(CothPricing::class),
+        ]);
+    }
+
+    /**
+     * Day sheet for staff: all confirmed tables on a date with section,
+     * capacity, extra chairs, total guests and seating notes.
+     */
+    public function seating(Request $request, CothCatalog $catalog, CothVisualLibrary $visuals)
+    {
+        $this->authorizeStaff();
+        $date = $request->query('date', $catalog->eventDates()[0]);
+        if (! in_array($date, $catalog->eventDates(), true)) {
+            $date = $catalog->eventDates()[0];
+        }
+        $rows = CothReservation::with('table.section')
+            ->where('status', 'confirmed')
+            ->whereDate('event_date', $date)
+            ->orderBy('id')
+            ->get()
+            ->groupBy(function ($r) {
+                return optional(optional($r->table)->section)->name ?: 'Unassigned';
+            });
+
+        return view('coth.seating', [
+            'date' => $date,
+            'dates' => $catalog->eventDates(),
+            'grouped' => $rows,
+            'visuals' => $visuals,
         ]);
     }
 
@@ -87,6 +128,7 @@ class CothAdminController extends Controller
         $settings->discount_percent = $data['discount_percent'];
         $settings->hold_minutes = $data['hold_minutes'];
         $settings->discount_dates = json_encode($dates);
+        $settings->discount_includes_addons = $request->has('discount_includes_addons') ? 1 : 0;
         $settings->save();
         if (! empty($data['event_end_at']) && $settings->event_id) {
             $event = Event::find($settings->event_id);
@@ -100,7 +142,7 @@ class CothAdminController extends Controller
         return back()->with('message', 'Settings saved. Existing reservations keep their original prices.');
     }
 
-    public function updateTable(Request $request, $id)
+    public function updateTable(Request $request, $id, CothPricing $pricing)
     {
         $this->authorizeStaff();
         $table = CothTable::findOrFail($id);
@@ -109,23 +151,202 @@ class CothAdminController extends Controller
             'capacity' => 'required|integer|min:1|max:30',
             'price' => 'required|integer|min:0',
             'seating_style' => 'required|in:standard,couch',
+            'visual_preset' => 'nullable|string|max:64',
+            'is_city_view' => 'nullable|boolean',
+            'is_high_table' => 'nullable|boolean',
+            'allow_extra_chairs' => 'nullable|boolean',
+            'max_extra_chairs' => 'nullable|integer|min:0|max:50',
+            'extra_chair_rate' => 'nullable|integer|min:0',
+            'extra_chair_furniture_type' => 'nullable|string|max:64',
             'is_active' => 'nullable|boolean',
             'pos_x' => 'nullable|numeric',
             'pos_y' => 'nullable|numeric',
         ]);
+
+        $cityView = $request->has('is_city_view') ? 1 : 0;
+        $highTable = $request->has('is_high_table') ? 1 : 0;
+        // City view on 4/6-seat tables implies high-table art.
+        if ($cityView && in_array((int) $data['capacity'], [4, 6], true) && $data['seating_style'] !== 'couch') {
+            $highTable = 1;
+        }
+
+        $extraRate = $data['extra_chair_rate'] !== null && $data['extra_chair_rate'] !== '' ? (int) $data['extra_chair_rate'] : null;
+        $allowChairs = $request->has('allow_extra_chairs') ? 1 : 0;
+
         $table->fill([
             'name' => $data['name'],
             'capacity' => $data['capacity'],
             'price' => $data['price'],
             'seating_style' => $data['seating_style'],
+            'visual_preset' => $data['visual_preset'] ?: null,
+            'is_city_view' => $cityView,
+            'is_high_table' => $highTable,
+            'allow_extra_chairs' => $allowChairs,
+            'max_extra_chairs' => (int) ($data['max_extra_chairs'] ?? 0),
+            'extra_chair_rate' => $extraRate,
+            'extra_chair_furniture_type' => $data['extra_chair_furniture_type'] ?: null,
             'is_active' => $request->has('is_active') ? 1 : 0,
             'pos_x' => $data['pos_x'] === null || $data['pos_x'] === '' ? null : $data['pos_x'],
             'pos_y' => $data['pos_y'] === null || $data['pos_y'] === '' ? null : $data['pos_y'],
         ]);
+
+        // If chair rate isn't resolvable (Hall/Pool non-6, no override), force-disable allow.
+        if ($allowChairs && $pricing->extraChairRate($table) === null) {
+            $table->allow_extra_chairs = 0;
+            session()->flash('message', $table->code.' saved. Extra chairs stayed off: set a rate before enabling.');
+        }
+
         $table->save();
         CothAudit::write('table', 'coth_tables', $table->id, $table->code.' updated.');
 
-        return back()->with('message', $table->code.' saved.');
+        return back()->with('message', session('message', $table->code.' saved.'));
+    }
+
+    public function updateChairInventory(Request $request)
+    {
+        $this->authorizeStaff();
+        $data = $request->validate([
+            'event_date' => 'required|date',
+            'total_capacity' => 'nullable|integer|min:0',
+        ]);
+        $row = CothExtraChairInventory::firstOrNew(['event_date' => Carbon::parse($data['event_date'])->toDateString()]);
+        $row->total_capacity = $data['total_capacity'] === null || $data['total_capacity'] === ''
+            ? null
+            : (int) $data['total_capacity'];
+        if (! $row->exists) {
+            $row->held = 0;
+            $row->booked = 0;
+        }
+        $row->save();
+        CothAudit::write('chair_inventory', 'coth_extra_chair_inventory', $row->id,
+            'Chair cap for '.$row->event_date->format('Y-m-d').' set to '.($row->total_capacity === null ? 'unlimited' : $row->total_capacity).'.');
+
+        return back()->with('message', 'Chair inventory updated.');
+    }
+
+    public function amendChairs(Request $request, $id, CothReservationService $reservations, CothPricing $pricing, CothPaymentService $payments)
+    {
+        $this->authorizeStaff();
+        $data = $request->validate([
+            'extra_chairs_qty_new' => 'required|integer|min:0|max:50',
+            'payment_mode' => 'required|in:manual,gateway,none',
+            'payment_amount' => 'nullable|integer|min:0',
+            'method' => 'nullable|in:cash,momo,card_terminal',
+            'gateway_method' => 'nullable|in:momo,card',
+            'note' => 'nullable|string|max:255',
+        ]);
+
+        $reservation = CothReservation::with('table.section')->findOrFail($id);
+        if ($reservation->status !== 'confirmed') {
+            return back()->with('not_permitted', 'Only confirmed reservations can be amended here.');
+        }
+        $table = $reservation->table;
+        if (! $table) {
+            return back()->with('not_permitted', 'Table missing — cannot amend.');
+        }
+
+        $before = (int) $reservation->extra_chairs_qty;
+        $after = (int) $data['extra_chairs_qty_new'];
+        if ($after > 0) {
+            if (! (int) $table->allow_extra_chairs) {
+                return back()->with('not_permitted', 'Extra chairs are not enabled for '.$table->code.'.');
+            }
+            if ($after > (int) $table->max_extra_chairs) {
+                return back()->with('not_permitted', 'That exceeds max_extra_chairs for '.$table->code.'.');
+            }
+            if ($pricing->extraChairRate($table) === null) {
+                return back()->with('not_permitted', 'Extra chairs for '.$table->code.' are not configured yet.');
+            }
+        }
+        $delta = $after - $before;
+
+        $settings = $reservations->settings();
+        $quote = $pricing->quote($table->price, $reservation->event_date, $settings, $table, $after);
+
+        // Shared pool availability for a positive delta.
+        if ($delta > 0) {
+            $avail = $reservations->sharedChairsAvailable($reservation->event_date);
+            if ($avail !== null && $delta > $avail) {
+                return back()->with('not_permitted', 'Only '.$avail.' extra chair(s) remain in the shared pool for '.$reservation->event_date->format('Y-m-d').'.');
+            }
+        }
+
+        $gatewayUrl = null;
+        DB::transaction(function () use ($reservation, $table, $data, $delta, $after, $quote, $pricing) {
+            // Adjust shared pool "booked" count atomically.
+            if ($delta !== 0) {
+                $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
+                if ($row) {
+                    if ($delta > 0 && $row->total_capacity !== null) {
+                        $avail = max(0, (int) $row->total_capacity - (int) $row->held - (int) $row->booked);
+                        if ($delta > $avail) {
+                            throw new \RuntimeException('Only '.$avail.' extra chair(s) remain for this date.');
+                        }
+                    }
+                    $row->booked = max(0, (int) $row->booked + $delta);
+                    $row->save();
+                }
+            }
+
+            $reservation->extra_chairs_qty = $after;
+            $reservation->extra_chair_rate = $after > 0 ? $pricing->extraChairRate($table) : null;
+            $reservation->extra_chairs_amount = $quote['extra_chairs_amount'];
+            $reservation->booking_total = $quote['booking_total'];
+            $reservation->balance = max(0, (int) $reservation->booking_total - (int) $reservation->amount_paid);
+            $reservation->save();
+        });
+
+        $noteBase = 'Chair qty '.$before.' → '.$after.' by staff #'.(auth()->id() ?: '?').'.';
+        if (! empty($data['note'])) {
+            $noteBase .= ' Note: '.$data['note'];
+        }
+
+        if (($data['payment_mode'] ?? '') === 'manual' && ! empty($data['payment_amount'])) {
+            $paidDelta = (int) $data['payment_amount'];
+            $reservation->amount_paid = (int) $reservation->amount_paid + $paidDelta;
+            $reservation->balance = max(0, (int) $reservation->booking_total - (int) $reservation->amount_paid);
+            $reservation->payment_status = $reservation->balance <= 0 ? 'paid' : 'partial';
+            $reservation->save();
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('payments') && $reservation->sale_id) {
+                try {
+                    $payment = new \App\Payment();
+                    $payment->sale_id = $reservation->sale_id;
+                    $accountId = \Illuminate\Support\Facades\Schema::hasTable('accounts') ? optional(\App\Account::query()->orderBy('id')->first())->id : null;
+                    $payment->account_id = $accountId ?: 1;
+                    $payment->payment_reference = 'coth-amend-'.date('YmdHis');
+                    $payment->amount = $paidDelta;
+                    $payment->change = 0;
+                    $method = $data['method'] ?? 'cash';
+                    $payment->paying_method = $method === 'card_terminal' ? 'Credit Card' : ($method === 'momo' ? 'Momo/Orange' : 'Cash');
+                    $payment->payment_note = 'coth-amend by #'.(auth()->id() ?: '?');
+                    $payment->save();
+                } catch (\Throwable $e) {
+                    \Log::warning('coth amend payment row: '.$e->getMessage());
+                }
+            }
+            $noteBase .= ' Manual payment '.number_format($paidDelta).' FCFA ('.($data['method'] ?? 'cash').').';
+        } elseif (($data['payment_mode'] ?? '') === 'gateway') {
+            $deltaDue = max(0, (int) $reservation->booking_total - (int) $reservation->amount_paid);
+            if ($deltaDue > 0) {
+                $reservation->amount_due = $deltaDue;
+                $reservation->pay_choice = 'full';
+                $reservation->save();
+                try {
+                    $gatewayUrl = $payments->start($reservation, $data['gateway_method'] ?? 'momo');
+                } catch (\Throwable $e) {
+                    $noteBase .= ' Gateway start failed: '.$e->getMessage();
+                }
+            }
+        }
+
+        CothAudit::write('amend', 'coth_reservations', $reservation->id, $noteBase);
+
+        if ($gatewayUrl) {
+            return redirect($gatewayUrl);
+        }
+
+        return back()->with('message', 'Reservation '.$reservation->reference.' amended ('.$before.' → '.$after.' chair(s)).');
     }
 
     public function updateSlot(Request $request, $id)

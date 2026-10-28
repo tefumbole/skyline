@@ -3,6 +3,7 @@
 namespace App\Services\Coth;
 
 use App\Biller;
+use App\CothExtraChairInventory;
 use App\CothReservation;
 use App\CothSetting;
 use App\CothSlot;
@@ -54,6 +55,7 @@ class CothReservationService
                     $slot->status = 'open';
                     $slot->save();
                 }
+                $this->releaseChairHold($row);
             });
         }
 
@@ -71,10 +73,24 @@ class CothReservationService
             throw new \InvalidArgumentException('Accept the non-refundable deposit terms to continue.');
         }
         $payChoice = (isset($guest['pay_choice']) && $guest['pay_choice'] === 'full') ? 'full' : 'deposit';
-        $quote = app(CothPricing::class)->quote($table->price, $date, $settings);
+        $extraChairs = max(0, (int) ($guest['extra_chairs'] ?? 0));
+
+        if ($extraChairs > 0) {
+            if (! (int) $table->allow_extra_chairs) {
+                throw new \InvalidArgumentException('Extra chairs are not available on this table.');
+            }
+            if ($extraChairs > (int) $table->max_extra_chairs) {
+                throw new \InvalidArgumentException('That exceeds the extra chairs available for this table.');
+            }
+            if (app(CothPricing::class)->extraChairRate($table) === null) {
+                throw new \InvalidArgumentException('Extra chairs for this table are not configured yet.');
+            }
+        }
+
+        $quote = app(CothPricing::class)->quote($table->price, $date, $settings, $table, $extraChairs);
         $amountDue = app(CothPricing::class)->amountDue($quote, $payChoice);
 
-        return DB::transaction(function () use ($table, $date, $guest, $settings, $quote, $payChoice, $amountDue) {
+        return DB::transaction(function () use ($table, $date, $guest, $settings, $quote, $payChoice, $amountDue, $extraChairs) {
             $slot = CothSlot::where('coth_table_id', $table->id)
                 ->whereDate('event_date', $date)
                 ->lockForUpdate()
@@ -84,6 +100,10 @@ class CothReservationService
             }
             $slot->status = 'held';
             $slot->save();
+
+            if ($extraChairs > 0) {
+                $this->reserveChairHold($date, $extraChairs);
+            }
 
             $count = CothReservation::count() + 1;
 
@@ -100,10 +120,14 @@ class CothReservationService
                 'discount_amount' => $quote['discount_amount'],
                 'final_price' => $quote['final_price'],
                 'deposit_due' => $quote['deposit_due'],
+                'extra_chairs_qty' => $quote['extra_chairs_qty'],
+                'extra_chair_rate' => $quote['extra_chair_rate'] ?: null,
+                'extra_chairs_amount' => $quote['extra_chairs_amount'],
+                'booking_total' => $quote['booking_total'],
                 'pay_choice' => $payChoice,
                 'amount_due' => $amountDue,
                 'amount_paid' => 0,
-                'balance' => $quote['final_price'],
+                'balance' => $quote['booking_total'],
                 'status' => 'held',
                 'payment_status' => 'unpaid',
                 'hold_expires_at' => now()->addMinutes((int) $settings->hold_minutes),
@@ -113,7 +137,80 @@ class CothReservationService
     }
 
     /**
-     * Apply a provider result. Confirms only a live hold paid at or above the stored deposit.
+     * Available extra chairs for a date. Returns null when there's no cap.
+     */
+    public function sharedChairsAvailable($eventDate)
+    {
+        $row = CothExtraChairInventory::whereDate('event_date', Carbon::parse($eventDate)->toDateString())->first();
+        if (! $row || $row->total_capacity === null) {
+            return null;
+        }
+
+        return (int) $row->available();
+    }
+
+    /**
+     * Row-lock the shared chair inventory for a date; grow $held atomically.
+     * No-op if there's no row for the date.
+     * Caller is already inside a DB::transaction.
+     */
+    protected function reserveChairHold($date, $qty)
+    {
+        $row = CothExtraChairInventory::whereDate('event_date', $date)->lockForUpdate()->first();
+        if (! $row) {
+            return;
+        }
+        if ($row->total_capacity !== null) {
+            $avail = (int) $row->total_capacity - (int) $row->held - (int) $row->booked;
+            if ($qty > $avail) {
+                throw new \InvalidArgumentException('Only '.$avail.' extra chair(s) are left for this date.');
+            }
+        }
+        $row->held = (int) $row->held + $qty;
+        $row->save();
+    }
+
+    /**
+     * Release a reservation's chair hold back to the shared pool. Idempotent.
+     * Caller is inside a transaction.
+     */
+    protected function releaseChairHold(CothReservation $reservation)
+    {
+        $qty = (int) ($reservation->extra_chairs_qty ?? 0);
+        if ($qty <= 0) {
+            return;
+        }
+        $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
+        if (! $row) {
+            return;
+        }
+        $row->held = max(0, (int) $row->held - $qty);
+        $row->save();
+    }
+
+    /**
+     * Move chair hold -> booked when the reservation confirms.
+     * Caller is inside a transaction.
+     */
+    protected function confirmChairHold(CothReservation $reservation)
+    {
+        $qty = (int) ($reservation->extra_chairs_qty ?? 0);
+        if ($qty <= 0) {
+            return;
+        }
+        $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
+        if (! $row) {
+            return;
+        }
+        $row->held = max(0, (int) $row->held - $qty);
+        $row->booked = (int) $row->booked + $qty;
+        $row->save();
+    }
+
+    /**
+     * Apply a provider result. Confirms only a live hold paid at or above
+     * the required amount (deposit for the deposit choice, full booking
+     * total for the full choice).
      * Returns confirmed, duplicate, flagged, or failed.
      */
     public function applyGateway(CothReservation $reservation, $successful, $amount, $reference, $method)
@@ -147,11 +244,12 @@ class CothReservationService
                 && $row->hold_expires_at->isFuture()
                 && $slot
                 && $slot->status === 'held';
-            if (! $holdLive || $amount < (int) $row->deposit_due) {
+            $required = $row->pay_choice === 'full' ? (int) $row->booking_total : (int) $row->deposit_due;
+            if (! $holdLive || $amount < $required) {
                 $row->payment_status = 'needs_reconciliation';
                 $row->gateway_reference = $reference !== '' ? $reference : $row->gateway_reference;
                 $row->pay_method = $method;
-                $row->staff_note = trim((string) $row->staff_note."\nPayment ".$amount.' arrived outside an active hold or below the deposit.');
+                $row->staff_note = trim((string) $row->staff_note."\nPayment ".$amount.' arrived outside an active hold or below the required amount.');
                 $row->save();
 
                 return 'flagged';
@@ -159,7 +257,7 @@ class CothReservationService
 
             $row->status = 'confirmed';
             $row->amount_paid = $amount;
-            $row->balance = (int) $row->final_price - $amount;
+            $row->balance = (int) $row->booking_total - $amount;
             $row->payment_status = $row->balance <= 0 ? 'paid' : 'partial';
             $row->gateway_reference = $reference;
             $row->pay_method = $method;
@@ -168,6 +266,7 @@ class CothReservationService
             $row->save();
             $slot->status = 'booked';
             $slot->save();
+            $this->confirmChairHold($row);
             $this->notify($row);
 
             return 'confirmed';
@@ -214,26 +313,33 @@ class CothReservationService
             if (! $warehouse || ! $biller || ! $reservation->customer_id) {
                 return null;
             }
+            $totalDiscount = (int) $reservation->discount_amount;
+            $itemCount = 1 + ((int) $reservation->extra_chairs_qty > 0 ? 1 : 0);
+            $totalQty = 1 + (int) $reservation->extra_chairs_qty;
+            $grand = (int) $reservation->booking_total;
             $sale = Sale::create([
                 'reference_no' => 'coth-'.$reservation->reference,
                 'customer_id' => $reservation->customer_id,
                 'warehouse_id' => $warehouse->id,
                 'biller_id' => $biller->id,
-                'item' => 1,
-                'total_qty' => 1,
-                'total_discount' => $reservation->discount_amount,
+                'item' => $itemCount,
+                'total_qty' => $totalQty,
+                'total_discount' => $totalDiscount,
                 'total_tax' => 0,
-                'total_price' => $reservation->final_price,
+                'total_price' => $grand,
                 'order_tax_rate' => 0,
                 'order_tax' => 0,
                 'order_discount' => 0,
                 'shipping_cost' => 0,
-                'grand_total' => $reservation->final_price,
+                'grand_total' => $grand,
                 'sale_status' => 1,
                 'payment_status' => $reservation->balance <= 0 ? 4 : 3,
                 'paid_amount' => $reservation->amount_paid,
                 'paid_by_id' => $reservation->pay_method === 'card' ? 3 : 8,
-                'sale_note' => 'Chill on the Hill '.$reservation->reference.' · '.$reservation->event_date->format('Y-m-d'),
+                'sale_note' => 'Chill on the Hill '.$reservation->reference.' · '.$reservation->event_date->format('Y-m-d')
+                    .((int) $reservation->extra_chairs_qty > 0
+                        ? ' · '.$reservation->extra_chairs_qty.' extra chair(s) @ '.number_format((int) $reservation->extra_chair_rate).' FCFA'
+                        : ''),
             ]);
             if (Schema::hasTable('payments')) {
                 try {
@@ -265,22 +371,35 @@ class CothReservationService
         try {
             $table = $reservation->table ?: CothTable::find($reservation->coth_table_id);
             $section = $table && $table->section ? $table->section->name : '';
+            $extraQty = (int) $reservation->extra_chairs_qty;
+            $totalGuests = ($table ? (int) $table->capacity : 0) + $extraQty;
             $lines = [
                 '*Chill on the Hill reservation*',
                 '• Reference: '.$reservation->reference,
                 '• Name: '.$reservation->customer_name,
                 '• Date: '.$reservation->event_date->format('l, j F Y').' (one day)',
                 '• Section: '.$section,
-                '• Table: '.($table ? $table->code : $reservation->coth_table_id).' · '.($table ? $table->capacity : '').' seats',
-                '• Listed: '.number_format((int) $reservation->list_price).' FCFA',
-                '• Discount: '.number_format((int) $reservation->discount_amount).' FCFA',
-                '• Final: '.number_format((int) $reservation->final_price).' FCFA',
-                '• Paid: '.number_format((int) $reservation->amount_paid).' FCFA',
-                '• Balance: '.number_format((int) $reservation->balance).' FCFA',
-                '• Payment: '.$reservation->payment_status,
-                '• The deposit is non-refundable.',
-                '• View: '.$reservation->publicUrl(),
+                '• Table: '.($table ? $table->code : $reservation->coth_table_id).' · '.($table ? $table->capacity : '').' included seats',
             ];
+            if ($extraQty > 0) {
+                $lines[] = '• Extra chairs: '.$extraQty.' × '.number_format((int) $reservation->extra_chair_rate).' FCFA';
+                $lines[] = '• Guests: '.$totalGuests.' ('.($table ? $table->capacity : 0).' included + '.$extraQty.' extra)';
+            }
+            $lines[] = '• Listed table: '.number_format((int) $reservation->list_price).' FCFA';
+            if ((int) $reservation->discount_amount > 0) {
+                $lines[] = '• Discount: '.number_format((int) $reservation->discount_amount).' FCFA';
+            }
+            $lines[] = '• Final table: '.number_format((int) $reservation->final_price).' FCFA';
+            if ($extraQty > 0) {
+                $lines[] = '• Chairs total: '.number_format((int) $reservation->extra_chairs_amount).' FCFA';
+            }
+            $lines[] = '• Booking total: '.number_format((int) $reservation->booking_total).' FCFA';
+            $lines[] = '• Paid: '.number_format((int) $reservation->amount_paid).' FCFA';
+            $lines[] = '• Balance: '.number_format((int) $reservation->balance).' FCFA';
+            $lines[] = '• Payment: '.$reservation->payment_status;
+            $lines[] = '• The deposit is non-refundable.';
+            $lines[] = '• View: '.$reservation->publicUrl();
+
             app(\App\Services\Messaging\NotificationRouter::class)
                 ->sendWhatsAppTextWithLink($reservation->phone, implode("\n", $lines));
         } catch (\Throwable $e) {

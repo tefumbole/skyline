@@ -93,46 +93,74 @@ class CothController extends Controller
                 ->with('not_permitted', 'That table is no longer available for this date.');
         }
 
+        $settings = $reservations->settings();
+        $extraRate = $pricing->extraChairRate($table);
+        $allowChairs = (int) $table->allow_extra_chairs === 1 && $extraRate !== null && (int) $table->max_extra_chairs > 0;
+
         return view('beyond.coth.book', [
             'date' => $date,
             'table' => $table,
-            'quote' => $pricing->quote($table->price, $date, $reservations->settings()),
+            'quote' => $pricing->quote($table->price, $date, $settings, $table, 0),
+            'settings' => $settings,
+            'extraRate' => $extraRate,
+            'allowChairs' => $allowChairs,
+            'maxChairs' => (int) $table->max_extra_chairs,
+            'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
         ]);
     }
 
     /**
-     * Look up the name a Cameroonian number is registered under at Campay.
-     * Only Cameroon numbers (country code 237) are sent to Campay; others
-     * come back with an empty name so the person types it manually.
+     * Resolve a WhatsApp number. Any country code is accepted. Campay's
+     * holder_info endpoint only knows CEMAC numbers (237, 236, 240, 241,
+     * 242, 243) so a lookup for a different country simply returns an
+     * empty name and the person types it manually.
+     *
+     * Accepts either a prebuilt E.164 string in `phone`, or a `dial_code`
+     * + `local` pair. Returns the digits-only normalized number.
      */
     public function resolvePhone(Request $request)
     {
-        $data = $request->validate(['phone' => 'required|string|max:32']);
-        try {
-            $normalized = \App\Support\WhatsAppPhone::sanitizeForStorage($data['phone']);
-        } catch (\Throwable $e) {
-            $normalized = '';
+        $data = $request->validate([
+            'phone' => 'nullable|string|max:32',
+            'dial_code' => 'nullable|string|max:8',
+            'local' => 'nullable|string|max:32',
+        ]);
+        $raw = (string) ($data['phone'] ?? '');
+        if ($raw === '' && ! empty($data['dial_code']) && ! empty($data['local'])) {
+            $raw = $data['dial_code'].$data['local'];
         }
-        if ($normalized === '' || strlen($normalized) < 10) {
-            return response()->json(['message' => 'Enter a valid phone number.'], 422);
+        $digits = preg_replace('/\D/', '', (string) $raw);
+        if (strlen($digits) < 10) {
+            return response()->json(['message' => 'Enter a valid WhatsApp number with country code.'], 422);
         }
-        $display = '+'.$normalized;
+        // If no explicit dial code and the input looks like a Cameroon local
+        // number (8-10 digits that don't start with 237), fall back to the
+        // historical sanitizer so legacy clients keep working.
+        if (empty($data['dial_code']) && strlen($digits) <= 10 && substr($digits, 0, 3) !== '237') {
+            try {
+                $digits = \App\Support\WhatsAppPhone::sanitizeForStorage($raw);
+            } catch (\Throwable $e) {
+                // keep digits as-is
+            }
+        }
+        if ($digits === '' || strlen($digits) < 10) {
+            return response()->json(['message' => 'Enter a valid WhatsApp number with country code.'], 422);
+        }
+        $display = '+'.$digits;
         $name = '';
         $source = '';
-        if (substr($normalized, 0, 3) === '237') {
-            try {
-                $resolved = app(\App\Services\Coth\CothHolderLookup::class)->name($normalized);
-                if ($resolved !== '') {
-                    $name = $resolved;
-                    $source = 'campay';
-                }
-            } catch (\Throwable $e) {
-                \Log::warning('coth resolve: '.$e->getMessage());
+        try {
+            $resolved = app(\App\Services\Coth\CothHolderLookup::class)->name($digits);
+            if ($resolved !== '') {
+                $name = $resolved;
+                $source = 'campay';
             }
+        } catch (\Throwable $e) {
+            \Log::warning('coth resolve: '.$e->getMessage());
         }
 
         return response()->json([
-            'phone' => $normalized,
+            'phone' => $digits,
             'display_phone' => $display,
             'name' => $name,
             'source' => $source,
@@ -148,6 +176,7 @@ class CothController extends Controller
             'phone' => 'required|string|max:32',
             'email' => 'nullable|email|max:191',
             'pay_choice' => 'required|in:deposit,full',
+            'extra_chairs' => 'nullable|integer|min:0|max:50',
             'terms' => 'accepted',
         ]);
         $table = CothTable::where('id', $data['table_id'])->where('is_active', 1)->first();
@@ -163,16 +192,69 @@ class CothController extends Controller
         }
         $this->dispatchReservationOtp($reservation);
 
-        return redirect()->route('coth.checkout', $reservation->public_token);
+        return redirect()->route('coth.verify', $reservation->public_token);
     }
 
-    public function checkout($token, CothReservationService $reservations, CothPaymentService $payments)
+    /**
+     * Back-compat router: send old /checkout links to the correct stage.
+     */
+    public function checkout($token, CothReservationService $reservations)
+    {
+        $reservations->releaseExpired();
+        $reservation = CothReservation::where('public_token', $token)->firstOrFail();
+        if ($reservation->status === 'confirmed') {
+            return redirect()->route('coth.show', $token);
+        }
+        if ($reservation->status !== 'held') {
+            return redirect()->route('coth.index')->with('not_permitted', 'This hold is '.$reservation->status.'. Choose another table.');
+        }
+        if (! $reservation->phone_verified_at) {
+            return redirect()->route('coth.verify', $token);
+        }
+
+        return redirect()->route('coth.payment', $token);
+    }
+
+    public function verify($token, CothReservationService $reservations)
     {
         $reservations->releaseExpired();
         $reservation = CothReservation::where('public_token', $token)->firstOrFail();
         $reservation->load('table.section');
+        if ($reservation->status === 'confirmed') {
+            return redirect()->route('coth.show', $token);
+        }
+        if ($reservation->status !== 'held') {
+            return redirect()->route('coth.index')->with('not_permitted', 'This hold is '.$reservation->status.'. Choose another table.');
+        }
+        if ($reservation->hold_expires_at && $reservation->hold_expires_at->isPast()) {
+            return redirect()->route('coth.index')->with('not_permitted', 'This hold has expired. Choose the table again.');
+        }
+        if ($reservation->phone_verified_at) {
+            return redirect()->route('coth.payment', $token);
+        }
 
-        return view('beyond.coth.checkout', [
+        return view('beyond.coth.verify', ['reservation' => $reservation]);
+    }
+
+    public function payment($token, CothReservationService $reservations, CothPaymentService $payments)
+    {
+        $reservations->releaseExpired();
+        $reservation = CothReservation::where('public_token', $token)->firstOrFail();
+        $reservation->load('table.section');
+        if ($reservation->status === 'confirmed') {
+            return redirect()->route('coth.show', $token);
+        }
+        if ($reservation->status !== 'held') {
+            return redirect()->route('coth.index')->with('not_permitted', 'This hold is '.$reservation->status.'. Choose another table.');
+        }
+        if ($reservation->hold_expires_at && $reservation->hold_expires_at->isPast()) {
+            return redirect()->route('coth.index')->with('not_permitted', 'This hold has expired. Choose the table again.');
+        }
+        if (! $reservation->phone_verified_at) {
+            return redirect()->route('coth.verify', $token);
+        }
+
+        return view('beyond.coth.payment', [
             'reservation' => $reservation,
             'momo' => $payments->momoConfigured(),
             'card' => $payments->cardConfigured(),
@@ -190,7 +272,7 @@ class CothController extends Controller
         $reservation->phone_verified_at = now();
         $reservation->save();
 
-        return redirect()->route('coth.checkout', $token);
+        return redirect()->route('coth.payment', $token);
     }
 
     public function resendOtp($token)

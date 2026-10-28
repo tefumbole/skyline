@@ -1,148 +1,213 @@
 @extends('beyond.layout')
 @section('title', 'Reserve '.$table->code)
-@section('body_class', 'bg-[#0A0A0A]')
+@section('body_class', 'bg-[#0A0F2A]')
 @push('head')
 <style>
+    .coth-page { background: #0A0F2A; }
+    .coth-shell { background: linear-gradient(180deg, #0A0F2A 0%, #0A0A14 100%); }
     .coth-card {
         border: 1px solid rgba(197,160,89,.35);
         background: rgba(255,255,255,.03);
         box-shadow: 0 18px 40px rgba(0,0,0,.45);
     }
-    .coth-art {
-        position: relative;
-        background:
-            radial-gradient(240px 150px at 50% 38%, rgba(197,160,89,.12), rgba(10,10,10,0) 70%),
-            #0c0c0c;
-    }
-    .coth-art::after {
-        content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-        box-shadow: inset 0 0 34px 20px #0c0c0c;
-    }
-    .coth-art img { position: relative; z-index: 0; }
-    .coth-pill {
-        border: 1px solid rgba(197,160,89,.9); color: #E8C878;
-        background: rgba(10,10,10,.6); letter-spacing: .18em;
-        position: relative; z-index: 2;
-    }
-    .coth-field { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1); transition: border-color .15s ease; }
+    .coth-field { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.14); transition: border-color .15s ease; }
     .coth-field:focus-within { border-color: #E8C878; }
-    .coth-pay { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.02); transition: border-color .15s ease, background .15s ease; }
-    .coth-pay.is-active { border-color: #E8C878; background: rgba(197,160,89,.10); }
-    .coth-form input[type=radio], .coth-form input[type=checkbox] { accent-color: #C5A059; }
+    .coth-dial select {
+        background: transparent; color: #fff; border: none; outline: none;
+        padding-right: 18px; font-weight: 600; font-size: 14px; appearance: none;
+        background-image: linear-gradient(45deg, transparent 50%, #E8C878 50%),
+                          linear-gradient(135deg, #E8C878 50%, transparent 50%);
+        background-position: calc(100% - 10px) calc(50% - 2px),
+                             calc(100% - 6px) calc(50% - 2px);
+        background-size: 4px 4px, 4px 4px;
+        background-repeat: no-repeat;
+    }
+    .coth-dial select option { color: #0A0A0A; }
+    .coth-pay-opt { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.03); transition: border-color .15s ease, background .15s ease; }
+    .coth-pay-opt.is-active { border-color: #E8C878; background: rgba(197,160,89,.1); }
     .coth-src { color: #34d399; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
     .coth-hidden { display: none; }
     .coth-spin { width: 14px; height: 14px; border: 2px solid rgba(10,10,10,.3); border-top-color: #0A0A0A; border-radius: 9999px; display: inline-block; animation: coth-spin 0.8s linear infinite; vertical-align: -2px; }
     @keyframes coth-spin { to { transform: rotate(360deg); } }
+    .coth-form input[type=radio], .coth-form input[type=checkbox] { accent-color: #C5A059; }
+    .coth-chairs { background: rgba(255,255,255,.03); border: 1px dashed rgba(197,160,89,.5); }
+    .coth-qty-btn {
+        width: 36px; height: 36px; border-radius: 9999px; border: 1px solid rgba(197,160,89,.6);
+        background: rgba(10,10,10,.6); color: #E8C878; font-weight: 700; line-height: 1;
+    }
+    .coth-qty-btn[disabled] { opacity: .35; cursor: not-allowed; }
 </style>
 @endpush
 @section('content')
 @php
-    $artFor = function ($table) {
-        if ($table->isCouch()) { return asset('public/images/coth/tables/couch.png'); }
-        $cap = (int) $table->capacity;
-        $name = in_array($cap, [2, 3, 4, 6, 8, 10], true) ? $cap : 4;
-        return asset('public/images/coth/tables/'.$name.'.png');
-    };
+    $visuals = app(\App\Services\Coth\CothVisualLibrary::class);
+    $countries = [
+        ['dial' => '237', 'flag' => '🇨🇲', 'name' => 'Cameroon'],
+        ['dial' => '234', 'flag' => '🇳🇬', 'name' => 'Nigeria'],
+        ['dial' => '233', 'flag' => '🇬🇭', 'name' => 'Ghana'],
+        ['dial' => '225', 'flag' => '🇨🇮', 'name' => 'Ivory Coast'],
+        ['dial' => '221', 'flag' => '🇸🇳', 'name' => 'Senegal'],
+        ['dial' => '250', 'flag' => '🇷🇼', 'name' => 'Rwanda'],
+        ['dial' => '254', 'flag' => '🇰🇪', 'name' => 'Kenya'],
+        ['dial' => '27',  'flag' => '🇿🇦', 'name' => 'South Africa'],
+        ['dial' => '241', 'flag' => '🇬🇦', 'name' => 'Gabon'],
+        ['dial' => '242', 'flag' => '🇨🇬', 'name' => 'Congo-Brazzaville'],
+        ['dial' => '243', 'flag' => '🇨🇩', 'name' => 'DR Congo'],
+        ['dial' => '236', 'flag' => '🇨🇫', 'name' => 'Central African Republic'],
+        ['dial' => '240', 'flag' => '🇬🇶', 'name' => 'Equatorial Guinea'],
+        ['dial' => '235', 'flag' => '🇹🇩', 'name' => 'Chad'],
+        ['dial' => '44',  'flag' => '🇬🇧', 'name' => 'United Kingdom'],
+        ['dial' => '1',   'flag' => '🇺🇸', 'name' => 'United States'],
+        ['dial' => '33',  'flag' => '🇫🇷', 'name' => 'France'],
+        ['dial' => '32',  'flag' => '🇧🇪', 'name' => 'Belgium'],
+        ['dial' => '49',  'flag' => '🇩🇪', 'name' => 'Germany'],
+        ['dial' => '971', 'flag' => '🇦🇪', 'name' => 'UAE'],
+    ];
 @endphp
-<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
-    <div class="max-w-2xl mx-auto">
-        <a href="{{ route('coth.tables', ['date' => $date, 'section' => $table->section->code]) }}" class="text-xs uppercase tracking-[0.18em] text-brand-gold">&larr; Back to tables</a>
+<div class="coth-shell text-white min-h-[80vh] py-6 px-4">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+            <p class="text-brand-gold font-serif text-xl tracking-[0.25em] uppercase m-0">CHILL ON THE HILL</p>
+            <a href="{{ route('coth.tables', ['date' => $date, 'section' => $table->section->code]) }}" class="text-sm text-brand-gold">&larr; Back to tables</a>
+        </div>
 
-        <div class="coth-card rounded-3xl overflow-hidden mt-3">
-            <div class="coth-art px-4 pt-5 pb-3 flex items-center justify-center">
-                <img src="{{ $artFor($table) }}" alt="{{ $table->capacity }} seat table" class="w-full max-w-[320px] h-44 object-contain" loading="lazy">
-                <span class="coth-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
-                    {{ $table->isCouch() ? 'Couch' : $table->capacity.' Seats' }}
-                </span>
-            </div>
-            <div class="p-6">
-                <p class="text-[11px] uppercase tracking-[0.22em] text-brand-gold m-0">Your table</p>
-                <h1 class="font-serif text-3xl mt-1 mb-0">{{ $table->code }}</h1>
-                <p class="text-white/70 mt-1">{{ $table->section->name }} · {{ $table->capacity }} seats{{ $table->isCouch() ? ' · lounge couch' : '' }}</p>
-                <p class="text-lg font-semibold mt-1">{{ \Carbon\Carbon::parse($date)->format('l, j F Y') }} <span class="text-white/60 text-base font-normal">· one day</span></p>
-
-                <div class="mt-5 space-y-1 text-sm">
-                    @if ($quote['discounted'])
-                        <div class="flex justify-between text-white/55"><span>Listed price</span><span class="line-through">{{ number_format($quote['list_price']) }} FCFA</span></div>
-                        <div class="flex justify-between text-emerald-300"><span>Discount (20%)</span><span>−{{ number_format($quote['discount_amount']) }} FCFA</span></div>
-                    @endif
-                    <div class="flex justify-between font-semibold"><span>Final price</span><span class="text-brand-gold">{{ number_format($quote['final_price']) }} FCFA</span></div>
-                    <div class="flex justify-between text-white/70"><span>Minimum deposit</span><span>{{ number_format($quote['deposit_due']) }} FCFA</span></div>
-                </div>
-                <p class="text-xs text-white/55 mt-3">The deposit is non-refundable and is 20% of the final price for this date. Paying the deposit leaves the rest as a balance.</p>
-            </div>
+        <div class="mt-4 mb-6">
+            @include('beyond.coth._stepper', ['current' => 1])
         </div>
 
         @if (session('not_permitted'))
-            <div class="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm">{{ session('not_permitted') }}</div>
+            <div class="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm mb-4">{{ session('not_permitted') }}</div>
         @endif
 
-        <form id="coth-form" method="POST" action="{{ route('coth.hold') }}" class="coth-form coth-card rounded-3xl p-6 mt-5 space-y-5">
-            @csrf
-            <input type="hidden" name="table_id" value="{{ $table->id }}">
-            <input type="hidden" name="event_date" value="{{ $date }}">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {{-- Left: form --}}
+            <form id="coth-form" method="POST" action="{{ route('coth.hold') }}" class="coth-form coth-card rounded-3xl p-6 lg:p-8 lg:col-span-3 space-y-6">
+                @csrf
+                <input type="hidden" name="table_id" value="{{ $table->id }}">
+                <input type="hidden" name="event_date" value="{{ $date }}">
 
-            {{-- Step 1: phone first --}}
-            <div>
-                <label class="block">
-                    <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">WhatsApp number</span>
-                    <div class="coth-field rounded-2xl flex items-center px-4 py-3 gap-3">
-                        <span class="text-brand-gold font-semibold">+237</span>
-                        <input id="coth-phone" name="phone" value="{{ old('phone') }}" required inputmode="tel" autocomplete="tel" placeholder="6 75 32 17 39" class="flex-1 bg-transparent outline-none text-white placeholder-white/30">
-                        <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#0A0A0A] rounded-full px-4 py-2">Continue</button>
-                    </div>
-                </label>
-                <p class="text-xs text-white/50 mt-2">Cameroonian numbers (+237) are checked with Campay to pre-fill your name.</p>
-                <p id="coth-phone-err" class="text-xs text-red-300 mt-2 coth-hidden"></p>
-            </div>
+                <div>
+                    <h1 class="font-serif text-3xl m-0">Reserve your table</h1>
+                    <h2 class="text-lg mt-4 mb-1">Your details</h2>
+                    <p class="text-sm text-white/60 m-0">We'll use this information to confirm your reservation.</p>
+                </div>
 
-            {{-- Step 2: name (resolved via Campay when possible) + payment --}}
-            <div id="coth-step-2" class="space-y-4 coth-hidden">
+                {{-- Step 1 (within Stage 1): WhatsApp number first --}}
                 <div>
                     <label class="block">
-                        <span class="flex items-center justify-between mb-2">
-                            <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Your name</span>
-                            <span id="coth-name-source" class="coth-src coth-hidden">Resolved via Campay</span>
-                        </span>
-                        <input id="coth-name" name="name" value="{{ old('name') }}" required placeholder="Full name" class="w-full coth-field rounded-2xl px-4 py-3 text-white placeholder-white/30 outline-none">
+                        <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">WhatsApp number</span>
+                        <div class="coth-field rounded-2xl flex items-center px-3 py-2 gap-2">
+                            <span class="opacity-80">&#128222;</span>
+                            <div class="coth-dial flex items-center gap-1 border-r border-white/15 pr-2">
+                                <select id="coth-dial">
+                                    @foreach ($countries as $c)
+                                        <option value="{{ $c['dial'] }}" @if($c['dial'] === '237') selected @endif>{{ $c['flag'] }} +{{ $c['dial'] }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <input id="coth-local" required inputmode="tel" autocomplete="tel-national" placeholder="WhatsApp number" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
+                            <input type="hidden" name="phone" id="coth-phone-hidden" value="{{ old('phone') }}">
+                            <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#0A0A0A] rounded-full px-4 py-2">Continue</button>
+                        </div>
                     </label>
+                    <p class="text-xs text-white/50 mt-2">Pick your country code. Cameroonian numbers are checked with Campay to pre-fill your name.</p>
+                    <p id="coth-phone-err" class="text-xs text-red-300 mt-2 coth-hidden"></p>
                 </div>
 
-                <label class="block">
-                    <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">Email <span class="text-white/35 normal-case tracking-normal">(optional)</span></span>
-                    <input name="email" value="{{ old('email') }}" type="email" placeholder="you@example.com" class="w-full coth-field rounded-2xl px-4 py-3 text-white placeholder-white/30 outline-none">
-                </label>
-
-                <div>
-                    <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">Pay now</span>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label class="coth-pay rounded-2xl px-4 py-3 cursor-pointer flex items-start gap-3" data-pay>
-                            <input type="radio" name="pay_choice" value="deposit" @if(old('pay_choice', 'deposit')==='deposit') checked @endif class="mt-1">
-                            <span>
-                                <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55">Deposit</span>
-                                <span class="block font-semibold">{{ number_format($quote['deposit_due']) }} FCFA</span>
-                                <span class="text-xs text-white/55">Balance {{ number_format(max(0, $quote['final_price'] - $quote['deposit_due'])) }} FCFA on arrival.</span>
+                {{-- Step 2 (within Stage 1): name, email, extras, pay choice, terms --}}
+                <div id="coth-step-2" class="space-y-5 coth-hidden">
+                    <div>
+                        <label class="block">
+                            <span class="flex items-center justify-between mb-2">
+                                <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Full name</span>
+                                <span id="coth-name-source" class="coth-src coth-hidden">Resolved via Campay</span>
                             </span>
-                        </label>
-                        <label class="coth-pay rounded-2xl px-4 py-3 cursor-pointer flex items-start gap-3" data-pay>
-                            <input type="radio" name="pay_choice" value="full" @if(old('pay_choice')==='full') checked @endif class="mt-1">
-                            <span>
-                                <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55">Full price</span>
-                                <span class="block font-semibold">{{ number_format($quote['final_price']) }} FCFA</span>
-                                <span class="text-xs text-white/55">Pay everything now.</span>
-                            </span>
+                            <div class="coth-field rounded-2xl flex items-center px-4 py-3 gap-3">
+                                <span class="opacity-70">&#128100;</span>
+                                <input id="coth-name" name="name" value="{{ old('name') }}" required placeholder="Your name" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
+                            </div>
                         </label>
                     </div>
+
+                    <label class="block">
+                        <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">Email <span class="text-white/35 normal-case tracking-normal">(optional)</span></span>
+                        <div class="coth-field rounded-2xl flex items-center px-4 py-3 gap-3">
+                            <span class="opacity-70">&#9993;</span>
+                            <input name="email" value="{{ old('email') }}" type="email" placeholder="Email, optional" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
+                        </div>
+                    </label>
+
+                    @if ($allowChairs)
+                        <div class="coth-chairs rounded-2xl p-4">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                                <div>
+                                    <h3 class="font-semibold text-base m-0">Add extra chairs</h3>
+                                    <p class="text-xs text-white/60 m-0">
+                                        {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="coth-qty-btn" id="coth-qty-minus" aria-label="Remove a chair">−</button>
+                                    <input type="hidden" name="extra_chairs" id="coth-qty" value="{{ (int) old('extra_chairs', 0) }}">
+                                    <span class="font-semibold text-lg w-6 text-center" id="coth-qty-label">{{ (int) old('extra_chairs', 0) }}</span>
+                                    <button type="button" class="coth-qty-btn" id="coth-qty-plus" aria-label="Add a chair">+</button>
+                                </div>
+                            </div>
+                            <p class="text-xs text-brand-gold/90 mt-3 m-0" id="coth-guest-line">
+                                {{ (int) $table->capacity }} included seats
+                            </p>
+                        </div>
+                    @else
+                        <input type="hidden" name="extra_chairs" id="coth-qty" value="0">
+                    @endif
+
+                    <div>
+                        <h3 class="font-semibold text-base m-0">Choose payment amount</h3>
+                        <p class="text-xs text-white/60 m-0 mb-3">Secure your table with a 20% deposit or pay the full amount today.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="coth-pay-opt rounded-2xl px-4 py-3 cursor-pointer block" data-pay>
+                                <input type="radio" name="pay_choice" value="deposit" @if(old('pay_choice', 'deposit')==='deposit') checked @endif class="mr-2 align-middle">
+                                <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Pay deposit</span>
+                                <span class="block font-semibold mt-1" data-sum-deposit>{{ number_format((int) $quote['deposit_due']) }} FCFA</span>
+                                <span class="text-xs text-white/55">20% today</span>
+                            </label>
+                            <label class="coth-pay-opt rounded-2xl px-4 py-3 cursor-pointer block" data-pay>
+                                <input type="radio" name="pay_choice" value="full" @if(old('pay_choice')==='full') checked @endif class="mr-2 align-middle">
+                                <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Pay in full</span>
+                                <span class="block font-semibold mt-1" data-sum-total>{{ number_format((int) $quote['booking_total']) }} FCFA</span>
+                                <span class="text-xs text-white/55">Full amount today</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-white/10 bg-white/[.02] px-3 py-2 text-sm">
+                        <span class="opacity-70">&#128181;</span>
+                        <span class="text-white/70">Remaining balance:</span>
+                        <span class="text-brand-gold font-semibold" data-sum-balance>{{ number_format((int) $quote['booking_total'] - (int) $quote['deposit_due']) }} FCFA</span>
+                        <span class="text-white/55 text-xs">· Paying the deposit leaves the rest as a balance.</span>
+                    </div>
+
+                    <label class="flex items-start gap-2 text-sm text-white/80">
+                        <input type="checkbox" name="terms" value="1" required class="mt-1">
+                        <span>I accept that the deposit is non-refundable and that this booking is for the date shown only.</span>
+                    </label>
+
+                    <button class="w-full bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-5 py-3 flex items-center justify-center gap-2" type="submit">
+                        Continue to phone verification &rarr;
+                    </button>
+                    <p class="text-xs text-white/55 text-center -mt-2"><span class="opacity-70">&#128242;</span> We'll send a verification code to your WhatsApp number.</p>
                 </div>
+            </form>
 
-                <label class="flex items-start gap-2 text-sm text-white/80">
-                    <input type="checkbox" name="terms" value="1" required class="mt-1">
-                    <span>I accept that the deposit is non-refundable and that this booking is for the date shown only.</span>
-                </label>
-
-                <button class="w-full bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-5 py-3" type="submit">Continue to verification</button>
+            {{-- Right: selection --}}
+            <div class="lg:col-span-2">
+                @include('beyond.coth._selection', [
+                    'table' => $table,
+                    'date' => $date,
+                    'quote' => $quote,
+                ])
             </div>
-        </form>
+        </div>
     </div>
 </div>
 @endsection
@@ -152,7 +217,10 @@
 (function () {
     var csrf = @json(csrf_token());
     var resolveUrl = @json(route('coth.resolve-phone'));
-    var phone = document.getElementById('coth-phone');
+
+    var dial = document.getElementById('coth-dial');
+    var local = document.getElementById('coth-local');
+    var hidden = document.getElementById('coth-phone-hidden');
     var btn = document.getElementById('coth-resolve');
     var step2 = document.getElementById('coth-step-2');
     var name = document.getElementById('coth-name');
@@ -163,25 +231,25 @@
 
     function showErr(msg) { errBox.textContent = msg; errBox.classList.remove('coth-hidden'); }
     function clearErr() { errBox.classList.add('coth-hidden'); errBox.textContent = ''; }
-
     function resetBtn(label) { btn.disabled = false; btn.innerHTML = label; }
 
     function resolve() {
-        var val = phone.value.trim();
-        if (!val) { showErr('Enter a WhatsApp number.'); return; }
+        var dialCode = dial.value;
+        var raw = (local.value || '').trim();
+        if (!raw) { showErr('Enter a WhatsApp number.'); return; }
         clearErr();
         btn.disabled = true; btn.innerHTML = '<span class="coth-spin"></span>';
         fetch(resolveUrl, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf},
-            body: JSON.stringify({phone: val})
+            body: JSON.stringify({dial_code: dialCode, local: raw})
         })
         .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, body: j}; }); })
         .then(function (res) {
             resetBtn('Change');
             if (!res.ok) { showErr(res.body && res.body.message ? res.body.message : 'Please enter a valid number.'); return; }
             var b = res.body;
-            if (b.display_phone) { phone.value = b.display_phone; }
+            if (b.phone) { hidden.value = b.phone; }
             if (b.name) {
                 name.value = b.name;
                 srcLabel.classList.remove('coth-hidden');
@@ -200,20 +268,81 @@
     }
 
     btn.addEventListener('click', resolve);
-    phone.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); resolve(); } });
+    local.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); resolve(); } });
+
+    // Extra-chairs qty controls + live price breakdown.
+    var qtyInput = document.getElementById('coth-qty');
+    var qtyLabel = document.getElementById('coth-qty-label');
+    var guestLine = document.getElementById('coth-guest-line');
+    var plus = document.getElementById('coth-qty-plus');
+    var minus = document.getElementById('coth-qty-minus');
+    var maxChairs = {{ (int) ($allowChairs ? $maxChairs : 0) }};
+    var baseCapacity = {{ (int) $table->capacity }};
+    var listPrice = {{ (int) $quote['list_price'] }};
+    var discountPct = {{ (int) $quote['discount_amount'] }};
+    var finalTable = {{ (int) $quote['final_price'] }};
+    var extraRate = {{ (int) ($allowChairs ? $extraRate : 0) }};
+    var discountIncludesAddons = @json($discountIncludesAddons ?? false);
+    var isDiscounted = {{ (int) $quote['discounted'] ? 1 : 0 }};
+    var depositPct = 20;
+
+    function fmt(n) { return (Math.max(0, Math.round(n))).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+    function sync() {
+        var q = parseInt(qtyInput.value || '0', 10);
+        if (isNaN(q) || q < 0) q = 0;
+        if (q > maxChairs) q = maxChairs;
+        qtyInput.value = String(q);
+        if (qtyLabel) qtyLabel.textContent = String(q);
+        if (plus) plus.disabled = (q >= maxChairs);
+        if (minus) minus.disabled = (q <= 0);
+
+        var chairsGross = extraRate * q;
+        var chairsDiscount = (discountIncludesAddons && isDiscounted) ? Math.floor(chairsGross * discountPct / listPrice) : 0;
+        // discount is tracked as absolute, but keep simple: percent same as table => recompute via rate
+        if (isDiscounted && discountIncludesAddons && listPrice > 0) {
+            chairsDiscount = Math.floor(chairsGross * 20 / 100);
+        } else {
+            chairsDiscount = 0;
+        }
+        var chairsAmount = chairsGross - chairsDiscount;
+        var bookingTotal = finalTable + chairsAmount;
+        var deposit = Math.ceil(bookingTotal * depositPct / 100);
+        var balance = Math.max(0, bookingTotal - deposit);
+
+        var depEl = document.querySelector('[data-sum-deposit]');
+        var totEl = document.querySelector('[data-sum-total]');
+        var balEl = document.querySelector('[data-sum-balance]');
+        if (depEl) depEl.textContent = fmt(deposit) + ' FCFA';
+        if (totEl) totEl.textContent = fmt(bookingTotal) + ' FCFA';
+        if (balEl) balEl.textContent = fmt(balance) + ' FCFA';
+
+        if (guestLine) {
+            if (q > 0) {
+                guestLine.textContent = baseCapacity + ' included seats + ' + q + ' extra chair(s) = ' + (baseCapacity + q) + ' guests';
+            } else {
+                guestLine.textContent = baseCapacity + ' included seats';
+            }
+        }
+    }
+
+    if (plus && minus && qtyInput) {
+        plus.addEventListener('click', function () { qtyInput.value = String(parseInt(qtyInput.value || '0', 10) + 1); sync(); });
+        minus.addEventListener('click', function () { qtyInput.value = String(Math.max(0, parseInt(qtyInput.value || '0', 10) - 1)); sync(); });
+        sync();
+    }
 
     document.querySelectorAll('[data-pay]').forEach(function (lbl) {
-        var sync = function () {
+        var syncRadio = function () {
             document.querySelectorAll('[data-pay]').forEach(function (x) {
                 x.classList.toggle('is-active', x.querySelector('input').checked);
             });
         };
-        lbl.querySelector('input').addEventListener('change', sync);
-        sync();
+        lbl.querySelector('input').addEventListener('change', syncRadio);
+        syncRadio();
     });
 
-    // Re-expand the form when the server returned validation errors with old inputs.
-    if (oldPhone) { resolve(); }
+    // Expand step 2 when the server returned validation errors with old inputs.
+    if (oldPhone) { hidden.value = oldPhone; step2.classList.remove('coth-hidden'); }
 })();
 </script>
 @endpush

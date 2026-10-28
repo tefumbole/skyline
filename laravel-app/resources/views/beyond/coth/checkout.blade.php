@@ -1,55 +1,20 @@
+{{--
+  Back-compat shim. The old single-page checkout is now split into
+  verify.blade.php (Stage 2) and payment.blade.php (Stage 3). The
+  controller's checkout() action issues a 302 to the correct stage,
+  so this view should never render. If it does, show a plain link so
+  the customer can still move forward.
+--}}
 @extends('beyond.layout')
-@section('title', 'Verify · '.$reservation->reference)
-@section('body_class', 'bg-[#0A0A0A]')
+@section('title', 'Continue · '.$reservation->reference)
+@section('body_class', 'bg-[#0A0F2A]')
 @section('content')
-@php $table = $reservation->table; @endphp
-<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
-    <div class="max-w-xl mx-auto">
-        <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold">One day · {{ $reservation->event_date->format('l, j F Y') }}</p>
-        <h1 class="font-serif text-3xl mt-2">{{ $reservation->reference }}</h1>
-        <p>{{ $reservation->customer_name }} · {{ $table ? $table->code : '' }} · {{ optional(optional($table)->section)->name }} · {{ $table ? $table->capacity : '' }} seats</p>
-        <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <div>Listed</div><div>{{ number_format($reservation->list_price) }} FCFA</div>
-            <div>Discount</div><div>{{ number_format($reservation->discount_amount) }} FCFA</div>
-            <div>Final</div><div>{{ number_format($reservation->final_price) }} FCFA</div>
-            <div>Deposit due</div><div>{{ number_format($reservation->deposit_due) }} FCFA</div>
-            <div>Paying now</div><div>{{ number_format($reservation->amount_due) }} FCFA</div>
-            <div>Balance after payment</div><div>{{ number_format($reservation->final_price - $reservation->amount_due) }} FCFA</div>
-        </dl>
-        @if ($reservation->status === 'held' && $reservation->hold_expires_at)
-            <p class="text-sm text-brand-gold mt-4">This hold expires {{ $reservation->hold_expires_at->timezone('Africa/Douala')->format('H:i') }} Cameroon time.</p>
-        @endif
-        @if ($reservation->status !== 'held')
-            <p class="mt-4">This hold is {{ $reservation->status }}. <a class="text-brand-gold underline" href="{{ route('coth.index') }}">Choose another table</a>.</p>
-        @elseif (! $reservation->phone_verified_at)
-            @if (session('not_permitted'))<div class="mt-4 text-sm">{{ session('not_permitted') }}</div>@endif
-            @if (session('message'))<div class="mt-4 text-sm">{{ session('message') }}</div>@endif
-            <form method="POST" action="{{ route('coth.otp', $reservation->public_token) }}" class="mt-6 space-y-3">
-                @csrf
-                <label class="block text-sm">Enter the code sent to {{ $reservation->phone }}</label>
-                <input name="otp" inputmode="numeric" maxlength="6" required class="w-full rounded-md bg-black border border-white/15 px-3 py-2 tracking-[0.3em] text-center">
-                <button class="bg-brand-gold text-[#0A0A0A] font-bold rounded-full px-5 py-3" type="submit">Verify phone</button>
-            </form>
-            <form method="POST" action="{{ route('coth.resend', $reservation->public_token) }}" class="mt-3">
-                @csrf
-                <button class="text-sm text-brand-gold underline" type="submit">Resend code</button>
-            </form>
-        @else
-            @if (session('not_permitted'))<div class="mt-4 text-sm">{{ session('not_permitted') }}</div>@endif
-            <p class="text-sm mt-4">The deposit is non-refundable. Payment confirms this table for the date above only.</p>
-            <div class="mt-4 flex flex-wrap gap-3">
-                @if ($momo)
-                    <form method="POST" action="{{ route('coth.pay', $reservation->public_token) }}">@csrf<input type="hidden" name="method" value="momo"><button class="bg-brand-gold text-[#0A0A0A] font-bold rounded-full px-5 py-3" type="submit">Pay with MoMo</button></form>
-                @else
-                    <p class="text-sm text-white/60">MoMo is not configured.</p>
-                @endif
-                @if ($card)
-                    <form method="POST" action="{{ route('coth.pay', $reservation->public_token) }}">@csrf<input type="hidden" name="method" value="card"><button class="border border-brand-gold text-brand-gold font-bold rounded-full px-5 py-3" type="submit">Pay with Visa / card</button></form>
-                @else
-                    <p class="text-sm text-white/60">Card payment is not configured.</p>
-                @endif
-            </div>
-        @endif
-    </div>
+<div class="text-white min-h-[70vh] py-10 px-4 text-center">
+    <p class="text-brand-gold uppercase tracking-[0.22em] text-xs">Chill on the Hill</p>
+    <h1 class="font-serif text-3xl mt-2 mb-4">Continue your reservation</h1>
+    @php $next = $reservation->phone_verified_at ? route('coth.payment', $reservation->public_token) : route('coth.verify', $reservation->public_token); @endphp
+    <a class="inline-block bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-6 py-3" href="{{ $next }}">
+        Continue &rarr;
+    </a>
 </div>
 @endsection

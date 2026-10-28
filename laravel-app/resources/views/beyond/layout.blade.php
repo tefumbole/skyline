@@ -245,17 +245,13 @@
     $currentUrl = url()->current();
 @endphp
 
-@if (!View::hasSection('coth_landing'))
 @include('beyond.partials.site-header')
-@endif
 
 <main class="flex-1">
     @yield('content')
 </main>
 
-@if (!View::hasSection('coth_landing'))
 @include('beyond.partials.site-footer')
-@endif
 
 @include('beyond.partials.mbole_ai_widget')
 

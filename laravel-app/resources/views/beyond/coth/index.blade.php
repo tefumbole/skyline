@@ -1,29 +1,12 @@
 @extends('beyond.layout')
 @section('title', 'Chill on the Hill · Skyline Hotel')
-@section('coth_landing', '1')
 @section('body_class', 'bg-[#140E0A]')
 @push('head')
 <style>
     .coth-land { background: #140E0A; color: #F6EFE4; min-height: 100vh; }
     .coth-land a { color: inherit; text-decoration: none; }
-    .coth-nav {
-        display: flex; align-items: center; justify-content: space-between; gap: 16px;
-        padding: 18px 28px; border-bottom: 1px solid rgba(198,161,91,.18);
-    }
-    .coth-brand { display: flex; align-items: center; gap: 10px; letter-spacing: .22em; }
-    .coth-brand strong { display: block; font-size: 13px; font-weight: 600; }
-    .coth-brand span { display: block; font-size: 9px; letter-spacing: .32em; color: #C6A15B; }
-    .coth-menus { display: flex; gap: 22px; font-size: 12px; letter-spacing: .16em; color: rgba(246,239,228,.78); }
-    .coth-menus a.on { color: #E8C878; box-shadow: inset 0 -1px 0 #E8C878; padding-bottom: 4px; }
-    .coth-bookstay {
-        border: 1px solid rgba(232,200,120,.7); color: #E8C878; border-radius: 999px;
-        padding: 8px 16px; font-size: 11px; letter-spacing: .16em; font-weight: 700;
-    }
-    .coth-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: center; padding: 36px 40px 10px; max-width: 1180px; margin: 0 auto; }
-    .coth-kicker { letter-spacing: .28em; font-size: 11px; color: rgba(246,239,228,.62); margin: 0; }
-    .coth-hero h1 { font-family: Georgia, "Times New Roman", serif; font-size: 64px; line-height: 1; font-weight: 500; margin: 10px 0 12px; }
-    .coth-hero p.lead { margin: 0; max-width: 460px; color: rgba(246,239,228,.78); font-size: 15px; }
-    .coth-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; color: #E8C878; font-size: 14px; }
+    .coth-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: start; padding: 22px 40px 8px; max-width: 1180px; margin: 0 auto; }
+    .coth-hero h1 { font-family: Georgia, "Times New Roman", serif; font-size: 64px; line-height: 1; font-weight: 500; margin: 8px 0 0; }
     .coth-photo { position: relative; min-height: 280px; border-radius: 18px; overflow: hidden; }
     .coth-photo img { width: 100%; height: 340px; object-fit: cover; display: block; }
     .coth-photo::after {
@@ -79,12 +62,13 @@
     }
     .coth-selected p { margin: 0; color: rgba(246,239,228,.65); font-size: 13px; }
     .coth-selected strong { display: block; color: #F6EFE4; font-size: 22px; font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
-    .coth-go {
-        background: #E4C98A; color: #2A1C12; font-weight: 700; border-radius: 12px; padding: 14px 22px;
-        letter-spacing: .02em; white-space: nowrap;
+    .coth-land a.coth-go {
+        background: #F0D078; color: #1A1008; font-weight: 800; font-size: 17px; border-radius: 12px;
+        padding: 16px 28px; letter-spacing: .01em; white-space: nowrap;
+        box-shadow: 0 0 0 2px #F0D078, 0 10px 28px rgba(240, 208, 120, .45);
     }
+    .coth-land a.coth-go:hover { background: #FFE7A3; color: #1A1008; }
     @media (max-width: 900px) {
-        .coth-menus { display: none; }
         .coth-hero, .coth-count, .coth-dates { grid-template-columns: 1fr 1fr; }
         .coth-hero { padding: 24px 16px 8px; }
         .coth-hero h1 { font-size: 42px; }
@@ -99,37 +83,13 @@
 @section('content')
 @php
     $first = $dates[0] ?? null;
-    $hero = asset('public/images/coth/hero-lounge.jpg');
+    $heroFile = public_path('images/coth/hero-lounge.jpg');
+    $hero = asset('public/images/coth/hero-lounge.jpg').(is_file($heroFile) ? '?v='.filemtime($heroFile) : '');
 @endphp
 <div class="coth-land">
-    <header class="coth-nav">
-        <a class="coth-brand" href="{{ url('/') }}">
-            <svg width="28" height="18" viewBox="0 0 28 18" fill="none" aria-hidden="true"><path d="M1 16 L8 6 L12 11 L16 3 L20 9 L27 16" stroke="#C6A15B" stroke-width="1.4"/></svg>
-            <div>
-                <strong>SKYLINE HOTEL</strong>
-                <span>BAMENDA</span>
-            </div>
-        </a>
-        <nav class="coth-menus" aria-label="Site">
-            <a href="{{ url('/') }}">HOME</a>
-            <a href="{{ url('/') }}">STAY</a>
-            <a href="{{ url('/menu') }}">DINE</a>
-            <a href="{{ url('/events') }}">EVENTS</a>
-            <a class="on" href="{{ route('coth.index') }}">COTH</a>
-            <a href="{{ url('/about') }}">ABOUT</a>
-        </nav>
-        <a class="coth-bookstay" href="{{ url('/') }}">BOOK A STAY</a>
-    </header>
-
     <section class="coth-hero">
         <div>
-            <p class="coth-kicker">SKYLINE HOTEL · BAMENDA</p>
             <h1>Chill on the Hill</h1>
-            <p class="lead">Reserve one table for one night, from 24 December 2026 to 2 January 2027. Prices are per table, per day.</p>
-            <div class="coth-meta">
-                <span>📅 24 December 2026 – 2 January 2027</span>
-                <span>📍 Skyline Hotel · Bamenda</span>
-            </div>
         </div>
         <div class="coth-photo">
             <img src="{{ $hero }}" alt="Lounge seating at Chill on the Hill">

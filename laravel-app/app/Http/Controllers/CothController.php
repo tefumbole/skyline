@@ -31,6 +31,7 @@ class CothController extends Controller
             'event' => $event,
             'discountDates' => $settings->discountDateList(),
             'discountPercent' => (int) $settings->discount_percent,
+            'nightTitles' => $this->nightTitles(),
         ]);
     }
 
@@ -378,6 +379,20 @@ class CothController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('coth otp: '.$e->getMessage());
         }
+    }
+
+    protected function nightTitles()
+    {
+        return [
+            '2026-12-24' => 'Locked in',
+            '2026-12-25' => 'Get detty',
+            '2026-12-26' => 'Old school takeover',
+            '2026-12-27' => 'Roots & Rythms Cultural night',
+            '2026-12-30' => 'Countdown',
+            '2026-12-31' => 'All white party',
+            '2027-01-01' => 'Karaoke night',
+            '2027-01-02' => 'Finale',
+        ];
     }
 
     protected function phase($event, $settings)

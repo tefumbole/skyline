@@ -47,6 +47,7 @@
     }
     .coth-date small { display: block; letter-spacing: .14em; font-size: 11px; color: rgba(246,239,228,.55); }
     .coth-date strong { display: block; margin-top: 2px; font-size: 15px; font-weight: 600; }
+    .coth-night { display: block; margin-top: 4px; font-size: 12px; line-height: 1.25; color: #E8C878; font-weight: 600; }
     .coth-date.is-on { border-color: #E8C878; box-shadow: inset 0 0 0 1px #E8C878; }
     .coth-date .tick {
         position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; border-radius: 999px;
@@ -127,11 +128,18 @@
             </div>
             <div class="coth-dates" id="coth-dates">
                 @foreach ($dates as $date)
-                    @php $carbon = \Carbon\Carbon::parse($date); @endphp
-                    <button type="button" class="coth-date {{ $date === $first ? 'is-on' : '' }}" data-date="{{ $date }}" data-label="{{ $carbon->format('l, j F Y') }}">
+                    @php
+                        $carbon = \Carbon\Carbon::parse($date);
+                        $night = $nightTitles[$date] ?? '';
+                        $fullLabel = $carbon->format('l, j F Y').($night !== '' ? ' · '.$night : '');
+                    @endphp
+                    <button type="button" class="coth-date {{ $date === $first ? 'is-on' : '' }}" data-date="{{ $date }}" data-label="{{ $fullLabel }}">
                         <span class="tick">✓</span>
                         <small>{{ strtoupper($carbon->format('D')) }}</small>
                         <strong>{{ $carbon->format('j M Y') }}</strong>
+                        @if ($night !== '')
+                            <span class="coth-night">{{ $night }}</span>
+                        @endif
                         @if (in_array($date, $discountDates ?? [], true))
                             <span class="coth-off">{{ (int) ($discountPercent ?? 20) }}% OFF</span>
                         @endif
@@ -141,7 +149,7 @@
             <div class="coth-selected">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span aria-hidden="true">📅</span>
-                    <p>Selected: <strong id="coth-selected-label">{{ $first ? \Carbon\Carbon::parse($first)->format('l, j F Y') : '—' }}</strong></p>
+                    <p>Selected: <strong id="coth-selected-label">{{ $first ? \Carbon\Carbon::parse($first)->format('l, j F Y').((($nightTitles[$first] ?? '') !== '') ? ' · '.$nightTitles[$first] : '') : '—' }}</strong></p>
                 </div>
                 <a id="coth-explore" class="coth-go" href="{{ $first ? route('coth.tables', ['date' => $first]) : route('coth.index') }}">Explore available tables &nbsp;&gt;</a>
             </div>

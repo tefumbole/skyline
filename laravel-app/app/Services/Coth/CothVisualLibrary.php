@@ -231,8 +231,9 @@ class CothVisualLibrary
     {
         $relative = ltrim(str_replace('\\', '/', $relative), '/');
         $web = 'public/images/'.$relative;
-        if (is_file(public_path('images/'.$relative)) || is_file(public_path($web))) {
-            return asset($web);
+        $disk = is_file(public_path('images/'.$relative)) ? public_path('images/'.$relative) : public_path($web);
+        if (is_file($disk)) {
+            return asset($web).'?v='.filemtime($disk);
         }
 
         return null;

@@ -150,7 +150,7 @@ class CothAdminController extends Controller
             'name' => 'required|string|max:64',
             'capacity' => 'required|integer|min:1|max:30',
             'price' => 'required|integer|min:0',
-            'seating_style' => 'required|in:standard,couch',
+            'seating_style' => 'required|in:standard,couch,high_table',
             'visual_preset' => 'nullable|string|max:64',
             'is_city_view' => 'nullable|boolean',
             'is_high_table' => 'nullable|boolean',
@@ -164,9 +164,11 @@ class CothAdminController extends Controller
         ]);
 
         $cityView = $request->has('is_city_view') ? 1 : 0;
-        $highTable = $request->has('is_high_table') ? 1 : 0;
-        // City view on 4/6-seat tables implies high-table art.
-        if ($cityView && in_array((int) $data['capacity'], [4, 6], true) && $data['seating_style'] !== 'couch') {
+        $highTable = $data['seating_style'] === 'high_table' || $request->has('is_high_table') ? 1 : 0;
+        if ($data['seating_style'] === 'couch') {
+            $highTable = 0;
+        }
+        if ($data['seating_style'] === 'high_table') {
             $highTable = 1;
         }
 
@@ -179,6 +181,11 @@ class CothAdminController extends Controller
             'price' => $data['price'],
             'seating_style' => $data['seating_style'],
             'visual_preset' => $data['visual_preset'] ?: null,
+            'tabletop_material' => null,
+            'tabletop_color' => null,
+            'upholstery_color' => null,
+            'cushion_colors' => null,
+            'trim_color' => null,
             'is_city_view' => $cityView,
             'is_high_table' => $highTable,
             'allow_extra_chairs' => $allowChairs,
@@ -189,6 +196,14 @@ class CothAdminController extends Controller
             'pos_x' => $data['pos_x'] === null || $data['pos_x'] === '' ? null : $data['pos_x'],
             'pos_y' => $data['pos_y'] === null || $data['pos_y'] === '' ? null : $data['pos_y'],
         ]);
+        $preset = $data['visual_preset'] ? app(\App\Services\Coth\CothVisualLibrary::class)->preset($data['visual_preset']) : null;
+        if ($preset) {
+            $table->tabletop_material = $preset['tabletop_material'] ?? null;
+            $table->tabletop_color = $preset['tabletop_color'] ?? null;
+            $table->upholstery_color = $preset['upholstery_color'] ?? null;
+            $table->cushion_colors = $preset['cushion_colors'] ?? null;
+            $table->trim_color = $preset['trim_color'] ?? null;
+        }
 
         // If chair rate isn't resolvable (Hall/Pool non-6, no override), force-disable allow.
         if ($allowChairs && $pricing->extraChairRate($table) === null) {

@@ -30,22 +30,25 @@
     $asset = $t ? $visuals->assetFor($t) : null;
     $isCouch = $t && $t->seating_style === 'couch';
     $dueToday = $r ? (int) $r->amount_due : (int) ($q['deposit_due'] ?? 0);
-    $dueLabel = $r
-        ? ($r->pay_choice === 'full' ? 'Due today (full)' : 'Due today (20% deposit)')
-        : 'Due today (20% deposit)';
+    $dueLabel = 'Due today (20% deposit)';
+    if ($r && $r->pay_choice === 'full') {
+        $dueLabel = 'Due today (full)';
+    } elseif ($r && $r->pay_choice === 'custom') {
+        $dueLabel = 'Due today (custom)';
+    }
     $balance = max(0, (int) ($q['booking_total'] ?? 0) - $dueToday);
     $totalGuests = ($t ? (int) $t->capacity : 0) + (int) ($q['extra_chairs_qty'] ?? 0);
 @endphp
-<aside class="coth-select-card rounded-3xl border border-brand-gold/35 bg-white/5 overflow-hidden">
+<aside class="coth-select-card rounded-3xl border border-brand-gold/35 overflow-hidden" style="background:#3C2A1E;color:#F6EFE4;">
     <style>
         .coth-select-art {
             position: relative; background:
-                radial-gradient(240px 150px at 50% 38%, rgba(197,160,89,.12), rgba(10,10,10,0) 70%),
-                #0c0c0c;
+                radial-gradient(240px 150px at 50% 38%, rgba(198,161,91,.18), rgba(36,22,15,0) 70%),
+                #24160F;
         }
         .coth-select-art::after {
             content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-            box-shadow: inset 0 0 34px 20px #0c0c0c;
+            box-shadow: inset 0 0 34px 20px #24160F;
         }
         .coth-select-pill {
             border: 1px solid rgba(197,160,89,.9); color: #E8C878;
@@ -68,7 +71,7 @@
             <img src="{{ $asset }}" alt="{{ $t->code }} table" class="w-full max-w-[300px] h-44 object-contain" loading="lazy">
             @if ($t)
                 <span class="coth-select-pill absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
-                    {{ $isCouch ? 'Couch' : ((int) $t->capacity).' Seats' }}
+                    {{ $pill === 'City View · High Table' ? 'City View · High Table' : ((int) $t->capacity).' Seats' }}
                 </span>
             @endif
         </div>
@@ -87,7 +90,7 @@
                     @endif
                 </p>
             </div>
-            @if ($section && $section->code)
+            @if ($section && in_array($section->code, ['yard', 'outer'], true))
                 <span class="coth-select-chip">Premium</span>
             @endif
         </div>
@@ -119,8 +122,8 @@
                     <div class="flex justify-between font-semibold border-t border-white/10 pt-2 mt-2"><span>Total</span><span>{{ number_format((int) $q['booking_total']) }} FCFA</span></div>
                 </div>
                 <div class="coth-select-due px-3 py-3 space-y-1">
-                    <div class="flex justify-between font-semibold text-brand-gold"><span>{{ $dueLabel }}</span><span>{{ number_format($dueToday) }} FCFA</span></div>
-                    <div class="flex justify-between text-sm text-white/70"><span>Balance</span><span>{{ number_format($balance) }} FCFA</span></div>
+                    <div class="flex justify-between font-semibold text-brand-gold"><span id="coth-due-label">{{ $dueLabel }}</span><span id="coth-due-amount">{{ number_format($dueToday) }} FCFA</span></div>
+                    <div class="flex justify-between text-sm text-white/70"><span>Balance</span><span id="coth-side-balance">{{ number_format($balance) }} FCFA</span></div>
                 </div>
             </div>
             <p class="text-xs text-white/50 mt-2">&#9432; The 20% deposit is non-refundable.</p>

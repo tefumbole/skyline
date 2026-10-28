@@ -1,8 +1,8 @@
 @extends('beyond.layout')
 @section('title', 'Chill on the Hill · Skyline Hotel')
-@section('body_class', 'bg-[#0A0A0A]')
+@section('body_class', 'bg-[#24160F]')
 @section('content')
-<div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
+<div class="text-white min-h-[70vh] py-10 px-4" style="background:#24160F;color:#F6EFE4;">
     <div class="max-w-3xl mx-auto">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Skyline Hotel · Bamenda</p>
         <h1 class="font-serif text-3xl md:text-4xl mt-2">Chill on the Hill</h1>

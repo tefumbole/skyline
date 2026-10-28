@@ -1,9 +1,9 @@
 @extends('beyond.layout')
 @section('title', 'Choose a table · Chill on the Hill')
-@section('body_class', 'bg-[#0A0A0A]')
+@section('body_class', 'bg-[#24160F]')
 @push('head')
 <style>
-    .coth-wrap { background: #0A0A0A; }
+    .coth-wrap { background: #24160F; color: #F6EFE4; }
     .coth-sec {
         border: 1px solid rgba(197,160,89,.30);
         background: rgba(255,255,255,.03);
@@ -11,20 +11,20 @@
     .coth-sec.is-active { border-color: #C5A059; background: rgba(197,160,89,.12); }
     .coth-card {
         border: 1px solid rgba(197,160,89,.35);
-        background: rgba(255,255,255,.03);
-        box-shadow: 0 18px 40px rgba(0,0,0,.45);
+        background: #3C2A1E;
+        box-shadow: 0 18px 40px rgba(0,0,0,.35);
         transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
     .coth-card .coth-art {
         position: relative;
         background:
-            radial-gradient(240px 150px at 50% 38%, rgba(197,160,89,.12), rgba(10,10,10,0) 70%),
-            #0c0c0c;
+            radial-gradient(240px 150px at 50% 38%, rgba(198,161,91,.18), rgba(36,22,15,0) 70%),
+            #24160F;
     }
     /* Feather the artwork's dark-blue backdrop into the black card so there is no hard rectangle. */
     .coth-card .coth-art::after {
         content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-        box-shadow: inset 0 0 34px 20px #0c0c0c;
+        box-shadow: inset 0 0 34px 20px #24160F;
     }
     .coth-card .coth-art img { position: relative; z-index: 0; }
     .coth-card .coth-pill { z-index: 2; }
@@ -142,7 +142,7 @@
                             <div class="coth-art relative px-4 pt-5 pb-3 flex items-center justify-center">
                                 <img src="{{ $artFor($table) }}" alt="{{ $table->capacity }} seat table" class="w-full max-w-[280px] h-40 object-contain" loading="lazy">
                                 <span class="coth-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
-                                    {{ $table->isCouch() ? 'Couch' : $table->capacity.' Seats' }}
+                                    {{ $chipFor($table) === 'City View · High Table' ? 'City View · High Table' : $table->capacity.' Seats' }}
                                 </span>
                             </div>
                             <div class="p-4 flex-1 flex flex-col">
@@ -155,8 +155,7 @@
                                 <p class="text-xs text-white/60 mt-1 mb-3">
                                     {{ $section->name }} · {{ $table->capacity }} seats
                                     @php $chip = $chipFor($table); @endphp
-                                    @if ($chip && $chip !== 'Lounge couch')· <span class="text-brand-gold">{{ $chip }}</span>@endif
-                                    @if($table->isCouch())· Lounge couch @endif
+                                    @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
                                 </p>
 
                                 <div class="mt-auto space-y-0.5 text-sm">
@@ -171,7 +170,7 @@
                                 </div>
 
                                 @if ($row['available'])
-                                    <span class="mt-4 inline-block text-center bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">Select table</span>
+                                    <span class="mt-4 inline-block text-center bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">Reserve</span>
                                 @else
                                     <span class="mt-4 inline-block text-center border border-white/15 text-white/50 uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">{{ $m['label'] }}</span>
                                 @endif
@@ -184,61 +183,4 @@
     </div>
 </div>
 
-@if ($section && $viewMode !== 'list')
-    <div id="coth-summary" class="coth-summary fixed bottom-0 inset-x-0 z-40 translate-y-full transition-transform duration-200">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] uppercase tracking-[0.2em] text-brand-gold m-0">Your selection</p>
-                <p class="m-0 font-semibold truncate" id="sum-title">—</p>
-                <p class="m-0 text-xs text-white/70" id="sum-line">—</p>
-            </div>
-            <a id="sum-continue" href="#" class="shrink-0 bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] text-xs rounded-full px-7 py-3 text-center">Continue to verification</a>
-        </div>
-    </div>
-@endif
 @endsection
-
-@push('scripts')
-<script>
-(function () {
-    var grid = document.getElementById('coth-grid');
-    var bar = document.getElementById('coth-summary');
-    if (!grid || !bar) return;
-    var title = document.getElementById('sum-title');
-    var line = document.getElementById('sum-line');
-    var cont = document.getElementById('sum-continue');
-    var dateLabel = @json(\Carbon\Carbon::parse($date)->format('l, j F Y'));
-
-    grid.addEventListener('click', function (e) {
-        var card = e.target.closest('[data-coth-select]');
-        if (!card) return;
-        e.preventDefault();
-        grid.querySelectorAll('.is-selected').forEach(function (el) { el.classList.remove('is-selected'); });
-        card.classList.add('is-selected');
-
-        var d = card.dataset;
-        title.textContent = d.code + ' · ' + d.section + ' · ' + (d.couch === '1' ? 'Lounge couch' : d.capacity + ' seats');
-        var parts = [dateLabel];
-        if (d.discount) {
-            parts.push('Price ' + d.price + ' − ' + d.discount + ' = ' + d.final + ' FCFA');
-        } else {
-            parts.push('Price ' + d.final + ' FCFA');
-        }
-        parts.push('Deposit ' + d.deposit + ' FCFA · Balance ' + d.balance + ' FCFA');
-        line.textContent = parts.join('  ·  ');
-        cont.setAttribute('href', d.href);
-        bar.classList.remove('translate-y-full');
-        bar.scrollIntoView ? null : null;
-    });
-
-    // Keyboard: Enter/Space on a focused card selects it.
-    grid.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        var card = e.target.closest('[data-coth-select]');
-        if (!card) return;
-        e.preventDefault();
-        card.click();
-    });
-})();
-</script>
-@endpush

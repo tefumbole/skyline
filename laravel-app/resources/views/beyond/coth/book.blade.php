@@ -1,16 +1,16 @@
 @extends('beyond.layout')
 @section('title', 'Reserve '.$table->code)
-@section('body_class', 'bg-[#0A0F2A]')
+@section('body_class', 'bg-[#24160F]')
 @push('head')
 <style>
-    .coth-page { background: #0A0F2A; }
-    .coth-shell { background: linear-gradient(180deg, #0A0F2A 0%, #0A0A14 100%); }
+    .coth-page { background: #24160F; }
+    .coth-shell { background: #24160F; color: #F6EFE4; }
     .coth-card {
-        border: 1px solid rgba(197,160,89,.35);
-        background: rgba(255,255,255,.03);
-        box-shadow: 0 18px 40px rgba(0,0,0,.45);
+        border: 1px solid rgba(198,161,91,.4);
+        background: #3C2A1E;
+        box-shadow: 0 18px 40px rgba(0,0,0,.35);
     }
-    .coth-field { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.14); transition: border-color .15s ease; }
+    .coth-field { background: #2A1C14; border: 1px solid rgba(198,161,91,.35); transition: border-color .15s ease; }
     .coth-field:focus-within { border-color: #E8C878; }
     .coth-dial select {
         background: transparent; color: #fff; border: none; outline: none;
@@ -23,7 +23,7 @@
         background-repeat: no-repeat;
     }
     .coth-dial select option { color: #0A0A0A; }
-    .coth-pay-opt { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.03); transition: border-color .15s ease, background .15s ease; }
+    .coth-pay-opt { border: 1px solid rgba(198,161,91,.28); background: #2A1C14; transition: border-color .15s ease, background .15s ease; }
     .coth-pay-opt.is-active { border-color: #E8C878; background: rgba(197,160,89,.1); }
     .coth-src { color: #34d399; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
     .coth-hidden { display: none; }
@@ -107,7 +107,7 @@
                             </div>
                             <input id="coth-local" required inputmode="tel" autocomplete="tel-national" placeholder="WhatsApp number" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
                             <input type="hidden" name="phone" id="coth-phone-hidden" value="{{ old('phone') }}">
-                            <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#0A0A0A] rounded-full px-4 py-2">Continue</button>
+                            <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#24160F] rounded-full px-4 py-2">Next</button>
                         </div>
                     </label>
                     <p class="text-xs text-white/50 mt-2">Pick your country code. Cameroonian numbers are checked with Campay to pre-fill your name.</p>
@@ -126,6 +126,7 @@
                                 <span class="opacity-70">&#128100;</span>
                                 <input id="coth-name" name="name" value="{{ old('name') }}" required placeholder="Your name" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
                             </div>
+                            <p id="coth-name-note" class="text-xs text-white/55 mt-2 coth-hidden">You can edit this name.</p>
                         </label>
                     </div>
 
@@ -144,6 +145,11 @@
                                     <h3 class="font-semibold text-base m-0">Add extra chairs</h3>
                                     <p class="text-xs text-white/60 m-0">
                                         {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each
+                                        @if ($visuals->styleFor($table) === 'high_table')
+                                            · matching high chairs
+                                        @elseif ($visuals->styleFor($table) === 'couch')
+                                            · complementary side chairs
+                                        @endif
                                     </p>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -163,7 +169,7 @@
 
                     <div>
                         <h3 class="font-semibold text-base m-0">Choose payment amount</h3>
-                        <p class="text-xs text-white/60 m-0 mb-3">Secure your table with a 20% deposit or pay the full amount today.</p>
+                        <p class="text-xs text-white/60 m-0 mb-3">Pay the 20% deposit, the full amount, or any amount in between.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label class="coth-pay-opt rounded-2xl px-4 py-3 cursor-pointer block" data-pay>
                                 <input type="radio" name="pay_choice" value="deposit" @if(old('pay_choice', 'deposit')==='deposit') checked @endif class="mr-2 align-middle">
@@ -176,6 +182,16 @@
                                 <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Pay in full</span>
                                 <span class="block font-semibold mt-1" data-sum-total>{{ number_format((int) $quote['booking_total']) }} FCFA</span>
                                 <span class="text-xs text-white/55">Full amount today</span>
+                            </label>
+                            <label class="coth-pay-opt rounded-2xl px-4 py-3 cursor-pointer block sm:col-span-2" data-pay>
+                                <input type="radio" name="pay_choice" value="custom" id="coth-pay-custom" @if(old('pay_choice')==='custom') checked @endif class="mr-2 align-middle">
+                                <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Custom amount</span>
+                                <span class="mt-2 flex items-center gap-2">
+                                    <input id="coth-custom" name="custom_amount" inputmode="numeric" type="number" min="{{ (int) $quote['deposit_due'] }}" max="{{ (int) $quote['booking_total'] }}" value="{{ old('custom_amount', (int) $quote['deposit_due']) }}" class="w-40 bg-transparent outline-none text-white font-semibold border-b border-brand-gold/50">
+                                    <span class="text-sm text-white/70">FCFA</span>
+                                </span>
+                                <span class="text-xs text-white/55">At least {{ number_format((int) $quote['deposit_due']) }} FCFA (20%)</span>
+                                <p id="coth-custom-err" class="text-xs text-red-300 mt-1 coth-hidden"></p>
                             </label>
                         </div>
                     </div>
@@ -224,6 +240,7 @@
     var btn = document.getElementById('coth-resolve');
     var step2 = document.getElementById('coth-step-2');
     var name = document.getElementById('coth-name');
+    var nameNote = document.getElementById('coth-name-note');
     var srcLabel = document.getElementById('coth-name-source');
     var errBox = document.getElementById('coth-phone-err');
     var oldName = @json((string) old('name'));
@@ -233,10 +250,18 @@
     function clearErr() { errBox.classList.add('coth-hidden'); errBox.textContent = ''; }
     function resetBtn(label) { btn.disabled = false; btn.innerHTML = label; }
 
+    function nationalDigits(raw, dialCode) {
+        var d = String(raw || '').replace(/\D/g, '');
+        if (d.indexOf(dialCode) === 0 && d.length > dialCode.length + 6) d = d.substring(dialCode.length);
+        if (d.charAt(0) === '0') d = d.substring(1);
+        return d;
+    }
+
     function resolve() {
         var dialCode = dial.value;
-        var raw = (local.value || '').trim();
+        var raw = nationalDigits(local.value, dialCode);
         if (!raw) { showErr('Enter a WhatsApp number.'); return; }
+        local.value = raw;
         clearErr();
         btn.disabled = true; btn.innerHTML = '<span class="coth-spin"></span>';
         fetch(resolveUrl, {
@@ -253,10 +278,14 @@
             if (b.name) {
                 name.value = b.name;
                 srcLabel.classList.remove('coth-hidden');
-                srcLabel.textContent = b.source === 'campay' ? '✓ Resolved via Campay' : '✓ Found on this device';
+                srcLabel.textContent = dialCode === '237' ? 'From this Cameroon number' : 'Found for this number';
+                nameNote.classList.remove('coth-hidden');
+                nameNote.textContent = 'You can edit this name.';
             } else {
                 if (!name.value) { name.value = oldName || ''; }
                 srcLabel.classList.add('coth-hidden');
+                nameNote.classList.remove('coth-hidden');
+                nameNote.textContent = dialCode === '237' ? 'No name was found for this number. Type it here.' : 'Type the name for this number.';
             }
             step2.classList.remove('coth-hidden');
             if (!name.value) { setTimeout(function () { name.focus(); }, 50); }
@@ -314,7 +343,43 @@
         var balEl = document.querySelector('[data-sum-balance]');
         if (depEl) depEl.textContent = fmt(deposit) + ' FCFA';
         if (totEl) totEl.textContent = fmt(bookingTotal) + ' FCFA';
+        var customInput = document.getElementById('coth-custom');
+        var customRadio = document.getElementById('coth-pay-custom');
+        var customErr = document.getElementById('coth-custom-err');
+        if (customInput) {
+            customInput.min = String(deposit);
+            customInput.max = String(bookingTotal);
+        }
+        var due = deposit;
+        var dueLabel = 'Due today (20% deposit)';
+        if (customRadio && customRadio.checked) {
+            var typed = parseInt(customInput && customInput.value ? customInput.value : '0', 10);
+            if (isNaN(typed)) typed = deposit;
+            if (typed < deposit) {
+                if (customErr) { customErr.textContent = 'Minimum is ' + fmt(deposit) + ' FCFA.'; customErr.classList.remove('coth-hidden'); }
+            } else if (typed > bookingTotal) {
+                if (customErr) { customErr.textContent = 'Maximum is ' + fmt(bookingTotal) + ' FCFA.'; customErr.classList.remove('coth-hidden'); }
+            } else if (customErr) {
+                customErr.classList.add('coth-hidden');
+            }
+            due = Math.min(bookingTotal, Math.max(deposit, isNaN(typed) ? deposit : typed));
+            dueLabel = 'Due today (custom)';
+            balance = Math.max(0, bookingTotal - due);
+        } else if (document.querySelector('input[name="pay_choice"][value="full"]') && document.querySelector('input[name="pay_choice"][value="full"]').checked) {
+            due = bookingTotal;
+            dueLabel = 'Due today (full)';
+            balance = 0;
+            if (customErr) customErr.classList.add('coth-hidden');
+        } else if (customErr) {
+            customErr.classList.add('coth-hidden');
+        }
         if (balEl) balEl.textContent = fmt(balance) + ' FCFA';
+        var sideDue = document.getElementById('coth-due-amount');
+        var sideLabel = document.getElementById('coth-due-label');
+        var sideBal = document.getElementById('coth-side-balance');
+        if (sideDue) sideDue.textContent = fmt(due) + ' FCFA';
+        if (sideLabel) sideLabel.textContent = dueLabel;
+        if (sideBal) sideBal.textContent = fmt(bookingTotal - due) + ' FCFA';
 
         if (guestLine) {
             if (q > 0) {
@@ -337,11 +402,42 @@
                 x.classList.toggle('is-active', x.querySelector('input').checked);
             });
         };
-        lbl.querySelector('input').addEventListener('change', syncRadio);
+        lbl.querySelector('input[type="radio"]').addEventListener('change', function () { syncRadio(); sync(); });
         syncRadio();
     });
+    var customAmount = document.getElementById('coth-custom');
+    if (customAmount) {
+        customAmount.addEventListener('input', function () {
+            var radio = document.getElementById('coth-pay-custom');
+            if (radio) radio.checked = true;
+            document.querySelectorAll('[data-pay]').forEach(function (x) {
+                var r = x.querySelector('input[type="radio"]');
+                x.classList.toggle('is-active', r && r.checked);
+            });
+            sync();
+        });
+    }
 
     // Expand step 2 when the server returned validation errors with old inputs.
+    sync();
+    document.getElementById('coth-form').addEventListener('submit', function (e) {
+        if (!hidden.value) {
+            e.preventDefault();
+            showErr('Tap Next after the WhatsApp number.');
+            return;
+        }
+        var customRadio = document.getElementById('coth-pay-custom');
+        var customInput = document.getElementById('coth-custom');
+        if (customRadio && customRadio.checked && customInput) {
+            var typed = parseInt(customInput.value || '0', 10);
+            var min = parseInt(customInput.min || '0', 10);
+            var max = parseInt(customInput.max || '0', 10);
+            if (isNaN(typed) || typed < min || typed > max) {
+                e.preventDefault();
+                sync();
+            }
+        }
+    });
     if (oldPhone) { hidden.value = oldPhone; step2.classList.remove('coth-hidden'); }
 })();
 </script>

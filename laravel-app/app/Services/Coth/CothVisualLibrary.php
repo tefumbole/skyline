@@ -69,6 +69,78 @@ class CothVisualLibrary
                 'applies_to_capacities' => [4, 6],
                 'swatch' => ['#1a2440', '#3b2a1a', '#f3e9d2'],
             ],
+            [
+                'slug' => 'cream-walnut',
+                'name' => 'Cream sofa · Walnut top',
+                'style' => 'couch',
+                'applies_to_capacities' => [6, 8, 10],
+                'swatch' => ['#F3E6D0', '#C4A574', '#5C3A1E'],
+                'tabletop_material' => 'Walnut',
+                'tabletop_color' => '#5C3A1E',
+                'upholstery_color' => '#F3E6D0',
+                'cushion_colors' => 'Caramel and chocolate',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'taupe-marble',
+                'name' => 'Taupe sofa · Dark marble',
+                'style' => 'couch',
+                'applies_to_capacities' => [6, 8, 10],
+                'swatch' => ['#C4B5A4', '#F4EFE6', '#2E2A28'],
+                'tabletop_material' => 'Dark marble',
+                'tabletop_color' => '#2E2A28',
+                'upholstery_color' => '#C4B5A4',
+                'cushion_colors' => 'Ivory and coffee brown',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'camel-oak',
+                'name' => 'Camel sofa · Oak top',
+                'style' => 'couch',
+                'applies_to_capacities' => [6, 8, 10],
+                'swatch' => ['#C4A574', '#F6EFE4', '#A97845'],
+                'tabletop_material' => 'Oak',
+                'tabletop_color' => '#A97845',
+                'upholstery_color' => '#C4A574',
+                'cushion_colors' => 'Cream and espresso',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'ivory-walnut',
+                'name' => 'Ivory sofa · Dark walnut',
+                'style' => 'couch',
+                'applies_to_capacities' => [6, 8, 10],
+                'swatch' => ['#F6EFE4', '#C4A574', '#3B2416'],
+                'tabletop_material' => 'Dark walnut',
+                'tabletop_color' => '#3B2416',
+                'upholstery_color' => '#F6EFE4',
+                'cushion_colors' => 'Caramel and taupe',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'high-walnut',
+                'name' => 'City view · High table, walnut',
+                'style' => 'high_table',
+                'applies_to_capacities' => [4],
+                'swatch' => ['#5C3A1E', '#F3E6D0', '#C6A15B'],
+                'tabletop_material' => 'Walnut',
+                'tabletop_color' => '#5C3A1E',
+                'upholstery_color' => '#F3E6D0',
+                'cushion_colors' => 'Cream',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'high-oak',
+                'name' => 'City view · High table, oak',
+                'style' => 'high_table',
+                'applies_to_capacities' => [4],
+                'swatch' => ['#A97845', '#C4A574', '#C6A15B'],
+                'tabletop_material' => 'Oak',
+                'tabletop_color' => '#A97845',
+                'upholstery_color' => '#C4A574',
+                'cushion_colors' => 'Camel',
+                'trim_color' => '#C6A15B',
+            ],
         ];
     }
 
@@ -87,19 +159,36 @@ class CothVisualLibrary
     }
 
     /**
-     * Return the furniture style a table uses for art lookup.
-     * couch overrides city-view high-table; is_high_table forces high art.
+     * Furniture style used for art and chips.
+     * Couch and an explicit high table win. A city-view flag alone does not
+     * turn a six-seat table into a high table.
      */
     public function styleFor(CothTable $table)
     {
         if ((string) $table->seating_style === 'couch') {
             return 'couch';
         }
-        if ((int) $table->is_high_table === 1 || ((int) $table->is_city_view === 1 && in_array((int) $table->capacity, [4, 6], true))) {
+        if ((string) $table->seating_style === 'high_table' || (int) $table->is_high_table === 1) {
             return 'high_table';
         }
 
         return 'standard';
+    }
+
+    /**
+     * Stored colours for this table, falling back to the preset catalogue.
+     */
+    public function colorsFor(CothTable $table)
+    {
+        $preset = $table->visual_preset ? $this->preset($table->visual_preset) : null;
+
+        return [
+            'tabletop_material' => $table->tabletop_material ?: ($preset['tabletop_material'] ?? ''),
+            'tabletop_color' => $table->tabletop_color ?: ($preset['tabletop_color'] ?? ''),
+            'upholstery_color' => $table->upholstery_color ?: ($preset['upholstery_color'] ?? ''),
+            'cushion_colors' => $table->cushion_colors ?: ($preset['cushion_colors'] ?? ''),
+            'trim_color' => $table->trim_color ?: ($preset['trim_color'] ?? ''),
+        ];
     }
 
     /**
@@ -142,7 +231,7 @@ class CothVisualLibrary
     {
         $style = $this->styleFor($table);
         if ($style === 'couch') {
-            return 'Lounge couch';
+            return 'Curved couch';
         }
         if ($style === 'high_table' && (int) $table->is_city_view === 1) {
             return 'City View · High Table';

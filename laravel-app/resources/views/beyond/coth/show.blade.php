@@ -1,6 +1,6 @@
 @extends('beyond.layout')
 @section('title', $reservation->reference)
-@section('body_class', 'bg-[#0A0F2A]')
+@section('body_class', 'bg-[#24160F]')
 @section('content')
 @php
     $table = $reservation->table;
@@ -9,14 +9,14 @@
     $visuals = app(\App\Services\Coth\CothVisualLibrary::class);
     $chip = $table ? $visuals->chipFor($table) : '';
 @endphp
-<div class="bg-gradient-to-b from-[#0A0F2A] to-[#0A0A14] text-white min-h-[70vh] py-10 px-4">
+<div class="text-white min-h-[70vh] py-10 px-4" style="background:#24160F;color:#F6EFE4;">
     <div class="max-w-5xl mx-auto">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold">Chill on the Hill</p>
         <h1 class="font-serif text-3xl mt-2">{{ $reservation->status === 'confirmed' ? 'Reservation confirmed' : 'Reservation '.$reservation->status }}</h1>
         <p class="text-lg">{{ $reservation->event_date->format('l, j F Y') }} · one day</p>
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-5">
-            <div class="lg:col-span-3 rounded-3xl border border-brand-gold/30 bg-white/[.03] p-6">
+            <div class="lg:col-span-3 rounded-3xl border border-brand-gold/30 p-6" style="background:#3C2A1E;">
                 <dl class="grid grid-cols-2 gap-y-2 text-sm">
                     <div class="text-white/60">Reference</div><div>{{ $reservation->reference }}</div>
                     <div class="text-white/60">Name</div><div>{{ $reservation->customer_name }}</div>

@@ -189,6 +189,7 @@
                 <select class="form-control" name="seating_style">
                     <option value="standard" @if($t->seating_style==='standard') selected @endif>Standard</option>
                     <option value="couch" @if($t->seating_style==='couch') selected @endif>Couch</option>
+                    <option value="high_table" @if($t->seating_style==='high_table') selected @endif>High table</option>
                 </select>
                 <input class="form-control" name="pos_x" value="{{ $t->pos_x }}" placeholder="Left %" style="width:90px;">
                 <input class="form-control" name="pos_y" value="{{ $t->pos_y }}" placeholder="Top %" style="width:90px;">

@@ -72,7 +72,7 @@ class CothReservationService
         if (empty($guest['terms'])) {
             throw new \InvalidArgumentException('Accept the non-refundable deposit terms to continue.');
         }
-        $payChoice = (isset($guest['pay_choice']) && $guest['pay_choice'] === 'full') ? 'full' : 'deposit';
+        $payChoice = (isset($guest['pay_choice']) && in_array($guest['pay_choice'], ['full', 'custom'], true)) ? $guest['pay_choice'] : 'deposit';
         $extraChairs = max(0, (int) ($guest['extra_chairs'] ?? 0));
 
         if ($extraChairs > 0) {
@@ -88,7 +88,20 @@ class CothReservationService
         }
 
         $quote = app(CothPricing::class)->quote($table->price, $date, $settings, $table, $extraChairs);
-        $amountDue = app(CothPricing::class)->amountDue($quote, $payChoice);
+        if ($payChoice === 'custom') {
+            $custom = (int) ($guest['custom_amount'] ?? 0);
+            $minimum = (int) $quote['deposit_due'];
+            $maximum = (int) $quote['booking_total'];
+            if ($custom < $minimum) {
+                throw new \InvalidArgumentException('Pay at least the '.(int) $settings->deposit_percent.'% deposit ('.number_format($minimum).' FCFA).');
+            }
+            if ($custom > $maximum) {
+                throw new \InvalidArgumentException('That amount is above the total ('.number_format($maximum).' FCFA).');
+            }
+            $amountDue = $custom;
+        } else {
+            $amountDue = app(CothPricing::class)->amountDue($quote, $payChoice);
+        }
 
         return DB::transaction(function () use ($table, $date, $guest, $settings, $quote, $payChoice, $amountDue, $extraChairs) {
             $slot = CothSlot::where('coth_table_id', $table->id)
@@ -244,7 +257,10 @@ class CothReservationService
                 && $row->hold_expires_at->isFuture()
                 && $slot
                 && $slot->status === 'held';
-            $required = $row->pay_choice === 'full' ? (int) $row->booking_total : (int) $row->deposit_due;
+            $required = (int) $row->amount_due;
+            if ($required <= 0) {
+                $required = $row->pay_choice === 'full' ? (int) $row->booking_total : (int) $row->deposit_due;
+            }
             if (! $holdLive || $amount < $required) {
                 $row->payment_status = 'needs_reconciliation';
                 $row->gateway_reference = $reference !== '' ? $reference : $row->gateway_reference;

@@ -1,13 +1,13 @@
 @extends('beyond.layout')
 @section('title', 'Payment · '.$reservation->reference)
-@section('body_class', 'bg-[#0A0F2A]')
+@section('body_class', 'bg-[#24160F]')
 @push('head')
 <style>
     .coth-page { background: #0A0F2A; }
-    .coth-shell { background: linear-gradient(180deg, #0A0F2A 0%, #0A0A14 100%); }
+    .coth-shell { background: #24160F; color: #F6EFE4; }
     .coth-card {
-        border: 1px solid rgba(197,160,89,.35);
-        background: rgba(255,255,255,.03);
+        border: 1px solid rgba(198,161,91,.4);
+        background: #3C2A1E;
         box-shadow: 0 18px 40px rgba(0,0,0,.45);
     }
     .coth-pay-card {

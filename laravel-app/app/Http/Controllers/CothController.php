@@ -125,11 +125,20 @@ class CothController extends Controller
             'dial_code' => 'nullable|string|max:8',
             'local' => 'nullable|string|max:32',
         ]);
-        $raw = (string) ($data['phone'] ?? '');
-        if ($raw === '' && ! empty($data['dial_code']) && ! empty($data['local'])) {
-            $raw = $data['dial_code'].$data['local'];
+        $dial = preg_replace('/\D/', '', (string) ($data['dial_code'] ?? ''));
+        $local = preg_replace('/\D/', '', (string) ($data['local'] ?? ''));
+        if ($dial !== '' && $local !== '') {
+            if (strpos($local, $dial) === 0 && strlen($local) > strlen($dial) + 6) {
+                $local = substr($local, strlen($dial));
+            }
+            if ($local !== '' && $local[0] === '0') {
+                $local = substr($local, 1);
+            }
+            $digits = $dial.$local;
+        } else {
+            $raw = (string) ($data['phone'] ?? '');
+            $digits = preg_replace('/\D/', '', $raw);
         }
-        $digits = preg_replace('/\D/', '', (string) $raw);
         if (strlen($digits) < 10) {
             return response()->json(['message' => 'Enter a valid WhatsApp number with country code.'], 422);
         }
@@ -158,6 +167,18 @@ class CothController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('coth resolve: '.$e->getMessage());
         }
+        if ($name === '' && substr($digits, 0, 3) === '237' && \Illuminate\Support\Facades\Schema::hasTable('customers')) {
+            try {
+                $tail = substr($digits, -9);
+                $customer = \App\Customer::whereIn('phone_number', [$digits, '237'.$tail, $tail])->first();
+                if ($customer && trim((string) $customer->name) !== '') {
+                    $name = trim((string) $customer->name);
+                    $source = 'customer';
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('coth customer name: '.$e->getMessage());
+            }
+        }
 
         return response()->json([
             'phone' => $digits,
@@ -175,7 +196,8 @@ class CothController extends Controller
             'name' => 'required|string|max:191',
             'phone' => 'required|string|max:32',
             'email' => 'nullable|email|max:191',
-            'pay_choice' => 'required|in:deposit,full',
+            'pay_choice' => 'required|in:deposit,full,custom',
+            'custom_amount' => 'nullable|integer|min:0',
             'extra_chairs' => 'nullable|integer|min:0|max:50',
             'terms' => 'accepted',
         ]);

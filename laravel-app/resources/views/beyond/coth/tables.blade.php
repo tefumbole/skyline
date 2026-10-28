@@ -262,7 +262,8 @@
                     $groups = [];
                     foreach ($tables as $row) {
                         $code = (string) $row['table']->code;
-                        $key = preg_match('/^(.*-T\d+)/i', $code, $match) ? strtoupper($match[1]) : strtoupper($section->code).'-T'.$row['table']->capacity;
+                        $prefix = preg_match('/^(.*-T\d+)/i', $code, $match) ? strtoupper($match[1]) : strtoupper($section->code).'-T'.$row['table']->capacity;
+                        $key = $prefix.'|'.(string) $row['table']->seating_style;
                         $groups[$key][] = $row;
                     }
                 @endphp
@@ -277,7 +278,8 @@
                                     $remaining++;
                                 }
                             }
-                            $parts = explode('-', $groupKey, 2);
+                            $codeKey = explode('|', $groupKey)[0];
+                            $parts = explode('-', $codeKey, 2);
                             $groupLabel = ucfirst(strtolower($parts[0])).'-'.($parts[1] ?? '');
                         @endphp
                         <details class="coth-card rounded-3xl overflow-hidden">

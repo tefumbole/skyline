@@ -26,15 +26,18 @@ class CothReservationTest extends TestCase
         ]);
     }
 
-    public function test_inventory_is_42_tables_and_237_seats()
+    public function test_inventory_matches_the_gray_and_teal_arrangement()
     {
-        $this->assertSame(42, CothTable::count());
-        $this->assertSame(237, (int) CothTable::sum('capacity'));
-        $this->assertSame(4, CothTable::where('seating_style', 'couch')->count());
-        $this->assertSame(2, CothTable::where('code', 'like', 'HALL-T6-%')->where('seating_style', 'couch')->count());
-        $this->assertSame(1, CothTable::where('code', 'like', 'POOL-T4-%')->where('seating_style', 'couch')->count());
+        $this->assertSame(43, CothTable::count());
+        $this->assertSame(251, (int) CothTable::sum('capacity'));
+        $this->assertSame(22, CothTable::where('seating_style', 'couch')->count());
+        $this->assertSame(12, CothTable::where('code', 'like', 'HALL-%')->where('seating_style', 'couch')->count());
+        $this->assertSame(5, CothTable::where('code', 'like', 'YARD-T6-%')->where('seating_style', 'high_table')->count());
+        $this->assertSame(1, CothTable::where('code', 'YARD-T6-01')->where('seating_style', 'couch')->count());
+        $this->assertSame(0, CothTable::where('code', 'like', 'POOL-T4-%')->where('seating_style', 'couch')->count());
         $this->assertSame(1, CothTable::where('code', 'POOL-T6-01')->where('seating_style', 'couch')->count());
-        $this->assertSame(42 * 8, CothSlot::count());
+        $this->assertSame(600000, (int) CothTable::where('code', 'HALL-T8-01')->value('price'));
+        $this->assertSame(43 * 8, CothSlot::count());
     }
 
     public function test_discount_depends_on_the_event_date_not_the_booking_day()

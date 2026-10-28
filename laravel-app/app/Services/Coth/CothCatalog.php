@@ -17,27 +17,29 @@ class CothCatalog
     {
         return [
             ['code' => 'yard', 'name' => 'Premium — Yard', 'prefix' => 'YARD', 'rows' => [
-                ['capacity' => 4, 'count' => 4, 'price' => 500000, 'couch' => 0],
-                ['capacity' => 6, 'count' => 4, 'price' => 600000, 'couch' => 0],
-                ['capacity' => 8, 'count' => 2, 'price' => 800000, 'couch' => 0],
-                ['capacity' => 10, 'count' => 2, 'price' => 1000000, 'couch' => 0],
+                ['capacity' => 4, 'count' => 4, 'price' => 500000, 'style' => 'high_table', 'city' => 1],
+                ['capacity' => 6, 'count' => 1, 'price' => 600000, 'style' => 'couch'],
+                ['capacity' => 6, 'count' => 5, 'price' => 600000, 'style' => 'high_table', 'city' => 1],
+                ['capacity' => 8, 'count' => 2, 'price' => 800000, 'style' => 'couch'],
+                ['capacity' => 10, 'count' => 2, 'price' => 1000000, 'style' => 'couch'],
             ]],
             ['code' => 'outer', 'name' => 'Premium — Outer Restaurant', 'prefix' => 'OUTER', 'rows' => [
-                ['capacity' => 4, 'count' => 5, 'price' => 500000, 'couch' => 0],
-                ['capacity' => 6, 'count' => 1, 'price' => 600000, 'couch' => 0],
-                ['capacity' => 8, 'count' => 2, 'price' => 800000, 'couch' => 0],
-                ['capacity' => 10, 'count' => 1, 'price' => 1000000, 'couch' => 0],
+                ['capacity' => 4, 'count' => 4, 'price' => 500000, 'style' => 'standard'],
+                ['capacity' => 6, 'count' => 1, 'price' => 600000, 'style' => 'couch'],
+                ['capacity' => 8, 'count' => 2, 'price' => 800000, 'style' => 'couch'],
+                ['capacity' => 10, 'count' => 1, 'price' => 1000000, 'style' => 'couch'],
             ]],
             ['code' => 'hall', 'name' => 'Gold — Hall', 'prefix' => 'HALL', 'rows' => [
-                ['capacity' => 4, 'count' => 2, 'price' => 300000, 'couch' => 0],
-                ['capacity' => 6, 'count' => 8, 'price' => 500000, 'couch' => 2],
-                ['capacity' => 10, 'count' => 2, 'price' => 800000, 'couch' => 0],
+                ['capacity' => 4, 'count' => 2, 'price' => 300000, 'style' => 'couch'],
+                ['capacity' => 6, 'count' => 5, 'price' => 500000, 'style' => 'couch'],
+                ['capacity' => 8, 'count' => 3, 'price' => 600000, 'style' => 'couch'],
+                ['capacity' => 10, 'count' => 2, 'price' => 800000, 'style' => 'couch'],
             ]],
             ['code' => 'pool', 'name' => 'Silver — Pool', 'prefix' => 'POOL', 'rows' => [
-                ['capacity' => 2, 'count' => 2, 'price' => 150000, 'couch' => 0],
-                ['capacity' => 3, 'count' => 1, 'price' => 250000, 'couch' => 0],
-                ['capacity' => 4, 'count' => 5, 'price' => 350000, 'couch' => 1],
-                ['capacity' => 6, 'count' => 1, 'price' => 500000, 'couch' => 1],
+                ['capacity' => 2, 'count' => 2, 'price' => 150000, 'style' => 'high_table'],
+                ['capacity' => 3, 'count' => 1, 'price' => 250000, 'style' => 'high_table'],
+                ['capacity' => 4, 'count' => 5, 'price' => 350000, 'style' => 'high_table'],
+                ['capacity' => 6, 'count' => 1, 'price' => 500000, 'style' => 'couch'],
             ]],
         ];
     }
@@ -88,12 +90,14 @@ class CothCatalog
                 'sort' => $sort++,
                 'is_active' => 1,
             ]);
+            $seen = [];
             foreach ($sectionDef['rows'] as $row) {
-                $couchFrom = $row['count'] - $row['couch'];
+                $style = $row['style'];
                 for ($i = 1; $i <= $row['count']; $i++) {
-                    $style = $i > $couchFrom ? 'couch' : 'standard';
-                    $code = $sectionDef['prefix'].'-T'.$row['capacity'].'-'.str_pad((string) $i, 2, '0', STR_PAD_LEFT);
-                    CothTable::create([
+                    $seen[$row['capacity']] = ($seen[$row['capacity']] ?? 0) + 1;
+                    $n = $seen[$row['capacity']];
+                    $code = $sectionDef['prefix'].'-T'.$row['capacity'].'-'.str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+                    $attrs = [
                         'coth_section_id' => $section->id,
                         'code' => $code,
                         'name' => $code,
@@ -101,7 +105,13 @@ class CothCatalog
                         'seating_style' => $style,
                         'price' => $row['price'],
                         'is_active' => 1,
-                    ]);
+                    ];
+                    if (Schema::hasColumn('coth_tables', 'visual_preset')) {
+                        $attrs['visual_preset'] = $this->presetSlug($style, $n);
+                        $attrs['is_high_table'] = $style === 'high_table' ? 1 : 0;
+                        $attrs['is_city_view'] = ! empty($row['city']) ? 1 : 0;
+                    }
+                    CothTable::create($attrs);
                 }
             }
         }
@@ -126,6 +136,22 @@ class CothCatalog
         }
 
         $this->seedCategoryAndEvent($settings);
+    }
+
+    /**
+     * Gray and teal are the only chair colours. Odd numbers are gray.
+     */
+    public function presetSlug($style, $n)
+    {
+        $gray = ((int) $n) % 2 === 1;
+        if ($style === 'couch') {
+            return $gray ? 'couch-gray' : 'couch-teal';
+        }
+        if ($style === 'high_table') {
+            return $gray ? 'high-gray' : 'high-teal';
+        }
+
+        return $gray ? 'chair-gray' : 'chair-teal';
     }
 
     protected function seedCategoryAndEvent(CothSetting $settings = null)

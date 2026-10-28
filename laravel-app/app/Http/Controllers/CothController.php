@@ -390,12 +390,12 @@ class CothController extends Controller
 
     /**
      * One real table from this section, used as the experience-card photo.
-     * Premium sections show their curved couch. The hall shows its dining chairs.
+     * Each section leads with its largest curved couch.
      */
     protected function sectionCover(CothSection $section, CothVisualLibrary $visuals)
     {
         $tables = CothTable::where('coth_section_id', $section->id)->where('is_active', 1)->get();
-        $prefer = $section->code === 'hall' ? 'standard' : 'couch';
+        $prefer = 'couch';
         $match = $tables->filter(function ($table) use ($prefer) {
             return (string) $table->seating_style === $prefer;
         });

@@ -1,35 +1,37 @@
 @extends('beyond.layout')
 @section('title', 'Chill on the Hill · Skyline Hotel')
-@section('body_class', 'bg-[#140E0A]')
+@section('body_class', 'bg-[#140E0A] coth-fit')
 @push('head')
 <style>
-    .coth-land { background: #140E0A; color: #F6EFE4; min-height: 100vh; }
+    body.coth-fit { height: 100dvh; max-height: 100dvh; overflow: hidden; }
+    body.coth-fit main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .coth-land { background: #140E0A; color: #F6EFE4; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
     .coth-land a { color: inherit; text-decoration: none; }
-    .coth-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: start; padding: 22px 40px 8px; max-width: 1180px; margin: 0 auto; }
-    .coth-hero h1 { font-family: Georgia, "Times New Roman", serif; font-size: 64px; line-height: 1; font-weight: 500; margin: 8px 0 0; }
-    .coth-photo { position: relative; min-height: 280px; border-radius: 18px; overflow: hidden; }
-    .coth-photo img { width: 100%; height: 340px; object-fit: cover; display: block; }
+    .coth-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; align-items: stretch; padding: 12px 32px 0; max-width: 1180px; margin: 0 auto; width: 100%; flex: 0 0 auto; }
+    .coth-hero h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(36px, 4vw, 52px); line-height: 1; font-weight: 500; margin: 0 0 12px; }
+    .coth-photo { position: relative; min-height: 0; height: 100%; border-radius: 18px; overflow: hidden; }
+    .coth-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
     .coth-photo::after {
         content: ""; position: absolute; inset: 0;
-        background: linear-gradient(90deg, #140E0A 0%, rgba(20,14,10,.15) 28%, rgba(20,14,10,0) 55%);
+        background: linear-gradient(90deg, #140E0A 0%, rgba(20,14,10,.15) 22%, rgba(20,14,10,0) 46%);
     }
-    .coth-panel { max-width: 1180px; margin: 8px auto 0; padding: 0 40px 48px; }
+    .coth-panel { max-width: 1180px; margin: 8px auto 0; padding: 0 32px 8px; width: 100%; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
     .coth-count {
-        display: grid; grid-template-columns: 1.3fr repeat(4, 1fr); gap: 10px;
-        border: 1px solid rgba(198,161,91,.28); border-radius: 16px; padding: 14px;
+        display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(4, minmax(0, .8fr)); gap: 8px;
+        border: 1px solid rgba(198,161,91,.28); border-radius: 16px; padding: 10px;
         background: rgba(42,28,20,.72);
     }
-    .coth-count-lead { display: flex; gap: 12px; align-items: center; padding: 6px 8px; }
-    .coth-count-lead strong { display: block; font-size: 15px; }
-    .coth-count-lead span { color: rgba(246,239,228,.6); font-size: 12px; }
+    .coth-count-lead { display: flex; gap: 8px; align-items: center; padding: 2px 4px; min-width: 0; }
+    .coth-count-lead strong { display: block; font-size: 13px; line-height: 1.25; }
+    .coth-count-lead span { color: rgba(246,239,228,.6); font-size: 11px; }
     .coth-unit {
-        border: 1px solid rgba(198,161,91,.22); border-radius: 12px; text-align: center; padding: 10px 6px; background: #1C1410;
+        border: 1px solid rgba(198,161,91,.22); border-radius: 12px; text-align: center; padding: 6px 4px; background: #1C1410;
     }
-    .coth-unit b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
-    .coth-unit small { letter-spacing: .16em; font-size: 10px; color: rgba(246,239,228,.55); }
-    .coth-choose { margin-top: 22px; border: 1px solid rgba(198,161,91,.28); border-radius: 18px; padding: 22px; background: rgba(28,20,16,.55); }
-    .coth-choose-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .coth-choose h2 { font-family: Georgia, "Times New Roman", serif; font-size: 32px; font-weight: 500; margin: 0; }
+    .coth-unit b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+    .coth-unit small { letter-spacing: .12em; font-size: 9px; color: rgba(246,239,228,.55); }
+    .coth-choose { margin-top: 8px; border: 1px solid rgba(198,161,91,.28); border-radius: 18px; padding: 12px 14px; background: rgba(28,20,16,.55); flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .coth-choose-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .coth-choose h2 { font-family: Georgia, "Times New Roman", serif; font-size: 26px; font-weight: 500; margin: 0; }
     .coth-steps { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(246,239,228,.55); }
     .coth-step-dot {
         width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
@@ -38,13 +40,13 @@
     .coth-steps .is-on { color: #E8C878; }
     .coth-steps .is-on .coth-step-dot { background: #C6A15B; color: #24160F; border-color: #C6A15B; font-weight: 700; }
     .coth-step-line { width: 28px; height: 1px; background: rgba(246,239,228,.2); }
-    .coth-dates { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .coth-dates { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
     .coth-date {
         text-align: left; background: #1C1410; color: #F6EFE4; border: 1px solid rgba(198,161,91,.22);
-        border-radius: 14px; padding: 14px 14px 12px; cursor: pointer; position: relative; min-height: 92px;
+        border-radius: 14px; padding: 8px 12px; cursor: pointer; position: relative; min-height: 0;
     }
     .coth-date small { display: block; letter-spacing: .14em; font-size: 11px; color: rgba(246,239,228,.55); }
-    .coth-date strong { display: block; margin-top: 6px; font-size: 16px; font-weight: 600; }
+    .coth-date strong { display: block; margin-top: 2px; font-size: 15px; font-weight: 600; }
     .coth-date.is-on { border-color: #E8C878; box-shadow: inset 0 0 0 1px #E8C878; }
     .coth-date .tick {
         position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; border-radius: 999px;
@@ -52,29 +54,31 @@
     }
     .coth-date.is-on .tick { display: inline-flex; }
     .coth-off {
-        display: inline-block; margin-top: 8px; font-size: 10px; letter-spacing: .08em; color: #E8C878;
-        border: 1px solid rgba(232,200,120,.45); border-radius: 999px; padding: 2px 8px;
+        display: inline-block; margin-top: 4px; font-size: 10px; letter-spacing: .08em; color: #E8C878;
+        border: 1px solid rgba(232,200,120,.45); border-radius: 999px; padding: 1px 7px;
     }
     .coth-selected {
-        margin-top: 14px; border: 1px solid rgba(198,161,91,.28); border-radius: 16px;
-        display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px;
+        margin-top: 8px; border: 1px solid rgba(198,161,91,.28); border-radius: 16px;
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 12px;
         background: #1C1410;
     }
     .coth-selected p { margin: 0; color: rgba(246,239,228,.65); font-size: 13px; }
-    .coth-selected strong { display: block; color: #F6EFE4; font-size: 22px; font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
+    .coth-selected strong { display: block; color: #F6EFE4; font-size: 18px; font-family: Georgia, "Times New Roman", serif; font-weight: 500; }
     .coth-land a.coth-go {
-        background: #F0D078; color: #1A1008; font-weight: 800; font-size: 17px; border-radius: 12px;
-        padding: 16px 28px; letter-spacing: .01em; white-space: nowrap;
+        background: #F0D078; color: #1A1008; font-weight: 800; font-size: 16px; border-radius: 12px;
+        padding: 12px 22px; letter-spacing: .01em; white-space: nowrap;
         box-shadow: 0 0 0 2px #F0D078, 0 10px 28px rgba(240, 208, 120, .45);
     }
     .coth-land a.coth-go:hover { background: #FFE7A3; color: #1A1008; }
-    @media (max-width: 900px) {
-        .coth-hero, .coth-count, .coth-dates { grid-template-columns: 1fr 1fr; }
-        .coth-hero { padding: 24px 16px 8px; }
-        .coth-hero h1 { font-size: 42px; }
-        .coth-panel { padding: 0 16px 32px; }
+    @media (max-width: 1100px) {
+        body.coth-fit { height: auto; max-height: none; overflow: auto; }
+        .coth-land { min-height: auto; display: block; }
+        .coth-hero, .coth-dates { grid-template-columns: 1fr 1fr; }
+        .coth-hero { padding: 16px 16px 0; }
+        .coth-photo img { height: 220px; }
+        .coth-panel { display: block; padding: 0 16px 28px; }
         .coth-count { grid-template-columns: 1fr 1fr; }
-        .coth-choose h2 { font-size: 26px; }
+        .coth-choose { display: block; }
         .coth-selected { flex-direction: column; align-items: stretch; }
         .coth-go { text-align: center; }
     }
@@ -90,27 +94,26 @@
     <section class="coth-hero">
         <div>
             <h1>Chill on the Hill</h1>
+            <div class="coth-count" id="coth-count" @if(!empty($phase['countdown'])) data-target="{{ $phase['countdown'] }}" @endif>
+                <div class="coth-count-lead">
+                    <span aria-hidden="true">🕒</span>
+                    <div>
+                        <strong>{{ $phase['label'] }}</strong>
+                        <span>Cameroon time</span>
+                    </div>
+                </div>
+                <div class="coth-unit"><b data-unit="days">00</b><small>DAYS</small></div>
+                <div class="coth-unit"><b data-unit="hours">00</b><small>HOURS</small></div>
+                <div class="coth-unit"><b data-unit="mins">00</b><small>MINUTES</small></div>
+                <div class="coth-unit"><b data-unit="secs">00</b><small>SECONDS</small></div>
+            </div>
         </div>
         <div class="coth-photo">
-            <img src="{{ $hero }}" alt="Lounge seating at Chill on the Hill">
+            <img src="{{ $hero }}" alt="Lounge seating at Chill on the Hill, looking over Bamenda">
         </div>
     </section>
 
     <div class="coth-panel">
-        <div class="coth-count" id="coth-count" @if(!empty($phase['countdown'])) data-target="{{ $phase['countdown'] }}" @endif>
-            <div class="coth-count-lead">
-                <span aria-hidden="true">🕒</span>
-                <div>
-                    <strong>{{ $phase['label'] }}</strong>
-                    <span>Cameroon time</span>
-                </div>
-            </div>
-            <div class="coth-unit"><b data-unit="days">00</b><small>DAYS</small></div>
-            <div class="coth-unit"><b data-unit="hours">00</b><small>HOURS</small></div>
-            <div class="coth-unit"><b data-unit="mins">00</b><small>MINUTES</small></div>
-            <div class="coth-unit"><b data-unit="secs">00</b><small>SECONDS</small></div>
-        </div>
-
         <section class="coth-choose">
             <div class="coth-choose-head">
                 <h2>Choose your date</h2>

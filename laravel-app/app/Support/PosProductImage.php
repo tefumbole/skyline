@@ -4,14 +4,18 @@ namespace App\Support;
 
 class PosProductImage
 {
-    // POS tiles draw the photo at about 70–120px. 240px is 2× that, so it stays sharp
-    // on a retina screen and a JPEG stays well under 45KB.
-    // Category photos are also the service banner, so they keep a wider edge.
-    const MAX_BYTES = 17408;
-    const THUMB_EDGE = 240;
-    const ORIGINAL_EDGE = 240;
-    const CATEGORY_EDGE = 960;
-    const CATEGORY_MAX_BYTES = 163840;
+    // POS/storefront tiles draw the photo at about 70–120px, but the stored photo is
+    // also reused in product detail views, modals and carousels, so it must survive
+    // being shown a few hundred pixels wide without looking soft. The earlier 240px /
+    // 17KB cap was far too aggressive and made every photo look blurry, so the edges
+    // and byte budgets below keep uploads crisp while staying light for mobile.
+    // Category photos double as the service banner, so they keep the widest edge.
+    const MAX_BYTES = 40960;             // thumbnail budget (~40KB)
+    const THUMB_EDGE = 360;              // retina-sharp for ~120px tiles
+    const ORIGINAL_EDGE = 640;           // product detail / modal stays sharp
+    const ORIGINAL_MAX_BYTES = 102400;   // ~100KB per product photo
+    const CATEGORY_EDGE = 1280;          // service banner
+    const CATEGORY_MAX_BYTES = 307200;   // ~300KB per category banner
 
     public static function url($filename, $ensureThumb = false)
     {
@@ -153,7 +157,7 @@ class PosProductImage
 
     public static function compressOriginal($sourcePath)
     {
-        return self::optimizeFile($sourcePath, self::ORIGINAL_EDGE);
+        return self::optimizeFile($sourcePath, self::ORIGINAL_EDGE, self::ORIGINAL_MAX_BYTES);
     }
 
     public static function optimizeFile($sourcePath, $maxEdge = self::ORIGINAL_EDGE, $maxBytes = self::MAX_BYTES)
@@ -264,7 +268,7 @@ class PosProductImage
             return [self::CATEGORY_EDGE, self::CATEGORY_MAX_BYTES];
         }
 
-        return [self::ORIGINAL_EDGE, self::MAX_BYTES];
+        return [self::ORIGINAL_EDGE, self::ORIGINAL_MAX_BYTES];
     }
 
     public static function resizeTo($sourcePath, $destPath, $maxEdge, $quality)

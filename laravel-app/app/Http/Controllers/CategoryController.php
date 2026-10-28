@@ -79,7 +79,7 @@ class CategoryController extends Controller
                 $imageUrl = $category->image
                     ? \App\Support\PosProductImage::catalogUrl('category', $category->image)
                     : \App\Support\PosProductImage::url('zummXD2dvAtI.png');
-                $nestedData['image'] = '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('category/'.$category->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.e($imageUrl).'" height="70" width="70"><span class="w2k-paste-label">Paste image</span></div>';
+                $nestedData['image'] = '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('category/'.$category->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.e($imageUrl).'" style="width:70px;height:70px;object-fit:cover;border-radius:6px;background:#f6f1e7"><span class="w2k-paste-label">Paste image</span></div>';
 
                 $label = e($category->name).($category->department ? ' ('.e(ucfirst($category->department)).')' : '');
                 $nestedData['name'] = $label;

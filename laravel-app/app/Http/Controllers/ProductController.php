@@ -1589,10 +1589,10 @@ class ProductController extends Controller
     {
         $imageUrl = e(\App\Support\PosProductImage::url($product->image));
         if ($canEdit) {
-            return '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('products/'.$product->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.$imageUrl.'" height="80" width="80"><span class="w2k-paste-label">Paste image</span></div>';
+            return '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('products/'.$product->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.$imageUrl.'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;background:#f6f1e7"><span class="w2k-paste-label">Paste image</span></div>';
         }
 
-        return '<img src="'.$imageUrl.'" height="80" width="80">';
+        return '<img src="'.$imageUrl.'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;background:#f6f1e7">';
     }
 
     protected function canEditProducts()

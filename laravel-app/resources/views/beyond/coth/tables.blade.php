@@ -1,9 +1,60 @@
 @extends('beyond.layout')
 @section('title', 'Choose a table · Chill on the Hill')
-@section('body_class', 'bg-[#24160F]')
+@section('body_class', 'bg-[#140E0A]')
 @push('head')
 <style>
-    .coth-wrap { background: #24160F; color: #F6EFE4; }
+    .coth-wrap { background: #140E0A; color: #F6EFE4; }
+    .coth-exp-hero { position: relative; height: 280px; overflow: hidden; }
+    .coth-exp-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
+    .coth-exp-hero::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(180deg, rgba(20,14,10,.05) 30%, #140E0A 100%);
+    }
+    .coth-exp-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+    .coth-exp-kicker { color: #E8C878; letter-spacing: .18em; font-size: 12px; font-weight: 700; }
+    .coth-exp-title { font-family: Georgia, "Times New Roman", serif; font-size: clamp(32px, 4vw, 48px); font-weight: 500; line-height: 1.05; margin: 8px 0 6px; }
+    .coth-flow { display: flex; align-items: flex-start; gap: 0; min-width: 340px; }
+    .coth-flow-step { display: flex; flex-direction: column; align-items: center; width: 72px; text-align: center; }
+    .coth-flow-dot {
+        width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(246,239,228,.28); color: rgba(246,239,228,.55); font-size: 13px; font-weight: 700; background: #1C1410;
+    }
+    .coth-flow-step.is-done .coth-flow-dot { background: #C6A15B; color: #1A1008; border-color: #C6A15B; }
+    .coth-flow-step.is-on .coth-flow-dot { background: #C6A15B; color: #1A1008; border-color: #C6A15B; }
+    .coth-flow-step small { display: block; margin-top: 6px; font-size: 11px; color: rgba(246,239,228,.45); line-height: 1.2; }
+    .coth-flow-step.is-done small, .coth-flow-step.is-on small { color: #E8C878; }
+    .coth-flow-step b { display: block; font-weight: 600; color: inherit; }
+    .coth-flow-line { flex: 1; height: 2px; margin-top: 13px; background: rgba(246,239,228,.18); min-width: 18px; }
+    .coth-flow-step.is-done + .coth-flow-line { background: #C6A15B; }
+    .coth-exp-h { font-family: Georgia, "Times New Roman", serif; font-size: clamp(34px, 4vw, 52px); font-weight: 500; margin: 28px 0 16px; }
+    .coth-exp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .coth-exp-card {
+        display: flex; flex-direction: column; border: 1px solid rgba(198,161,91,.55); border-radius: 18px;
+        overflow: hidden; background: #1C1410; color: inherit; text-decoration: none; min-height: 100%;
+    }
+    .coth-exp-card:hover { border-color: #E8C878; }
+    .coth-exp-photo { height: 210px; background: #24160F; display: flex; align-items: center; justify-content: center; padding: 8px; }
+    .coth-exp-photo img { width: 100%; height: 100%; object-fit: contain; }
+    .coth-exp-body { padding: 16px 16px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; }
+    .coth-exp-body h3 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; margin: 0; }
+    .coth-exp-count {
+        margin-top: 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: rgba(246,239,228,.8);
+        font-size: 13px; padding: 4px 12px;
+    }
+    .coth-exp-pin { margin: 12px 0; color: #E8C878; }
+    .coth-exp-go {
+        margin-top: auto; width: 100%; border: 1px solid rgba(232,200,120,.7); color: #E8C878; border-radius: 12px;
+        padding: 10px 12px; font-size: 15px;
+    }
+    @media (max-width: 980px) {
+        .coth-exp-hero { height: 180px; }
+        .coth-exp-head, .coth-flow { display: block; min-width: 0; }
+        .coth-flow { display: flex; margin-top: 16px; }
+        .coth-exp-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+        .coth-exp-grid { grid-template-columns: 1fr; }
+    }
     .coth-sec {
         border: 1px solid rgba(197,160,89,.30);
         background: rgba(255,255,255,.03);
@@ -64,25 +115,79 @@
         }
     };
 @endphp
-<div class="coth-wrap text-white min-h-[70vh] py-10 px-4 pb-28">
-    <div class="max-w-6xl mx-auto">
-        <a href="{{ route('coth.index') }}" class="text-xs uppercase tracking-[0.18em] text-brand-gold">&larr; All dates</a>
-        <h1 class="font-serif text-3xl mt-2">{{ \Carbon\Carbon::parse($date)->format('l, j F Y') }}</h1>
-        <p class="text-white/60 text-sm">One table, this date only. Prices are per table, per day.</p>
+@php
+    $heroFile = public_path('images/coth/hero-lounge.jpg');
+    $hero = asset('public/images/coth/hero-lounge.jpg').(is_file($heroFile) ? '?v='.filemtime($heroFile) : '');
+    $flow = [
+        1 => ['Date', 'Completed'],
+        2 => ['Section', $section ? 'Completed' : 'Active'],
+        3 => ['Table', $section ? 'Active' : ''],
+        4 => ['Reserve', ''],
+    ];
+@endphp
+<div class="coth-wrap text-white min-h-[70vh] pb-28">
+    <div class="coth-exp-hero">
+        <img src="{{ $hero }}" alt="Lounge seating at Chill on the Hill, looking over Bamenda">
+    </div>
+    <div class="max-w-6xl mx-auto px-4">
+        <div class="coth-exp-head">
+            <div>
+                <a href="{{ route('coth.index') }}" class="coth-exp-kicker">&larr; ALL DATES</a>
+                <h1 class="coth-exp-title">{{ \Carbon\Carbon::parse($date)->format('l, j F Y') }}</h1>
+                @if (!empty($nightTitle))
+                    <p class="text-brand-gold text-sm m-0 mb-1">{{ $nightTitle }}</p>
+                @endif
+                <p class="text-white/60 text-sm m-0">One table, this date only. Prices are per table, per day.</p>
+            </div>
+            <ol class="coth-flow" aria-label="Reservation progress">
+                @foreach ($flow as $num => $meta)
+                    @php
+                        $state = $num < ($section ? 3 : 2) ? 'is-done' : ($num === ($section ? 3 : 2) ? 'is-on' : '');
+                    @endphp
+                    <li class="coth-flow-step {{ $state }}">
+                        <span class="coth-flow-dot">
+                            @if ($state === 'is-done')
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            @else
+                                {{ $num }}
+                            @endif
+                        </span>
+                        <small><b>{{ $num }}. {{ $meta[0] }}</b>{{ $meta[1] }}</small>
+                    </li>
+                    @if ($num < 4)
+                        <li class="coth-flow-line" aria-hidden="true"></li>
+                    @endif
+                @endforeach
+            </ol>
+        </div>
         @if (session('not_permitted'))<div class="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm">{{ session('not_permitted') }}</div>@endif
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
-            @foreach ($cards as $card)
-                <a href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}"
-                   class="coth-sec rounded-2xl px-4 py-4 block {{ $section && $section->id === $card['section']->id ? 'is-active' : '' }}">
-                    <span class="block font-semibold">{{ $card['section']->name }}</span>
-                    <span class="text-sm text-white/65">{{ $card['open'] }} available</span>
-                </a>
-            @endforeach
-        </div>
+        @if (! $section)
+            <h2 class="coth-exp-h">Choose your experience</h2>
+            <div class="coth-exp-grid">
+                @foreach ($cards as $card)
+                    <a href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}" class="coth-exp-card">
+                        <span class="coth-exp-photo">
+                            @if (! empty($card['image']))
+                                <img src="{{ $card['image'] }}" alt="{{ $card['section']->name }}">
+                            @endif
+                        </span>
+                        <span class="coth-exp-body">
+                            <h3>{{ $card['section']->name }}</h3>
+                            <span class="coth-exp-count">{{ $card['open'] }} available</span>
+                            <span class="coth-exp-pin" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>
+                            </span>
+                            <span class="coth-exp-go">View tables &nbsp;&rarr;</span>
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        @endif
 
         @if ($section)
-            <div class="flex items-center justify-between mt-10 gap-3">
+            <a href="{{ route('coth.tables', ['date' => $date]) }}" class="coth-exp-kicker inline-block mt-8">&larr; ALL SECTIONS</a>
+            <div class="flex items-center justify-between mt-3 gap-3">
                 <h2 class="text-xl m-0">{{ $section->name }}</h2>
                 <a class="text-sm text-brand-gold underline" href="{{ route('coth.tables', ['date' => $date, 'section' => $section->code, 'view' => $viewMode === 'list' ? 'layout' : 'list']) }}">
                     {{ $viewMode === 'list' ? 'Show 3D layout' : 'Show list' }}

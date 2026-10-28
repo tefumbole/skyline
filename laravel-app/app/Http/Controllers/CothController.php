@@ -13,6 +13,7 @@ use App\Services\Coth\CothCatalog;
 use App\Services\Coth\CothPaymentService;
 use App\Services\Coth\CothPricing;
 use App\Services\Coth\CothReservationService;
+use App\Services\Coth\CothVisualLibrary;
 use App\Support\SaleInvoiceQr;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -45,12 +46,17 @@ class CothController extends Controller
         $settings = $reservations->settings();
         $section = $request->query('section') ? CothSection::where('code', $request->query('section'))->where('is_active', 1)->first() : null;
         $sections = CothSection::where('is_active', 1)->orderBy('sort')->get();
+        $visuals = app(CothVisualLibrary::class);
         $cards = [];
         foreach ($sections as $row) {
             $open = CothSlot::where('event_date', $date)->where('status', 'open')->where('is_enabled', 1)
                 ->whereIn('coth_table_id', CothTable::where('coth_section_id', $row->id)->where('is_active', 1)->pluck('id'))
                 ->count();
-            $cards[] = ['section' => $row, 'open' => $open];
+            $cards[] = [
+                'section' => $row,
+                'open' => $open,
+                'image' => $this->sectionCover($row, $visuals),
+            ];
         }
         $tables = collect();
         $illustrative = true;
@@ -80,6 +86,7 @@ class CothController extends Controller
             'tables' => $tables,
             'illustrative' => $illustrative,
             'viewMode' => $request->query('view') === 'list' ? 'list' : 'layout',
+            'nightTitle' => $this->nightTitles()[$date] ?? '',
         ]);
     }
 
@@ -379,6 +386,27 @@ class CothController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('coth otp: '.$e->getMessage());
         }
+    }
+
+    /**
+     * One real table from this section, used as the experience-card photo.
+     * Premium sections show their curved couch. The hall shows its dining chairs.
+     */
+    protected function sectionCover(CothSection $section, CothVisualLibrary $visuals)
+    {
+        $tables = CothTable::where('coth_section_id', $section->id)->where('is_active', 1)->get();
+        $prefer = $section->code === 'hall' ? 'standard' : 'couch';
+        $match = $tables->filter(function ($table) use ($prefer) {
+            return (string) $table->seating_style === $prefer;
+        });
+        if ($match->isEmpty()) {
+            $match = $tables;
+        }
+        $sample = $match->sortByDesc(function ($table) {
+            return ((int) $table->capacity * 1000) - (int) $table->id;
+        })->first();
+
+        return $sample ? $visuals->assetFor($sample) : null;
     }
 
     protected function nightTitles()

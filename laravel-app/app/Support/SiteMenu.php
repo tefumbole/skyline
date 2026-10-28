@@ -149,6 +149,7 @@ class SiteMenu
             'customer-list'   => 'Customer List',
             'user-list'       => 'User List',
             'biller-list'     => 'Biller List',
+            'supplier-list'   => 'Supplier List',
         ];
     }
 
@@ -204,6 +205,7 @@ class SiteMenu
             'customer-list-menu'   => 'customer-list',
             'user-list-menu'       => 'user-list',
             'biller-list-menu'     => 'biller-list',
+            'supplier-list-menu'   => 'supplier-list',
         ];
     }
 

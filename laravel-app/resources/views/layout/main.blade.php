@@ -2649,6 +2649,23 @@
                                             @endif
                                         </li>
                                     @endif
+
+                                    @if($supplier_index_permission_active)
+                                        <li id="supplier-list-menu"><a href="{{route('supplier.index')}}">{{trans('file.Supplier List')}}</a>
+                                            <?php
+                                            $supplier_add_permission = DB::table('permissions')->where('name', 'suppliers-add')->first();
+                                            $supplier_add_permission_active = $supplier_add_permission ? DB::table('role_has_permissions')->where([
+                                                ['permission_id', $supplier_add_permission->id],
+                                                ['role_id', $role->id]
+                                            ])->first() : null;
+                                            ?>
+                                            @if($supplier_add_permission_active)
+                                                <ul class="people-sub">
+                                                    <li id="supplier-create-menu"><a href="{{route('supplier.create')}}">{{trans('file.Add Supplier')}}</a></li>
+                                                </ul>
+                                            @endif
+                                        </li>
+                                    @endif
                                 </ul>
                             </li>
                         @endif
@@ -3923,6 +3940,7 @@
                   'role-menu': 'dripicons-lock',
                   'warehouse-menu': 'dripicons-home',
                   'biller-list-menu': 'dripicons-user-id',
+                  'supplier-list-menu': 'dripicons-user',
                   'customer-list-menu': 'dripicons-view-list',
                   'user-list-menu': 'dripicons-user',
                   'supervisor-list-menu': 'dripicons-user-group',
@@ -3932,6 +3950,7 @@
                   'supervisor-create-menu': 'dripicons-plus',
                   'intern-create-menu': 'dripicons-plus',
                   'biller-create-menu': 'dripicons-plus',
+                  'supplier-create-menu': 'dripicons-plus',
                   'customer-group-menu': 'dripicons-user-group',
                   'whatsapp-groups-menu': 'dripicons-user-group',
                   'brand-menu': 'dripicons-star',

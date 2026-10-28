@@ -29,6 +29,8 @@ class CothController extends Controller
             'dates' => $catalog->eventDates(),
             'phase' => $this->phase($event, $settings),
             'event' => $event,
+            'discountDates' => $settings->discountDateList(),
+            'discountPercent' => (int) $settings->discount_percent,
         ]);
     }
 
@@ -395,6 +397,6 @@ class CothController extends Controller
             return ['label' => 'This event has ended.', 'countdown' => null];
         }
 
-        return ['label' => 'Starts 24 December 2026 at 1:00 PM', 'countdown' => $start->toIso8601String()];
+        return ['label' => 'Starts '.$start->format('j F Y').' · '.$start->format('g:i A'), 'countdown' => $start->toIso8601String()];
     }
 }

@@ -15,7 +15,6 @@ class SiteMenu
     {
         return [
             'home'     => 'Home',
-            'menu'     => 'Menu',
             'events'   => 'Events',
             'about'    => 'About',
             // Membership disabled for now — hidden from the public nav.

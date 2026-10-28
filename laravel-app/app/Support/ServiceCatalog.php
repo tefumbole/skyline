@@ -59,7 +59,17 @@ class ServiceCatalog
             ];
         }
 
-        return $out;
+        $first = [];
+        $rest = [];
+        foreach ($out as $id => $svc) {
+            if (! empty($svc['reservation'])) {
+                $first[$id] = $svc;
+            } else {
+                $rest[$id] = $svc;
+            }
+        }
+
+        return $first + $rest;
     }
 
     public static function exists($key)
@@ -158,9 +168,31 @@ class ServiceCatalog
             'id' => (int) $category->id,
             'name' => $category->name,
             'icon' => self::categoryIcon($category->name),
-            'image' => self::categoryImage($category),
+            'image' => self::categoryImage($category) ?: self::sampleProductImage($category->id),
             'count' => self::productCount($category->id),
         ];
+    }
+
+    protected static function sampleProductImage($categoryId)
+    {
+        if (! Schema::hasTable('products')) {
+            return null;
+        }
+        $ids = array_merge([(int) $categoryId], self::descendantIds((int) $categoryId));
+        $products = Product::where('is_active', true)
+            ->whereIn('category_id', $ids)
+            ->whereNotNull('image')
+            ->orderBy('name')
+            ->limit(8)
+            ->get(['image']);
+        foreach ($products as $product) {
+            $url = self::productImage($product);
+            if ($url) {
+                return $url;
+            }
+        }
+
+        return null;
     }
 
     protected static function productCount($categoryId)

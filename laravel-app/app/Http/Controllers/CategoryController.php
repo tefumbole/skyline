@@ -82,7 +82,7 @@ class CategoryController extends Controller
                 $nestedData['image'] = '<div class="w2k-paste" tabindex="0" data-paste-url="'.e(url('category/'.$category->id.'/paste-image')).'" title="Click, then paste an image"><img src="'.e($imageUrl).'" style="width:70px;height:70px;object-fit:cover;border-radius:6px;background:#f6f1e7"><span class="w2k-paste-label">Paste image</span></div>';
 
                 $label = e($category->name).($category->department ? ' ('.e(ucfirst($category->department)).')' : '');
-                $nestedData['name'] = $label;
+                $nestedData['name'] = '<a class="category-products-link" href="'.e(url('products?category_id='.$category->id)).'">'.$label.'</a>';
                 $nestedData['unit_id'] = $category->unit_id ? (int) $category->unit_id : '';
                 $nestedData['unit'] = ($category->unit_id && isset($unitNames[$category->unit_id])) ? $unitNames[$category->unit_id] : 'N/A';
 

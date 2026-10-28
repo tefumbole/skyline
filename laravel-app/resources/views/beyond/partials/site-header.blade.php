@@ -2,7 +2,6 @@
     $skyLabels = \App\Support\SiteMenu::landingItems();
     $skyUrls = [
         'home' => url('/'),
-        'menu' => url('/menu'),
         'events' => url('/events'),
         'about' => url('/about'),
         'register' => url('/register-now'),

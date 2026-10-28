@@ -228,7 +228,6 @@
 @php
     $navDefs = [
         'home'     => ['label' => 'Home', 'url' => url('/')],
-        'menu'     => ['label' => 'Menu', 'url' => url('/menu')],
         'events'   => ['label' => 'Events', 'url' => url('/events')],
         'about'    => ['label' => 'About', 'url' => url('/about')],
         'register' => ['label' => 'Become a Member', 'url' => url('/register-now')],

@@ -28,7 +28,7 @@
         <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans("file.Add Category")}}</button>&nbsp;
         <button class="btn btn-primary" data-toggle="modal" data-target="#importCategory"><i class="dripicons-copy"></i> {{trans('file.Import Category')}}</button>
-        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image. Click the name, parent category, or unit to change it. A unit saved here is applied to every product in that category. The product count opens those products.</p>
+        <p style="margin:10px 0 0;color:#6b4f2a;font-size:13px;">Click a category photo, then paste an image. Click a category name to open its products. Click the parent category or unit to change it. A unit saved here is applied to every product in that category.</p>
     </div>
     <div class="table-responsive">
         <table id="category-table" class="table" style="width: 100%">
@@ -238,7 +238,7 @@
         "createdRow": function( row, data, dataIndex ) {
             $(row).attr('data-id', data['id']);
             var $tds = $(row).children('td');
-            $tds.eq(2).addClass('js-inline').attr({'data-field':'name','data-type':'text'});
+            $tds.eq(2).addClass('js-inline').attr({'data-field':'name','data-type':'text','data-products-url': $tds.eq(2).find('a').attr('href') || ''});
             $tds.eq(3).addClass('js-inline').attr({'data-field':'parent_id','data-type':'select','data-value': data.parent_value || ''});
             $tds.eq(4).addClass('js-inline').attr({'data-field':'unit_id','data-type':'select','data-value': data.unit_id || ''});
         },
@@ -363,7 +363,12 @@
         $td.addClass('is-saving');
         $.post("{{ route('category.quick-update') }}", { id: id, field: field, value: value })
             .done(function (res) {
-                $td.text(res.display != null ? res.display : value);
+                var display = res.display != null ? res.display : value;
+                if (field === 'name' && $td.attr('data-products-url')) {
+                    $td.empty().append($('<a class="category-products-link"></a>').attr('href', $td.attr('data-products-url')).text(display));
+                } else {
+                    $td.text(display);
+                }
                 if (field === 'unit_id') $td.attr('data-value', res.unit_id || '');
                 if (field === 'parent_id') $td.attr('data-value', res.parent_id || '');
                 $td.css('background', '#f6ead0');
@@ -380,6 +385,7 @@
     }
 
     $(document).on('click', '#category-table td.js-inline', function (e) {
+        if ($(e.target).closest('a').length) return;
         e.stopPropagation();
         var $td = $(this);
         if ($td.data('editing')) return;

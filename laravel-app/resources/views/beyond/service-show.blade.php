@@ -19,6 +19,12 @@
         <h1 class="font-serif text-3xl text-white mt-2">{{ $meta['label'] }}</h1>
         <p class="text-white/70 text-sm mt-2">{{ $meta['blurb'] }} Choose quantities and place one order.</p>
 
+        <label class="block mt-6">
+            <span class="sr-only">Search {{ $meta['label'] }}</span>
+            <input id="svc-search" type="search" placeholder="Search {{ $meta['label'] }}" autocomplete="off"
+                   class="w-full rounded-2xl bg-black/70 border border-brand-gold/40 px-4 py-3 text-white placeholder-white/40 outline-none focus:border-brand-gold">
+        </label>
+
         <div class="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 overflow-x-auto pb-1 svc-cats">
             <a href="{{ route('beyond.services.show', $service) }}"
                class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 {{ $current ? 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' : 'border-brand-gold bg-brand-gold/15' }}">
@@ -31,7 +37,7 @@
                 @php $active = $current && (int) $current['id'] === (int) $cat['id']; @endphp
                 <a href="{{ route('beyond.services.show', [$service, $cat['id']]) }}"
                    class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
-                    <span class="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden {{ $active ? 'bg-brand-gold text-[#0A0A0A]' : 'border border-brand-gold/50 text-brand-gold' }}">
+                    <span class="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden {{ $active ? 'ring-2 ring-brand-gold' : 'border border-brand-gold/50 text-brand-gold' }}">
                         @if ($cat['image'])
                             <img src="{{ $cat['image'] }}" alt="" class="w-full h-full object-cover">
                         @else
@@ -53,16 +59,20 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('restaurant.checkout') }}" class="mt-6">
+        <form method="POST" action="{{ route('restaurant.checkout') }}" class="mt-6" id="svc-order">
             @csrf
             <input type="hidden" name="checkout_token" value="{{ $token }}">
-            <div class="space-y-3">
+            @if ($current)
+                <h2 class="text-lg font-semibold text-white mb-3">{{ $current['name'] }}</h2>
+            @endif
+            <p id="svc-none" class="hidden text-white/60 mb-3">No matches for that search.</p>
+            <div class="space-y-3" id="svc-items">
                 @forelse ($items as $product)
                     @php
                         $img = \App\Support\ServiceCatalog::productImage($product);
                         $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
                     @endphp
-                    <label class="flex items-center gap-3 sm:gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <label class="svc-item flex items-center gap-3 sm:gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3" data-name="{{ strtolower($product->name) }}">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
                         @if ($img)
                             <img src="{{ $img }}" alt="{{ $product->name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-white/5 border border-brand-gold/20 shrink-0" loading="lazy">
@@ -88,7 +98,7 @@
                         </span>
                     </label>
                 @empty
-                    <p class="text-white/60">Nothing in this list yet. <a class="text-brand-gold underline" href="{{ url('/menu') }}">Open the full menu</a>.</p>
+                    <p class="text-white/60">Nothing in this list yet.</p>
                 @endforelse
             </div>
 
@@ -125,6 +135,21 @@
 @push('scripts')
 <script>
 (function () {
+    var search = document.getElementById('svc-search');
+    var items = document.querySelectorAll('#svc-items .svc-item');
+    var none = document.getElementById('svc-none');
+    if (search) {
+        search.addEventListener('input', function () {
+            var q = search.value.trim().toLowerCase();
+            var shown = 0;
+            items.forEach(function (row) {
+                var match = q === '' || (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+                row.style.display = match ? '' : 'none';
+                if (match) shown++;
+            });
+            if (none) none.classList.toggle('hidden', q === '' || shown > 0);
+        });
+    }
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.svc-qty button[data-step]');
         if (!btn) return;

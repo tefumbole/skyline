@@ -28,7 +28,11 @@
     }
     .coth-card .coth-art img { position: relative; z-index: 0; }
     .coth-card .coth-pill { z-index: 2; }
-    a.coth-card:hover { border-color: rgba(197,160,89,.85); box-shadow: 0 22px 54px rgba(0,0,0,.6); transform: translateY(-2px); }
+    details.coth-card > summary { list-style: none; cursor: pointer; }
+    details.coth-card > summary::-webkit-details-marker { display: none; }
+    details.coth-card[open] { border-color: #E8C878; }
+    details.coth-card > summary:hover { filter: brightness(1.04); }
+    .coth-unit { border-top: 1px solid rgba(198,161,91,.22); }
     .coth-card.is-selected, a.coth-card:focus-visible {
         border-color: #E8C878; outline: none;
         box-shadow: 0 0 0 2px rgba(232,200,120,.85), 0 22px 54px rgba(0,0,0,.6);
@@ -112,70 +116,75 @@
                     </table>
                 </div>
             @else
+                @php
+                    $groups = [];
+                    foreach ($tables as $row) {
+                        $code = (string) $row['table']->code;
+                        $key = preg_match('/^(.*-T\d+)/i', $code, $match) ? strtoupper($match[1]) : strtoupper($section->code).'-T'.$row['table']->capacity;
+                        $groups[$key][] = $row;
+                    }
+                @endphp
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5" id="coth-grid">
-                    @foreach ($tables as $row)
+                    @foreach ($groups as $groupKey => $rows)
                         @php
-                            $table = $row['table'];
-                            $m = $statusMeta($row['state']);
-                            $bookUrl = route('coth.book', ['date' => $date, 'table' => $table->code]);
+                            $sample = $rows[0]['table'];
+                            $chip = $chipFor($sample);
+                            $remaining = 0;
+                            $taken = 0;
+                            foreach ($rows as $row) {
+                                if ($row['available']) {
+                                    $remaining++;
+                                } elseif (in_array($row['state'], ['Booked', 'Held'], true)) {
+                                    $taken++;
+                                }
+                            }
+                            $parts = explode('-', $groupKey, 2);
+                            $groupLabel = ucfirst(strtolower($parts[0])).'-'.($parts[1] ?? '');
                         @endphp
-                        <{{ $row['available'] ? 'a' : 'div' }}
-                            class="coth-card {{ $row['available'] ? '' : 'coth-taken' }} rounded-3xl overflow-hidden flex flex-col"
-                            @if ($row['available'])
-                                href="{{ $bookUrl }}"
-                                role="button"
-                                data-coth-select
-                                data-code="{{ $table->code }}"
-                                data-section="{{ $section->name }}"
-                                data-capacity="{{ $table->capacity }}"
-                                data-couch="{{ $table->isCouch() ? '1' : '0' }}"
-                                data-price="{{ number_format($row['quote']['list_price']) }}"
-                                data-discount="{{ $row['quote']['discounted'] ? number_format($row['quote']['discount_amount']) : '' }}"
-                                data-final="{{ number_format($row['quote']['final_price']) }}"
-                                data-deposit="{{ number_format($row['quote']['deposit_due']) }}"
-                                data-balance="{{ number_format(max(0, $row['quote']['final_price'] - $row['quote']['deposit_due'])) }}"
-                                data-href="{{ $bookUrl }}"
-                            @else
-                                aria-disabled="true"
-                            @endif
-                        >
-                            <div class="coth-art relative px-4 pt-5 pb-3 flex items-center justify-center">
-                                <img src="{{ $artFor($table) }}" alt="{{ $table->capacity }} seat table" class="w-full max-w-[280px] h-40 object-contain" loading="lazy">
-                                <span class="coth-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
-                                    {{ $chipFor($table) === 'City View · High Table' ? 'City View · High Table' : $table->capacity.' Seats' }}
-                                </span>
-                            </div>
-                            <div class="p-4 flex-1 flex flex-col">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-serif text-lg">{{ $table->code }}</span>
-                                    <span class="text-[12px] {{ $m['text'] }} inline-flex items-center gap-1 font-semibold">
-                                        <span class="coth-dot" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}
+                        <details class="coth-card rounded-3xl overflow-hidden">
+                            <summary class="block">
+                                <div class="coth-art relative px-4 pt-5 pb-3 flex items-center justify-center">
+                                    <img src="{{ $artFor($sample) }}" alt="{{ $groupLabel }} {{ $sample->capacity }} separate seats" class="w-full max-w-[300px] h-44 object-contain" loading="lazy">
+                                    <span class="coth-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
+                                        {{ $chip === 'City View · High Table' ? 'City View · High Table' : $sample->capacity.' Seats' }}
                                     </span>
                                 </div>
-                                <p class="text-xs text-white/60 mt-1 mb-3">
-                                    {{ $section->name }} · {{ $table->capacity }} seats
-                                    @php $chip = $chipFor($table); @endphp
-                                    @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
-                                </p>
-
-                                <div class="mt-auto space-y-0.5 text-sm">
-                                    @if ($row['quote']['discounted'])
-                                        <div class="flex justify-between text-white/55"><span>Price</span><span class="line-through">{{ number_format($row['quote']['list_price']) }}</span></div>
-                                        <div class="flex justify-between text-emerald-300"><span>Discount (20%)</span><span>−{{ number_format($row['quote']['discount_amount']) }}</span></div>
-                                        <div class="flex justify-between font-semibold"><span>Final price</span><span class="text-brand-gold">{{ number_format($row['quote']['final_price']) }} FCFA</span></div>
-                                    @else
-                                        <div class="flex justify-between font-semibold"><span>Price</span><span class="text-brand-gold">{{ number_format($row['quote']['final_price']) }} FCFA</span></div>
-                                    @endif
-                                    <div class="flex justify-between text-white/70"><span>Min. deposit</span><span>{{ number_format($row['quote']['deposit_due']) }} FCFA</span></div>
+                                <div class="px-4 pt-4 pb-5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="font-serif text-2xl">{{ $groupLabel }}</span>
+                                        <span class="text-xs text-white/55">{{ count($rows) }} {{ count($rows) === 1 ? 'table' : 'tables' }}</span>
+                                    </div>
+                                    <p class="text-xs text-white/60 mt-1 mb-3">
+                                        {{ $section->name }} · {{ $sample->capacity }} seats
+                                        @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
+                                    </p>
+                                    <div class="flex items-center justify-between text-sm font-semibold">
+                                        <span class="text-red-300">{{ $taken }} taken</span>
+                                        <span class="text-emerald-300">{{ $remaining }} remaining</span>
+                                    </div>
+                                    <span class="mt-4 block text-center border border-brand-gold/50 text-brand-gold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">See each table</span>
                                 </div>
-
-                                @if ($row['available'])
-                                    <span class="mt-4 inline-block text-center bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">Reserve</span>
-                                @else
-                                    <span class="mt-4 inline-block text-center border border-white/15 text-white/50 uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">{{ $m['label'] }}</span>
-                                @endif
+                            </summary>
+                            <div class="px-4 pb-4">
+                                <p class="text-sm text-white/80 mb-2">{{ $remaining }} available · {{ $taken }} taken</p>
+                                @foreach ($rows as $row)
+                                    @php
+                                        $table = $row['table'];
+                                        $m = $statusMeta($row['state']);
+                                    @endphp
+                                    <div class="coth-unit py-3 flex items-center gap-3">
+                                        <img src="{{ $artFor($table) }}" alt="" class="w-16 h-12 object-contain rounded-md bg-[#24160F]">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-semibold">{{ $table->code }}</div>
+                                            <div class="text-xs {{ $m['text'] }}"><span class="coth-dot align-middle mr-1" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}</div>
+                                        </div>
+                                        @if ($row['available'])
+                                            <a class="shrink-0 bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.1em] text-[11px] rounded-full px-3 py-2" href="{{ route('coth.book', ['date' => $date, 'table' => $table->code]) }}">Reserve</a>
+                                        @endif
+                                    </div>
+                                @endforeach
                             </div>
-                        </{{ $row['available'] ? 'a' : 'div' }}>
+                        </details>
                     @endforeach
                 </div>
             @endif

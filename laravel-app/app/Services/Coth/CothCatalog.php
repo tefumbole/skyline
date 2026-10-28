@@ -44,11 +44,15 @@ class CothCatalog
 
     public function eventDates()
     {
+        $closed = ['2026-12-28', '2026-12-29'];
         $dates = [];
         $cursor = Carbon::parse('2026-12-24');
         $end = Carbon::parse('2027-01-02');
         while ($cursor->lte($end)) {
-            $dates[] = $cursor->toDateString();
+            $date = $cursor->toDateString();
+            if (! in_array($date, $closed, true)) {
+                $dates[] = $date;
+            }
             $cursor->addDay();
         }
 
@@ -57,7 +61,7 @@ class CothCatalog
 
     public function discountDates()
     {
-        return ['2026-12-26', '2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30'];
+        return [];
     }
 
     public function seed()
@@ -70,7 +74,7 @@ class CothCatalog
 
         $settings = CothSetting::create([
             'deposit_percent' => 20,
-            'discount_percent' => 20,
+            'discount_percent' => 0,
             'hold_minutes' => 15,
             'discount_dates' => json_encode($this->discountDates()),
             'timezone' => 'Africa/Douala',

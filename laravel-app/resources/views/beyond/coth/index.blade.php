@@ -140,9 +140,6 @@
                         @if ($night !== '')
                             <span class="coth-night">{{ $night }}</span>
                         @endif
-                        @if (in_array($date, $discountDates ?? [], true))
-                            <span class="coth-off">{{ (int) ($discountPercent ?? 20) }}% OFF</span>
-                        @endif
                     </button>
                 @endforeach
             </div>

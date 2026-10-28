@@ -29,7 +29,7 @@ class CothReservationService
 
         return CothSetting::create([
             'deposit_percent' => 20,
-            'discount_percent' => 20,
+            'discount_percent' => 0,
             'hold_minutes' => 15,
             'discount_dates' => json_encode(app(CothCatalog::class)->discountDates()),
             'timezone' => 'Africa/Douala',

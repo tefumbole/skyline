@@ -34,7 +34,7 @@ class CothReservationTest extends TestCase
         $this->assertSame(2, CothTable::where('code', 'like', 'HALL-T6-%')->where('seating_style', 'couch')->count());
         $this->assertSame(1, CothTable::where('code', 'like', 'POOL-T4-%')->where('seating_style', 'couch')->count());
         $this->assertSame(1, CothTable::where('code', 'POOL-T6-01')->where('seating_style', 'couch')->count());
-        $this->assertSame(42 * 10, CothSlot::count());
+        $this->assertSame(42 * 8, CothSlot::count());
     }
 
     public function test_discount_depends_on_the_event_date_not_the_booking_day()
@@ -47,15 +47,15 @@ class CothReservationTest extends TestCase
         $after = $pricing->quote(500000, '2026-12-31', $settings);
         Carbon::setTestNow();
 
-        $this->assertSame(100000, $discounted['discount_amount']);
-        $this->assertSame(400000, $discounted['final_price']);
-        $this->assertSame(80000, $discounted['deposit_due']);
+        $this->assertSame(0, $discounted['discount_amount']);
+        $this->assertSame(500000, $discounted['final_price']);
+        $this->assertSame(100000, $discounted['deposit_due']);
         $this->assertSame(0, $regular['discount_amount']);
         $this->assertSame(500000, $regular['final_price']);
         $this->assertSame(100000, $regular['deposit_due']);
         $this->assertSame(0, $after['discount_amount']);
-        foreach (['2026-12-26', '2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30'] as $date) {
-            $this->assertSame(100000, $pricing->quote(500000, $date, $settings)['discount_amount']);
+        foreach (['2026-12-26', '2026-12-27', '2026-12-30'] as $date) {
+            $this->assertSame(0, $pricing->quote(500000, $date, $settings)['discount_amount']);
         }
     }
 
@@ -100,16 +100,16 @@ class CothReservationTest extends TestCase
         $table = CothTable::where('code', 'YARD-T10-01')->first();
         $service = app(CothReservationService::class);
         $reservation = $service->hold($table, '2026-12-26', $this->guest('full'));
-        $this->assertSame(200000, (int) $reservation->discount_amount);
-        $this->assertSame(800000, (int) $reservation->final_price);
-        $this->assertSame(160000, (int) $reservation->deposit_due);
+        $this->assertSame(0, (int) $reservation->discount_amount);
+        $this->assertSame(1000000, (int) $reservation->final_price);
+        $this->assertSame(200000, (int) $reservation->deposit_due);
 
         $table->price = 1000;
         $table->save();
-        $this->assertSame('confirmed', $service->applyGateway($reservation, true, 800000, 'pay-1', 'momo'));
+        $this->assertSame('confirmed', $service->applyGateway($reservation, true, 1000000, 'pay-1', 'momo'));
         $saved = CothReservation::find($reservation->id);
         $this->assertSame(1000000, (int) $saved->list_price);
-        $this->assertSame(800000, (int) $saved->final_price);
+        $this->assertSame(1000000, (int) $saved->final_price);
         $this->assertSame('booked', CothSlot::find($saved->coth_slot_id)->status);
     }
 

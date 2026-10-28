@@ -60,15 +60,22 @@
             @if(!empty($filterCategory))
                 <p class="w2k-product-list-hint">Products in <strong>{{ $filterCategory->name }}</strong>, including its subcategories. <a href="{{ url('products') }}">Show all products</a></p>
             @endif
+            @if(empty($cothBoard))
             <p class="w2k-product-list-hint">Click a product photo, then paste an image. Click a name, quantity, price, cost, brand, category, or unit to change it. Press Enter or click away to save.</p>
+            @endif
         </div>
         <div class="product-actions">
+        @if(empty($cothBoard))
         @if(in_array("products-add", $all_permission))
             <a href="{{route('products.create')}}" class="btn btn-info"><i class="dripicons-plus"></i> {{__('file.add_product')}}</a>
             <a href="#" data-toggle="modal" data-target="#importProduct" class="btn btn-primary"><i class="dripicons-copy"></i> {{__('file.import_product')}}</a>
         @endif
+        @endif
         </div>
     </div>
+    @if(!empty($cothBoard))
+        @include('product.coth_board')
+    @else
     <div class="table-responsive">
         <table id="product-data-table" class="table" style="width: 100%">
             <thead>
@@ -90,6 +97,7 @@
 
         </table>
     </div>
+    @endif
     </div>
 </section>
 
@@ -364,6 +372,9 @@
     }
 
     $(document).ready(function() {
+        if (!$('#product-data-table').length) {
+            return;
+        }
         var table = $('#product-data-table').DataTable( {
             responsive: true,
             fixedHeader: {

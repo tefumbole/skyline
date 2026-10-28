@@ -225,6 +225,28 @@ class CothVisualLibrary
     }
 
     /**
+     * Preview image for a template at a given seat count.
+     */
+    public function templateImage($slug, $capacity)
+    {
+        $cap = (int) $capacity;
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $found = $this->imageAsset('coth/presets/'.$slug.'/'.$cap.'.'.$ext);
+            if ($found) {
+                return $found;
+            }
+        }
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $found = $this->imageAsset('coth/presets/'.$slug.'/preview.'.$ext);
+            if ($found) {
+                return $found;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Public URL for a file under public/images, checking the real disk path.
      */
     protected function imageAsset($relative)

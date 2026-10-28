@@ -22,6 +22,9 @@ use Illuminate\Validation\Rule;
 use DB;
 use App\Variant;
 use App\ProductVariant;
+use App\CothSection;
+use App\CothTable;
+use App\Services\Coth\CothVisualLibrary;
 
 class ProductController extends Controller
 {
@@ -41,7 +44,8 @@ class ProductController extends Controller
             if ((int) $request->input('category_id') > 0) {
                 $filterCategory = Category::where('is_active', true)->find((int) $request->input('category_id'));
             }
-            return view('product.index', compact('all_permission', 'brands', 'inlineCategories', 'inlineUnits', 'filterCategory'));
+            $cothBoard = $this->chillOnTheHillBoard($request, $filterCategory);
+            return view('product.index', compact('all_permission', 'brands', 'inlineCategories', 'inlineUnits', 'filterCategory', 'cothBoard'));
         }
         else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
@@ -1645,5 +1649,57 @@ class ProductController extends Controller
         }
 
         return $names;
+    }
+
+    /**
+     * Chill on the Hill is furniture, not a product list. The category opens
+     * its sections, and a section opens the tables that can be renamed and restyled.
+     */
+    protected function chillOnTheHillBoard(Request $request, $category)
+    {
+        if (! $category || $category->parent_id || strcasecmp(trim($category->name), 'Chill on the Hill') !== 0) {
+            return null;
+        }
+        if (! \Schema::hasTable('coth_sections') || ! \Schema::hasTable('coth_tables')) {
+            return null;
+        }
+
+        $visuals = app(CothVisualLibrary::class);
+        $sections = CothSection::where('is_active', 1)->orderBy('sort')->get();
+        $cards = [];
+        foreach ($sections as $section) {
+            $tables = CothTable::where('coth_section_id', $section->id)->orderBy('code')->get();
+            $sample = $tables->sortByDesc(function ($table) {
+                $rank = $table->seating_style === 'couch' ? 300 : 100;
+
+                return ($rank * 100) + (int) $table->capacity;
+            })->first();
+            $cards[] = [
+                'section' => $section,
+                'count' => $tables->count(),
+                'image' => $sample ? $visuals->assetFor($sample) : null,
+            ];
+        }
+
+        $open = null;
+        $code = (string) $request->query('section');
+        if ($code !== '') {
+            $open = $sections->first(function ($section) use ($code) {
+                return $section->code === $code;
+            });
+        }
+
+        $tables = collect();
+        if ($open) {
+            $tables = CothTable::where('coth_section_id', $open->id)->orderBy('code')->get();
+        }
+
+        return [
+            'cards' => $cards,
+            'section' => $open,
+            'tables' => $tables,
+            'visuals' => $visuals,
+            'presets' => $visuals->presets(),
+        ];
     }
 }

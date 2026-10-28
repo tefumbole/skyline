@@ -214,7 +214,14 @@ class CothAdminController extends Controller
         $table->save();
         CothAudit::write('table', 'coth_tables', $table->id, $table->code.' updated.');
 
-        return back()->with('message', session('message', $table->code.' saved.'));
+        $notice = session('message', $table->code.' saved.');
+        $return = (string) $request->input('return_url');
+        $products = url('products');
+        if ($return !== '' && strpos($return, $products) === 0) {
+            return redirect($return)->with('edit_message', $notice);
+        }
+
+        return back()->with('message', $notice);
     }
 
     public function updateChairInventory(Request $request)
@@ -413,7 +420,7 @@ class CothAdminController extends Controller
         if (! $user) {
             abort(403);
         }
-        if (in_array((int) $user->role_id, [1, 4], true)) {
+        if (in_array((int) $user->role_id, [1, 2, 4], true)) {
             return;
         }
         try {

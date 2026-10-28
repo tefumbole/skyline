@@ -203,25 +203,39 @@ class CothVisualLibrary
         $preset = $table->visual_preset ? $this->preset($table->visual_preset) : null;
 
         if ($preset && $preset['style'] === $style) {
-            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
-                $candidate = 'public/images/coth/presets/'.$preset['slug'].'/'.$cap.'.'.$ext;
-                if (is_file(public_path($candidate))) {
-                    return asset($candidate);
+            foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+                $found = $this->imageAsset('coth/presets/'.$preset['slug'].'/'.$cap.'.'.$ext);
+                if ($found) {
+                    return $found;
                 }
             }
-            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
-                $previewCandidate = 'public/images/coth/presets/'.$preset['slug'].'/preview.'.$ext;
-                if (is_file(public_path($previewCandidate))) {
-                    return asset($previewCandidate);
+            foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+                $found = $this->imageAsset('coth/presets/'.$preset['slug'].'/preview.'.$ext);
+                if ($found) {
+                    return $found;
                 }
             }
         }
 
         if ($style === 'couch') {
-            return asset('public/images/coth/tables/couch.png');
+            return $this->imageAsset('coth/tables/couch.png') ?: asset('public/images/coth/tables/couch.png');
         }
 
-        return asset('public/images/coth/tables/'.$cap.'.png');
+        return $this->imageAsset('coth/tables/'.$cap.'.png') ?: asset('public/images/coth/tables/'.$cap.'.png');
+    }
+
+    /**
+     * Public URL for a file under public/images, checking the real disk path.
+     */
+    protected function imageAsset($relative)
+    {
+        $relative = ltrim(str_replace('\\', '/', $relative), '/');
+        $web = 'public/images/'.$relative;
+        if (is_file(public_path('images/'.$relative)) || is_file(public_path($web))) {
+            return asset($web);
+        }
+
+        return null;
     }
 
     /**

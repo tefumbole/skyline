@@ -92,6 +92,16 @@
     <input type="hidden" name="checkout_token" value="{{ $token }}">
     <input type="hidden" name="country" value="{{ old('country', 'Cameroon') }}">
 
+    @if(isset($photos) && $photos->isNotEmpty())
+        <div class="max-w-[1180px] mx-auto px-4 pt-6 grid grid-cols-2 md:grid-cols-3 gap-3">
+            @foreach($photos as $photo)
+                <figure class="m-0 rounded-2xl overflow-hidden border border-brand-gold/35 bg-black">
+                    <img src="{{ $photo->fileUrl() }}" alt="{{ $photo->title }}" class="w-full h-52 object-cover" loading="lazy">
+                </figure>
+            @endforeach
+        </div>
+    @endif
+
     <div class="max-w-[1180px] mx-auto px-4 pt-8 pb-2 text-center">
         <h1 class="font-serif text-2xl sm:text-3xl lg:text-4xl text-[#F7F1E8]">Cafe &amp; <span class="text-brand-gold">Restaurant</span></h1>
         <p class="mt-2 text-sm text-white/70 max-w-2xl mx-auto">Tap a drink or a dish to add it. One order is one bill.</p>

@@ -1457,6 +1457,8 @@
                         @endif
                         @if(in_array((int) Auth::user()->role_id, [1, 2], true))
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
+                            <li><a href="{{ url('/admin/gallery') }}" data-nav-key="gallery"> <i class="dripicons-photo-group"></i><span>Gallery</span></a></li>
+                            <li><a href="{{ url('/admin/menu') }}" data-nav-key="menu-photos"> <i class="dripicons-menu"></i><span>Menu</span></a></li>
                             <li><a href="{{ url('/admin/guest-reviews') }}" data-nav-key="guest-reviews"> <i class="dripicons-message"></i><span>Guest Reviews</span></a></li>
                             {{-- Membership disabled for now --}}
                             {{-- <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li> --}}
@@ -3087,6 +3089,12 @@
                         order.forEach(function (k) {
                             if (map[k]) {
                                 ul.appendChild(map[k]);
+                                used[k] = true;
+                            }
+                        });
+                        ['menu-photos', 'gallery'].forEach(function (k) {
+                            if (map[k] && !used[k] && map['site-content']) {
+                                map['site-content'].insertAdjacentElement('afterend', map[k]);
                                 used[k] = true;
                             }
                         });

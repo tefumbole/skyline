@@ -37,8 +37,9 @@ class RestaurantMenuController extends Controller
         }
         $tables = RestaurantTable::where('is_active', 1)->orderBy('name')->get();
         $token = bin2hex(random_bytes(16));
+        $photos = \App\GalleryItem::published()->where('board', 'menu')->where('type', 'image')->ordered()->get();
 
-        return view('restaurant.menu', compact('sections', 'tables', 'token'));
+        return view('restaurant.menu', compact('sections', 'tables', 'token', 'photos'));
     }
 
     public function checkout(Request $request, RestaurantOrderService $orders)

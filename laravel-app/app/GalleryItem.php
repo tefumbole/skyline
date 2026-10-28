@@ -8,6 +8,7 @@ class GalleryItem extends Model
 {
     protected $fillable = [
         'type',
+        'board',
         'title',
         'description',
         'file_path',

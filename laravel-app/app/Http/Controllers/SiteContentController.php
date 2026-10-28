@@ -38,7 +38,7 @@ class SiteContentController extends Controller
             'peopleOrder'  => SiteMenu::peopleOrder(),
             'schema'       => SiteContent::orderedSchema(),
             'pageSchema'   => SiteContent::pageSchema($tab),
-            'galleryItems' => $tab === 'gallery' ? GalleryItem::ordered()->get() : collect(),
+            'galleryItems' => $tab === 'gallery' ? GalleryItem::where('board', 'gallery')->ordered()->get() : collect(),
             'galleryTypes' => GalleryEmbed::types(),
         ];
 
@@ -161,6 +161,7 @@ class SiteContentController extends Controller
 
         GalleryItem::create([
             'type'        => $type,
+            'board'       => 'gallery',
             'title'       => $request->input('title'),
             'description' => $request->input('description'),
             'file_path'   => $filePath,

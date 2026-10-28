@@ -35,6 +35,8 @@ class SiteMenu
         return [
             'dashboard'    => 'Dashboard',
             'site-content' => 'Site Content',
+            'gallery'      => 'Gallery',
+            'menu-photos'  => 'Menu',
             'guest-reviews'=> 'Guest Reviews',
             'membership'   => 'Membership',
             'leaders'      => 'About Us Leaders',

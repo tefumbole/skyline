@@ -66,22 +66,24 @@
                 <h2 class="text-lg font-semibold text-white mb-3">{{ $current['name'] }}</h2>
             @endif
             <p id="svc-none" class="hidden text-white/60 mb-3">No matches for that search.</p>
-            <div class="space-y-3" id="svc-items">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="svc-items">
                 @forelse ($items as $product)
                     @php
                         $img = \App\Support\ServiceCatalog::productImage($product);
                         $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
                     @endphp
-                    <label class="svc-item flex items-center gap-3 sm:gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3" data-name="{{ strtolower($product->name) }}">
+                    <label class="svc-item flex flex-col rounded-2xl border border-brand-gold/25 bg-white/[0.03] overflow-hidden" data-name="{{ strtolower($product->name) }}">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
-                        @if ($img)
-                            <img src="{{ $img }}" alt="{{ $product->name }}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-white/5 border border-brand-gold/20 shrink-0" loading="lazy">
-                        @else
-                            <span class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/5 flex items-center justify-center text-brand-gold/70 shrink-0">
-                                <i data-lucide="{{ $icon }}" class="w-7 h-7"></i>
-                            </span>
-                        @endif
-                        <span class="flex-1 min-w-0">
+                        <span class="block bg-white aspect-square">
+                            @if ($img)
+                                <img src="{{ $img }}" alt="{{ $product->name }}" class="w-full h-full object-contain" loading="lazy">
+                            @else
+                                <span class="w-full h-full flex items-center justify-center text-brand-gold/70 bg-[#14110e]">
+                                    <i data-lucide="{{ $icon }}" class="w-10 h-10"></i>
+                                </span>
+                            @endif
+                        </span>
+                        <span class="p-3 flex flex-col gap-2 flex-1">
                             <span class="block font-semibold leading-snug">{{ $product->name }}</span>
                             <span class="text-sm text-brand-gold font-bold">
                                 @if ((float) $product->price > 0)
@@ -90,15 +92,15 @@
                                     Ask for the price
                                 @endif
                             </span>
-                        </span>
-                        <span class="flex items-center gap-2 shrink-0 svc-qty">
-                            <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
-                            <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-14 text-center rounded-md bg-black border border-white/15 px-2 py-2 text-white tabular-nums">
-                            <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="1" aria-label="Increase">+</button>
+                            <span class="mt-auto flex items-center justify-between gap-2 svc-qty">
+                                <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
+                                <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-12 text-center rounded-md bg-black border border-white/15 px-1 py-2 text-white tabular-nums">
+                                <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="1" aria-label="Increase">+</button>
+                            </span>
                         </span>
                     </label>
                 @empty
-                    <p class="text-white/60">Nothing in this list yet.</p>
+                    <p class="text-white/60 col-span-full">Nothing in this list yet.</p>
                 @endforelse
             </div>
 
@@ -116,13 +118,14 @@
                             <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">WhatsApp</span>
                             <input name="phone" value="{{ old('phone') }}" required placeholder="6XX XXX XXX" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-brand-gold">
                         </label>
-                        <label class="block">
+                        <div class="block md:col-span-2">
                             <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Service</span>
-                            <select name="service_type" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white outline-none focus:border-brand-gold">
-                                <option value="dine_in" @if(old('service_type', 'dine_in') === 'dine_in') selected @endif>Dine in</option>
-                                <option value="take_away" @if(old('service_type') === 'take_away') selected @endif>Take away</option>
-                            </select>
-                        </label>
+                            <input type="hidden" name="service_type" id="svc-service" value="{{ old('service_type', 'dine_in') }}">
+                            <div class="grid grid-cols-2 gap-2" id="svc-service-picks">
+                                <button type="button" data-service="dine_in" class="rounded-2xl border px-4 py-3 font-semibold {{ old('service_type', 'dine_in') === 'dine_in' ? 'border-brand-gold bg-brand-gold text-[#0A0A0A]' : 'border-white/15 text-white' }}">Dine in</button>
+                                <button type="button" data-service="take_away" class="rounded-2xl border px-4 py-3 font-semibold {{ old('service_type') === 'take_away' ? 'border-brand-gold bg-brand-gold text-[#0A0A0A]' : 'border-white/15 text-white' }}">Take away</button>
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="mt-6 w-full sm:w-auto bg-brand-gold text-[#0A0A0A] font-bold tracking-[0.12em] uppercase px-8 py-3.5 rounded-full">Place order</button>
                 </div>
@@ -148,6 +151,23 @@
                 if (match) shown++;
             });
             if (none) none.classList.toggle('hidden', q === '' || shown > 0);
+        });
+    }
+    var picks = document.getElementById('svc-service-picks');
+    var service = document.getElementById('svc-service');
+    if (picks && service) {
+        picks.addEventListener('click', function (e) {
+            var pick = e.target.closest('[data-service]');
+            if (!pick) return;
+            service.value = pick.getAttribute('data-service');
+            picks.querySelectorAll('[data-service]').forEach(function (el) {
+                var on = el === pick;
+                el.classList.toggle('border-brand-gold', on);
+                el.classList.toggle('bg-brand-gold', on);
+                el.classList.toggle('text-[#0A0A0A]', on);
+                el.classList.toggle('border-white/15', !on);
+                el.classList.toggle('text-white', !on);
+            });
         });
     }
     document.addEventListener('click', function (e) {

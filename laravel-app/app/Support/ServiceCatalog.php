@@ -121,9 +121,16 @@ class ServiceCatalog
         return Product::where('is_active', true)->whereIn('category_id', $ids)->orderBy('name')->get();
     }
 
-    /** First available category photo for the service, for the card banner. */
+    /** The parent category's own photo, for the card on the services page. */
     public static function heroUrl($key)
     {
+        $parent = Category::whereNull('parent_id')->find($key);
+        if ($parent) {
+            $own = self::categoryImage($parent);
+            if ($own) {
+                return $own;
+            }
+        }
         foreach (self::categories($key) as $node) {
             if (! empty($node['image'])) {
                 return $node['image'];

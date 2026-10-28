@@ -11,7 +11,7 @@
         <h1 class="font-serif text-3xl md:text-4xl text-white mt-2">Services</h1>
         <p class="text-white/70 text-sm mt-2 max-w-2xl">Browse every counter. Food, coffee, and drinks still go on one bill.</p>
 
-        <div class="mt-8 grid gap-5 md:grid-cols-2">
+        <div class="mt-8 grid gap-5 sm:grid-cols-3">
             @foreach ($catalog as $key => $svc)
                 @php
                     $hero = \App\Support\ServiceCatalog::heroUrl($key);

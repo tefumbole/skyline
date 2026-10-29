@@ -3176,6 +3176,9 @@
                             <span class="sidebar-user-role">{{ ucfirst($role->name ?? 'User') }}</span>
                         </div>
                     </div>
+                    <a href="{{ route('admin.help') }}" class="sidebar-user-link">
+                        <i class="dripicons-question"></i> Help
+                    </a>
                     <a href="{{route('user.profile', ['id' => Auth::id()])}}" class="sidebar-user-link">
                         <i class="dripicons-user"></i> My Profile
                     </a>

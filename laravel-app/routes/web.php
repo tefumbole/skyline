@@ -500,6 +500,8 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/coth/slots/{id}', 'CothAdminController@updateSlot')->name('coth.admin.slot');
     Route::post('/admin/coth/chair-inventory', 'CothAdminController@updateChairInventory')->name('coth.admin.chair_inventory');
     Route::post('/admin/coth/reservation/{id}/amend-chairs', 'CothAdminController@amendChairs')->name('coth.admin.amend_chairs');
+    Route::get('/admin/help', 'TestingManualController@index')->name('admin.help');
+    Route::post('/admin/help/result', 'TestingManualController@save')->name('admin.help.result');
     Route::get('/admin/membership', 'MembershipPublicController@admin')->name('membership.admin');
     Route::post('/admin/membership/{id}/approve', 'MembershipPublicController@approve')->name('membership.admin.approve');
     Route::post('/admin/membership/{id}/reject', 'MembershipPublicController@reject')->name('membership.admin.reject');

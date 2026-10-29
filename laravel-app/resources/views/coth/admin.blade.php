@@ -20,12 +20,12 @@
     }
     $tabs = [
         'tables' => 'Tables',
-        'locations' => 'Locations',
         'reservations' => 'Reservations',
         'availability' => 'Availability',
         'chairs' => 'Extra chairs',
         'rules' => 'Rules',
         'audit' => 'Audit',
+        'locations' => 'Locations',
     ];
     if (! isset($tabs[$tab])) {
         $tab = 'tables';

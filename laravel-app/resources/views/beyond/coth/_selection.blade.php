@@ -116,9 +116,10 @@
                         <div class="flex justify-between text-white/55"><span>Discount</span><span>0 FCFA</span></div>
                     @endif
                     <div class="flex justify-between"><span class="text-white/70">Final table</span><span>{{ number_format((int) $q['final_price']) }} FCFA</span></div>
-                    <div class="flex justify-between" id="coth-chair-row" @if((int) ($q['extra_chairs_qty'] ?? 0) < 1) style="display:none" @endif>
+                    @php $extraQty = (int) ($q['extra_chairs_qty'] ?? 0); @endphp
+                    <div class="flex justify-between" id="coth-chair-row" @if($extraQty < 1) style="display:none" @endif>
                         <span class="text-white/70" id="coth-chair-label">Extra chairs</span>
-                        <span id="coth-chair-amount">@if((int) ($q['extra_chairs_qty'] ?? 0) > 0){{ number_format((int) $q['extra_chairs_amount']) }} FCFA@endif</span>
+                        <span id="coth-chair-amount">@if($extraQty > 0){{ number_format((int) $q['extra_chairs_amount']) }} FCFA @endif</span>
                     </div>
                     <div class="flex justify-between font-semibold border-t border-white/10 pt-2 mt-2"><span>Total</span><span id="coth-total-amount">{{ number_format((int) $q['booking_total']) }} FCFA</span></div>
                 </div>

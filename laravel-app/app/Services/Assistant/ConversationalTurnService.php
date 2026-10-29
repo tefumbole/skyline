@@ -51,9 +51,13 @@ class ConversationalTurnService
         $facts = [];
         $lastModel = AssistantAiConfig::model();
         $toolChoice = 'auto';
+        $forceCoth = $this->mentionsCoth($incoming);
         $started = microtime(true);
 
         for ($i = 0; $i < $maxIter; $i++) {
+            $toolChoice = ($i === 0 && $forceCoth)
+                ? ['type' => 'function', 'function' => ['name' => 'get_coth_event']]
+                : 'auto';
             $result = $this->provider->complete($messages, [
                 'tools' => $openAiTools,
                 'tool_choice' => $toolChoice,
@@ -234,6 +238,11 @@ class ConversationalTurnService
             'response_source' => 'FALLBACK_ERROR',
             'provider_error' => 'empty_model_response',
         ], $lastModel, $openAiTools, $toolChoice, $started);
+    }
+
+    protected function mentionsCoth($incoming)
+    {
+        return (bool) preg_match('/\b(coth|chill)\b|on the hill/i', (string) $incoming);
     }
 
     protected function finish(array $payload, $model, array $tools, $toolChoice, $started)

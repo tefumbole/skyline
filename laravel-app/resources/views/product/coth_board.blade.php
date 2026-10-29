@@ -121,16 +121,23 @@
     document.querySelectorAll('.coth-table-card').forEach(function (form) {
         function applyStyle() {
             var style = form.querySelector('.coth-style').value;
+            var first = null;
             form.querySelectorAll('.coth-template').forEach(function (card) {
                 var cardStyle = card.getAttribute('data-style');
-                var show = cardStyle === 'any' || cardStyle === style;
+                var show = cardStyle === style;
                 card.style.display = show ? '' : 'none';
                 var input = card.querySelector('input');
                 if (!show && input.checked) {
                     input.checked = false;
                     card.classList.remove('is-on');
                 }
+                if (show && !first) first = card;
             });
+            var checked = form.querySelector('.coth-template input:checked');
+            if ((!checked || checked.closest('.coth-template').style.display === 'none') && first) {
+                first.querySelector('input').checked = true;
+                first.classList.add('is-on');
+            }
         }
         form.querySelector('.coth-style').addEventListener('change', applyStyle);
         form.querySelectorAll('.coth-template input').forEach(function (input) {

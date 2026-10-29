@@ -126,7 +126,7 @@ class TestingManual
                     'Save.',
                 ], 'The page refuses the save and the other location’s tables are unchanged. Put the test code back afterwards.', null),
             ]),
-            self::section('products', 'Products and People', 'These checks cover the menus beside Chill on the Hill.', [
+            self::section('products', 'Products', 'Open the Product menu.', [
                 self::item('prod-board', 'Chill on the Hill in Products opens by location', [
                     'Open Product.',
                     'Choose the Chill on the Hill category.',
@@ -136,11 +136,84 @@ class TestingManual
                     'On a table, change the name or the colour template and save.',
                     'Look for a price box on that same screen.',
                 ], 'The name and template save. The price is not edited on this screen. Price is on COTH Reservations, on the Tables tab.', null),
+            ]),
+            self::section('people', 'People', 'Open the People menu.', [
                 self::item('people-lists', 'People includes suppliers', [
                     'Open the People menu.',
                 ], 'The lists include Customer List, User List, Biller List, and Supplier List.', null),
             ]),
         ];
+    }
+
+    public static function forUser($user)
+    {
+        if (! $user) {
+            return [];
+        }
+        if ((int) $user->role_id === 1) {
+            return self::sections();
+        }
+        $perms = self::permissionNames($user);
+        $out = [];
+        foreach (self::sections() as $section) {
+            if (self::visible($section['id'], $user, $perms)) {
+                $out[] = $section;
+            }
+        }
+
+        return $out;
+    }
+
+    public static function visible($sectionId, $user, array $perms = null)
+    {
+        if (! $user) {
+            return false;
+        }
+        if ((int) $user->role_id === 1) {
+            return true;
+        }
+        $gate = self::gateFor($sectionId);
+        if (in_array((int) $user->role_id, $gate['roles'], true)) {
+            return true;
+        }
+        if ($perms === null) {
+            $perms = self::permissionNames($user);
+        }
+        foreach ($gate['permissions'] as $need) {
+            if (in_array($need, $perms, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function permissionNames($user)
+    {
+        $names = [];
+        try {
+            $role = \Spatie\Permission\Models\Role::find($user->role_id);
+            if ($role) {
+                foreach ($role->permissions as $permission) {
+                    $names[] = $permission->name;
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return $names;
+    }
+
+    public static function keysFrom(array $sections)
+    {
+        $keys = [];
+        foreach ($sections as $section) {
+            foreach ($section['items'] as $item) {
+                $keys[] = $item['key'];
+            }
+        }
+
+        return $keys;
     }
 
     public static function keys()
@@ -160,6 +233,25 @@ class TestingManual
         return in_array((string) $key, self::keys(), true);
     }
 
+    protected static function gateFor($id)
+    {
+        $coth = ['roles' => [1, 2, 4], 'permissions' => ['coth-reservations']];
+        $map = [
+            'public' => ['roles' => [1, 2], 'permissions' => []],
+            'dates' => $coth,
+            'experience' => $coth,
+            'tables' => $coth,
+            'reserve' => $coth,
+            'desk' => $coth,
+            'tabs' => $coth,
+            'locations' => $coth,
+            'products' => ['roles' => [], 'permissions' => ['products-index', 'products-add', 'products-edit']],
+            'people' => ['roles' => [], 'permissions' => ['customers-index', 'users-index', 'billers-index', 'suppliers-index']],
+        ];
+
+        return isset($map[$id]) ? $map[$id] : ['roles' => [1], 'permissions' => []];
+    }
+
     protected static function section($id, $title, $intro, array $items)
     {
         return [
@@ -167,6 +259,7 @@ class TestingManual
             'title' => $title,
             'intro' => $intro,
             'items' => $items,
+            'gate' => self::gateFor($id),
         ];
     }
 

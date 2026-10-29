@@ -151,9 +151,9 @@ class CothVisualLibrary
     {
         $style = $this->styleFor($table);
         $cap = $this->normalizedCapacity($table);
-        $preset = $table->visual_preset ? $this->preset($table->visual_preset) : null;
+        $preset = $this->resolvePreset($style, $cap, $table->visual_preset);
 
-        if ($preset && $preset['style'] === $style) {
+        if ($preset) {
             foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
                 $found = $this->imageAsset('coth/presets/'.$preset['slug'].'/'.$cap.'.'.$ext);
                 if ($found) {
@@ -238,8 +238,15 @@ class CothVisualLibrary
      */
     public function presetsForTable(CothTable $table)
     {
-        $style = $this->styleFor($table);
-        $cap = (int) $table->capacity;
+        return $this->choicesFor($this->styleFor($table), (int) $table->capacity);
+    }
+
+    /**
+     * Library colours for one style and seat count.
+     */
+    public function choicesFor($style, $capacity)
+    {
+        $cap = (int) $capacity;
 
         return array_values(array_filter($this->presets(), function ($p) use ($style, $cap) {
             if ($p['style'] !== $style) {
@@ -251,6 +258,22 @@ class CothVisualLibrary
 
             return true;
         }));
+    }
+
+    /**
+     * Keep a chosen colour when it belongs to this style and size.
+     * Otherwise use the first library template that does.
+     */
+    public function resolvePreset($style, $capacity, $slug = null)
+    {
+        $choices = $this->choicesFor($style, $capacity);
+        foreach ($choices as $row) {
+            if ($row['slug'] === $slug) {
+                return $row;
+            }
+        }
+
+        return $choices ? $choices[0] : null;
     }
 
     protected function normalizedCapacity(CothTable $table)

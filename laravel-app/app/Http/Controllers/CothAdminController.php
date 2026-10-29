@@ -18,6 +18,7 @@ use App\Services\Coth\CothVisualLibrary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CothAdminController extends Controller
@@ -175,12 +176,18 @@ class CothAdminController extends Controller
         $extraRate = $data['extra_chair_rate'] !== null && $data['extra_chair_rate'] !== '' ? (int) $data['extra_chair_rate'] : null;
         $allowChairs = $request->has('allow_extra_chairs') ? 1 : 0;
 
+        $library = app(\App\Services\Coth\CothVisualLibrary::class);
+        $preset = $library->resolvePreset($data['seating_style'], (int) $data['capacity'], $data['visual_preset'] ?: null);
+        if ($preset && $preset['style'] !== $data['seating_style']) {
+            $preset = null;
+        }
+
         $table->fill([
             'name' => $data['name'],
             'capacity' => $data['capacity'],
             'price' => $data['price'],
             'seating_style' => $data['seating_style'],
-            'visual_preset' => $data['visual_preset'] ?: null,
+            'visual_preset' => $preset['slug'] ?? null,
             'tabletop_material' => null,
             'tabletop_color' => null,
             'upholstery_color' => null,
@@ -196,7 +203,6 @@ class CothAdminController extends Controller
             'pos_x' => $data['pos_x'] === null || $data['pos_x'] === '' ? null : $data['pos_x'],
             'pos_y' => $data['pos_y'] === null || $data['pos_y'] === '' ? null : $data['pos_y'],
         ]);
-        $preset = $data['visual_preset'] ? app(\App\Services\Coth\CothVisualLibrary::class)->preset($data['visual_preset']) : null;
         if ($preset) {
             $table->tabletop_material = $preset['tabletop_material'] ?? null;
             $table->tabletop_color = $preset['tabletop_color'] ?? null;
@@ -222,6 +228,34 @@ class CothAdminController extends Controller
         }
 
         return $this->adminBack('message', $notice);
+    }
+
+    public function updateList(Request $request)
+    {
+        $this->authorizeStaff();
+        $notes = (array) $request->input('note', []);
+        $adds = (array) $request->input('add', []);
+        $ids = array_unique(array_merge(array_keys($notes), array_keys($adds)));
+        $saved = 0;
+        foreach ($ids as $id) {
+            if (! ctype_digit((string) $id)) {
+                continue;
+            }
+            $table = CothTable::find($id);
+            if (! $table) {
+                continue;
+            }
+            $note = isset($notes[$id]) ? trim((string) $notes[$id]) : (string) $table->extra_chair_furniture_type;
+            $table->extra_chair_furniture_type = $note !== '' ? mb_substr($note, 0, 64) : null;
+            if (Schema::hasColumn('coth_tables', 'list_note')) {
+                $add = isset($adds[$id]) ? trim((string) $adds[$id]) : '';
+                $table->list_note = $add !== '' ? mb_substr($add, 0, 255) : null;
+            }
+            $table->save();
+            $saved++;
+        }
+
+        return $this->adminBack('message', 'List saved. '.$saved.' tables updated.');
     }
 
     public function updateSection(Request $request, $id)
@@ -482,7 +516,7 @@ class CothAdminController extends Controller
 
     protected function adminBack($key, $message)
     {
-        $allowed = ['tables', 'locations', 'reservations', 'availability', 'chairs', 'rules', 'audit'];
+        $allowed = ['tables', 'list', 'locations', 'reservations', 'availability', 'chairs', 'rules', 'audit'];
         $tab = (string) request()->input('tab', 'tables');
         if (! in_array($tab, $allowed, true)) {
             $tab = 'tables';

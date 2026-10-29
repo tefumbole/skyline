@@ -59,7 +59,13 @@
     <div class="man-hero">
         <p class="man-kicker">Skyline Hotel</p>
         <h1>Testing guide</h1>
-        <p class="man-lead">Work through each check on the live site. Mark it successful or not successful. Your marks are saved to this login, so you can leave and come back.</p>
+        <p class="man-lead">These checks match the menus on your account. Mark each one successful or not successful. Your marks stay with this login.</p>
+        @if(!empty($shareUrl))
+            <p class="man-lead">The full test for a secretary is <a href="{{ $shareUrl }}">{{ $shareUrl }}</a>. She does not need a login.</p>
+            @foreach($reports as $report)
+                <p class="man-lead"><a href="{{ route('admin.help.report', $report->id) }}">{{ $report->tester_name }}</a> · {{ $report->created_at }}</p>
+            @endforeach
+        @endif
         <div class="man-progress">
             <span class="man-pill pass" id="man-pass">{{ $passed }} successful</span>
             <span class="man-pill fail" id="man-fail">{{ $failed }} not successful</span>

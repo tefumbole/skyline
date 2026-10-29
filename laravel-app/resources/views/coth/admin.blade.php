@@ -20,6 +20,7 @@
     }
     $tabs = [
         'tables' => 'Tables',
+        'list' => 'List',
         'reservations' => 'Reservations',
         'availability' => 'Availability',
         'chairs' => 'Extra chairs',
@@ -86,6 +87,17 @@
     .cothx-alert.bad { background: #fdecec; color: #b42318; }
     .cothx-audit { list-style: none; padding: 0; margin: 0; }
     .cothx-audit li { padding: 10px 0; border-bottom: 1px solid #eef2f7; color: #1f2a44; }
+    .cothx-list-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
+    .cothx-list-tools .form-control { max-width: 280px; }
+    #cothx-print h2 { color: #0c1830; margin: 0 0 4px; }
+    .cothx-list-row.is-hidden { display: none; }
+    @media print {
+        body * { visibility: hidden; }
+        #cothx-print, #cothx-print * { visibility: visible; }
+        #cothx-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
+        #cothx-print .no-print { display: none !important; }
+        #cothx-print input { border: 0; background: transparent; padding: 0; }
+    }
     @media (max-width: 900px) {
         .cothx-card, .cothx-grid { grid-template-columns: 1fr; }
     }
@@ -109,7 +121,26 @@
         </nav>
 
         <div class="cothx-panel {{ $tab === 'tables' ? 'is-on' : '' }}">
-            <p class="cothx-lead">Set the name, price, colour, and extra chairs for each table. Guests see the colour you save here.</p>
+            @php
+                $cothPresetMenu = [];
+                foreach ($visuals->presets() as $presetRow) {
+                    $images = [];
+                    foreach ($presetRow['applies_to_capacities'] as $cap) {
+                        $url = $visuals->templateImage($presetRow['slug'], $cap);
+                        if ($url) {
+                            $images[(string) $cap] = $url;
+                        }
+                    }
+                    $cothPresetMenu[] = [
+                        'slug' => $presetRow['slug'],
+                        'name' => $presetRow['name'],
+                        'style' => $presetRow['style'],
+                        'capacities' => $presetRow['applies_to_capacities'],
+                        'images' => $images,
+                    ];
+                }
+            @endphp
+            <p class="cothx-lead">Set the name, price, and extra chairs. The colour list follows the style and uses the template library, so a curved couch can be shades of gray or teal blue.</p>
             <div class="cothx-chips" id="cothx-secs">
                 <button type="button" class="cothx-chip is-on" data-sec="all">All sections</button>
                 @foreach ($sections as $section)
@@ -119,6 +150,7 @@
             @foreach ($tables as $t)
                 @php
                     $allowedPresets = $visuals->presetsForTable($t);
+                    $selectedPreset = $visuals->resolvePreset($visuals->styleFor($t), (int) $t->capacity, $t->visual_preset);
                     $resolvedRate = $pricing->extraChairRate($t);
                     $sec = optional($t->section)->code ?: 'other';
                 @endphp
@@ -126,17 +158,17 @@
                     @csrf
                     <input type="hidden" name="tab" value="tables">
                     <div class="cothx-photo">
-                        <img src="{{ $visuals->assetFor($t) }}" alt="{{ $t->code }}">
+                        <img class="cothx-shot" src="{{ $visuals->assetFor($t) }}" alt="{{ $t->code }}">
                     </div>
                     <div>
                         <h2 class="cothx-code">{{ $t->code }} <span class="cothx-sec">{{ optional($t->section)->name }}</span></h2>
                         <div class="cothx-grid">
                             <div><label>Name</label><input class="form-control" name="name" value="{{ $t->name }}"></div>
                             <div><label>Price (FCFA)</label><input class="form-control" name="price" type="number" value="{{ $t->price }}"></div>
-                            <div><label>Seats</label><input class="form-control" name="capacity" type="number" value="{{ $t->capacity }}"></div>
+                            <div><label>Seats</label><input class="form-control cothx-cap" name="capacity" type="number" value="{{ $t->capacity }}"></div>
                             <div>
                                 <label>Style</label>
-                                <select class="form-control" name="seating_style">
+                                <select class="form-control cothx-style" name="seating_style">
                                     <option value="standard" @if($t->seating_style==='standard') selected @endif>Regular chairs</option>
                                     <option value="couch" @if($t->seating_style==='couch') selected @endif>Curved couch</option>
                                     <option value="high_table" @if($t->seating_style==='high_table') selected @endif>High chairs</option>
@@ -144,11 +176,12 @@
                             </div>
                             <div>
                                 <label>Colour</label>
-                                <select class="form-control" name="visual_preset">
-                                    <option value="">Current default</option>
-                                    @foreach($allowedPresets as $p)
-                                        <option value="{{ $p['slug'] }}" @if($t->visual_preset === $p['slug']) selected @endif>{{ $p['name'] }}</option>
-                                    @endforeach
+                                <select class="form-control cothx-colour" name="visual_preset">
+                                    @forelse($allowedPresets as $p)
+                                        <option value="{{ $p['slug'] }}" @if($selectedPreset && $selectedPreset['slug'] === $p['slug']) selected @endif>{{ $p['name'] }}</option>
+                                    @empty
+                                        <option value="">No template for this size</option>
+                                    @endforelse
                                 </select>
                             </div>
                             <div><label>Left %</label><input class="form-control" name="pos_x" value="{{ $t->pos_x }}" placeholder="Optional"></div>
@@ -168,6 +201,52 @@
                     </div>
                 </form>
             @endforeach
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'list' ? 'is-on' : '' }}">
+            <form method="POST" action="{{ route('coth.admin.list') }}" id="cothx-print">
+                @csrf
+                <input type="hidden" name="tab" value="list">
+                <h2 id="cothx-list-title">All tables</h2>
+                <p class="cothx-lead">Print this list for manual adjustments. Choose one location, or keep every table. Notes are saved. Use Add for anything extra you want on the sheet.</p>
+                <div class="cothx-list-tools no-print">
+                    <div>
+                        <label>Section</label>
+                        <select class="form-control" id="cothx-list-sec">
+                            <option value="all">All sections</option>
+                            @foreach ($sections as $section)
+                                <option value="{{ $section->code }}">{{ $section->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" type="button" onclick="window.print()">Print</button>
+                    <button class="btn btn-primary" type="submit">Save notes</button>
+                </div>
+                <table class="cothx-table">
+                    <thead>
+                        <tr>
+                            <th>Table</th>
+                            <th>Section</th>
+                            <th>Seats</th>
+                            <th>Price (FCFA)</th>
+                            <th>Notes</th>
+                            <th>Add</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach ($tables as $t)
+                        <tr class="cothx-list-row" data-sec="{{ optional($t->section)->code ?: 'other' }}" data-name="{{ optional($t->section)->name }}">
+                            <td><strong>{{ $t->code }}</strong></td>
+                            <td>{{ optional($t->section)->name }}</td>
+                            <td>{{ $t->capacity }}</td>
+                            <td>{{ number_format((int) $t->price) }}</td>
+                            <td><input class="form-control" name="note[{{ $t->id }}]" value="{{ $t->extra_chair_furniture_type }}"></td>
+                            <td><input class="form-control" name="add[{{ $t->id }}]" value="{{ $t->list_note }}" placeholder="Add a line"></td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </form>
         </div>
 
         <div class="cothx-panel {{ $tab === 'locations' ? 'is-on' : '' }}">
@@ -402,6 +481,61 @@
     </div>
 </section>
 <script>
+var cothPresets = @json($cothPresetMenu ?? []);
+function cothChoices(style, cap) {
+    cap = parseInt(cap, 10);
+    return cothPresets.filter(function (preset) {
+        if (preset.style !== style) return false;
+        return !preset.capacities.length || preset.capacities.indexOf(cap) !== -1;
+    });
+}
+function cothPaint(form) {
+    var style = form.querySelector('.cothx-style');
+    var capInput = form.querySelector('.cothx-cap');
+    var colour = form.querySelector('.cothx-colour');
+    if (!style || !colour) return;
+    var cap = capInput ? capInput.value : '';
+    var keep = colour.value;
+    var list = cothChoices(style.value, cap);
+    colour.innerHTML = '';
+    if (!list.length) {
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = 'No template for this size';
+        colour.appendChild(empty);
+        return;
+    }
+    list.forEach(function (preset) {
+        var opt = document.createElement('option');
+        opt.value = preset.slug;
+        opt.textContent = preset.name;
+        colour.appendChild(opt);
+    });
+    colour.value = list.some(function (preset) { return preset.slug === keep; }) ? keep : list[0].slug;
+    var chosen = list.filter(function (preset) { return preset.slug === colour.value; })[0];
+    var img = form.querySelector('.cothx-shot');
+    var shot = chosen && chosen.images ? chosen.images[String(parseInt(cap, 10))] : '';
+    if (img && shot) img.src = shot;
+}
+document.querySelectorAll('.cothx-card').forEach(function (form) {
+    ['.cothx-style', '.cothx-colour', '.cothx-cap'].forEach(function (sel) {
+        var field = form.querySelector(sel);
+        if (field) field.addEventListener('change', function () { cothPaint(form); });
+    });
+});
+var listSec = document.getElementById('cothx-list-sec');
+if (listSec) {
+    listSec.addEventListener('change', function () {
+        var sec = listSec.value;
+        var title = 'All tables';
+        document.querySelectorAll('.cothx-list-row').forEach(function (row) {
+            var show = sec === 'all' || row.getAttribute('data-sec') === sec;
+            row.classList.toggle('is-hidden', !show);
+            if (show && sec !== 'all') title = row.getAttribute('data-name') || title;
+        });
+        document.getElementById('cothx-list-title').textContent = title;
+    });
+}
 document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (btn) {
     btn.addEventListener('click', function () {
         document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (chip) { chip.classList.remove('is-on'); });

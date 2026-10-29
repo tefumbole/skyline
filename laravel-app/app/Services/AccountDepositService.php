@@ -29,7 +29,7 @@ class AccountDepositService
             $account->total_balance = $current + $amount;
             $account->save();
 
-            return Deposit::create([
+            $deposit = Deposit::create([
                 'amount' => $amount,
                 'customer_id' => null,
                 'user_id' => $userId,
@@ -40,6 +40,16 @@ class AccountDepositService
                 'payment_reference' => 'dep-'.date('Ymd').'-'.date('His'),
                 'status' => 1,
             ]);
+            if ((int) $method === 3) {
+                $text = 'Momo deposit of XAF '.number_format($amount, 0).' on '.$account->name.'. Ref '.$deposit->payment_reference.'.';
+                \App\Support\MoneyAlerts::staff($text);
+                $staff = \App\User::find($userId);
+                if ($staff && $staff->phone) {
+                    \App\Support\MoneyAlerts::whatsapp($staff->phone, $text);
+                }
+            }
+
+            return $deposit;
         });
     }
 }

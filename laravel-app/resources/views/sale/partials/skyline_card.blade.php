@@ -31,6 +31,30 @@
         : date('j M Y H:i', strtotime((string) $saleWhen));
     $logoUrl = \App\Support\SiteBrand::logoUrl($general_setting ?? null);
     $qr = \App\Support\SaleInvoiceQr::dataUri($lims_sale_data, true);
+    $payLabels = [];
+    $payRows = isset($lims_payment_data) ? $lims_payment_data : [];
+    foreach ($payRows as $payRow) {
+        $rawMethod = strtolower((string) ($payRow->paying_method ?? ''));
+        $label = '';
+        if (strpos($rawMethod, 'momo') !== false || strpos($rawMethod, 'orange') !== false || strpos($rawMethod, 'mobile') !== false) {
+            $label = 'Momo';
+        } elseif (strpos($rawMethod, 'visa') !== false || strpos($rawMethod, 'card') !== false) {
+            $label = 'VISA';
+        } elseif (strpos($rawMethod, 'cash') !== false) {
+            $label = 'Cash';
+        }
+        if ($label !== '' && ! in_array($label, $payLabels, true)) {
+            $payLabels[] = $label;
+        }
+    }
+    if (! $payLabels) {
+        $paidBy = (int) ($lims_sale_data->paid_by_id ?? 0);
+        if ($paidBy === 1) {
+            $payLabels[] = 'Cash';
+        } elseif ($paidBy === 8) {
+            $payLabels[] = 'Momo';
+        }
+    }
     $lines = [];
     foreach ($lims_product_sale_data as $product_sale_data) {
         $product = \App\Product::find($product_sale_data->product_id);
@@ -94,6 +118,10 @@
         <tr><td class="lab">CUSTOMER:</td><td>{{ @$lims_customer_data->name }}</td></tr>
         <tr><td class="lab">PHONE:</td><td>{{ @$lims_customer_data->phone_number }}</td></tr>
         <tr><td class="lab">CITY:</td><td>{{ @$lims_customer_data->city }}</td></tr>
+        <tr>
+            <td class="lab">PAYMENT:</td>
+            <td>{{ $payLabels ? implode(', ', $payLabels) : '—' }}</td>
+        </tr>
         <tr>
             <td class="lab">STATUS:</td>
             <td>@if((int) $lims_sale_data->sale_status === 1)<span class="sky-pill">&#10003; {{ $saleStatus }}</span>@else{{ $saleStatus }}@endif</td>

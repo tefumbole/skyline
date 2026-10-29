@@ -223,21 +223,20 @@ class RestaurantOrderService
     {
         $this->assertStatus($item, 'awaiting', 'preparing');
         $minutes = is_numeric($minutes) ? (int) $minutes : 0;
-        if ($minutes > 240) {
-            throw new \InvalidArgumentException('Enter a preparation time between 1 and 240 minutes.');
+        if ($minutes < 1 || $minutes > 240) {
+            throw new \InvalidArgumentException('Enter how long the meal will take, between 1 and 240 minutes.');
         }
-        $timed = $minutes >= 1;
         $item->status = 'preparing';
         $item->accepted_by = $user->id;
         $item->accepted_at = now();
-        $item->estimate_minutes = $timed ? $minutes : null;
-        if ($timed && ! $item->original_estimate_minutes) {
+        $item->estimate_minutes = $minutes;
+        if (! $item->original_estimate_minutes) {
             $item->original_estimate_minutes = $minutes;
         }
-        $item->expected_ready_at = $timed ? now()->addMinutes($minutes) : null;
+        $item->expected_ready_at = now()->addMinutes($minutes);
         $item->save();
-        $this->event($item->order, $item, 'accepted', $user->id, $timed ? $minutes.' min' : null);
-        $note = $timed ? 'Ready in about '.$minutes.' minutes.' : '';
+        $this->event($item->order, $item, 'accepted', $user->id, $minutes.' min');
+        $note = 'Ready in about '.$minutes.' minutes.';
         $this->notify($item->order, $this->orderNotice($item->order, 'Order accepted', $note));
 
         return $item;

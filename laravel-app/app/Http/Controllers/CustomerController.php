@@ -400,44 +400,36 @@ class CustomerController extends Controller
 
     public function CustomerPayemntCheck(Request $request)
     {
-//        dd($request->all());
-        $reference = $request->reference;
-        $id = $request->external_reference;
-        $amount = $request->app_amount;
-        $payment = Deposit::where('customer_id', $id)->where('status', 0)->where('payment_method', 3)->orderByDesc('id')->first();
+        $verified = $this->verifyCampayTransaction($request->query('reference'));
+        $customerId = $verified ? $verified['external'] : $request->query('external_reference');
+        $payment = Deposit::where('customer_id', $customerId)->where('payment_method', 3)->orderByDesc('id')->first();
+        if (! $verified || ! $payment || ! ctype_digit((string) $customerId)) {
+            if ($payment && (int) $payment->status === 0) {
+                $payment->status = 2;
+                $payment->save();
+            }
 
-        if ($request->status == 'SUCCESSFUL') {
-            $id = $request->external_reference;
-            $lims_customer_data = Customer::find($id);
-//            $lims_customer_data->payment_method = 3;
-//            $lims_customer_data->payment_reference = $reference;
-//            $lims_customer_data->payment_amount = $amount;
-//            $lims_customer_data->payment_status = 1;
-            $lims_customer_data->deposit += $amount;
-//            $lims_customer_data->payment_date = date('Y-m-d');
-            $lims_customer_data->save();
-
-
-            $payment->amount = $amount;
-            $payment->status = 1;
-            $payment->payment_reference = $reference;
-            $payment->save();
-
-            $message = 'Payment completed successfully';
-            return redirect('customer')->with('create_message', $message);
-        } elseif ($request->status == 'FAILED') {
-            $payment->status = 2;
-            $payment->payment_reference = $reference;
-            $payment->save();
-            $message = 'Payment is not completed';
-        } else {
-            $payment->status = 0;
-            $payment->payment_reference = $reference;
-            $payment->save();
-            $message = 'Payment is not completed';
+            return redirect('customer')->with('not_permitted', 'Mobile money was not verified. The deposit was not added.');
         }
-        return redirect('customer')->with('not_permitted', $message);
+        if ((int) $payment->status === 1) {
+            return redirect('customer')->with('create_message', 'Deposit already recorded');
+        }
+        $lims_customer_data = Customer::find($payment->customer_id);
+        if (! $lims_customer_data) {
+            return redirect('customer')->with('not_permitted', 'Mobile money was not verified. The deposit was not added.');
+        }
+        $amount = (float) $verified['amount'];
+        $lims_customer_data->deposit += $amount;
+        $lims_customer_data->save();
+        $payment->amount = $amount;
+        $payment->status = 1;
+        $payment->payment_reference = $verified['reference'];
+        $payment->save();
+        $text = 'Momo deposit of XAF '.number_format($amount, 0).' received for '.$lims_customer_data->name.'.';
+        \App\Support\MoneyAlerts::whatsapp($lims_customer_data->phone_number, $text.' Ref '.$payment->payment_reference.'.');
+        \App\Support\MoneyAlerts::staff($text);
 
+        return redirect('customer')->with('create_message', 'Payment completed successfully');
     }
 
     public function updateDeposit(Request $request)

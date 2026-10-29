@@ -108,8 +108,9 @@
                         @if($item->status === 'awaiting' && ($canAdd || $canDelete))
                             <div style="margin-bottom:8px;">
                                 @if($canAdd)
-                                    <form method="post" action="{{ route('restaurant.accept', $item->id) }}" style="display:inline;">
+                                    <form method="post" action="{{ route('restaurant.accept', $item->id) }}" style="display:inline-flex;gap:6px;align-items:center;">
                                         @csrf
+                                        <input class="form-control" type="number" name="minutes" min="1" max="240" required placeholder="Minutes" title="How long the meal will take" style="width:96px;">
                                         <button class="btn btn-primary" type="submit">Accept</button>
                                     </form>
                                 @endif

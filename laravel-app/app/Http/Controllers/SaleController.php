@@ -1011,6 +1011,11 @@ class SaleController extends Controller
             $paying_method = 'Group Credit';
 
         $message = $this->sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, $paying_method, $net_unit_price);
+        if ((int) $data['paid_by_id'] === 8 && ! empty($data['momo_verified'])) {
+            \App\Support\MoneyAlerts::staff(
+                'Momo payment of XAF '.number_format((float) $lims_sale_data->paid_amount, 0).' for '.$lims_sale_data->reference_no.'.'
+            );
+        }
 
         $role = Role::find(Auth::user()->role_id);
         $role->revokePermissionTo('search_all_products');

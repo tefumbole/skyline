@@ -212,7 +212,13 @@ class CothVisualLibrary
                 return 'Lounge set';
             }
 
-            return $fixed['style'] === 'couch' ? 'Curved couch' : 'High chair';
+            if ($fixed['slug'] === 'high-stool') {
+                $count = (int) $table->capacity;
+
+                return $count > 1 ? $count.' high chairs' : 'High chair';
+            }
+
+            return 'Curved couch';
         }
         $slug = (string) $table->visual_preset;
         if (strpos($slug, 'teal') !== false) {

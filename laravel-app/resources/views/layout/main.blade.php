@@ -1467,6 +1467,7 @@
                         @if(in_array((int) Auth::user()->role_id, [1, 4], true))
                             <li><a href="{{ url('/admin/coth') }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
                         @endif
+                        <li><a href="{{ route('admin.help') }}" data-nav-key="help"> <i class="dripicons-question"></i><span>Help</span></a></li>
                         <?php
                         $role = \Spatie\Permission\Models\Role::find(Auth::user()->role_id);
                         if (! $role) {
@@ -3115,6 +3116,10 @@
                                 used[k] = true;
                             }
                         });
+                        if (map['coth'] && map['help']) {
+                            map['coth'].insertAdjacentElement('afterend', map['help']);
+                            used['help'] = true;
+                        }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).
                         kids.forEach(function (li) {
                             var k = keyOf(li);
@@ -3176,8 +3181,8 @@
                             <span class="sidebar-user-role">{{ ucfirst($role->name ?? 'User') }}</span>
                         </div>
                     </div>
-                    <a href="{{ route('admin.help') }}" class="sidebar-user-link">
-                        <i class="dripicons-question"></i> Help
+                    <a href="{{ url('/admin') }}" class="sidebar-user-link">
+                        <i class="dripicons-home"></i> Home
                     </a>
                     <a href="{{route('user.profile', ['id' => Auth::id()])}}" class="sidebar-user-link">
                         <i class="dripicons-user"></i> My Profile

@@ -93,10 +93,9 @@ class ResolveGroupNameSessions extends Command
         ];
         $jids = [];
         foreach ($groups->groupNames() as $jid => $name) {
-            $normal = strtolower(str_replace(['—', '–', '-', '&'], ' ', (string) $name));
-            $normal = trim(preg_replace('/\s+/', ' ', $normal));
+            $normal = $this->normalName($name);
             foreach ($needles as $needle) {
-                if ($normal !== '' && strpos($normal, $needle) !== false) {
+                if ($normal !== '' && strpos($normal, $this->normalName($needle)) !== false) {
                     $jids[] = $jid;
                     $this->line($name);
                     break;
@@ -105,5 +104,12 @@ class ResolveGroupNameSessions extends Command
         }
 
         return $jids;
+    }
+
+    protected function normalName($name)
+    {
+        $normal = strtolower(str_replace(['—', '–', '-', '&'], ' ', (string) $name));
+
+        return trim(preg_replace('/\s+/', ' ', $normal));
     }
 }

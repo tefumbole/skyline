@@ -39,10 +39,16 @@ class WaSenderWebhookController extends Controller
                 }
                 $sigHeaders[] = $name.':'.strlen((string) $request->header($name));
             }
+            $secret = WaSenderSignature::secret();
+            $secretHeader = trim((string) $request->header('X-Webhook-Secret', ''));
+            $sigHeader = trim((string) $header);
             Log::warning('[whatsapp-hub] rejected webhook (signature)', [
                 'ip' => $request->ip(),
                 'sig_headers' => implode(',', $sigHeaders),
                 'content_len' => strlen($raw),
+                'secret_header_match' => $secret !== '' && $secretHeader !== '' && hash_equals($secret, $secretHeader),
+                'signature_match' => $secret !== '' && $sigHeader !== '' && hash_equals($secret, $sigHeader),
+                'md5_match' => $secret !== '' && $sigHeader !== '' && hash_equals(hash_hmac('md5', $raw, $secret), $sigHeader),
             ]);
 
             return response()->json(['ok' => false, 'error' => 'invalid signature'], 401);

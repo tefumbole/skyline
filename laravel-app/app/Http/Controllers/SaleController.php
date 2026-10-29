@@ -1775,7 +1775,9 @@ class SaleController extends Controller
 
             $baseProductQuery = Product::select('id', 'name', 'code', 'image', 'price')
                 ->ActiveFeatured()
-                ->whereNull('is_variant')
+                ->where(function ($query) {
+                    $query->whereNull('is_variant')->orWhere('is_variant', 0);
+                })
                 ->orderBy('id', 'desc')
                 ->take($baseProductsLimit);
             if (!$canSearchAllProducts) {
@@ -1790,7 +1792,7 @@ class SaleController extends Controller
 
             $variantProductQuery = Product::select('id', 'name', 'code', 'image', 'price')
                 ->ActiveFeatured()
-                ->whereNotNull('is_variant')
+                ->where('is_variant', 1)
                 ->with(['variant' => function ($query) {
                     $query->select('variants.id', 'name')->orderBy('position');
                 }])

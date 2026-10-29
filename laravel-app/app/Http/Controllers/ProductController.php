@@ -800,6 +800,9 @@ class ProductController extends Controller
         if($data['last_date'])
             $data['last_date'] = date('Y-m-d', strtotime($data['last_date']));
         $data['is_active'] = true;
+        if (! isset($data['featured'])) {
+            $data['featured'] = 1;
+        }
         $images = $request->image;
         $image_names = [];
         if($images) {
@@ -911,7 +914,7 @@ class ProductController extends Controller
             $data['cost'] = $data['unit_id'] = $data['purchase_unit_id'] = $data['sale_unit_id'] = 0;
 
         if(!isset($data['featured']))
-            $data['featured'] = 0;
+            $data['featured'] = 1;
 
         if(!isset($data['promotion']))
             $data['promotion'] = null;

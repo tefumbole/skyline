@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Chill on the Hill | Skyline Hotel Bamenda</title>
     <meta name="description" content="Skyline Hotel Bamenda presents Chill on the Hill, 24 December 2026 to 2 January 2027.">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ url('public/branding/skyline-logo.png') }}">
     @include('beyond.partials.site-chrome-style')
     <style>
@@ -407,5 +408,6 @@
             setInterval(tick, 1000);
         })();
     </script>
+    @include('beyond.partials.mbole_ai_widget')
 </body>
 </html>

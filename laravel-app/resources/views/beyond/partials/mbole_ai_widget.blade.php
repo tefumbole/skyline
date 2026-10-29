@@ -124,11 +124,11 @@
     <button type="button" id="mbole-greet-cta">Let's Chat</button>
   </div>
   <button type="button" class="mbole-fab" id="mbole-fab" aria-label="Open Mbole AI chat">
-    <img src="{{ asset('branding/mbole-ai.png') }}?v=2" alt="Mbole AI" width="92" height="104">
+    <img src="{{ url('public/branding/mbole-ai.png') }}?v=2" alt="Mbole AI" width="92" height="104">
   </button>
   <div class="mbole-panel" id="mbole-panel" role="dialog" aria-label="Mbole AI chat" aria-hidden="true">
     <div class="mbole-head">
-      <img src="{{ asset('branding/mbole-ai.png') }}?v=2" alt="">
+      <img src="{{ url('public/branding/mbole-ai.png') }}?v=2" alt="">
       <div class="meta">
         <strong id="mbole-name">Mbole AI</strong>
         <span>BeyondTechWorld Assistant</span>

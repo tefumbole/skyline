@@ -36,7 +36,7 @@ class RestaurantPayController extends Controller
         }
         $customer = $sale->customer;
         $phone = $customer ? $customer->phone_number : '';
-        $campay = config('services.campay.token') ?: getenv('CAMPAY_TOKEN') ?: getenv('MOMO_TOKEN');
+        $campay = $this->campayBearerToken();
         if (! $campay) {
             return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
         }

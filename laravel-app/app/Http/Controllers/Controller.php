@@ -463,7 +463,49 @@ class Controller extends BaseController
         return true;
     }
 
+    /**
+     * Username and password produce a short-lived token. The permanent token is the fallback.
+     */
+    public function campayBearerToken($fallback = null)
+    {
+        $username = trim((string) config('services.campay.username'));
+        $password = trim((string) config('services.campay.password'));
+        if ($username !== '' && $password !== '') {
+            $cached = \Cache::get('campay:link:access-token');
+            if (is_string($cached) && $cached !== '') {
+                return $cached;
+            }
+            $base = rtrim((string) config('services.campay.base_url', 'https://www.campay.net/api'), '/');
+            $curl = curl_init($base.'/token/');
+            curl_setopt_array($curl, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
+                CURLOPT_POSTFIELDS => json_encode(['username' => $username, 'password' => $password]),
+            ]);
+            $raw = curl_exec($curl);
+            $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_close($curl);
+            $body = is_string($raw) ? json_decode($raw, true) : null;
+            if ($status >= 200 && $status < 300 && is_array($body) && ! empty($body['token'])) {
+                \Cache::put('campay:link:access-token', (string) $body['token'], 50);
+
+                return (string) $body['token'];
+            }
+            \Log::warning('Campay token exchange failed', ['status' => $status]);
+        }
+        $static = $fallback ?: (config('services.campay.token') ?: getenv('CAMPAY_TOKEN') ?: getenv('MOMO_TOKEN'));
+
+        return $static ? (string) $static : '';
+    }
+
     public function mobileMoneyRequestLink($token, $amount, $route, $patient_id, $number){
+
+        $token = $this->campayBearerToken($token);
+        if ($token === '') {
+            return false;
+        }
 
         $curl = curl_init();
 
@@ -492,6 +534,7 @@ class Controller extends BaseController
         ));
 
         $response = curl_exec($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $response_decode = json_decode($response, true);
 
         curl_close($curl);
@@ -500,10 +543,16 @@ class Controller extends BaseController
         if($response_decode && isset($response_decode['link'])) {
             return $response_decode['link'];
         }
+        \Log::warning('Campay payment link failed', ['status' => $status]);
         return false;
     }
 
     public function mobileMoneyOrderRequestLink($token, $amount, $route, $orders, $failure_route, $number){
+
+        $token = $this->campayBearerToken($token);
+        if ($token === '') {
+            return false;
+        }
 
         $curl = curl_init();
 
@@ -532,6 +581,7 @@ class Controller extends BaseController
         ));
 
         $response = curl_exec($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $response_decode = json_decode($response, true);
 
         curl_close($curl);
@@ -539,6 +589,7 @@ class Controller extends BaseController
         if($response_decode && isset($response_decode['link'])) {
             return $response_decode['link'];
         }
+        \Log::warning('Campay payment link failed', ['status' => $status]);
         return false;
     }
 

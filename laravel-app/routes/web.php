@@ -473,6 +473,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 
     Route::get('/orders', 'RestaurantOrderController@board')->name('restaurant.orders');
     Route::get('/orders/alerts', 'RestaurantOrderController@alerts')->name('restaurant.alerts');
+    Route::post('/orders/alerts/opened', 'RestaurantOrderController@openAlert')->name('restaurant.alerts.opened');
     Route::get('/orders/help', 'RestaurantOrderController@help')->name('restaurant.help');
     Route::get('/orders/kitchen', 'RestaurantOrderController@kitchen')->name('restaurant.kitchen');
     Route::get('/orders/bar', 'RestaurantOrderController@bar')->name('restaurant.bar');

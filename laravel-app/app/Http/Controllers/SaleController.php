@@ -822,7 +822,7 @@ class SaleController extends Controller
 
                 $data['status'] = 0;
 
-                $token = config('services.campay.token') ?: getenv('CAMPAY_TOKEN') ?: getenv('MOMO_TOKEN');
+                $token = $this->campayBearerToken();
                 if (! $token) {
                     return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
                 }

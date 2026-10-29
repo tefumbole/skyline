@@ -71,6 +71,10 @@ class RestaurantOrderController extends Controller
             ->limit($tab === 'delivered' ? 40 : 80)
             ->get();
 
+        if ($status === 'awaiting') {
+            $this->markPopupOpened($items->pluck('id')->all(), (int) $user->id);
+        }
+
         return view('restaurant.queue', [
             'lanes' => $lanes,
             'lane' => $lane,
@@ -202,6 +206,26 @@ class RestaurantOrderController extends Controller
         return back()->with('message', 'Rejected. That line is off the amount due.');
     }
 
+    public function openAlert(Request $request)
+    {
+        $user = $request->user();
+        if (! $user || ! RestaurantAccess::canSeeOrders($user)) {
+            return response()->json(['ok' => false], 403);
+        }
+        $ids = [];
+        foreach ((array) $request->input('ids', []) as $id) {
+            $id = (string) $id;
+            if (preg_match('/^ord-(\d+)$/', $id, $match)) {
+                $ids[] = (int) $match[1];
+            } elseif (ctype_digit($id)) {
+                $ids[] = (int) $id;
+            }
+        }
+        $this->markPopupOpened($ids, (int) $user->id);
+
+        return response()->json(['ok' => true]);
+    }
+
     public function alerts(Request $request)
     {
         $user = $request->user();
@@ -220,6 +244,9 @@ class RestaurantOrderController extends Controller
             if ($lanes) {
                 $rows = RestaurantOrderItem::with(['order.sale', 'order.placedBy', 'order.waitress'])
                     ->where('status', 'awaiting')
+                    ->when(\Schema::hasColumn('restaurant_order_items', 'popup_opened_at'), function ($query) {
+                        $query->whereNull('popup_opened_at');
+                    })
                     ->where(function ($query) use ($lanes) {
                         foreach ($lanes as $lane) {
                             $query->orWhere(function ($match) use ($lane) {
@@ -424,5 +451,20 @@ class RestaurantOrderController extends Controller
         }
 
         return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+    }
+
+    protected function markPopupOpened(array $ids, $userId)
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (! $ids || ! \Schema::hasTable('restaurant_order_items') || ! \Schema::hasColumn('restaurant_order_items', 'popup_opened_at')) {
+            return;
+        }
+        \DB::table('restaurant_order_items')
+            ->whereIn('id', $ids)
+            ->whereNull('popup_opened_at')
+            ->update([
+                'popup_opened_at' => date('Y-m-d H:i:s'),
+                'popup_opened_by' => $userId ?: null,
+            ]);
     }
 }

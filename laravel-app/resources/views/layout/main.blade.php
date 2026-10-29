@@ -4281,6 +4281,8 @@
         <script>
             (function () {
                 var url = @json(route('restaurant.alerts'));
+                var openedUrl = @json(route('restaurant.alerts.opened'));
+                var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
                 var userId = @json((int) auth()->id());
                 var seenKey = 'skyline-order-seen-u' + userId;
                 var box = document.getElementById('sky-order-pop');
@@ -4308,7 +4310,36 @@
                     }).join('');
                     box.hidden = false;
                 }
+                function markOpened(ids) {
+                    if (!ids.length) return Promise.resolve();
+                    return fetch(openedUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ids: ids})
+                    }).catch(function () {});
+                }
                 body.addEventListener('click', function (e) {
+                    var link = e.target.closest('a.go');
+                    if (link) {
+                        e.preventDefault();
+                        var row = link.closest('.sky-order-row');
+                        var dismiss = row ? row.querySelector('[data-dismiss-id]') : null;
+                        var id = dismiss ? String(dismiss.getAttribute('data-dismiss-id')) : '';
+                        var href = link.getAttribute('href');
+                        var seen = seenMap();
+                        if (id) seen[id] = Date.now();
+                        saveSeen(seen);
+                        queue = queue.filter(function (item) { return String(item.id) !== id; });
+                        render();
+                        markOpened(id ? [id] : []).then(function () { window.location = href; });
+                        return;
+                    }
                     var button = e.target.closest('[data-dismiss-id]');
                     if (!button) return;
                     e.preventDefault();

@@ -15,48 +15,56 @@
     }
 @endphp
 <style>
-    .cothx { background: #140e0a; color: #f6efe4; border-radius: 28px; padding: 28px 24px 32px; margin: 0 0 24px; }
-    .cothx h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: 40px; margin: 0; color: #fff; }
-    .cothx a { color: #e8c878; }
-    .cothx-kicker { letter-spacing: .22em; text-transform: uppercase; color: #e8c878; font-size: 12px; font-weight: 700; margin: 0 0 8px; }
-    .cothx-links { color: rgba(246,239,228,.7); margin: 10px 0 0; }
+    .cothx {
+        background: #fff; color: #1f2a44; border: 1px solid #e6ebf3; border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(12, 24, 48, 0.06); padding: 24px; margin: 0 0 24px;
+    }
+    .cothx h1 { font-weight: 600; font-size: 28px; margin: 0; color: #0c1830; }
+    .cothx a { color: #0c1830; }
+    .cothx-kicker { letter-spacing: .16em; text-transform: uppercase; color: #8a7424; font-size: 12px; font-weight: 700; margin: 0 0 8px; }
+    .cothx-links { color: #6f7b91; margin: 10px 0 0; }
+    .cothx-links a { color: #0c1830; font-weight: 600; }
     .cothx-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
     .cothx-tab {
-        border: 1px solid rgba(232,200,120,.45); color: #e8c878; background: transparent;
-        border-radius: 999px; padding: 8px 16px; font-size: 13px; letter-spacing: .04em;
+        border: 2px solid #C5A059; color: #3f2a12; background: #fffaf3;
+        border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600;
     }
-    .cothx-tab:hover { background: rgba(232,200,120,.12); color: #f0d078; text-decoration: none; }
-    .cothx-tab.is-on { background: #e8c878; color: #1a1008; border-color: #e8c878; }
+    .cothx-tab:hover { background: #f6ead0; color: #1a1208; text-decoration: none; }
+    .cothx-tab.is-on { background: #C5A059; color: #1a1208; border-color: #8a6230; }
     .cothx-panel { display: none; }
     .cothx-panel.is-on { display: block; }
-    .cothx-lead { color: rgba(246,239,228,.72); margin: 0 0 16px; }
+    .cothx-lead { color: #6f7b91; margin: 0 0 16px; }
     .cothx-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .cothx-chip {
-        border: 1px solid rgba(246,239,228,.2); background: transparent; color: #f6efe4;
-        border-radius: 999px; padding: 6px 12px; font-size: 12px;
+        border: 1px solid #d5dce8; background: #fff; color: #1f2a44;
+        border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600;
     }
-    .cothx-chip.is-on { border-color: #e8c878; color: #1a1008; background: #e8c878; }
+    .cothx-chip:hover { border-color: #0c1830; color: #0c1830; }
+    .cothx-chip.is-on { border-color: #0c1830; color: #fff; background: #0c1830; }
     .cothx-card {
         display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: start;
-        background: #1c1410; border: 1px solid rgba(198,161,91,.4); border-radius: 20px;
+        background: #fff; border: 1px solid #e6ebf3; border-radius: 16px;
         padding: 14px; margin-bottom: 14px;
     }
-    .cothx-photo { height: 140px; border-radius: 14px; background: #24160f; display: flex; align-items: center; justify-content: center; }
+    .cothx-photo { height: 140px; border-radius: 12px; background: #f3f6fb; display: flex; align-items: center; justify-content: center; }
     .cothx-photo img { max-width: 100%; max-height: 130px; object-fit: contain; }
-    .cothx-code { font-family: Georgia, serif; font-size: 22px; margin: 0 0 10px; }
+    .cothx-code { font-size: 20px; font-weight: 600; color: #0c1830; margin: 0 0 10px; }
+    .cothx-sec { font-size: 14px; font-weight: 500; color: #6f7b91; }
     .cothx-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-    .cothx label { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(246,239,228,.55); margin-bottom: 4px; }
-    .cothx .form-control { background: #24160f; color: #f6efe4; border: 1px solid rgba(232,200,120,.35); border-radius: 10px; }
-    .cothx .btn-primary { background: #e8c878; border-color: #e8c878; color: #1a1008; border-radius: 999px; font-weight: 700; }
+    .cothx label { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6f7b91; margin-bottom: 4px; }
+    .cothx .form-control { background: #fff; color: #1f2a44; border: 1px solid #d5dce8; border-radius: 8px; }
+    .cothx .btn-primary { border-radius: 8px; font-weight: 600; }
     .cothx-checks { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 10px; }
-    .cothx-checks label { text-transform: none; letter-spacing: 0; font-size: 13px; color: #f6efe4; margin: 0; }
+    .cothx-checks label { text-transform: none; letter-spacing: 0; font-size: 13px; color: #1f2a44; margin: 0; }
     .cothx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .cothx-table th { text-align: left; color: rgba(246,239,228,.5); font-weight: 600; padding: 8px; border-bottom: 1px solid rgba(232,200,120,.25); }
-    .cothx-table td { padding: 10px 8px; border-bottom: 1px solid rgba(246,239,228,.08); vertical-align: top; }
+    .cothx-table th { text-align: left; color: #6f7b91; font-weight: 600; padding: 8px; border-bottom: 1px solid #e6ebf3; }
+    .cothx-table td { padding: 10px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
     .cothx .pagination { margin-top: 12px; }
     .cothx-alert { border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
-    .cothx-alert.ok { background: rgba(16,120,80,.25); color: #b6f0d2; }
-    .cothx-alert.bad { background: rgba(160,40,40,.3); color: #ffd0d0; }
+    .cothx-alert.ok { background: #e8f7ee; color: #146c43; }
+    .cothx-alert.bad { background: #fdecec; color: #b42318; }
+    .cothx-audit { list-style: none; padding: 0; margin: 0; }
+    .cothx-audit li { padding: 10px 0; border-bottom: 1px solid #eef2f7; color: #1f2a44; }
     @media (max-width: 900px) {
         .cothx-card, .cothx-grid { grid-template-columns: 1fr; }
     }
@@ -100,7 +108,7 @@
                         <img src="{{ $visuals->assetFor($t) }}" alt="{{ $t->code }}">
                     </div>
                     <div>
-                        <h2 class="cothx-code">{{ $t->code }} <span style="font-size:14px;color:rgba(246,239,228,.55);">{{ optional($t->section)->name }}</span></h2>
+                        <h2 class="cothx-code">{{ $t->code }} <span class="cothx-sec">{{ optional($t->section)->name }}</span></h2>
                         <div class="cothx-grid">
                             <div><label>Name</label><input class="form-control" name="name" value="{{ $t->name }}"></div>
                             <div><label>Price (FCFA)</label><input class="form-control" name="price" type="number" value="{{ $t->price }}"></div>
@@ -332,9 +340,9 @@
         </div>
 
         <div class="cothx-panel {{ $tab === 'audit' ? 'is-on' : '' }}">
-            <ul style="list-style:none;padding:0;margin:0;">
+            <ul class="cothx-audit">
                 @foreach($audits as $audit)
-                    <li style="padding:10px 0;border-bottom:1px solid rgba(246,239,228,.08);">{{ $audit->created_at }} · {{ $audit->action }} · {{ $audit->note }}</li>
+                    <li>{{ $audit->created_at }} · {{ $audit->action }} · {{ $audit->note }}</li>
                 @endforeach
             </ul>
         </div>

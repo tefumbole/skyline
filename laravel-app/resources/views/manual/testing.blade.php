@@ -54,17 +54,72 @@
     }
     .man-opt input { width: 18px; height: 18px; }
     .man-state { font-size: 12px; color: #6f7b91; min-height: 16px; }
+    .man-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .man-tabs a {
+        border: 2px solid #C5A059; color: #3f2a12; background: #fffaf3;
+        border-radius: 999px; padding: 8px 14px; font-weight: 700; text-decoration: none;
+    }
+    .man-tabs a.is-on { background: #C5A059; color: #1a1208; }
+    .man-score { font-size: 56px; line-height: 1; font-weight: 700; color: #0c1830; margin: 8px 0; }
+    .man-score span { font-size: 24px; }
+    .man-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; }
+    .man-table th, .man-table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #e6ebf3; }
+    .man-table th { color: #6f7b91; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .man-table a { color: #0c1830; font-weight: 700; }
 </style>
 <section class="container-fluid man">
+    @if(!empty($shareUrl))
+        <nav class="man-tabs" aria-label="Help">
+            <a href="{{ route('admin.help') }}" class="{{ ($tab ?? 'guide') !== 'results' ? 'is-on' : '' }}">Testing guide</a>
+            <a href="{{ route('admin.help', ['tab' => 'results']) }}" class="{{ ($tab ?? '') === 'results' ? 'is-on' : '' }}">Site Test Results</a>
+        </nav>
+    @endif
+    @if(($tab ?? 'guide') === 'results')
+        <div class="man-hero">
+            <p class="man-kicker">Skyline Hotel</p>
+            <h1>Site Test Results</h1>
+            @if(!empty($siteScore))
+                <p class="man-score">{{ $siteScore['score'] }}<span>%</span></p>
+                <p class="man-lead">Latest site score from {{ $siteScore['name'] }}. {{ $siteScore['passed'] }} of {{ $siteScore['total'] }} checks are working, and every check was tested.</p>
+            @else
+                <p class="man-lead">A site score appears when a tester marks every check and sends the report.</p>
+            @endif
+            @if(!empty($shareUrl))
+                <p class="man-lead">Secretary link: <a href="{{ $shareUrl }}">{{ $shareUrl }}</a></p>
+            @endif
+        </div>
+        <table class="man-table">
+            <thead>
+                <tr>
+                    <th>Tester</th>
+                    <th>Phone</th>
+                    <th>Score</th>
+                    <th>Issues</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            @forelse($rows as $row)
+                @php $summary = $row['summary']; $report = $row['report']; @endphp
+                <tr>
+                    <td><a href="{{ route('admin.help.report', $report->id) }}">{{ $report->tester_name }}</a></td>
+                    <td>{{ $report->phone }}</td>
+                    <td>{{ $summary['complete'] ? $summary['score'].'%' : $summary['answered'].' of '.$summary['total'] }}</td>
+                    <td>{{ $summary['failed'] }}</td>
+                    <td>{{ $report->status === 'submitted' ? 'Submitted' : 'In progress' }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="5">No tests yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    @else
     <div class="man-hero">
         <p class="man-kicker">Skyline Hotel</p>
         <h1>Testing guide</h1>
         <p class="man-lead">These checks match the menus on your account. Mark each one successful or not successful. Your marks stay with this login.</p>
         @if(!empty($shareUrl))
-            <p class="man-lead">The full test for a secretary is <a href="{{ $shareUrl }}">{{ $shareUrl }}</a>. She does not need a login.</p>
-            @foreach($reports as $report)
-                <p class="man-lead"><a href="{{ route('admin.help.report', $report->id) }}">{{ $report->tester_name }}</a> · {{ $report->created_at }}</p>
-            @endforeach
+            <p class="man-lead">The full test for a secretary is <a href="{{ $shareUrl }}">{{ $shareUrl }}</a>. She confirms her WhatsApp number, and each stage is saved as she moves on. Open Site Test Results to read what she found.</p>
         @endif
         <div class="man-progress">
             <span class="man-pill pass" id="man-pass">{{ $passed }} successful</span>
@@ -112,7 +167,9 @@
             @endforeach
         </section>
     @endforeach
+    @endif
 </section>
+@if(($tab ?? 'guide') !== 'results')
 <script>
 (function () {
     var total = {{ (int) $total }};
@@ -163,4 +220,5 @@
     });
 })();
 </script>
+@endif
 @endsection

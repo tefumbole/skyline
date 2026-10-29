@@ -74,6 +74,16 @@ class TestingManual
                     'Look at the WhatsApp field.',
                 ], 'Cameroon is +237 in its own box. The number box does not ask you to type the country code again.', 'reserve'),
             ]),
+            self::section('restaurant', 'Restaurant and bar', 'Open the public menu. Do not place a real order.', [
+                self::item('menu-both', 'Restaurant and Bar are on one menu', [
+                    'Open the Menu page.',
+                    'Read the sections.',
+                ], 'Restaurant and Bar are both listed. Tapping a dish or a drink adds it. The page says one order is one bill.', null),
+                self::item('menu-service', 'Dine in and take away are separate', [
+                    'Find the service choice.',
+                    'Do not check out.',
+                ], 'Dine in and Take away are both there. Leave the page without paying.', null),
+            ]),
             self::section('desk', 'Admin table desk', 'Sign in as admin or owner. Open COTH Reservations.', [
                 self::item('adm-tables', 'Tables is the first tab', [
                     'Open COTH Reservations.',
@@ -109,7 +119,21 @@ class TestingManual
                 ], 'The latest line names what changed.', null),
                 self::item('tab-order', 'Locations is the last tab', [
                     'Read the tab row from left to right.',
-                ], 'The order is Tables, Reservations, Availability, Extra chairs, Rules, Audit, then Locations.', null),
+                ], 'The order is Tables, List, Reservations, Availability, Extra chairs, Rules, Audit, then Locations.', null),
+            ]),
+            self::section('list', 'Printable table list', 'Stay on COTH Reservations and open List.', [
+                self::item('list-filter', 'One location can be printed on its own', [
+                    'Open List.',
+                    'Choose one location, such as Hall or Garden, then choose All sections.',
+                ], 'The sheet shows that location’s tables only. All sections brings every table back. Each row has the table number, section, seats, and price.', null),
+                self::item('list-notes', 'Notes and an extra line can be saved', [
+                    'Type in Notes and in Add on one table.',
+                    'Press Save notes.',
+                    'Refresh the page.',
+                ], 'Both lines are still there after the refresh.', null),
+                self::item('list-print', 'Print shows the sheet', [
+                    'Press Print.',
+                ], 'The print view is the table list. The buttons are not part of the sheet.', null),
             ]),
             self::section('locations', 'Locations', 'Use a spare spelling you can change back, so guests are not left on a test name.', [
                 self::item('loc-save', 'A location rename updates its tables', [
@@ -242,7 +266,9 @@ class TestingManual
             'experience' => $coth,
             'tables' => $coth,
             'reserve' => $coth,
+            'restaurant' => ['roles' => [1, 2], 'permissions' => []],
             'desk' => $coth,
+            'list' => $coth,
             'tabs' => $coth,
             'locations' => $coth,
             'products' => ['roles' => [], 'permissions' => ['products-index', 'products-add', 'products-edit']],

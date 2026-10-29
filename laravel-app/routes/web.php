@@ -86,8 +86,12 @@ Route::post('/chill-on-the-hill/payment/{token}/pay', 'CothController@pay')->nam
 Route::get('/chill-on-the-hill/payment/campay', 'CothController@campayReturn')->name('coth.campay');
 Route::get('/chill-on-the-hill/payment/stripe', 'CothController@stripeReturn')->name('coth.stripe');
 Route::get('/chill-on-the-hill/reservation/{token}', 'CothController@show')->name('coth.show');
-Route::get('/system-test', 'TestingManualController@publicForm')->name('system.test');
-Route::post('/system-test', 'TestingManualController@publicStore')->middleware('throttle:20,1')->name('system.test.store');
+Route::get('/system-test', 'SystemTestController@show')->name('system.test');
+Route::post('/system-test/phone', 'SystemTestController@phone')->middleware('throttle:12,1')->name('system.test.phone');
+Route::post('/system-test/code', 'SystemTestController@sendCode')->middleware('throttle:6,1')->name('system.test.code');
+Route::post('/system-test/verify', 'SystemTestController@verify')->middleware('throttle:12,1')->name('system.test.verify');
+Route::post('/system-test/stage', 'SystemTestController@saveStage')->middleware('throttle:30,1')->name('system.test.stage');
+Route::get('/system-test/reset', 'SystemTestController@reset')->name('system.test.reset');
 Route::get('/services/{service}/{category?}', 'BeyondController@serviceShow')->name('beyond.services.show')->where(['service' => '[0-9]+', 'category' => '[0-9]+']);
 Route::get('/reviews', 'GuestReviewController@show')->name('beyond.reviews');
 Route::post('/reviews', 'GuestReviewController@store')->name('beyond.reviews.store');

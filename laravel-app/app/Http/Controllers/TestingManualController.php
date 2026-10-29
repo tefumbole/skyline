@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\ManualTestReport;
 use App\ManualTestResult;
+use App\Support\SystemTestScore;
 use App\Support\TestingManual;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class TestingManualController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
         if (! $user) {
@@ -24,9 +25,26 @@ class TestingManualController extends Controller
         }
 
         $full = in_array((int) $user->role_id, [1, 2], true);
-        $reports = collect();
+        $tab = $request->query('tab') === 'results' ? 'results' : 'guide';
+        if ($tab === 'results' && ! $full) {
+            abort(403);
+        }
+
+        $rows = [];
+        $siteScore = null;
         if ($full && Schema::hasTable('manual_test_reports')) {
-            $reports = ManualTestReport::orderBy('id', 'desc')->limit(20)->get();
+            $reports = ManualTestReport::orderBy('id', 'desc')->limit(50)->get();
+            foreach ($reports as $report) {
+                $payload = json_decode((string) $report->payload, true);
+                $items = isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : [];
+                $summary = SystemTestScore::summarize($items);
+                $rows[] = ['report' => $report, 'summary' => $summary];
+                if ($siteScore === null && $report->status === 'submitted' && $summary['complete']) {
+                    $siteScore = $summary;
+                    $siteScore['name'] = $report->tester_name;
+                    $siteScore['when'] = $report->updated_at;
+                }
+            }
         }
 
         return view('manual.testing', [
@@ -34,7 +52,9 @@ class TestingManualController extends Controller
             'saved' => $saved,
             'total' => count(TestingManual::keysFrom($sections)),
             'shareUrl' => $full ? url('/system-test') : null,
-            'reports' => $reports,
+            'tab' => $tab,
+            'rows' => $rows,
+            'siteScore' => $siteScore,
         ]);
     }
 
@@ -72,48 +92,6 @@ class TestingManualController extends Controller
         return response()->json(['ok' => true, 'result' => $result]);
     }
 
-    public function publicForm()
-    {
-        return view('manual.system_test', [
-            'sections' => TestingManual::sections(),
-            'sent' => session('message'),
-        ]);
-    }
-
-    public function publicStore(Request $request)
-    {
-        if (! Schema::hasTable('manual_test_reports')) {
-            return redirect()->route('system.test')->with('message', 'The test form is not ready yet. Try again in a minute.');
-        }
-
-        $name = trim((string) $request->input('tester_name'));
-        if ($name === '' || mb_strlen($name) > 120) {
-            return redirect()->route('system.test')->with('message', 'Enter your name, then send the report again.');
-        }
-
-        $known = array_flip(TestingManual::keys());
-        $items = [];
-        $posted = (array) $request->input('items', []);
-        $notes = (array) $request->input('notes', []);
-        foreach ($posted as $key => $result) {
-            if (! isset($known[$key]) || ! in_array($result, ['pass', 'fail'], true)) {
-                continue;
-            }
-            $note = isset($notes[$key]) ? trim((string) $notes[$key]) : '';
-            $items[$key] = [
-                'result' => $result,
-                'note' => $note !== '' ? mb_substr($note, 0, 500) : '',
-            ];
-        }
-
-        $report = ManualTestReport::create([
-            'tester_name' => $name,
-            'payload' => json_encode(['items' => $items]),
-        ]);
-
-        return redirect()->route('system.test')->with('message', 'Thank you, '.$name.'. Report '.$report->id.' was saved.');
-    }
-
     public function report($id)
     {
         $user = auth()->user();
@@ -123,17 +101,10 @@ class TestingManualController extends Controller
         $report = ManualTestReport::findOrFail($id);
         $payload = json_decode((string) $report->payload, true);
         $items = isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : [];
-        $titles = [];
-        foreach (TestingManual::sections() as $section) {
-            foreach ($section['items'] as $item) {
-                $titles[$item['key']] = $section['title'].' — '.$item['title'];
-            }
-        }
 
         return view('manual.report', [
             'report' => $report,
-            'items' => $items,
-            'titles' => $titles,
+            'summary' => SystemTestScore::summarize($items),
         ]);
     }
 }

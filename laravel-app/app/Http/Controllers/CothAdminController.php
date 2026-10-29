@@ -139,7 +139,7 @@ class CothAdminController extends Controller
         }
         CothAudit::write('settings', 'coth_settings', $settings->id, 'Deposit, discount, hold, or event end updated.');
 
-        return back()->with('message', 'Settings saved. Existing reservations keep their original prices.');
+        return $this->adminBack('message', 'Settings saved. Existing reservations keep their original prices.');
     }
 
     public function updateTable(Request $request, $id, CothPricing $pricing)
@@ -221,7 +221,7 @@ class CothAdminController extends Controller
             return redirect($return)->with('edit_message', $notice);
         }
 
-        return back()->with('message', $notice);
+        return $this->adminBack('message', $notice);
     }
 
     public function updateChairInventory(Request $request)
@@ -243,7 +243,7 @@ class CothAdminController extends Controller
         CothAudit::write('chair_inventory', 'coth_extra_chair_inventory', $row->id,
             'Chair cap for '.$row->event_date->format('Y-m-d').' set to '.($row->total_capacity === null ? 'unlimited' : $row->total_capacity).'.');
 
-        return back()->with('message', 'Chair inventory updated.');
+        return $this->adminBack('message', 'Chair inventory updated.');
     }
 
     public function amendChairs(Request $request, $id, CothReservationService $reservations, CothPricing $pricing, CothPaymentService $payments)
@@ -260,24 +260,24 @@ class CothAdminController extends Controller
 
         $reservation = CothReservation::with('table.section')->findOrFail($id);
         if ($reservation->status !== 'confirmed') {
-            return back()->with('not_permitted', 'Only confirmed reservations can be amended here.');
+            return $this->adminBack('not_permitted', 'Only confirmed reservations can be amended here.');
         }
         $table = $reservation->table;
         if (! $table) {
-            return back()->with('not_permitted', 'Table missing — cannot amend.');
+            return $this->adminBack('not_permitted', 'Table missing — cannot amend.');
         }
 
         $before = (int) $reservation->extra_chairs_qty;
         $after = (int) $data['extra_chairs_qty_new'];
         if ($after > 0) {
             if (! (int) $table->allow_extra_chairs) {
-                return back()->with('not_permitted', 'Extra chairs are not enabled for '.$table->code.'.');
+                return $this->adminBack('not_permitted', 'Extra chairs are not enabled for '.$table->code.'.');
             }
             if ($after > (int) $table->max_extra_chairs) {
-                return back()->with('not_permitted', 'That exceeds max_extra_chairs for '.$table->code.'.');
+                return $this->adminBack('not_permitted', 'That exceeds max_extra_chairs for '.$table->code.'.');
             }
             if ($pricing->extraChairRate($table) === null) {
-                return back()->with('not_permitted', 'Extra chairs for '.$table->code.' are not configured yet.');
+                return $this->adminBack('not_permitted', 'Extra chairs for '.$table->code.' are not configured yet.');
             }
         }
         $delta = $after - $before;
@@ -289,7 +289,7 @@ class CothAdminController extends Controller
         if ($delta > 0) {
             $avail = $reservations->sharedChairsAvailable($reservation->event_date);
             if ($avail !== null && $delta > $avail) {
-                return back()->with('not_permitted', 'Only '.$avail.' extra chair(s) remain in the shared pool for '.$reservation->event_date->format('Y-m-d').'.');
+                return $this->adminBack('not_permitted', 'Only '.$avail.' extra chair(s) remain in the shared pool for '.$reservation->event_date->format('Y-m-d').'.');
             }
         }
 
@@ -368,7 +368,7 @@ class CothAdminController extends Controller
             return redirect($gatewayUrl);
         }
 
-        return back()->with('message', 'Reservation '.$reservation->reference.' amended ('.$before.' → '.$after.' chair(s)).');
+        return $this->adminBack('message', 'Reservation '.$reservation->reference.' amended ('.$before.' → '.$after.' chair(s)).');
     }
 
     public function updateSlot(Request $request, $id)
@@ -376,7 +376,7 @@ class CothAdminController extends Controller
         $this->authorizeStaff();
         $slot = CothSlot::findOrFail($id);
         if ($slot->status === 'booked') {
-            return back()->with('not_permitted', 'A booked date cannot be reopened here.');
+            return $this->adminBack('not_permitted', 'A booked date cannot be reopened here.');
         }
         $slot->is_enabled = $request->has('is_enabled') ? 1 : 0;
         if (! $slot->is_enabled && $slot->status === 'open') {
@@ -385,7 +385,7 @@ class CothAdminController extends Controller
         $slot->save();
         CothAudit::write('slot', 'coth_slots', $slot->id, 'Date '.$slot->event_date->format('Y-m-d').' '.($slot->is_enabled ? 'enabled' : 'disabled').'.');
 
-        return back()->with('message', 'Date updated.');
+        return $this->adminBack('message', 'Date updated.');
     }
 
     protected function filtered(Request $request)
@@ -412,6 +412,24 @@ class CothAdminController extends Controller
         }
 
         return $query;
+    }
+
+    protected function adminBack($key, $message)
+    {
+        $allowed = ['tables', 'reservations', 'availability', 'chairs', 'rules', 'audit'];
+        $tab = (string) request()->input('tab', 'tables');
+        if (! in_array($tab, $allowed, true)) {
+            $tab = 'tables';
+        }
+        $query = ['tab' => $tab];
+        foreach (['date', 'section', 'customer', 'payment', 'availability'] as $name) {
+            $value = request()->input($name);
+            if ($value !== null && $value !== '') {
+                $query[$name] = $value;
+            }
+        }
+
+        return redirect()->route('coth.admin', $query)->with($key, $message);
     }
 
     protected function authorizeStaff()

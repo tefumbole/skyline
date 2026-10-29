@@ -1,252 +1,355 @@
 @extends('layout.main')
 @section('content')
+@php
+    $tab = request()->query('tab', 'tables');
+    $tabs = [
+        'tables' => 'Tables',
+        'reservations' => 'Reservations',
+        'availability' => 'Availability',
+        'chairs' => 'Extra chairs',
+        'rules' => 'Rules',
+        'audit' => 'Audit',
+    ];
+    if (! isset($tabs[$tab])) {
+        $tab = 'tables';
+    }
+@endphp
+<style>
+    .cothx { background: #140e0a; color: #f6efe4; border-radius: 28px; padding: 28px 24px 32px; margin: 0 0 24px; }
+    .cothx h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: 40px; margin: 0; color: #fff; }
+    .cothx a { color: #e8c878; }
+    .cothx-kicker { letter-spacing: .22em; text-transform: uppercase; color: #e8c878; font-size: 12px; font-weight: 700; margin: 0 0 8px; }
+    .cothx-links { color: rgba(246,239,228,.7); margin: 10px 0 0; }
+    .cothx-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
+    .cothx-tab {
+        border: 1px solid rgba(232,200,120,.45); color: #e8c878; background: transparent;
+        border-radius: 999px; padding: 8px 16px; font-size: 13px; letter-spacing: .04em;
+    }
+    .cothx-tab:hover { background: rgba(232,200,120,.12); color: #f0d078; text-decoration: none; }
+    .cothx-tab.is-on { background: #e8c878; color: #1a1008; border-color: #e8c878; }
+    .cothx-panel { display: none; }
+    .cothx-panel.is-on { display: block; }
+    .cothx-lead { color: rgba(246,239,228,.72); margin: 0 0 16px; }
+    .cothx-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .cothx-chip {
+        border: 1px solid rgba(246,239,228,.2); background: transparent; color: #f6efe4;
+        border-radius: 999px; padding: 6px 12px; font-size: 12px;
+    }
+    .cothx-chip.is-on { border-color: #e8c878; color: #1a1008; background: #e8c878; }
+    .cothx-card {
+        display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: start;
+        background: #1c1410; border: 1px solid rgba(198,161,91,.4); border-radius: 20px;
+        padding: 14px; margin-bottom: 14px;
+    }
+    .cothx-photo { height: 140px; border-radius: 14px; background: #24160f; display: flex; align-items: center; justify-content: center; }
+    .cothx-photo img { max-width: 100%; max-height: 130px; object-fit: contain; }
+    .cothx-code { font-family: Georgia, serif; font-size: 22px; margin: 0 0 10px; }
+    .cothx-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .cothx label { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(246,239,228,.55); margin-bottom: 4px; }
+    .cothx .form-control { background: #24160f; color: #f6efe4; border: 1px solid rgba(232,200,120,.35); border-radius: 10px; }
+    .cothx .btn-primary { background: #e8c878; border-color: #e8c878; color: #1a1008; border-radius: 999px; font-weight: 700; }
+    .cothx-checks { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 10px; }
+    .cothx-checks label { text-transform: none; letter-spacing: 0; font-size: 13px; color: #f6efe4; margin: 0; }
+    .cothx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .cothx-table th { text-align: left; color: rgba(246,239,228,.5); font-weight: 600; padding: 8px; border-bottom: 1px solid rgba(232,200,120,.25); }
+    .cothx-table td { padding: 10px 8px; border-bottom: 1px solid rgba(246,239,228,.08); vertical-align: top; }
+    .cothx .pagination { margin-top: 12px; }
+    .cothx-alert { border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+    .cothx-alert.ok { background: rgba(16,120,80,.25); color: #b6f0d2; }
+    .cothx-alert.bad { background: rgba(160,40,40,.3); color: #ffd0d0; }
+    @media (max-width: 900px) {
+        .cothx-card, .cothx-grid { grid-template-columns: 1fr; }
+    }
+</style>
 <section class="container-fluid">
-    @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
-    @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
-    <h1>COTH Reservations</h1>
-    <p>
-        <a href="{{ route('coth.admin.export', request()->query()) }}">Export CSV</a>
-        &nbsp;·&nbsp;
-        <a href="{{ route('coth.admin.seating', ['date' => $availabilityDate]) }}">Seating sheet for {{ $availabilityDate }}</a>
-    </p>
+    <div class="cothx">
+        <p class="cothx-kicker">Chill on the Hill</p>
+        <h1>Table desk</h1>
+        <p class="cothx-links">
+            <a href="{{ route('coth.admin.export', request()->query()) }}">Export CSV</a>
+            &nbsp;·&nbsp;
+            <a href="{{ route('coth.admin.seating', ['date' => $availabilityDate]) }}">Seating sheet for {{ $availabilityDate }}</a>
+        </p>
+        @if(session('message'))<div class="cothx-alert ok">{{ session('message') }}</div>@endif
+        @if(session('not_permitted'))<div class="cothx-alert bad">{{ session('not_permitted') }}</div>@endif
 
-    <form method="GET" class="form-inline" style="margin-bottom:16px;">
-        <input class="form-control" type="date" name="date" value="{{ $filters['date'] ?? '' }}">
-        <select class="form-control" name="section">
-            <option value="">Section</option>
-            @foreach($sections as $section)
-                <option value="{{ $section->id }}" @if((string)($filters['section'] ?? '') === (string)$section->id) selected @endif>{{ $section->name }}</option>
+        <nav class="cothx-tabs" aria-label="Chill on the Hill">
+            @foreach ($tabs as $key => $label)
+                <a class="cothx-tab {{ $tab === $key ? 'is-on' : '' }}" href="{{ route('coth.admin', array_merge(request()->except('page'), ['tab' => $key])) }}">{{ $label }}</a>
             @endforeach
-        </select>
-        <input class="form-control" name="customer" value="{{ $filters['customer'] ?? '' }}" placeholder="Customer or phone">
-        <select class="form-control" name="payment">
-            <option value="">Payment</option>
-            @foreach(['unpaid','pending','partial','paid','failed','needs_reconciliation'] as $status)
-                <option value="{{ $status }}" @if(($filters['payment'] ?? '') === $status) selected @endif>{{ $status }}</option>
-            @endforeach
-        </select>
-        <button class="btn btn-primary" type="submit">Filter</button>
-    </form>
+        </nav>
 
-    <div class="table-responsive">
-        <table class="table table-bordered table-striped">
-            <thead><tr><th>Ref</th><th>Date</th><th>Table</th><th>Extras</th><th>Customer</th><th>Final table</th><th>Chairs</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead>
-            <tbody>
-            @forelse($reservations as $row)
+        <div class="cothx-panel {{ $tab === 'tables' ? 'is-on' : '' }}">
+            <p class="cothx-lead">Set the name, price, colour, and extra chairs for each table. Guests see the colour you save here.</p>
+            <div class="cothx-chips" id="cothx-secs">
+                <button type="button" class="cothx-chip is-on" data-sec="all">All sections</button>
+                @foreach ($sections as $section)
+                    <button type="button" class="cothx-chip" data-sec="{{ $section->code }}">{{ $section->name }}</button>
+                @endforeach
+            </div>
+            @foreach ($tables as $t)
                 @php
-                    $r = $row;
-                    $totalGuests = ((int) optional($r->table)->capacity) + (int) $r->extra_chairs_qty;
+                    $allowedPresets = $visuals->presetsForTable($t);
+                    $resolvedRate = $pricing->extraChairRate($t);
+                    $sec = optional($t->section)->code ?: 'other';
                 @endphp
-                <tr>
-                    <td><a href="{{ $r->publicUrl() }}" target="_blank" rel="noopener">{{ $r->reference }}</a></td>
-                    <td>{{ optional($r->event_date)->format('Y-m-d') }}</td>
-                    <td>{{ optional($r->table)->code }}<br><small>{{ optional(optional($r->table)->section)->name }}</small></td>
-                    <td>
-                        @if ((int) $r->extra_chairs_qty > 0)
-                            {{ (int) $r->extra_chairs_qty }} ch<br><small>{{ number_format((int) $r->extra_chair_rate) }} / each</small><br><small>Guests: {{ $totalGuests }}</small>
-                        @else
-                            —
-                        @endif
-                    </td>
-                    <td>{{ $r->customer_name }}<br><small>{{ $r->phone }}</small></td>
-                    <td>{{ number_format((int) $r->final_price) }}</td>
-                    <td>{{ number_format((int) $r->extra_chairs_amount) }}</td>
-                    <td>{{ number_format((int) ($r->booking_total ?: $r->final_price)) }}</td>
-                    <td>{{ number_format((int) $r->amount_paid) }}</td>
-                    <td>{{ number_format((int) $r->balance) }}</td>
-                    <td>{{ $r->status }}</td>
-                    <td>{{ $r->payment_status }}</td>
-                    <td>
-                        @if($r->sale_id)<a href="{{ url('sales/gen_invoice/'.$r->sale_id) }}">Invoice</a>@endif
+                <form class="cothx-card" data-sec="{{ $sec }}" method="POST" action="{{ route('coth.admin.table', $t->id) }}">
+                    @csrf
+                    <input type="hidden" name="tab" value="tables">
+                    <div class="cothx-photo">
+                        <img src="{{ $visuals->assetFor($t) }}" alt="{{ $t->code }}">
+                    </div>
+                    <div>
+                        <h2 class="cothx-code">{{ $t->code }} <span style="font-size:14px;color:rgba(246,239,228,.55);">{{ optional($t->section)->name }}</span></h2>
+                        <div class="cothx-grid">
+                            <div><label>Name</label><input class="form-control" name="name" value="{{ $t->name }}"></div>
+                            <div><label>Price (FCFA)</label><input class="form-control" name="price" type="number" value="{{ $t->price }}"></div>
+                            <div><label>Seats</label><input class="form-control" name="capacity" type="number" value="{{ $t->capacity }}"></div>
+                            <div>
+                                <label>Style</label>
+                                <select class="form-control" name="seating_style">
+                                    <option value="standard" @if($t->seating_style==='standard') selected @endif>Regular chairs</option>
+                                    <option value="couch" @if($t->seating_style==='couch') selected @endif>Curved couch</option>
+                                    <option value="high_table" @if($t->seating_style==='high_table') selected @endif>High chairs</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Colour</label>
+                                <select class="form-control" name="visual_preset">
+                                    <option value="">Current default</option>
+                                    @foreach($allowedPresets as $p)
+                                        <option value="{{ $p['slug'] }}" @if($t->visual_preset === $p['slug']) selected @endif>{{ $p['name'] }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div><label>Left %</label><input class="form-control" name="pos_x" value="{{ $t->pos_x }}" placeholder="Optional"></div>
+                            <div><label>Top %</label><input class="form-control" name="pos_y" value="{{ $t->pos_y }}" placeholder="Optional"></div>
+                            <div><label>Extra chair rate</label><input class="form-control" type="number" min="0" name="extra_chair_rate" value="{{ $t->extra_chair_rate !== null ? (int) $t->extra_chair_rate : '' }}" placeholder="{{ $resolvedRate !== null ? number_format($resolvedRate) : 'auto' }}"></div>
+                        </div>
+                        <div class="cothx-checks">
+                            <label><input type="checkbox" name="is_active" value="1" @if($t->is_active) checked @endif> Active</label>
+                            <label><input type="checkbox" name="is_city_view" value="1" @if($t->is_city_view) checked @endif> City view</label>
+                            <label><input type="checkbox" name="is_high_table" value="1" @if($t->is_high_table) checked @endif> High table</label>
+                            <label><input type="checkbox" name="allow_extra_chairs" value="1" @if($t->allow_extra_chairs) checked @endif> Allow extra chairs</label>
+                            <label>Max extra <input class="form-control" type="number" min="0" max="50" name="max_extra_chairs" value="{{ (int) $t->max_extra_chairs }}" style="width:80px;display:inline-block;"></label>
+                            <label>Notes <input class="form-control" name="extra_chair_furniture_type" value="{{ $t->extra_chair_furniture_type }}" placeholder="Chair note" style="width:180px;display:inline-block;"></label>
+                            <button class="btn btn-primary" type="submit">Save {{ $t->code }}</button>
+                        </div>
+                        <p class="cothx-lead" style="margin:8px 0 0;">Guest rate today: {{ $resolvedRate !== null ? number_format($resolvedRate).' FCFA' : 'not set' }}</p>
+                    </div>
+                </form>
+            @endforeach
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'reservations' ? 'is-on' : '' }}">
+            <form method="GET" class="cothx-grid" style="margin-bottom:16px;">
+                <input type="hidden" name="tab" value="reservations">
+                <div><label>Date</label><input class="form-control" type="date" name="date" value="{{ $filters['date'] ?? '' }}"></div>
+                <div>
+                    <label>Section</label>
+                    <select class="form-control" name="section">
+                        <option value="">All</option>
+                        @foreach($sections as $section)
+                            <option value="{{ $section->id }}" @if((string)($filters['section'] ?? '') === (string)$section->id) selected @endif>{{ $section->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div><label>Customer</label><input class="form-control" name="customer" value="{{ $filters['customer'] ?? '' }}" placeholder="Name or phone"></div>
+                <div>
+                    <label>Payment</label>
+                    <select class="form-control" name="payment">
+                        <option value="">Any</option>
+                        @foreach(['unpaid','pending','partial','paid','failed','needs_reconciliation'] as $status)
+                            <option value="{{ $status }}" @if(($filters['payment'] ?? '') === $status) selected @endif>{{ $status }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div style="align-self:end;"><button class="btn btn-primary" type="submit">Filter</button></div>
+            </form>
+            <div style="overflow-x:auto;">
+                <table class="cothx-table">
+                    <thead><tr><th>Ref</th><th>Date</th><th>Table</th><th>Extras</th><th>Customer</th><th>Final</th><th>Chairs</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Payment</th><th></th></tr></thead>
+                    <tbody>
+                    @forelse($reservations as $row)
+                        @php
+                            $r = $row;
+                            $totalGuests = ((int) optional($r->table)->capacity) + (int) $r->extra_chairs_qty;
+                        @endphp
+                        <tr>
+                            <td><a href="{{ $r->publicUrl() }}" target="_blank" rel="noopener">{{ $r->reference }}</a></td>
+                            <td>{{ optional($r->event_date)->format('Y-m-d') }}</td>
+                            <td>{{ optional($r->table)->code }}<br><small>{{ optional(optional($r->table)->section)->name }}</small></td>
+                            <td>
+                                @if ((int) $r->extra_chairs_qty > 0)
+                                    {{ (int) $r->extra_chairs_qty }} chairs<br><small>{{ number_format((int) $r->extra_chair_rate) }} each</small><br><small>{{ $totalGuests }} guests</small>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>{{ $r->customer_name }}<br><small>{{ $r->phone }}</small></td>
+                            <td>{{ number_format((int) $r->final_price) }}</td>
+                            <td>{{ number_format((int) $r->extra_chairs_amount) }}</td>
+                            <td>{{ number_format((int) ($r->booking_total ?: $r->final_price)) }}</td>
+                            <td>{{ number_format((int) $r->amount_paid) }}</td>
+                            <td>{{ number_format((int) $r->balance) }}</td>
+                            <td>{{ $r->status }}</td>
+                            <td>{{ $r->payment_status }}</td>
+                            <td>
+                                @if($r->sale_id)<a href="{{ url('sales/gen_invoice/'.$r->sale_id) }}">Invoice</a>@endif
+                                @if($r->status === 'confirmed')
+                                    <a href="#" onclick="document.getElementById('amend-{{ $r->id }}').style.display='block';return false;">Amend chairs</a>
+                                @endif
+                            </td>
+                        </tr>
                         @if($r->status === 'confirmed')
-                            &middot; <a href="#" onclick="document.getElementById('amend-{{ $r->id }}').style.display='block';return false;">Amend chairs</a>
+                            <tr id="amend-{{ $r->id }}" style="display:none;">
+                                <td colspan="13">
+                                    <form method="POST" action="{{ route('coth.admin.amend_chairs', $r->id) }}" class="cothx-grid">
+                                        @csrf
+                                        <input type="hidden" name="tab" value="reservations">
+                                        <div><label>Chairs</label><input class="form-control" type="number" min="0" max="{{ max(1, (int) optional($r->table)->max_extra_chairs) }}" name="extra_chairs_qty_new" value="{{ (int) $r->extra_chairs_qty }}"></div>
+                                        <div>
+                                            <label>Payment</label>
+                                            <select class="form-control" name="payment_mode">
+                                                <option value="none">No extra payment</option>
+                                                <option value="manual">Manual</option>
+                                                <option value="gateway">MoMo / Visa link</option>
+                                            </select>
+                                        </div>
+                                        <div><label>Amount</label><input class="form-control" type="number" min="0" name="payment_amount" placeholder="0"></div>
+                                        <div>
+                                            <label>Method</label>
+                                            <select class="form-control" name="method">
+                                                <option value="cash">Cash</option>
+                                                <option value="momo">MoMo</option>
+                                                <option value="card_terminal">Card terminal</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label>Gateway</label>
+                                            <select class="form-control" name="gateway_method">
+                                                <option value="momo">MoMo</option>
+                                                <option value="card">Visa / card</option>
+                                            </select>
+                                        </div>
+                                        <div><label>Note</label><input class="form-control" name="note" placeholder="Optional"></div>
+                                        <div style="align-self:end;"><button class="btn btn-primary">Apply</button></div>
+                                    </form>
+                                </td>
+                            </tr>
                         @endif
-                    </td>
-                </tr>
-                @if($r->status === 'confirmed')
-                    <tr id="amend-{{ $r->id }}" style="display:none;background:#f9fafb;">
-                        <td colspan="13">
-                            <form method="POST" action="{{ route('coth.admin.amend_chairs', $r->id) }}" class="form-inline">
-                                @csrf
-                                <strong>Amend {{ $r->reference }}:</strong>
-                                <label>Chairs:
-                                    <input class="form-control" type="number" min="0" max="{{ max(1, (int) optional($r->table)->max_extra_chairs) }}" name="extra_chairs_qty_new" value="{{ (int) $r->extra_chairs_qty }}" style="width:90px;">
-                                </label>
-                                <label>Payment:
-                                    <select class="form-control" name="payment_mode">
-                                        <option value="none">No extra payment</option>
-                                        <option value="manual">Manual (record now)</option>
-                                        <option value="gateway">Send new MoMo/Visa link</option>
-                                    </select>
-                                </label>
-                                <label>Amount (manual):
-                                    <input class="form-control" type="number" min="0" name="payment_amount" placeholder="0" style="width:120px;">
-                                </label>
-                                <label>Method (manual):
-                                    <select class="form-control" name="method">
-                                        <option value="cash">Cash</option>
-                                        <option value="momo">MoMo (staff-collected)</option>
-                                        <option value="card_terminal">Card terminal</option>
-                                    </select>
-                                </label>
-                                <label>Gateway method:
-                                    <select class="form-control" name="gateway_method">
-                                        <option value="momo">MoMo</option>
-                                        <option value="card">Visa / card</option>
-                                    </select>
-                                </label>
-                                <input class="form-control" name="note" placeholder="Note (optional)" style="width:220px;">
-                                <button class="btn btn-primary">Apply amendment</button>
-                            </form>
+                    @empty
+                        <tr><td colspan="13">No reservations.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+            {{ $reservations->appends(request()->query())->links() }}
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'availability' ? 'is-on' : '' }}">
+            <form method="GET" style="max-width:280px;margin-bottom:14px;">
+                <input type="hidden" name="tab" value="availability">
+                @foreach($filters as $key => $value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
+                <label>Night</label>
+                <select name="availability" class="form-control" onchange="this.form.submit()">
+                    @foreach($dates as $date)
+                        <option value="{{ $date }}" @if($date === $availabilityDate) selected @endif>{{ $date }}</option>
+                    @endforeach
+                </select>
+            </form>
+            <table class="cothx-table">
+                <thead><tr><th>Table</th><th>Section</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                @foreach($slots as $slot)
+                    <tr>
+                        <td>{{ optional($slot->table)->code }}</td>
+                        <td>{{ optional(optional($slot->table)->section)->name }}</td>
+                        <td>{{ $slot->status }}</td>
+                        <td>
+                            @if($slot->status !== 'booked')
+                                <form method="POST" action="{{ route('coth.admin.slot', $slot->id) }}">
+                                    @csrf
+                                    <input type="hidden" name="tab" value="availability">
+                                    <input type="hidden" name="availability" value="{{ $availabilityDate }}">
+                                    @if(! $slot->is_enabled)<input type="hidden" name="is_enabled" value="1">@endif
+                                    <button class="btn btn-primary" type="submit">{{ $slot->is_enabled ? 'Disable this night' : 'Enable this night' }}</button>
+                                </form>
+                            @else
+                                Booked
+                            @endif
                         </td>
                     </tr>
-                @endif
-            @empty
-                <tr><td colspan="13">No reservations.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-    {{ $reservations->appends(request()->query())->links() }}
+                @endforeach
+                </tbody>
+            </table>
+        </div>
 
-    <h2>Availability on {{ $availabilityDate }}</h2>
-    <form method="GET">
-        @foreach($filters as $key => $value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
-        <select name="availability" class="form-control" style="max-width:240px;" onchange="this.form.submit()">
-            @foreach($dates as $date)
-                <option value="{{ $date }}" @if($date === $availabilityDate) selected @endif>{{ $date }}</option>
-            @endforeach
-        </select>
-    </form>
-    <div class="table-responsive">
-        <table class="table table-condensed">
-            <thead><tr><th>Table</th><th>Section</th><th>Status</th><th>Enabled</th></tr></thead>
-            <tbody>
-            @foreach($slots as $slot)
-                <tr>
-                    <td>{{ optional($slot->table)->code }}</td>
-                    <td>{{ optional(optional($slot->table)->section)->name }}</td>
-                    <td>{{ $slot->status }}</td>
-                    <td>
-                        @if($slot->status !== 'booked')
-                            <form method="POST" action="{{ route('coth.admin.slot', $slot->id) }}">
-                                @csrf
-                                @if(! $slot->is_enabled)<input type="hidden" name="is_enabled" value="1">@endif
-                                <button class="btn btn-xs btn-default" type="submit">{{ $slot->is_enabled ? 'Disable this date' : 'Enable this date' }}</button>
-                            </form>
-                        @else
-                            Booked
-                        @endif
-                    </td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    </div>
-
-    <h2>Shared extra-chair inventory</h2>
-    <p>Set a daily cap on extra chairs available for the whole venue. Leave the total blank for no cap (per-table maxes still apply).</p>
-    <div class="table-responsive">
-        <table class="table table-condensed">
-            <thead><tr><th>Date</th><th>Total chairs</th><th>Held</th><th>Booked</th><th>Available</th><th></th></tr></thead>
-            <tbody>
+        <div class="cothx-panel {{ $tab === 'chairs' ? 'is-on' : '' }}">
+            <p class="cothx-lead">Set a daily cap on extra chairs for the whole venue. Leave the total blank for no cap.</p>
+            <table class="cothx-table">
+                <thead><tr><th>Date</th><th>Total chairs</th><th>Held</th><th>Booked</th><th>Available</th></tr></thead>
+                <tbody>
                 @foreach($dates as $d)
                     @php $inv = $chairInventory->get($d); @endphp
                     <tr>
                         <td>{{ $d }}</td>
                         <td>
-                            <form method="POST" action="{{ route('coth.admin.chair_inventory') }}" class="form-inline">
+                            <form method="POST" action="{{ route('coth.admin.chair_inventory') }}" style="display:flex;gap:8px;align-items:center;">
                                 @csrf
+                                <input type="hidden" name="tab" value="chairs">
                                 <input type="hidden" name="event_date" value="{{ $d }}">
-                                <input class="form-control" type="number" min="0" name="total_capacity" value="{{ $inv && $inv->total_capacity !== null ? $inv->total_capacity : '' }}" placeholder="unlimited" style="width:120px;">
-                                <button class="btn btn-xs btn-default">Save</button>
+                                <input class="form-control" type="number" min="0" name="total_capacity" value="{{ $inv && $inv->total_capacity !== null ? $inv->total_capacity : '' }}" placeholder="unlimited" style="width:140px;">
+                                <button class="btn btn-primary">Save</button>
                             </form>
                         </td>
                         <td>{{ $inv ? (int) $inv->held : 0 }}</td>
                         <td>{{ $inv ? (int) $inv->booked : 0 }}</td>
                         <td>{{ $inv && $inv->total_capacity !== null ? max(0, (int) $inv->total_capacity - (int) $inv->held - (int) $inv->booked) : 'unlimited' }}</td>
-                        <td></td>
                     </tr>
                 @endforeach
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'rules' ? 'is-on' : '' }}">
+            @if($settings)
+                <form method="POST" action="{{ route('coth.admin.settings') }}">
+                    @csrf
+                    <input type="hidden" name="tab" value="rules">
+                    <div class="cothx-grid">
+                        <div><label>Deposit %</label><input class="form-control" name="deposit_percent" type="number" value="{{ $settings->deposit_percent }}"></div>
+                        <div><label>Discount %</label><input class="form-control" name="discount_percent" type="number" value="{{ $settings->discount_percent }}"></div>
+                        <div><label>Hold minutes</label><input class="form-control" name="hold_minutes" type="number" value="{{ $settings->hold_minutes }}"></div>
+                        <div><label>Event end</label><input class="form-control" type="datetime-local" name="event_end_at" value="{{ $event && $event->event_end_at ? $event->event_end_at->format('Y-m-d\TH:i') : '' }}"></div>
+                    </div>
+                    <label style="margin-top:12px;">Discount dates</label>
+                    <textarea class="form-control" name="discount_dates" rows="3">{{ implode("\n", $settings->discountDateList()) }}</textarea>
+                    <label class="cothx-checks"><input type="checkbox" name="discount_includes_addons" value="1" @if($settings->discount_includes_addons) checked @endif> Apply the date discount to extra chairs too</label>
+                    <button class="btn btn-primary" style="margin-top:12px;" type="submit">Save rules</button>
+                </form>
+            @endif
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'audit' ? 'is-on' : '' }}">
+            <ul style="list-style:none;padding:0;margin:0;">
+                @foreach($audits as $audit)
+                    <li style="padding:10px 0;border-bottom:1px solid rgba(246,239,228,.08);">{{ $audit->created_at }} · {{ $audit->action }} · {{ $audit->note }}</li>
+                @endforeach
+            </ul>
+        </div>
     </div>
-
-    <h2>Tables</h2>
-    <p>Pick a 3D preset per table, toggle city-view/high-table, and configure extra-chair rules. Leave position blank to keep the public floor labelled "Illustrative layout."</p>
-    @foreach($tables as $t)
-        @php
-            $allowedPresets = $visuals->presetsForTable($t);
-            $resolvedRate = $pricing->extraChairRate($t);
-        @endphp
-        <form method="POST" action="{{ route('coth.admin.table', $t->id) }}" style="margin-bottom:16px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;">
-            @csrf
-            <div class="form-inline" style="margin-bottom:6px;">
-                <strong style="display:inline-block;width:120px;">{{ $t->code }}</strong>
-                <input class="form-control" name="name" value="{{ $t->name }}" style="width:140px;">
-                <input class="form-control" name="capacity" type="number" value="{{ $t->capacity }}" style="width:80px;">
-                <input class="form-control" name="price" type="number" value="{{ $t->price }}" style="width:120px;">
-                <select class="form-control" name="seating_style">
-                    <option value="standard" @if($t->seating_style==='standard') selected @endif>Standard</option>
-                    <option value="couch" @if($t->seating_style==='couch') selected @endif>Couch</option>
-                    <option value="high_table" @if($t->seating_style==='high_table') selected @endif>High table</option>
-                </select>
-                <input class="form-control" name="pos_x" value="{{ $t->pos_x }}" placeholder="Left %" style="width:90px;">
-                <input class="form-control" name="pos_y" value="{{ $t->pos_y }}" placeholder="Top %" style="width:90px;">
-                <label><input type="checkbox" name="is_active" value="1" @if($t->is_active) checked @endif> Active</label>
-            </div>
-            <div class="form-inline" style="margin-bottom:6px;">
-                <label>Preset:
-                    <select class="form-control" name="visual_preset" style="width:260px;">
-                        <option value="">— Default artwork —</option>
-                        @foreach($allowedPresets as $p)
-                            <option value="{{ $p['slug'] }}" @if($t->visual_preset === $p['slug']) selected @endif>{{ $p['name'] }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label><input type="checkbox" name="is_city_view" value="1" @if($t->is_city_view) checked @endif> City view</label>
-                <label><input type="checkbox" name="is_high_table" value="1" @if($t->is_high_table) checked @endif> High table</label>
-                <img src="{{ $visuals->assetFor($t) }}" alt="preview" style="height:46px;margin-left:12px;border:1px solid #e5e7eb;border-radius:6px;background:#0c0c0c;padding:2px;">
-            </div>
-            <div class="form-inline" style="margin-bottom:6px;">
-                <label><input type="checkbox" name="allow_extra_chairs" value="1" @if($t->allow_extra_chairs) checked @endif> Allow extra chairs</label>
-                <label>Max chairs: <input class="form-control" type="number" min="0" max="50" name="max_extra_chairs" value="{{ (int) $t->max_extra_chairs }}" style="width:80px;"></label>
-                <label>Rate (FCFA):
-                    <input class="form-control" type="number" min="0" name="extra_chair_rate" value="{{ $t->extra_chair_rate !== null ? (int) $t->extra_chair_rate : '' }}" placeholder="auto" style="width:120px;">
-                </label>
-                <label>Furniture notes:
-                    <input class="form-control" name="extra_chair_furniture_type" value="{{ $t->extra_chair_furniture_type }}" placeholder="e.g. matching navy chair" style="width:220px;">
-                </label>
-                <small>
-                    Resolved rate: {{ $resolvedRate !== null ? number_format($resolvedRate).' FCFA' : 'not configured' }}
-                </small>
-                <button class="btn btn-primary">Save</button>
-            </div>
-        </form>
-    @endforeach
-
-    <h2>Rules</h2>
-    @if($settings)
-        <form method="POST" action="{{ route('coth.admin.settings') }}">
-            @csrf
-            <div class="row">
-                <div class="col-sm-3"><label>Deposit %</label><input class="form-control" name="deposit_percent" type="number" value="{{ $settings->deposit_percent }}"></div>
-                <div class="col-sm-3"><label>Discount %</label><input class="form-control" name="discount_percent" type="number" value="{{ $settings->discount_percent }}"></div>
-                <div class="col-sm-3"><label>Hold minutes</label><input class="form-control" name="hold_minutes" type="number" value="{{ $settings->hold_minutes }}"></div>
-                <div class="col-sm-3"><label>Event end</label><input class="form-control" type="datetime-local" name="event_end_at" value="{{ $event && $event->event_end_at ? $event->event_end_at->format('Y-m-d\TH:i') : '' }}"></div>
-            </div>
-            <label>Discount dates (one per line or comma separated)</label>
-            <textarea class="form-control" name="discount_dates" rows="3">{{ implode("\n", $settings->discountDateList()) }}</textarea>
-            <label style="margin-top:8px;"><input type="checkbox" name="discount_includes_addons" value="1" @if($settings->discount_includes_addons) checked @endif> Apply date discount to extra chairs too</label>
-            <button class="btn btn-primary" style="margin-top:8px;" type="submit">Save rules</button>
-        </form>
-    @endif
-
-    <h2>Audit</h2>
-    <ul>
-        @foreach($audits as $audit)
-            <li>{{ $audit->created_at }} · {{ $audit->action }} · {{ $audit->note }}</li>
-        @endforeach
-    </ul>
 </section>
+<script>
+document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (chip) { chip.classList.remove('is-on'); });
+        btn.classList.add('is-on');
+        var sec = btn.getAttribute('data-sec');
+        document.querySelectorAll('.cothx-card').forEach(function (card) {
+            card.style.display = (sec === 'all' || card.getAttribute('data-sec') === sec) ? '' : 'none';
+        });
+    });
+});
+</script>
 @endsection

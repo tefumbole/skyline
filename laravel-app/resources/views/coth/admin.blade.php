@@ -2,8 +2,25 @@
 @section('content')
 @php
     $tab = request()->query('tab', 'tables');
+    $prefixCounts = [];
+    foreach ($tables as $row) {
+        if (preg_match('/^([A-Za-z0-9]+)-/', (string) $row->code, $match)) {
+            $sid = $row->coth_section_id;
+            $bit = strtoupper($match[1]);
+            if (! isset($prefixCounts[$sid][$bit])) {
+                $prefixCounts[$sid][$bit] = 0;
+            }
+            $prefixCounts[$sid][$bit]++;
+        }
+    }
+    $prefixes = [];
+    foreach ($prefixCounts as $sid => $counts) {
+        arsort($counts);
+        $prefixes[$sid] = array_key_first($counts);
+    }
     $tabs = [
         'tables' => 'Tables',
+        'locations' => 'Locations',
         'reservations' => 'Reservations',
         'availability' => 'Availability',
         'chairs' => 'Extra chairs',
@@ -45,6 +62,10 @@
         display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: start;
         background: #fff; border: 1px solid #e6ebf3; border-radius: 16px;
         padding: 14px; margin-bottom: 14px;
+    }
+    .cothx-loc {
+        background: #fff; border: 1px solid #e6ebf3; border-radius: 16px;
+        padding: 14px 16px; margin-bottom: 14px;
     }
     .cothx-photo { height: 140px; border-radius: 12px; background: #f3f6fb; display: flex; align-items: center; justify-content: center; }
     .cothx-photo img { max-width: 100%; max-height: 130px; object-fit: contain; }
@@ -145,6 +166,38 @@
                         </div>
                         <p class="cothx-lead" style="margin:8px 0 0;">Guest rate today: {{ $resolvedRate !== null ? number_format($resolvedRate).' FCFA' : 'not set' }}</p>
                     </div>
+                </form>
+            @endforeach
+        </div>
+
+        <div class="cothx-panel {{ $tab === 'locations' ? 'is-on' : '' }}">
+            <p class="cothx-lead">Rename a location here. Guests see the name on the experience cards, and every table in that location takes the new code. HALL-T10-01 becomes GARDEN-T10-01 if you change HALL to GARDEN.</p>
+            @foreach ($sections as $section)
+                @php
+                    $prefix = $prefixes[$section->id] ?? strtoupper($section->code);
+                    $count = $tables->where('coth_section_id', $section->id)->count();
+                    $sample = $tables->first(function ($row) use ($section) {
+                        return (int) $row->coth_section_id === (int) $section->id;
+                    });
+                @endphp
+                <form method="POST" action="{{ route('coth.admin.section', $section->id) }}" class="cothx-loc">
+                    @csrf
+                    <input type="hidden" name="tab" value="locations">
+                    <h2 class="cothx-code">{{ $section->name }} <span class="cothx-sec">{{ $count }} tables</span></h2>
+                    <div class="cothx-grid">
+                        <div>
+                            <label>Name guests see</label>
+                            <input class="form-control" name="name" value="{{ $section->name }}" required maxlength="80">
+                        </div>
+                        <div>
+                            <label>Table code</label>
+                            <input class="form-control" name="prefix" value="{{ $prefix }}" required maxlength="12" pattern="[A-Za-z][A-Za-z0-9]{1,11}" title="Letters and numbers, 2 to 12 characters">
+                        </div>
+                        <div style="align-self:end;">
+                            <button class="btn btn-primary" type="submit">Save location</button>
+                        </div>
+                    </div>
+                    <p class="cothx-lead" style="margin:8px 0 0;">Tables here start with {{ $prefix }}@if($sample) — for example {{ $sample->code }}@endif.</p>
                 </form>
             @endforeach
         </div>

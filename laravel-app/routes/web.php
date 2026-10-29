@@ -496,6 +496,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/coth/seating', 'CothAdminController@seating')->name('coth.admin.seating');
     Route::post('/admin/coth/settings', 'CothAdminController@updateSettings')->name('coth.admin.settings');
     Route::post('/admin/coth/tables/{id}', 'CothAdminController@updateTable')->name('coth.admin.table');
+    Route::post('/admin/coth/sections/{id}', 'CothAdminController@updateSection')->name('coth.admin.section');
     Route::post('/admin/coth/slots/{id}', 'CothAdminController@updateSlot')->name('coth.admin.slot');
     Route::post('/admin/coth/chair-inventory', 'CothAdminController@updateChairInventory')->name('coth.admin.chair_inventory');
     Route::post('/admin/coth/reservation/{id}/amend-chairs', 'CothAdminController@amendChairs')->name('coth.admin.amend_chairs');

@@ -224,6 +224,72 @@ class CothAdminController extends Controller
         return $this->adminBack('message', $notice);
     }
 
+    public function updateSection(Request $request, $id)
+    {
+        $this->authorizeStaff();
+        $section = CothSection::findOrFail($id);
+        $data = $request->validate([
+            'name' => 'required|string|max:80',
+            'prefix' => 'required|regex:/^[A-Za-z][A-Za-z0-9]{1,11}$/',
+        ]);
+        $name = trim($data['name']);
+        $prefix = strtoupper($data['prefix']);
+        $tables = CothTable::where('coth_section_id', $section->id)->orderBy('id')->get();
+        $current = $this->sectionPrefix($tables);
+        if ($current === null) {
+            $current = strtoupper($section->code);
+        }
+
+        $renames = [];
+        if ($prefix !== $current) {
+            foreach ($tables as $table) {
+                $old = (string) $table->code;
+                if (stripos($old, $current.'-') !== 0) {
+                    continue;
+                }
+                $renames[$table->id] = [$old, $prefix.substr($old, strlen($current)), $table];
+            }
+            $nextCodes = [];
+            foreach ($renames as $row) {
+                $nextCodes[] = $row[1];
+            }
+            if (count($nextCodes) !== count(array_unique($nextCodes))) {
+                return $this->adminBack('not_permitted', 'Those table codes would overlap. Choose a different code.');
+            }
+            if ($nextCodes && CothTable::whereIn('code', $nextCodes)->whereNotIn('id', array_keys($renames))->exists()) {
+                return $this->adminBack('not_permitted', 'Another table already uses that code. Choose a different one.');
+            }
+        }
+
+        DB::transaction(function () use ($section, $name, $renames) {
+            $section->name = $name;
+            $section->save();
+            foreach ($renames as $row) {
+                $old = $row[0];
+                $next = $row[1];
+                $table = $row[2];
+                if ((string) $table->name === $old) {
+                    $table->name = $next;
+                }
+                $table->code = $next;
+                $table->save();
+            }
+        });
+
+        $skipped = $tables->count() - count($renames);
+        if ($prefix === $current) {
+            $note = $name.' saved. Its '.$tables->count().' tables already use '.$prefix.'.';
+        } else {
+            $note = $name.' saved. '.count($renames).' tables changed from '.$current.' to '.$prefix.'.';
+            if ($prefix !== $current && $skipped > 0) {
+                $note .= ' '.$skipped.' kept a custom code.';
+            }
+        }
+        CothAudit::write('section', 'coth_sections', $section->id, $note);
+
+        return $this->adminBack('message', $note);
+    }
+
     public function updateChairInventory(Request $request)
     {
         $this->authorizeStaff();
@@ -416,7 +482,7 @@ class CothAdminController extends Controller
 
     protected function adminBack($key, $message)
     {
-        $allowed = ['tables', 'reservations', 'availability', 'chairs', 'rules', 'audit'];
+        $allowed = ['tables', 'locations', 'reservations', 'availability', 'chairs', 'rules', 'audit'];
         $tab = (string) request()->input('tab', 'tables');
         if (! in_array($tab, $allowed, true)) {
             $tab = 'tables';
@@ -430,6 +496,23 @@ class CothAdminController extends Controller
         }
 
         return redirect()->route('coth.admin', $query)->with($key, $message);
+    }
+
+    protected function sectionPrefix($tables)
+    {
+        $counts = [];
+        foreach ($tables as $table) {
+            if (preg_match('/^([A-Za-z0-9]+)-/', (string) $table->code, $match)) {
+                $prefix = strtoupper($match[1]);
+                $counts[$prefix] = isset($counts[$prefix]) ? $counts[$prefix] + 1 : 1;
+            }
+        }
+        if (! $counts) {
+            return null;
+        }
+        arsort($counts);
+
+        return array_key_first($counts);
     }
 
     protected function authorizeStaff()

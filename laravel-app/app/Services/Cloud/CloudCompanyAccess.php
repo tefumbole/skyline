@@ -22,7 +22,7 @@ class CloudCompanyAccess
         if (! Schema::hasTable('cloud_tenant_memberships') || ! Schema::hasTable('cloud_tenants')) {
             return null;
         }
-        if (in_array((int) $user->role_id, [1, 2], true)) {
+        if ($user->isSuperAdmin() || in_array((int) $user->role_id, [1, 2], true)) {
             return null;
         }
 

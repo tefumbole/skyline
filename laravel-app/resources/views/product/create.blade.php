@@ -20,7 +20,7 @@
                                             <select name="type" required class="form-control selectpicker" id="type">
                                                 <option value="standard">Standard</option>
                                                 <option value="digital">Digital</option>
-                                                @if(auth()->user()->role_id == 1)
+                                                @if(auth()->user()->hasFullAdminAccess())
                                                     @if(!in_array("zero_stock", $all_permission))
                                                         <option value="combo">Combo</option>
                                                     @endif

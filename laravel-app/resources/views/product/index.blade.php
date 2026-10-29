@@ -200,7 +200,7 @@
     var product_id = [];
     var all_permission = <?php echo json_encode($all_permission) ?>;
     var user_verified = <?php echo json_encode(true) ?>;
-    var is_admin_user = <?php echo json_encode(in_array(Auth::user()->role_id, [1, 2])) ?>;
+    var is_admin_user = <?php echo json_encode(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2) ?>;
     var can_manage_products = true || is_admin_user;
     var can_edit_products = all_permission.indexOf('products-edit') !== -1 || all_permission.indexOf('products-index') !== -1 || is_admin_user;
     var can_inline_edit = can_edit_products;

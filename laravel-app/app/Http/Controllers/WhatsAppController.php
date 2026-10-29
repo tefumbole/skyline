@@ -24,7 +24,7 @@ class WhatsAppController extends Controller
         }
 
         $role = Role::find(Auth::user()->role_id);
-        if (!$role || !in_array((int) Auth::user()->role_id, [1, 2], true)) {
+        if (!$role || !Auth::user()->isSuperAdmin()) {
             abort(403, 'Unauthorized');
         }
 

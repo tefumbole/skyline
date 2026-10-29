@@ -1455,7 +1455,7 @@
                         @if(Auth::user()->role_id != 7)
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
-                        @if(in_array((int) Auth::user()->role_id, [1, 2], true))
+                        @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
                             <li><a href="{{ url('/admin/gallery') }}" data-nav-key="gallery"> <i class="dripicons-photo-group"></i><span>Gallery</span></a></li>
                             <li><a href="{{ url('/admin/menu') }}" data-nav-key="menu-photos"> <i class="dripicons-menu"></i><span>Menu</span></a></li>
@@ -1464,7 +1464,7 @@
                             {{-- <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li> --}}
                             <li><a href="{{ url('/admin/leaders') }}" data-nav-key="leaders"> <i class="dripicons-user-group"></i><span>About Us Leaders</span></a></li>
                         @endif
-                        @if(in_array((int) Auth::user()->role_id, [1, 4], true))
+                        @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 4)
                             <li><a href="{{ url('/admin/coth') }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
                         @endif
                         <li><a href="{{ route('admin.help') }}" data-nav-key="help"> <i class="dripicons-question"></i><span>Help</span></a></li>
@@ -2253,7 +2253,7 @@
                                 }
                             }
                         @endphp
-                        @if(Auth::check() && in_array((int) Auth::user()->role_id, [1, 2], true))
+                        @if(Auth::check() && Auth::user()->isSuperAdmin())
                             <li id="mai-voice-menu"><a href="{{ route('mai.voice') }}" data-nav-key="mai-voice"><i class="fa fa-phone"></i><span>MAI Voice</span></a></li>
                         @endif
                         @if($whatsapp_module_active)
@@ -3027,7 +3027,7 @@
                                     <li id="env-setting-menu"><a href="{{route('setting.env')}}">.env Settings</a></li>
                                     @endif
                                 @endif
-                                @if(!$general_setting_permission_active && in_array((int) Auth::user()->role_id, [1, 2], true))
+                                @if(!$general_setting_permission_active && (Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2))
                                     <li id="activity-logs-menu"><a href="{{route('activity-logs.index')}}">Activity Logs</a></li>
                                 @endif
                                 @if($mail_setting_permission_active)

@@ -148,7 +148,7 @@ class CloudAdminController extends Controller
 
     protected function authorizePlatform()
     {
-        if (! Auth::check() || ! in_array((int) Auth::user()->role_id, [1, 2], true)) {
+        if (! Auth::check() || (! Auth::user()->hasFullAdminAccess() && (int) Auth::user()->role_id !== 2)) {
             abort(403, 'Only a platform administrator can manage subscriptions.');
         }
     }

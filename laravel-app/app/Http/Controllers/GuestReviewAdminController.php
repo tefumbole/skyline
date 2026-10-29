@@ -9,7 +9,7 @@ class GuestReviewAdminController extends Controller
 {
     public function index()
     {
-        if (! in_array((int) auth()->user()->role_id, [1, 2], true)) {
+        if (! auth()->user()->hasFullAdminAccess() && (int) auth()->user()->role_id !== 2) {
             return redirect('/')->with('not_permitted', 'You are not allowed to open guest reviews.');
         }
 

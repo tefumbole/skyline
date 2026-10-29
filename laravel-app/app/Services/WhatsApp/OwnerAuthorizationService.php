@@ -59,7 +59,7 @@ class OwnerAuthorizationService
         try {
             return $role->hasPermissionTo('whatsapp.owner') || $role->hasPermissionTo('whatsapp.ai.manage');
         } catch (\Exception $e) {
-            return (int) $user->role_id === 1;
+            return $user->isSuperAdmin();
         }
     }
 }

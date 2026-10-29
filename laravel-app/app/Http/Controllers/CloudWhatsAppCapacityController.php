@@ -33,7 +33,7 @@ class CloudWhatsAppCapacityController extends Controller
     protected function platformDenied()
     {
         $user = auth()->user();
-        if (! $user || ! in_array((int) $user->role_id, [1, 2], true)) {
+        if (! $user || ! $user->isSuperAdmin()) {
             return response('Forbidden', 403);
         }
 

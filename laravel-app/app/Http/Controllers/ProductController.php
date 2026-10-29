@@ -1605,7 +1605,7 @@ class ProductController extends Controller
         if (! $role) {
             return false;
         }
-        if (in_array((int) Auth::user()->role_id, [1, 2], true)) {
+        if (Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2) {
             return true;
         }
 

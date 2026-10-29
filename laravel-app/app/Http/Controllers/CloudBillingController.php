@@ -106,7 +106,7 @@ class CloudBillingController extends Controller
     protected function authorizePlatform()
     {
         $user = auth()->user();
-        if (! $user || ! in_array((int) $user->role_id, [1, 2], true)) {
+        if (! $user || (! $user->hasFullAdminAccess() && (int) $user->role_id !== 2)) {
             abort(403);
         }
     }

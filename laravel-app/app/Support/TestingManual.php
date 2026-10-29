@@ -174,7 +174,7 @@ class TestingManual
         if (! $user) {
             return [];
         }
-        if ((int) $user->role_id === 1) {
+        if ($user->hasFullAdminAccess()) {
             return self::sections();
         }
         $perms = self::permissionNames($user);
@@ -193,7 +193,7 @@ class TestingManual
         if (! $user) {
             return false;
         }
-        if ((int) $user->role_id === 1) {
+        if ($user->hasFullAdminAccess()) {
             return true;
         }
         $gate = self::gateFor($sectionId);

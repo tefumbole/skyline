@@ -249,7 +249,7 @@ class MembershipPublicController extends Controller
     protected function staffOnly()
     {
         $user = auth()->user();
-        if (! $user || ! in_array((int) $user->role_id, [1, 2], true)) {
+        if (! $user || (! $user->hasFullAdminAccess() && (int) $user->role_id !== 2)) {
             throw new \Illuminate\Http\Exceptions\HttpResponseException(
                 redirect('/')->with('not_permitted', 'You are not allowed to open membership.')
             );

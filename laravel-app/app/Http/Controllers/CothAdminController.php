@@ -555,7 +555,7 @@ class CothAdminController extends Controller
         if (! $user) {
             abort(403);
         }
-        if (in_array((int) $user->role_id, [1, 2, 4], true)) {
+        if ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [2, 4], true)) {
             return;
         }
         try {

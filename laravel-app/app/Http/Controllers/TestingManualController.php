@@ -24,7 +24,7 @@ class TestingManualController extends Controller
             $saved = ManualTestResult::where('user_id', $user->id)->get()->keyBy('item_key');
         }
 
-        $full = in_array((int) $user->role_id, [1, 2], true);
+        $full = $user->hasFullAdminAccess() || (int) $user->role_id === 2;
         $tab = $request->query('tab') === 'results' ? 'results' : 'guide';
         if ($tab === 'results' && ! $full) {
             abort(403);
@@ -95,7 +95,7 @@ class TestingManualController extends Controller
     public function report($id)
     {
         $user = auth()->user();
-        if (! $user || ! in_array((int) $user->role_id, [1, 2], true)) {
+        if (! $user || (! $user->hasFullAdminAccess() && (int) $user->role_id !== 2)) {
             abort(403);
         }
         $report = ManualTestReport::findOrFail($id);

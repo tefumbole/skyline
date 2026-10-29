@@ -22,7 +22,7 @@
                 <th>Vendor Phone</th>
                 <th>Status</th>
                 <th>{{trans('file.Date')}}</th>
-                @if(auth()->user()->role_id == 1)
+                @if(auth()->user()->hasFullAdminAccess())
                     <th>{{trans('file.Action')}}</th>
                 @endif
             </tr>
@@ -41,7 +41,7 @@
                     @endif
                     <td>{{ $item->created_at->format('d-M, Y')}}</td>
 
-                    @if(auth()->user()->role_id == 1)
+                    @if(auth()->user()->hasFullAdminAccess())
                         <td>
                             <div class="btn-group">
                                 <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{trans('file.action')}}
@@ -83,7 +83,7 @@
 
 
 <script type="text/javascript">
-    @if(auth()->user()->role_id == 1)
+    @if(auth()->user()->hasFullAdminAccess())
     $(document).ready(function($) {
         $('.clickable-row td:not(:last-child, :first-child)').click(function () {
             window.location = $(this).closest('tr').data("href");

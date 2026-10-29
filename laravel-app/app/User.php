@@ -32,9 +32,35 @@ class User extends Authenticatable
         'otp_time',
     ];
 
+    protected static $roleNames = [];
+
     public function isActive()
     {
         return $this->is_active;
+    }
+
+    public function roleName()
+    {
+        $id = (int) $this->role_id;
+        if (! isset(self::$roleNames[$id])) {
+            self::$roleNames[$id] = (string) \Illuminate\Support\Facades\DB::table('roles')->where('id', $id)->value('name');
+        }
+
+        return self::$roleNames[$id];
+    }
+
+    public function isSuperAdmin()
+    {
+        return $this->roleName() === 'Super Admin';
+    }
+
+    /**
+     * Hotel administrator (role 1) or Super Admin. Owner tools such as
+     * WhatsApp Hub stay on Super Admin only.
+     */
+    public function hasFullAdminAccess()
+    {
+        return (int) $this->role_id === 1 || $this->isSuperAdmin();
     }
 
     /** First usable WhatsApp number on the staff profile. */

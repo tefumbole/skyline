@@ -53,6 +53,6 @@ class MaiVoiceController extends Controller
             return false;
         }
 
-        return in_array((int) $user->role_id, [1, 2], true);
+        return $user->isSuperAdmin();
     }
 }

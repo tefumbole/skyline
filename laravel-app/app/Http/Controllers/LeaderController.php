@@ -12,7 +12,7 @@ class LeaderController extends Controller
 {
     protected function authorizeAdmin()
     {
-        if (! Auth::check() || ! in_array((int) Auth::user()->role_id, [1, 2], true)) {
+        if (! Auth::check() || (! Auth::user()->hasFullAdminAccess() && (int) Auth::user()->role_id !== 2)) {
             abort(403, 'You are not allowed to manage leadership profiles.');
         }
     }

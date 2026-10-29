@@ -1011,7 +1011,7 @@ class RentalContractController extends Controller
             abort(403);
         }
 
-        if (in_array((int) Auth::user()->role_id, [1, 2], true)) {
+        if (Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2) {
             return;
         }
 

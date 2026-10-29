@@ -102,7 +102,7 @@ class CategoryController extends Controller
                 else
                     $nestedData['stock_worth'] = $total_price.' '.config('currency').' / '.$total_cost.' '.config('currency');
 
-                if(auth()->user()->role_id == 1) {
+                if(auth()->user()->hasFullAdminAccess()) {
                 $nestedData['options'] = '<div class="btn-group">
                             <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">'.trans("file.action").'
                               <span class="caret"></span>

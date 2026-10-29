@@ -836,9 +836,9 @@ class AttendanceWhatsAppService
             return false;
         }
         try {
-            return $role->hasPermissionTo('whatsapp.attendance.corrections') || (int) $staff->role_id === 1;
+            return $role->hasPermissionTo('whatsapp.attendance.corrections') || $staff->isSuperAdmin();
         } catch (\Exception $e) {
-            return (int) $staff->role_id === 1;
+            return $staff->isSuperAdmin();
         }
     }
 

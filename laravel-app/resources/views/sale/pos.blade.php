@@ -188,6 +188,13 @@
             text-align: center;
         }
         body.beyond-pos-active .pos-product-grid .product-img span { display: none; }
+        body.beyond-pos-active .pos-product-grid .pos-tile-price {
+            display: block;
+            margin: 2px 0 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0b3f90;
+        }
         body.beyond-pos-active .pos-section .table-container [class*="dripicons-"]:before,
         body.beyond-pos-active .pos-section .payment-buttons [class*="dripicons-"]:before,
         body.beyond-pos-active .pos-section .btn [class*="dripicons-"]:before {
@@ -1378,6 +1385,92 @@
                                 ['permissions.name', 'customers-add'],
                                 ['role_id', \Auth::user()->role_id] ])->first();
                             @endphp
+@if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
+                                    <div class="row" style="margin:8px 0;">
+                                        <div class="col-sm-12"><strong>Restaurant order</strong> <span class="text-muted">Place food and drinks here. Kitchen and bar receive them from this sale.</span></div>
+                                        <div class="col-sm-3">
+                                            <label>Service</label>
+                                            <select name="service_type" class="form-control">
+                                                <option value="dine_in">Dine In</option>
+                                                <option value="take_away">Take Away</option>
+                                                <option value="">Not a restaurant order</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <label>Waitress / waiter</label>
+                                            @php
+                                                $posWaiterId = (int) auth()->id();
+                                                $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
+                                                $posWaiterIds = [];
+                                                foreach ($posWaiters as $posWaiter) {
+                                                    $posWaiterIds[] = (int) $posWaiter->id;
+                                                }
+                                            @endphp
+                                            <select name="waitress_user_id" class="form-control">
+                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
+                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
+                                                @endif
+                                                @foreach($posWaiters as $person)
+                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                        <div class="col-sm-3">
+                                            <label for="restaurant_table_id">Assign table</label>
+                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
+                                                <option value="">Select table</option>
+                                                @foreach(\App\RestaurantTable::numbered() as $table)
+                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        @endif
+                                    </div>
+                                    <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+                                        <div role="document" class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Create table</h5>
+                                                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="form-group"><label>Name</label><input id="new-table-name" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Description</label><input id="new-table-description" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Number of persons</label><input id="new-table-capacity" class="form-control" type="number" min="1"></div>
+                                                    <button type="button" class="btn btn-primary" id="save-new-table">Add table</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <script>
+                                        (function () {
+                                            var button = document.getElementById('save-new-table');
+                                            if (!button) return;
+                                            button.addEventListener('click', function () {
+                                                var name = document.getElementById('new-table-name').value;
+                                                var body = new FormData();
+                                                body.append('name', name);
+                                                body.append('description', document.getElementById('new-table-description').value);
+                                                body.append('capacity', document.getElementById('new-table-capacity').value);
+                                                body.append('_token', '{{ csrf_token() }}');
+                                                fetch('{{ route('restaurant.tables.store') }}', {
+                                                    method: 'POST',
+                                                    headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'},
+                                                    body: body,
+                                                    credentials: 'same-origin'
+                                                }).then(function (res) { return res.json(); }).then(function (data) {
+                                                    if (!data || !data.id) return;
+                                                    var select = document.getElementById('restaurant_table_id');
+                                                    var option = document.createElement('option');
+                                                    option.value = data.id;
+                                                    option.textContent = data.label || data.name;
+                                                    option.selected = true;
+                                                    select.appendChild(option);
+                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
+                                                });
+                                            });
+                                        })();
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="row">
@@ -1457,12 +1550,12 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        @if(in_array("star_product", $all_permission))
+                                        @if(in_array("star_product", $all_permission) || Auth::user()->isSuperAdmin())
                                             <div class="col-md-2">
                                                 <button class="btn btn-default" data-toggle="modal" data-target="#addProduct"> <i class="fa fa-star"></i> Star Sale</button>
                                             </div>
                                         @endif
-                                        @if(in_array("zero_stock", $all_permission))
+                                        @if(in_array("zero_stock", $all_permission) || Auth::user()->isSuperAdmin())
                                             @if(!in_array("search_all_products", $all_permission))
                                                 <div class="col-md-3">
                                                     <a class="btn btn-default" href="{{ route('sale.search.all.products') }}"> <i class="fa fa-search"></i> Search All Product</a>
@@ -1574,93 +1667,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
-                                    <div class="row" style="margin:8px 0;">
-                                        <div class="col-sm-12"><strong>Restaurant order</strong> <span class="text-muted">Place food and drinks here. Kitchen and bar receive them from this sale.</span></div>
-                                        <div class="col-sm-3">
-                                            <label>Service</label>
-                                            <select name="service_type" class="form-control">
-                                                <option value="dine_in">Dine In</option>
-                                                <option value="take_away">Take Away</option>
-                                                <option value="">Not a restaurant order</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-sm-3">
-                                            <label>Waitress / waiter</label>
-                                            @php
-                                                $posWaiterId = (int) auth()->id();
-                                                $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
-                                                $posWaiterIds = [];
-                                                foreach ($posWaiters as $posWaiter) {
-                                                    $posWaiterIds[] = (int) $posWaiter->id;
-                                                }
-                                            @endphp
-                                            <select name="waitress_user_id" class="form-control">
-                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
-                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
-                                                @endif
-                                                @foreach($posWaiters as $person)
-                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
-                                        <div class="col-sm-3">
-                                            <label for="restaurant_table_id">Assign table</label>
-                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
-                                                <option value="">Select table</option>
-                                                @foreach(\App\RestaurantTable::numbered() as $table)
-                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        @endif
-                                    </div>
-                                    <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
-                                        <div role="document" class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Create table</h5>
-                                                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="form-group"><label>Name</label><input id="new-table-name" class="form-control" type="text"></div>
-                                                    <div class="form-group"><label>Description</label><input id="new-table-description" class="form-control" type="text"></div>
-                                                    <div class="form-group"><label>Number of persons</label><input id="new-table-capacity" class="form-control" type="number" min="1"></div>
-                                                    <button type="button" class="btn btn-primary" id="save-new-table">Add table</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <script>
-                                        (function () {
-                                            var button = document.getElementById('save-new-table');
-                                            if (!button) return;
-                                            button.addEventListener('click', function () {
-                                                var name = document.getElementById('new-table-name').value;
-                                                var body = new FormData();
-                                                body.append('name', name);
-                                                body.append('description', document.getElementById('new-table-description').value);
-                                                body.append('capacity', document.getElementById('new-table-capacity').value);
-                                                body.append('_token', '{{ csrf_token() }}');
-                                                fetch('{{ route('restaurant.tables.store') }}', {
-                                                    method: 'POST',
-                                                    headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'},
-                                                    body: body,
-                                                    credentials: 'same-origin'
-                                                }).then(function (res) { return res.json(); }).then(function (data) {
-                                                    if (!data || !data.id) return;
-                                                    var select = document.getElementById('restaurant_table_id');
-                                                    var option = document.createElement('option');
-                                                    option.value = data.id;
-                                                    option.textContent = data.label || data.name;
-                                                    option.selected = true;
-                                                    select.appendChild(option);
-                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
-                                                });
-                                            });
-                                        })();
-                                    </script>
+                                                                        </script>
                                     @endif
                                     <div class="pos-order-note">
                                         <label for="pos-order-note">Order note</label>
@@ -1682,7 +1689,7 @@
                                                 <button style="background-color: #00cec9" type="button" class="btn btn-custom payment-btn" id="cash-btn"><i class="fa fa-money"></i> Cash</button>
                                             </div>
                                             <div class="column-5">
-                                                <button style="background-color: #da7828" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="momo-btn"><i class="fa fa-money"></i> Momo</button>
+                                                <button style="background-color: #da7828" type="button" class="btn btn-custom" id="momo-btn"><i class="fa fa-money"></i> Momo</button>
                                             </div>
                                             {{--                            <div class="column-5">--}}
                                             {{--                                <button style="background-color: #5f27cd" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="gift-card-btn"><i class="fa fa-credit-card-alt"></i> GiftCard</button>--}}
@@ -1889,6 +1896,35 @@
                             </div>
 
                             {!! Form::close() !!}
+                            <div id="momo-collect" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+                                <div role="document" class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header" style="background:#0c1830;color:#fff;">
+                                            <h5 class="modal-title">Pay with Mobile Money</h5>
+                                            <button type="button" data-dismiss="modal" aria-label="Close" class="close" style="color:#fff;"><span aria-hidden="true">&times;</span></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>The order goes to the kitchen only after Campay confirms this payment. Use Submit to place an order without taking payment.</p>
+                                            <div class="form-group">
+                                                <label for="momo-collect-phone">Momo number</label>
+                                                <input id="momo-collect-phone" class="form-control" type="text" inputmode="tel" autocomplete="off">
+                                                <p id="momo-holder-name" style="font-weight:700;min-height:1.4em;margin:8px 0 0;"></p>
+                                            </div>
+                                            <label style="margin-right:16px;"><input type="radio" name="momo_pay_mode" value="full" checked> Full payment</label>
+                                            <label><input type="radio" name="momo_pay_mode" value="partial"> Partial payment</label>
+                                            <div id="momo-partial-wrap" class="form-group" style="display:none;margin-top:12px;">
+                                                <label for="momo-partial-amount">Amount to collect now (XAF)</label>
+                                                <input id="momo-partial-amount" class="form-control" type="number" min="1" step="1">
+                                                <small class="text-muted">The rest is sent to Payments.</small>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-default" data-dismiss="modal">Back</button>
+                                            <button type="button" class="btn btn-primary" id="momo-collect-go">Request Momo</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                                 <!-- product list -->
                                 <div class="col-md-6 products-side">
                                     <!-- navbar-->
@@ -1915,7 +1951,7 @@
                                                                     ['role_id', Auth::user()->role_id]
                                                                 ])->first();
                                                                 ?>
-                                                            @if($pos_setting_permission_active)
+                                                            @if($pos_setting_permission_active || Auth::user()->isSuperAdmin())
                                                                 <li class="nav-item"><a class="dropdown-item" data-toggle="tooltip" href="{{route('setting.pos')}}" title="{{trans('file.POS Setting')}}"><i class="dripicons-gear"></i></a> </li>
                                                             @endif
                                                             <li class="nav-item">
@@ -1938,12 +1974,12 @@
                                                                 ])->first() : null;
                                                                 ?>
 
-                                                            @if($today_sale_permission_active)
+                                                            @if($today_sale_permission_active || Auth::user()->isSuperAdmin())
                                                                 <li class="nav-item">
                                                                     <a href="" id="today-sale-btn" data-toggle="tooltip" title="{{trans('file.Today Sale')}}"><i class="dripicons-shopping-bag"></i></a>
                                                                 </li>
                                                             @endif
-                                                            @if($today_profit_permission_active)
+                                                            @if($today_profit_permission_active || Auth::user()->isSuperAdmin())
                                                                 <li class="nav-item">
                                                                     <a href="" id="today-profit-btn" data-toggle="tooltip" title="{{trans('file.Today Profit')}}"><i class="dripicons-graph-line"></i></a>
                                                                 </li>
@@ -1976,7 +2012,7 @@
                                                                     <li>
                                                                         <a href="{{route('user.profile', ['id' => Auth::id()])}}"><i class="dripicons-user"></i> {{trans('file.profile')}}</a>
                                                                     </li>
-                                                                    @if($general_setting_permission_active)
+                                                                    @if($general_setting_permission_active || Auth::user()->isSuperAdmin())
                                                                         <li>
                                                                             <a href="{{route('setting.general')}}"><i class="dripicons-gear"></i> {{trans('file.settings')}}</a>
                                                                         </li>
@@ -2070,6 +2106,7 @@
                                     <div class="col-md-3 product-img sound-btn text-center" title="{{ $posName }}" data-product="{{ $product->code . ' (' . $product->name . ')' }}">
                                         <img src="{{ \App\Support\PosProductImage::url($product->base_image, false) }}" width="120" height="70" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
                                         <p class="text-center">{{ $posName }}</p>
+                                        <p class="pos-tile-price">{{ (float) ($product->price ?? 0) > 0 ? number_format((float) $product->price, 0) : 'Set price' }}</p>
                                     </div>
                                 @endforeach
                             </div>
@@ -3250,7 +3287,9 @@
                     var productInfo = $('<div>').text(data.code[index] + ' (' + data.name[index] + ')').html();
                     var image = posTileSrc(data.image[index]);
                     html += '<div class="col-md-3 product-img sound-btn text-center" title="'+safeLabel+'" data-product="'+productInfo+'">';
-                    html += '<img src="'+image+'" width="120" height="70" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p class="text-center">'+safeLabel+'</p></div>';
+                    var rawPrice = data.price ? parseFloat(data.price[index]) : 0;
+                    var priceLabel = rawPrice > 0 ? rawPrice.toLocaleString() : 'Set price';
+                    html += '<img src="'+image+'" width="120" height="70" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p class="text-center">'+safeLabel+'</p><p class="pos-tile-price">'+priceLabel+'</p></div>';
                 });
             } else {
                 html += '<div class="col-md-12 text-center">No data available</div>';
@@ -3730,22 +3769,94 @@
             }
         }
 
-        $("#momo-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(8);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('input[name="paying_amount"]').prop('readonly', false);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').show();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
-            toggleMomoPhone(true);
+        function posLineMissingPrice() {
+            var missing = false;
+            $('table.order-list tbody tr .net_unit_price').each(function () {
+                if (moneyNumber($(this).val()) <= 0) missing = true;
+            });
+            return missing;
+        }
+
+        var momoLookupTimer = null;
+        function lookupMomoHolder(phone) {
+            var digits = String(phone || '').replace(/\D/g, '');
+            var box = $('#momo-holder-name');
+            box.css('color', '#5c6b80').text('');
+            if (digits.length < 9) return;
+            box.text('Checking Campay…');
+            $.ajax({
+                url: '{{ route('pos.momo.holder') }}',
+                method: 'POST',
+                data: {_token: '{{ csrf_token() }}', phone: digits},
+                success: function (res) {
+                    if (res && res.name) {
+                        box.css('color', '#178a45').text(res.name);
+                    } else if (res && res.blocked) {
+                        box.css('color', '#8a5a1f').text('Campay name lookup is paused. Confirm the number yourself.');
+                    } else {
+                        box.css('color', '#8a5a1f').text('No Campay name for this number. Confirm it before you continue.');
+                    }
+                }
+            });
+        }
+
+        $("#momo-btn").on("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var rownumber = $('table.order-list tbody tr:last').index();
+            if (rownumber < 0) {
+                alert("Please insert product to order table!");
+                return;
+            }
+            if (posLineMissingPrice()) {
+                alert("Every item needs a price before it can be paid.");
+                return;
+            }
+            $('#momo-collect-phone').val(customerPhone());
+            $('input[name="momo_pay_mode"][value="full"]').prop('checked', true);
+            $('#momo-partial-wrap').hide();
+            $('#momo-partial-amount').val('');
+            $('#momo-holder-name').text('');
+            $('#momo-collect').modal('show');
+            lookupMomoHolder($('#momo-collect-phone').val());
+        });
+        $('#momo-collect-phone').on('input', function () {
+            var value = this.value;
+            clearTimeout(momoLookupTimer);
+            momoLookupTimer = setTimeout(function () { lookupMomoHolder(value); }, 400);
+        });
+        $(document).on('change', 'input[name="momo_pay_mode"]', function () {
+            $('#momo-partial-wrap').toggle(this.value === 'partial' && this.checked);
+        });
+        $('#momo-collect-go').on('click', function () {
+            var total = moneyNumber($('#grand-total').text());
+            var mode = $('input[name="momo_pay_mode"]:checked').val();
+            var charge = total;
+            if (mode === 'partial') {
+                charge = moneyNumber($('#momo-partial-amount').val());
+                if (!(charge >= 1) || charge >= total) {
+                    alert('Enter a partial amount that is less than the bill. The rest goes to Payments.');
+                    return;
+                }
+            }
+            var phone = $('#momo-collect-phone').val() || '';
+            if (phone.replace(/\D/g, '').length < 9) {
+                alert('Enter the Momo number.');
+                return;
+            }
+            $('input[name="momo_phone"]').val(phone);
+            $('#momo-collect').modal('hide');
+            submitPosSale(8, charge);
         });
 
         function submitPosSale(paidById, paidAmount) {
             var rownumber = $('table.order-list tbody tr:last').index();
             if (rownumber < 0) {
                 alert("Please insert product to order table!");
+                return;
+            }
+            if (posLineMissingPrice()) {
+                alert("Every item needs a price before the order can be placed.");
                 return;
             }
             var total = moneyNumber($("#grand-total").text());
@@ -3759,7 +3870,15 @@
 
         $("#cash-btn").on("click", function(e) {
             e.preventDefault();
-            submitPosSale(1, moneyNumber($("#grand-total").text()));
+            if (posLineMissingPrice()) {
+                alert("Every item needs a price before the order can be placed.");
+                return;
+            }
+            var total = moneyNumber($("#grand-total").text());
+            if (!window.confirm("Take cash of " + total + " XAF and send this order?")) {
+                return;
+            }
+            submitPosSale(1, total);
         });
 
         $("#pay-later-btn").on("click", function(e) {

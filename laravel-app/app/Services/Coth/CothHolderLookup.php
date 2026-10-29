@@ -34,8 +34,15 @@ class CothHolderLookup
             return ['name' => '', 'blocked' => true];
         }
         $digits = preg_replace('/\D/', '', (string) $phoneDigits);
-        if ($digits === '' || strlen($digits) < 10) {
+        if (strlen($digits) === 9 && isset($digits[0]) && $digits[0] === '6') {
+            $digits = '237'.$digits;
+        }
+        if (strpos($digits, '237') !== 0 || strlen($digits) < 12) {
             return ['name' => '', 'blocked' => false];
+        }
+        $cached = Cache::get('campay:holder-name:'.$digits);
+        if (is_string($cached)) {
+            return ['name' => $cached, 'blocked' => false];
         }
         // Campay's holder_info only knows CEMAC subscribers; sending another
         // country's number just comes back empty, which is fine - callers
@@ -71,6 +78,7 @@ class CothHolderLookup
             return ['name' => '', 'blocked' => false];
         }
         $name = isset($body['full_name']) ? trim((string) $body['full_name']) : '';
+        Cache::put('campay:holder-name:'.$digits, $name, $name !== '' ? now()->addDays(7) : now()->addHours(6));
 
         return ['name' => $name, 'blocked' => false];
     }

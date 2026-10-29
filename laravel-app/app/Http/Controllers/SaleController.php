@@ -450,6 +450,16 @@ class SaleController extends Controller
     {
         $data = $request->all();
         $data = $this->stripAmountSeparators($data);
+        if (! empty($data['pos']) && isset($data['net_unit_price']) && is_array($data['net_unit_price'])) {
+            foreach ($data['net_unit_price'] as $linePrice) {
+                if ((float) $linePrice <= 0) {
+                    return back()->with('not_permitted', 'Every item needs a price before the order can be placed.');
+                }
+            }
+        }
+        if (! empty($data['pos']) && (int) (isset($data['paid_by_id']) ? $data['paid_by_id'] : 0) === 8 && empty($data['momo_verified'])) {
+            return $this->beginPosMomo($request, $data);
+        }
         if(isset($request->reference_no)) {
             $this->validate($request, [
                 'reference_no' => [
@@ -475,10 +485,10 @@ class SaleController extends Controller
             $balance = $data['grand_total'] - $data['paid_amount'];
             $data['payment_status'] = $this->paymentStatusForBalance($data['paid_amount'], $balance);
 
-            if($data['paid_by_id'] == 8 || $data['paid_by_id'] == 9) {
+            if ((int) $data['paid_by_id'] === 9 || ((int) $data['paid_by_id'] === 8 && empty($data['momo_verified']))) {
                 $data['payment_status'] = 1;
                 $data['paid_amount'] = 0;
-                if($data['paid_by_id'] == 9) {
+                if ((int) $data['paid_by_id'] === 9) {
                     $paying_method = 'Pay Later';
                 }
             }
@@ -813,39 +823,8 @@ class SaleController extends Controller
             }
             elseif ($data['paid_by_id'] == 8) {
                 $paying_method = 'Momo';
-                $biller = Biller::find($request->biller_id);
-                try {
-                    $this->sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, 'Momo', $net_unit_price);
-                } catch (\Throwable $e) {
-                    \Log::warning('POS Momo receipt was not sent: '.$e->getMessage());
-                }
-
-                $data['status'] = 0;
-
-                $token = $this->campayBearerToken();
-                if (! $token) {
-                    return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
-                }
-                $route = route('pos.payment_check');
-                $rawPhone = ! empty($data['momo_phone']) ? $data['momo_phone'] : ($lims_customer_data ? $lims_customer_data->phone_number : '');
-                $mtn_number = preg_replace('/\D+/', '', (string) $rawPhone);
-                if (strlen($mtn_number) === 9) {
-                    $mtn_number = '237'.$mtn_number;
-                }
-                if (strlen($mtn_number) < 11) {
-                    return back()->with('not_permitted', 'Enter the Momo phone number that should receive the payment prompt.');
-                }
-                $amount = (int) round((float) $lims_sale_data->grand_total);
-                if ($amount < 1) {
-                    return back()->with('not_permitted', 'The amount to collect must be greater than zero.');
-                }
-                $link = $this->mobileMoneyRequestLink($token, $amount, $route, $lims_sale_data->id, $mtn_number);
-                if ($link == false) {
-                    return back()->with('not_permitted', 'Campay could not start the Momo payment. Check the phone number and try again.');
-                }
-                Session::put('data', $data);
-
-                return redirect()->away($link);
+                $gateway = \App\Services\Restaurant\RestaurantPayments::gatewayNote(isset($data['campay_reference']) ? $data['campay_reference'] : '');
+                $data['payment_note'] = trim((isset($data['payment_note']) ? $data['payment_note'] : '').' '.$gateway);
             }
             elseif ($data['paid_by_id'] == 3) {
                 $paying_method = 'JE method';
@@ -1056,6 +1035,9 @@ class SaleController extends Controller
         }
 
         if($data['pos'] == 1) {
+            if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {
+                return redirect()->route('payment.index')->with('message', 'Momo received. The remaining balance is in Payments.');
+            }
             if($lims_sale_data->sale_status == '1') {
                 return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
             }
@@ -1071,20 +1053,29 @@ class SaleController extends Controller
 
     public function addPaymentMTN(Request $request)
     {
-        $data = $request->all();
-//        dd($data);
-        if($data['status'] != 'SUCCESSFUL'){
-            return back()->with('not_permitted', 'payment failed.');
+        $verified = $this->verifyCampayTransaction($request->query('reference'));
+        if (! $verified) {
+            return back()->with('not_permitted', 'Mobile money was not verified. Nothing was marked paid.');
         }
-
-        $data['sale_id'] = $data['external_reference'];
-        $data['amount'] = $data['app_amount'];
-        $data['payment_reference'] = $data['reference'];
+        $data = $request->all();
+        $data['sale_id'] = $verified['external'];
+        $data['amount'] = $verified['amount'];
+        $data['reference'] = $verified['reference'];
+        if (! ctype_digit((string) $data['sale_id'])) {
+            return back()->with('not_permitted', 'This payment is not tied to a sale.');
+        }
 
         if (!$data['amount'])
             $data['amount'] = 0.00;
 
         $lims_sale_data = Sale::find($data['sale_id']);
+        if (! $lims_sale_data) {
+            return back()->with('not_permitted', 'This payment is not tied to a sale. Nothing was marked paid.');
+        }
+        $remaining = (float) $lims_sale_data->grand_total - (float) $lims_sale_data->paid_amount;
+        if ((float) $data['amount'] > $remaining + 1) {
+            return back()->with('not_permitted', 'The verified amount is larger than the balance. Nothing was marked paid.');
+        }
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
         $gatewayRef = isset($data['reference']) ? $data['reference'] : '';
         if (\App\Services\Restaurant\RestaurantPayments::alreadyRecorded($lims_sale_data->id, $gatewayRef) || (int) $lims_sale_data->payment_status === 4) {
@@ -1164,83 +1155,91 @@ class SaleController extends Controller
         return back()->with('message', $message);
     }
 
+    public function momoHolder(Request $request)
+    {
+        $digits = preg_replace('/\D+/', '', (string) $request->input('phone'));
+        $hit = app(\App\Services\Coth\CothHolderLookup::class)->holder($digits);
+
+        return response()->json([
+            'name' => isset($hit['name']) ? $hit['name'] : '',
+            'blocked' => ! empty($hit['blocked']),
+        ]);
+    }
+
+    /**
+     * Hold the cart until Campay confirms the transfer. Nothing is sold or sent
+     * to the kitchen while the customer is still on the payment page.
+     */
+    protected function beginPosMomo(Request $request, array $data)
+    {
+        $grand = (float) (isset($data['grand_total']) ? $data['grand_total'] : 0);
+        $charge = (float) (isset($data['paid_amount']) ? $data['paid_amount'] : 0);
+        if ($charge <= 0 || $charge > $grand + 0.01) {
+            $charge = $grand;
+        }
+        if ($charge < 1 || $grand < 1) {
+            return back()->with('not_permitted', 'The amount to collect must be greater than zero.');
+        }
+        $rawPhone = ! empty($data['momo_phone']) ? $data['momo_phone'] : '';
+        $mtn = preg_replace('/\D+/', '', (string) $rawPhone);
+        if (strlen($mtn) === 9) {
+            $mtn = '237'.$mtn;
+        }
+        if (strlen($mtn) < 11) {
+            return back()->with('not_permitted', 'Enter the Momo phone number that should receive the payment prompt.');
+        }
+        $token = $this->campayBearerToken();
+        if (! $token) {
+            return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
+        }
+        $pendingToken = bin2hex(random_bytes(10));
+        $payload = $data;
+        unset($payload['_token'], $payload['momo_verified']);
+        $payload['momo_phone'] = $mtn;
+        $payload['paid_amount'] = $charge;
+        $payload['paying_amount'] = $charge;
+        \Cache::put('pos:momo:'.$pendingToken, $payload, now()->addHours(3));
+        $link = $this->mobileMoneyRequestLink($token, (int) round($charge), route('pos.payment_check'), $pendingToken, $mtn);
+        if ($link == false) {
+            \Cache::forget('pos:momo:'.$pendingToken);
+
+            return back()->with('not_permitted', 'Campay could not start the Momo payment. Check the phone number and try again.');
+        }
+
+        return redirect()->away($link);
+    }
+
     public function addPaymentMTNPOS(Request $request)
     {
-        $data = $request->all();
-//        dd($data);
-        if($data['status'] != 'SUCCESSFUL'){
-            return back()->with('not_permitted', 'payment failed.');
+        $reference = (string) $request->query('reference');
+        $verified = $this->verifyCampayTransaction($reference);
+        if (! $verified) {
+            return redirect('pos')->with('not_permitted', 'Mobile money was not approved. The order was not placed and nothing was marked paid.');
         }
-
-        $data['sale_id'] = $data['external_reference'];
-        $data['amount'] = $data['app_amount'];
-        $data['payment_reference'] = $data['reference'];
-
-        if (!$data['amount'])
-            $data['amount'] = 0.00;
-
-        $lims_sale_data = Sale::find($data['sale_id']);
-        $lims_customer_data = Customer::find($lims_sale_data->customer_id);
-        $gatewayRef = isset($data['reference']) ? $data['reference'] : '';
-        if (\App\Services\Restaurant\RestaurantPayments::alreadyRecorded($lims_sale_data->id, $gatewayRef) || (int) $lims_sale_data->payment_status === 4) {
-            if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
-                return $to->with('message', 'Payment already recorded');
-            }
-            return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', 'Payment already recorded');
+        $note = \App\Services\Restaurant\RestaurantPayments::gatewayNote($verified['reference']);
+        $existing = $note !== '' ? Payment::where('payment_note', 'like', '%'.$note.'%')->first() : null;
+        if ($existing && $existing->sale_id) {
+            return redirect('sales/gen_invoice/'.$existing->sale_id)->with('message', 'Payment already recorded');
         }
-
-        $lims_sale_data->paid_amount += $data['amount'];
-        $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;
-        $lims_sale_data->payment_status = $this->paymentStatusForBalance($lims_sale_data->paid_amount, $balance);
-        $paying_method = 'Momo/Orange';
-
-        $cash_register_data = CashRegister::where([
-            ['user_id', Auth::id()],
-            ['warehouse_id', $lims_sale_data->warehouse_id],
-            ['status', true]
-        ])->first();
-
-        $lims_payment_data = new Payment();
-        $lims_payment_data->user_id = Auth::id();
-        $lims_payment_data->sale_id = $lims_sale_data->id;
-        if($cash_register_data)
-            $lims_payment_data->cash_register_id = $cash_register_data->id;
-        $lims_payment_data->account_id = 1;
-        $data['payment_reference'] = 'spr-' . date("Ymd") . '-'. date("his");
-        $lims_payment_data->payment_reference = $data['payment_reference'];
-        $lims_payment_data->amount = $data['amount'];
-        $lims_payment_data->change = $balance - $data['amount'];
-        $lims_payment_data->paying_method = $paying_method;
-        $lims_payment_data->payment_note = trim((isset($data['payment_note']) ? $data['payment_note'] : '').' '.\App\Services\Restaurant\RestaurantPayments::gatewayNote(isset($data['reference']) ? $data['reference'] : ''));
-        $lims_payment_data->save();
-        $lims_sale_data->save();
-
-        $lims_payment_data = Payment::latest()->first();
-
-        $message = 'Payment created successfully';
-        if($lims_customer_data->email){
-            $mail_data['email'] = $lims_customer_data->email;
-            $mail_data['sale_reference'] = $lims_sale_data->reference_no;
-            $mail_data['payment_reference'] = $lims_payment_data->payment_reference;
-            $mail_data['payment_method'] = $lims_payment_data->paying_method;
-            $mail_data['grand_total'] = $lims_sale_data->grand_total;
-            $mail_data['paid_amount'] = $lims_payment_data->amount;
-            try{
-                Mail::send( 'mail.payment_details', $mail_data, function( $message ) use ($mail_data)
-                {
-                    $message->to( $mail_data['email'] )->subject( 'Payment Details' );
-                });
-            }
-            catch(\Exception $e){
-                $message = 'Payment created successfully. Please setup your <a href="setting/mail_setting">mail setting</a> to send mail.';
-            }
-
+        $payload = \Cache::get('pos:momo:'.$verified['external']);
+        if (! is_array($payload)) {
+            return redirect('pos')->with('not_permitted', 'This payment could not be matched to the sale. Nothing was marked paid.');
         }
-
-        if ($to = $this->restaurantSaleRedirect($lims_sale_data)) {
-            return $to->with('message', $message);
+        $grand = (float) (isset($payload['grand_total']) ? $payload['grand_total'] : 0);
+        $amount = (float) $verified['amount'];
+        if ($amount < 1 || $grand < 1 || $amount > $grand + 1) {
+            return redirect('pos')->with('not_permitted', 'The verified Momo amount does not match this bill. Nothing was marked paid.');
         }
-        return redirect('sales/gen_invoice/' . $lims_sale_data->id)->with('message', $message);
+        \Cache::forget('pos:momo:'.$verified['external']);
+        $payload['paid_amount'] = $amount;
+        $payload['paying_amount'] = $amount;
+        $payload['paid_by_id'] = 8;
+        $payload['momo_verified'] = 1;
+        $payload['campay_reference'] = $verified['reference'];
+        $payload['pos'] = 1;
+        $request->replace($payload);
+
+        return $this->store($request);
     }
 
     public function sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, $paying_method, $net_unit_price){

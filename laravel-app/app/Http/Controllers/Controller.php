@@ -547,6 +547,55 @@ class Controller extends BaseController
         return false;
     }
 
+    /**
+     * A sale is paid only when Campay itself reports SUCCESSFUL for this reference.
+     * The browser redirect can be edited, so its status and amount are ignored.
+     *
+     * @return array{status:string,amount:float,reference:string,external:string}|null
+     */
+    public function verifyCampayTransaction($reference)
+    {
+        $reference = trim((string) $reference);
+        if ($reference === '' || ! preg_match('/^[A-Za-z0-9\-]{8,80}$/', $reference)) {
+            return null;
+        }
+        $token = $this->campayBearerToken();
+        if ($token === '') {
+            return null;
+        }
+        $base = rtrim((string) config('services.campay.base_url', 'https://www.campay.net/api'), '/');
+        $curl = curl_init($base.'/transaction/'.rawurlencode($reference).'/');
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Token '.$token,
+            ],
+        ]);
+        $raw = curl_exec($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        $body = is_string($raw) ? json_decode($raw, true) : null;
+        if ($status !== 200 || ! is_array($body)) {
+            \Log::warning('Campay transaction verify failed', ['status' => $status]);
+
+            return null;
+        }
+        $state = strtoupper(trim((string) (isset($body['status']) ? $body['status'] : '')));
+        $amount = (float) (isset($body['amount']) ? $body['amount'] : 0);
+        if ($state !== 'SUCCESSFUL' || $amount <= 0) {
+            return null;
+        }
+
+        return [
+            'status' => 'SUCCESSFUL',
+            'amount' => $amount,
+            'reference' => $reference,
+            'external' => trim((string) (isset($body['external_reference']) ? $body['external_reference'] : '')),
+        ];
+    }
+
     public function mobileMoneyOrderRequestLink($token, $amount, $route, $orders, $failure_route, $number){
 
         $token = $this->campayBearerToken($token);

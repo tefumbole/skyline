@@ -1232,6 +1232,11 @@ class GroupContactExportService
                     $remaining++;
                     continue;
                 }
+                if (! $this->isCameroon($digits)) {
+                    $people[$i]['name_checked'] = time();
+                    $dirty = true;
+                    continue;
+                }
                 $used++;
                 $hit = $this->campayHolder($digits);
                 if (! empty($hit['blocked'])) {
@@ -1779,6 +1784,43 @@ class GroupContactExportService
     public function campayBlocked()
     {
         return app(\App\Services\Coth\CothHolderLookup::class)->blocked();
+    }
+
+    /**
+     * Let one sweep ask Campay again for Cameroon numbers that still have no name.
+     */
+    public function releaseUnnamedCameroon()
+    {
+        foreach ($this->readDirectory() as $id => $row) {
+            if (substr((string) $id, -5) !== '@g.us') {
+                continue;
+            }
+            $people = $this->readMembers($id);
+            $dirty = false;
+            foreach ($people as $i => $person) {
+                if (! is_array($person)) {
+                    continue;
+                }
+                $phone = isset($person['phone']) ? (string) $person['phone'] : '';
+                $digits = preg_replace('/\D+/', '', $phone);
+                if (! $this->isCameroon($digits)) {
+                    continue;
+                }
+                $name = isset($person['name']) ? (string) $person['name'] : '';
+                $source = isset($person['name_source']) ? (string) $person['name_source'] : '';
+                if ($source === 'campay' && $this->isPersonName($name, $phone)) {
+                    continue;
+                }
+                if ($this->isPersonName($name, $phone) && $source !== '') {
+                    continue;
+                }
+                unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                $dirty = true;
+            }
+            if ($dirty) {
+                $this->writeMembers($id, $people);
+            }
+        }
     }
 
     public function deepResolve($fetchGroups = 6, $names = 25)

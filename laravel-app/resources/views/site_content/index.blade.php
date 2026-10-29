@@ -57,6 +57,7 @@
                         'side-menu'     => ['label' => 'Side Menu', 'tone' => 'tone-purple', 'icon' => 'dripicons-view-list'],
                         'people-menu'   => ['label' => 'People', 'tone' => 'tone-pink', 'icon' => 'dripicons-user'],
                         'settings-menu' => ['label' => 'Settings', 'tone' => 'tone-orange', 'icon' => 'dripicons-gear'],
+                        'product-menu'  => ['label' => 'Products', 'tone' => 'tone-gold', 'icon' => 'dripicons-list'],
                         'whatsapp-menu' => ['label' => 'WhatsApp Hub', 'tone' => 'tone-green', 'icon' => 'fa fa-whatsapp'],
                         'content-tabs'  => ['label' => 'Content Tabs', 'tone' => 'tone-teal', 'icon' => 'dripicons-toggles'],
                     ];
@@ -88,7 +89,7 @@
                     @endforeach
                 </div>
 
-                @if(in_array($tab, ['landing-menu', 'side-menu', 'people-menu', 'settings-menu', 'whatsapp-menu', 'content-tabs'], true))
+                @if(in_array($tab, ['landing-menu', 'side-menu', 'people-menu', 'settings-menu', 'product-menu', 'whatsapp-menu', 'content-tabs'], true))
                     @php
                         if ($tab == 'side-menu') {
                             $items = $side;
@@ -108,6 +109,12 @@
                             $action = route('site-content.settings-menu');
                             $heading = 'Settings — Order';
                             $hint = 'Drag items to reorder Settings submenu items (or use arrows). Click Save when done.';
+                        } elseif ($tab == 'product-menu') {
+                            $items = \App\Support\SiteMenu::productItems();
+                            $order = \App\Support\SiteMenu::productOrder();
+                            $action = route('site-content.product-menu');
+                            $heading = 'Products — Order';
+                            $hint = 'Drag items to reorder the Products menu (or use arrows). Click Save when done.';
                         } elseif ($tab == 'whatsapp-menu') {
                             $items = \App\Support\SiteMenu::whatsappItems();
                             $order = \App\Support\SiteMenu::whatsappOrder();

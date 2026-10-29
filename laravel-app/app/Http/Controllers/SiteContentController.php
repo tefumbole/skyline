@@ -103,6 +103,14 @@ class SiteContentController extends Controller
         return redirect('/admin/site-content?tab=people-menu')->with('message', 'People menu order saved.');
     }
 
+    public function saveProductMenu(Request $request)
+    {
+        $this->authorizeAdmin();
+        $this->saveOrder($request, 'product_menu_order', SiteMenu::productItems());
+
+        return redirect('/admin/site-content?tab=product-menu')->with('message', 'Products menu order saved.');
+    }
+
     public function saveWhatsappMenu(Request $request)
     {
         $this->authorizeAdmin();

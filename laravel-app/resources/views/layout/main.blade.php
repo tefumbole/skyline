@@ -2257,7 +2257,7 @@
                             <li id="mai-voice-menu"><a href="{{ route('mai.voice') }}" data-nav-key="mai-voice"><i class="fa fa-phone"></i><span>MAI Voice</span></a></li>
                         @endif
                         @if($whatsapp_module_active)
-                            <li><a href="#whatsapp-module" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-whatsapp"></i><span>WhatsApp Hub</span></a>
+                            <li><a href="#whatsapp-module" data-nav-key="whatsapp" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-whatsapp"></i><span>WhatsApp Hub</span></a>
                                 <ul id="whatsapp-module" class="collapse list-unstyled ">
                                     <li id="whatsapp-command-menu"><a href="{{ route('whatsapp.index') }}">Command Center</a></li>
                                     <li id="whatsapp-conversations-menu"><a href="{{ route('whatsapp.conversations') }}">Conversations</a></li>
@@ -3050,6 +3050,8 @@
                         $__peopleLiKeyMap = \App\Support\SiteMenu::peopleLiKeyMap();
                         $__whatsappMenuOrder = \App\Support\SiteMenu::whatsappOrder();
                         $__whatsappLiKeyMap = \App\Support\SiteMenu::whatsappLiKeyMap();
+                        $__productMenuOrder = \App\Support\SiteMenu::productOrder();
+                        $__productLiKeyMap = \App\Support\SiteMenu::productLiKeyMap();
                     @endphp
                     <script>
                     (function () {
@@ -3160,6 +3162,21 @@
                         var order = @json($__whatsappMenuOrder);
                         var liKeyMap = @json($__whatsappLiKeyMap);
                         var ul = document.getElementById('whatsapp-module');
+                        if (!ul || !order || !order.length) return;
+                        var map = {};
+                        Array.prototype.slice.call(ul.children).forEach(function (li) {
+                            if (li.tagName !== 'LI') return;
+                            var liId = li.getAttribute('id');
+                            if (!liId || !liKeyMap[liId]) return;
+                            var k = liKeyMap[liId];
+                            if (!map[k]) map[k] = li;
+                        });
+                        order.forEach(function (k) { if (map[k]) ul.appendChild(map[k]); });
+                    })();
+                    (function () {
+                        var order = @json($__productMenuOrder);
+                        var liKeyMap = @json($__productLiKeyMap);
+                        var ul = document.getElementById('product');
                         if (!ul || !order || !order.length) return;
                         var map = {};
                         Array.prototype.slice.call(ul.children).forEach(function (li) {

@@ -673,8 +673,8 @@ class WhatsAppHubController extends Controller
         }
         $pending = app(\App\Services\WhatsApp\GroupContactExportService::class)->queueResolveGroup($jid);
         $message = $pending > 0
-            ? 'Resolving all '.$pending.' '.($pending === 1 ? 'number' : 'numbers').' in this group, Campay first. Names appear here as they are found.'
-            : 'Every number in this group already has a Campay name, or a name you saved.';
+            ? 'Resolving all '.$pending.' '.($pending === 1 ? 'number' : 'numbers').' in this group. Cameroon numbers use Campay. Other numbers use the WhatsApp name or a name saved for that number.'
+            : 'Every number in this group already has a name.';
 
         return redirect()->route('whatsapp.groups.show', ['jid' => $jid])->with('message', $message);
     }

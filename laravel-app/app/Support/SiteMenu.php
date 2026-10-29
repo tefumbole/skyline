@@ -35,12 +35,13 @@ class SiteMenu
         return [
             'dashboard'    => 'Dashboard',
             'site-content' => 'Site Content',
+            'product'      => 'Products',
+            'whatsapp'     => 'WhatsApp Hub',
             'gallery'      => 'Gallery',
             'menu-photos'  => 'Menu',
             'guest-reviews'=> 'Guest Reviews',
             'membership'   => 'Membership',
             'leaders'      => 'About Us Leaders',
-            'product'      => 'Product',
             'purchase'     => 'Purchase',
             'sale'         => 'Sale',
             'booking'      => 'Rental Module',
@@ -54,7 +55,6 @@ class SiteMenu
             'permissions'  => 'Permissions',
             'announcements'=> 'Announcements',
             'mai-voice'    => 'MAI Voice',
-            'whatsapp'     => 'WhatsApp Hub',
             'timesheets'   => 'TimeSheets (Employee)',
             'timesheet-admin' => 'TimeSheet Admin',
             'shop'         => 'Shops',
@@ -156,6 +156,38 @@ class SiteMenu
     public static function peopleOrder()
     {
         return self::ordered('people_menu_order', self::peopleItems());
+    }
+
+    /** Product submenu items inside #product (key => label). */
+    public static function productItems()
+    {
+        return [
+            'product-list' => 'Product List',
+            'product-create' => 'Add Product',
+            'category' => 'Category',
+            'print-barcode' => 'Print Barcode',
+            'adjustment-list' => 'Adjustment List',
+            'adjustment-create' => 'Add Adjustment',
+            'stock-count' => 'Stock Count',
+        ];
+    }
+
+    public static function productOrder()
+    {
+        return self::ordered('product_menu_order', self::productItems());
+    }
+
+    public static function productLiKeyMap()
+    {
+        return [
+            'product-list-menu' => 'product-list',
+            'product-create-menu' => 'product-create',
+            'category-menu' => 'category',
+            'printBarcode-menu' => 'print-barcode',
+            'adjustment-list-menu' => 'adjustment-list',
+            'adjustment-create-menu' => 'adjustment-create',
+            'stock-count-menu' => 'stock-count',
+        ];
     }
 
     /** WhatsApp Hub submenu items (key => label). */

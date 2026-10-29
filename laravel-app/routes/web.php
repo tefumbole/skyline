@@ -523,6 +523,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/site-content/settings-menu', 'SiteContentController@saveSettingsMenu')->name('site-content.settings-menu');
     Route::post('/admin/site-content/people-menu', 'SiteContentController@savePeopleMenu')->name('site-content.people-menu');
     Route::post('/admin/site-content/whatsapp-menu', 'SiteContentController@saveWhatsappMenu')->name('site-content.whatsapp-menu');
+    Route::post('/admin/site-content/product-menu', 'SiteContentController@saveProductMenu')->name('site-content.product-menu');
     Route::post('/admin/site-content/content-tabs', 'SiteContentController@saveContentTabs')->name('site-content.content-tabs');
     Route::post('/admin/site-content/content/{page}', 'SiteContentController@saveContent')->name('site-content.content');
     Route::post('/admin/site-content/gallery/items', 'SiteContentController@storeGalleryItem')->name('site-content.gallery.store');

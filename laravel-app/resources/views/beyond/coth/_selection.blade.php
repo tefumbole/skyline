@@ -130,7 +130,7 @@
             </div>
             <p class="text-xs text-white/50 mt-2">&#9432; The 20% deposit is non-refundable.</p>
 
-            @if ((int) ($q['extra_chairs_qty'] ?? 0) > 0 && $t)
+            @if ($extraQty > 0 && $t)
                 <p class="text-xs text-white/70 mt-1">
                     {{ (int) $t->capacity }} included seats + {{ (int) $q['extra_chairs_qty'] }} extra chair(s) = {{ $totalGuests }} guests
                 </p>

@@ -37,6 +37,8 @@ class SiteMenu
             'site-content' => 'Site Content',
             'product'      => 'Products',
             'whatsapp'     => 'WhatsApp Hub',
+            'coth'         => 'COTH Reservations',
+            'help'         => 'Help',
             'gallery'      => 'Gallery',
             'menu-photos'  => 'Menu',
             'guest-reviews'=> 'Guest Reviews',

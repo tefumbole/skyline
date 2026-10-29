@@ -19,7 +19,7 @@ class InternCompliance
 {
     public static function appliesTo(User $user)
     {
-        if (! $user || (int) $user->role_id <= 2) {
+        if (! $user || (int) $user->role_id <= 2 || $user->isSuperAdmin()) {
             return false;
         }
 
@@ -29,12 +29,18 @@ class InternCompliance
         }
 
         $name = strtolower(trim((string) $role->name));
-        if (self::roleLooksLikeSupervisor($name) || in_array($name, ['admin', 'owner'], true)) {
+        if (self::roleLooksLikeSupervisor($name) || in_array($name, ['admin', 'owner', 'super admin'], true)) {
             return false;
         }
 
         if (self::hasInternRoleName($name)) {
             return true;
+        }
+
+        // A full admin role can hold internship.student because it has every
+        // permission. That must not lock the whole admin menu on the timesheet.
+        if (self::shouldUseSalesDashboard($user)) {
+            return false;
         }
 
         try {
@@ -76,7 +82,7 @@ class InternCompliance
         if (! $user) {
             return false;
         }
-        if ((int) $user->role_id <= 2) {
+        if ($user->isSuperAdmin() || (int) $user->role_id <= 2) {
             return true;
         }
 

@@ -65,6 +65,10 @@ class SystemTestController extends Controller
             $found = app(SystemTestIdentity::class)->resolve($request->input('phone'));
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('system.test')->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            \Log::warning('system test phone: '.$e->getMessage());
+
+            return redirect()->route('system.test')->with('error', 'That number could not be checked. Enter it again.');
         }
 
         if ($found['source'] === 'manual') {
@@ -108,6 +112,12 @@ class SystemTestController extends Controller
             return redirect()->route('system.test')->with('error', $e->getMessage());
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('system.test')->with('error', 'Enter a valid WhatsApp number.');
+        } catch (\Throwable $e) {
+            \Log::warning('system test code: '.$e->getMessage());
+            $pending['step'] = 'confirm';
+            session(['system_test_pending' => $pending]);
+
+            return redirect()->route('system.test')->with('error', 'The code could not be sent on WhatsApp. Try again in a moment.');
         }
 
         return redirect()->route('system.test')->with('message', 'A code was sent on WhatsApp.');
@@ -147,6 +157,18 @@ class SystemTestController extends Controller
             return redirect()->route('system.test')->with('error', 'Confirm your WhatsApp number to continue this test.');
         }
 
+        try {
+            return $this->storeStage($request, $report);
+        } catch (\Throwable $e) {
+            \Log::warning('system test stage: '.$e->getMessage());
+
+            return redirect()->route('system.test', ['stage' => (int) $request->input('stage', 1)])
+                ->with('error', 'That stage could not be saved. Mark the checks again and continue.');
+        }
+    }
+
+    protected function storeStage(Request $request, ManualTestReport $report)
+    {
         $sections = TestingManual::sections();
         $count = count($sections);
         $stage = (int) $request->input('stage');
@@ -189,7 +211,7 @@ class SystemTestController extends Controller
         if ($action === 'finish') {
             $summary = SystemTestScore::summarize($items);
             if (! $summary['complete']) {
-                $first = (int) $summary['open'][0]['stage'];
+                $first = ! empty($summary['open'][0]['stage']) ? (int) $summary['open'][0]['stage'] : 1;
                 $report->stage = $first;
                 $report->status = 'draft';
                 $report->save();

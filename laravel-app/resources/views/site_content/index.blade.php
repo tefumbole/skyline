@@ -96,7 +96,7 @@
                             $order = $sideOrder;
                             $action = route('site-content.side-menu');
                             $heading = 'Side Menu — Order';
-                            $hint = 'Drag items to reorder the admin sidebar (or use arrows). Click Save when done.';
+                            $hint = 'Drag items to reorder the admin sidebar (or use arrows). Products, WhatsApp Hub, COTH Reservations, and Help are included. Click Save when done.';
                         } elseif ($tab == 'people-menu') {
                             $items = $people;
                             $order = $peopleOrder;

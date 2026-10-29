@@ -18,6 +18,10 @@ class RedirectIfAuthenticated
      */
     public function handle($request, Closure $next, $guard = null)
     {
+        if ($request->is('login') || $request->is('login/*')) {
+            return $next($request);
+        }
+
         if (Auth::guard($guard)->check()) {
             \App\Support\AuthIntended::rememberFromRequest($request);
             $user = Auth::guard($guard)->user();

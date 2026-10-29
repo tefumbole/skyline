@@ -150,6 +150,14 @@ class TestingManual
                     'Save.',
                 ], 'The page refuses the save and the other location’s tables are unchanged. Put the test code back afterwards.', null),
             ]),
+            self::section('whatsapp', 'WhatsApp Hub', 'Open WhatsApp Hub. These checks are only for accounts that can open that menu.', [
+                self::item('wa-hub', 'WhatsApp Hub opens', [
+                    'Open WhatsApp Hub.',
+                ], 'Command Center is shown. Accounts without WhatsApp Hub do not see this menu.', null),
+                self::item('wa-groups', 'Groups lists the saved groups', [
+                    'Open Groups.',
+                ], 'The groups already fetched are listed. Resolve uses Campay for the name.', null),
+            ]),
             self::section('products', 'Products', 'Open the Product menu.', [
                 self::item('prod-board', 'Chill on the Hill in Products opens by location', [
                     'Open Product.',
@@ -174,7 +182,7 @@ class TestingManual
         if (! $user) {
             return [];
         }
-        if ($user->hasFullAdminAccess()) {
+        if ($user->isSuperAdmin()) {
             return self::sections();
         }
         $perms = self::permissionNames($user);
@@ -193,7 +201,7 @@ class TestingManual
         if (! $user) {
             return false;
         }
-        if ($user->hasFullAdminAccess()) {
+        if ($user->isSuperAdmin()) {
             return true;
         }
         $gate = self::gateFor($sectionId);
@@ -272,6 +280,7 @@ class TestingManual
             'tabs' => $coth,
             'locations' => $coth,
             'products' => ['roles' => [], 'permissions' => ['products-index', 'products-add', 'products-edit']],
+            'whatsapp' => ['roles' => [], 'permissions' => ['whatsapp_module', 'whatsapp.view', 'whatsapp.manage', 'whatsapp.owner']],
             'people' => ['roles' => [], 'permissions' => ['customers-index', 'users-index', 'billers-index', 'suppliers-index']],
         ];
 

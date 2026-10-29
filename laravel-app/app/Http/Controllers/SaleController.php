@@ -1564,7 +1564,13 @@ class SaleController extends Controller
         ->groupBy('product_warehouse.product_id')
         ->get();
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('multiple_batch')) {
+        $allowsMultipleBatch = false;
+        try {
+            $allowsMultipleBatch = $role && $role->hasPermissionTo('multiple_batch');
+        } catch (\Throwable $e) {
+            $allowsMultipleBatch = false;
+        }
+        if ($allowsMultipleBatch) {
             foreach ($lims_product_with_batch_warehouse_data as $item) {
                 $product_batch = ProductBatch::where('product_id', $item->product_id)->where('qty', '>', 0)->orderBy('expired_date')->first();
                 $product_batch_qty = ProductBatch::where('product_id', $item->product_id)->sum('qty');

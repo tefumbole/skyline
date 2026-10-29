@@ -30,29 +30,15 @@ class BeyondAuthController extends Controller
 
     public function showLogin(Request $request)
     {
+        // The public Login button must always ask for a username and password.
+        // An open admin session must not skip the form.
+        if (Auth::guard('web')->check() || Auth::guard('beyond')->check()) {
+            Auth::guard('web')->logout();
+            Auth::guard('beyond')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
         \App\Support\AuthIntended::rememberFromRequest($request);
-
-        // Already signed in as staff / admin
-        if (Auth::guard('web')->check()) {
-            $webUser = Auth::guard('web')->user();
-            $role = $webUser ? Role::find($webUser->role_id) : null;
-            $needsOtp = $role && (int) $role->id !== 5 && \App\Support\StaffOtp::required($webUser);
-            if ($needsOtp && (int) $webUser->otp_verify !== 1) {
-                return redirect()->route('check.otp');
-            }
-            if ($role && (int) $role->id === 5 && (int) $webUser->otp_verify !== 1) {
-                return redirect()->route('otp_screen');
-            }
-
-            return redirect(\App\Support\AuthIntended::afterLogin($webUser));
-        }
-
-        if (Auth::guard('beyond')->check() && $request->session()->get('beyond_otp_verified')) {
-            $user = Auth::guard('beyond')->user();
-            $profile = BeyondProfile::find($user->id);
-
-            return redirect($this->loginRedirect($request, $user, $profile));
-        }
 
         $asCustomer = $request->get('as') === 'customer' || old('as') === 'customer';
 

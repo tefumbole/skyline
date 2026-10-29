@@ -105,7 +105,8 @@ class CothController extends Controller
 
         $settings = $reservations->settings();
         $extraRate = $pricing->extraChairRate($table);
-        $allowChairs = (int) $table->allow_extra_chairs === 1 && $extraRate !== null && (int) $table->max_extra_chairs > 0;
+        $maxChairs = $pricing->extraChairLimit($table);
+        $allowChairs = $maxChairs > 0;
 
         return view('beyond.coth.book', [
             'date' => $date,
@@ -114,7 +115,7 @@ class CothController extends Controller
             'settings' => $settings,
             'extraRate' => $extraRate,
             'allowChairs' => $allowChairs,
-            'maxChairs' => (int) $table->max_extra_chairs,
+            'maxChairs' => $maxChairs,
             'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
         ]);
     }

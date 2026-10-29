@@ -13,8 +13,7 @@ class CothPricing
      *   - Admin override on the table always wins.
      *   - Any 6-seat table: 75,000 FCFA (overrides section rules).
      *   - Outer Restaurant (non-6-seat): 100,000 FCFA.
-     *   - Yard (non-6-seat): 50,000 FCFA.
-     *   - Hall / Pool outside the 6-seat rule: null → disabled until admin sets it.
+     *   - Yard, Hall, and Pool (non-6-seat): 50,000 FCFA.
      */
     public function extraChairRate(CothTable $table = null)
     {
@@ -31,11 +30,25 @@ class CothPricing
         if ($section === 'outer') {
             return 100000;
         }
-        if ($section === 'yard') {
+        if ($section === 'yard' || $section === 'hall' || $section === 'pool') {
             return 50000;
         }
 
         return null;
+    }
+
+    /**
+     * How many extra chairs a guest may add. A table with a rate always
+     * allows some, even when the admin max has not been set yet.
+     */
+    public function extraChairLimit(CothTable $table = null)
+    {
+        if (! $table || $this->extraChairRate($table) === null) {
+            return 0;
+        }
+        $max = (int) $table->max_extra_chairs;
+
+        return $max > 0 ? $max : 4;
     }
 
     /**

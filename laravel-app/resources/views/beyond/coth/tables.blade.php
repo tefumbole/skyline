@@ -115,8 +115,12 @@
     details.coth-card { position: relative; }
     details.coth-card > summary { list-style: none; cursor: pointer; }
     details.coth-card > summary::-webkit-details-marker { display: none; }
-    details.coth-card[open] { border-color: #E8C878; }
+    details.coth-card[open] { border-color: #E8C878; grid-column: 1 / -1; }
     details.coth-card > summary:hover { filter: brightness(1.04); }
+    .coth-variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; padding: 0 16px 18px; }
+    .coth-variant { border: 1px solid rgba(198,161,91,.4); border-radius: 18px; background: #24160F; overflow: hidden; display: flex; flex-direction: column; }
+    .coth-variant img { width: 100%; height: 280px; object-fit: contain; background: #24160F; display: block; }
+    .coth-variant-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
     .coth-unit { border-top: 1px solid rgba(198,161,91,.22); }
     .coth-card.is-selected, a.coth-card:focus-visible {
         border-color: #E8C878; outline: none;
@@ -308,23 +312,27 @@
                                     <span class="mt-4 block text-center border border-brand-gold/50 text-brand-gold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">See each table</span>
                                 </div>
                             </summary>
-                            <div class="px-4 pb-4">
-                                <p class="text-sm text-white/80 mb-2">{{ $remaining }} remaining</p>
+                            <div class="coth-variants">
                                 @foreach ($rows as $row)
                                     @php
                                         $table = $row['table'];
                                         $m = $statusMeta($row['state']);
+                                        $slug = (string) $table->visual_preset;
+                                        $colorName = strpos($slug, 'teal') !== false ? 'Teal blue' : (strpos($slug, 'gray') !== false ? 'Shades of gray' : 'Table');
                                     @endphp
-                                    <div class="coth-unit py-3 flex items-center gap-3">
-                                        <img src="{{ $artFor($table) }}" alt="" class="w-16 h-12 object-contain rounded-md bg-[#24160F]">
-                                        <div class="min-w-0 flex-1">
-                                            <div class="font-semibold">{{ $table->code }}</div>
+                                    <article class="coth-variant">
+                                        <img src="{{ $artFor($table) }}" alt="{{ $colorName }} {{ $groupLabel }}">
+                                        <div class="coth-variant-body">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="font-serif text-xl">{{ $colorName }}</span>
+                                                <span class="text-xs text-white/55">{{ $table->code }}</span>
+                                            </div>
                                             <div class="text-xs {{ $m['text'] }}"><span class="coth-dot align-middle mr-1" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}</div>
+                                            @if ($row['available'])
+                                                <a class="mt-1 block text-center bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.12em] text-[11px] rounded-full px-3 py-2.5" href="{{ route('coth.book', ['date' => $date, 'table' => $table->code]) }}">Reserve this table</a>
+                                            @endif
                                         </div>
-                                        @if ($row['available'])
-                                            <a class="shrink-0 bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.1em] text-[11px] rounded-full px-3 py-2" href="{{ route('coth.book', ['date' => $date, 'table' => $table->code]) }}">Reserve</a>
-                                        @endif
-                                    </div>
+                                    </article>
                                 @endforeach
                             </div>
                         </details>

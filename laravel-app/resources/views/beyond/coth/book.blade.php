@@ -86,6 +86,31 @@
                 <input type="hidden" name="table_id" value="{{ $table->id }}">
                 <input type="hidden" name="event_date" value="{{ $date }}">
 
+                @if ($allowChairs)
+                    <div class="coth-chairs rounded-2xl p-4">
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <div>
+                                <h3 class="font-semibold text-base m-0">Add extra chairs</h3>
+                                <p class="text-xs text-white/60 m-0">
+                                    {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each.
+                                    The 20% deposit includes these chairs.
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="coth-qty-btn" id="coth-qty-minus" aria-label="Remove a chair">−</button>
+                                <input type="hidden" name="extra_chairs" id="coth-qty" value="{{ (int) old('extra_chairs', 0) }}">
+                                <span class="font-semibold text-lg w-6 text-center" id="coth-qty-label">{{ (int) old('extra_chairs', 0) }}</span>
+                                <button type="button" class="coth-qty-btn" id="coth-qty-plus" aria-label="Add a chair">+</button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-brand-gold/90 mt-3 m-0" id="coth-guest-line">
+                            {{ (int) $table->capacity }} included seats
+                        </p>
+                    </div>
+                @else
+                    <input type="hidden" name="extra_chairs" id="coth-qty" value="0">
+                @endif
+
                 <div>
                     <h1 class="font-serif text-3xl m-0">Reserve your table</h1>
                     <h2 class="text-lg mt-4 mb-1">Your details</h2>
@@ -138,35 +163,6 @@
                         </div>
                     </label>
 
-                    @if ($allowChairs)
-                        <div class="coth-chairs rounded-2xl p-4">
-                            <div class="flex items-center justify-between gap-2 flex-wrap">
-                                <div>
-                                    <h3 class="font-semibold text-base m-0">Add extra chairs</h3>
-                                    <p class="text-xs text-white/60 m-0">
-                                        {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each
-                                        @if ($visuals->styleFor($table) === 'high_table')
-                                            · matching high chairs
-                                        @elseif ($visuals->styleFor($table) === 'couch')
-                                            · complementary side chairs
-                                        @endif
-                                    </p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button type="button" class="coth-qty-btn" id="coth-qty-minus" aria-label="Remove a chair">−</button>
-                                    <input type="hidden" name="extra_chairs" id="coth-qty" value="{{ (int) old('extra_chairs', 0) }}">
-                                    <span class="font-semibold text-lg w-6 text-center" id="coth-qty-label">{{ (int) old('extra_chairs', 0) }}</span>
-                                    <button type="button" class="coth-qty-btn" id="coth-qty-plus" aria-label="Add a chair">+</button>
-                                </div>
-                            </div>
-                            <p class="text-xs text-brand-gold/90 mt-3 m-0" id="coth-guest-line">
-                                {{ (int) $table->capacity }} included seats
-                            </p>
-                        </div>
-                    @else
-                        <input type="hidden" name="extra_chairs" id="coth-qty" value="0">
-                    @endif
-
                     <div>
                         <h3 class="font-semibold text-base m-0">Choose payment amount</h3>
                         <p class="text-xs text-white/60 m-0 mb-3">Pay the 20% deposit, the full amount, or any amount in between.</p>
@@ -190,7 +186,7 @@
                                     <input id="coth-custom" name="custom_amount" inputmode="numeric" type="number" min="{{ (int) $quote['deposit_due'] }}" max="{{ (int) $quote['booking_total'] }}" value="{{ old('custom_amount', (int) $quote['deposit_due']) }}" class="w-40 bg-transparent outline-none text-white font-semibold border-b border-brand-gold/50">
                                     <span class="text-sm text-white/70">FCFA</span>
                                 </span>
-                                <span class="text-xs text-white/55">At least {{ number_format((int) $quote['deposit_due']) }} FCFA (20%)</span>
+                                <span class="text-xs text-white/55" id="coth-custom-min">At least {{ number_format((int) $quote['deposit_due']) }} FCFA (20%)</span>
                                 <p id="coth-custom-err" class="text-xs text-red-300 mt-1 coth-hidden"></p>
                             </label>
                         </div>
@@ -338,6 +334,15 @@
         var deposit = Math.ceil(bookingTotal * depositPct / 100);
         var balance = Math.max(0, bookingTotal - deposit);
 
+        var chairRow = document.getElementById('coth-chair-row');
+        var chairLabel = document.getElementById('coth-chair-label');
+        var chairAmount = document.getElementById('coth-chair-amount');
+        var totalAmount = document.getElementById('coth-total-amount');
+        if (chairRow) chairRow.style.display = q > 0 ? '' : 'none';
+        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + ')';
+        if (chairAmount) chairAmount.textContent = fmt(chairsAmount) + ' FCFA';
+        if (totalAmount) totalAmount.textContent = fmt(bookingTotal) + ' FCFA';
+
         var depEl = document.querySelector('[data-sum-deposit]');
         var totEl = document.querySelector('[data-sum-total]');
         var balEl = document.querySelector('[data-sum-balance]');
@@ -349,6 +354,8 @@
         if (customInput) {
             customInput.min = String(deposit);
             customInput.max = String(bookingTotal);
+            var minNote = document.getElementById('coth-custom-min');
+            if (minNote) minNote.textContent = 'At least ' + fmt(deposit) + ' FCFA (20%)';
         }
         var due = deposit;
         var dueLabel = 'Due today (20% deposit)';

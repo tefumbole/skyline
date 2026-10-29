@@ -76,14 +76,12 @@ class CothReservationService
         $extraChairs = max(0, (int) ($guest['extra_chairs'] ?? 0));
 
         if ($extraChairs > 0) {
-            if (! (int) $table->allow_extra_chairs) {
+            $limit = app(CothPricing::class)->extraChairLimit($table);
+            if ($limit < 1) {
                 throw new \InvalidArgumentException('Extra chairs are not available on this table.');
             }
-            if ($extraChairs > (int) $table->max_extra_chairs) {
+            if ($extraChairs > $limit) {
                 throw new \InvalidArgumentException('That exceeds the extra chairs available for this table.');
-            }
-            if (app(CothPricing::class)->extraChairRate($table) === null) {
-                throw new \InvalidArgumentException('Extra chairs for this table are not configured yet.');
             }
         }
 

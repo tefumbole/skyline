@@ -116,10 +116,11 @@
                         <div class="flex justify-between text-white/55"><span>Discount</span><span>0 FCFA</span></div>
                     @endif
                     <div class="flex justify-between"><span class="text-white/70">Final table</span><span>{{ number_format((int) $q['final_price']) }} FCFA</span></div>
-                    @if ((int) ($q['extra_chairs_qty'] ?? 0) > 0)
-                        <div class="flex justify-between"><span class="text-white/70">Extra chairs ({{ (int) $q['extra_chairs_qty'] }} × {{ number_format((int) $q['extra_chair_rate']) }})</span><span>{{ number_format((int) $q['extra_chairs_amount']) }} FCFA</span></div>
-                    @endif
-                    <div class="flex justify-between font-semibold border-t border-white/10 pt-2 mt-2"><span>Total</span><span>{{ number_format((int) $q['booking_total']) }} FCFA</span></div>
+                    <div class="flex justify-between" id="coth-chair-row" @if((int) ($q['extra_chairs_qty'] ?? 0) < 1) style="display:none" @endif>
+                        <span class="text-white/70" id="coth-chair-label">Extra chairs</span>
+                        <span id="coth-chair-amount">@if((int) ($q['extra_chairs_qty'] ?? 0) > 0){{ number_format((int) $q['extra_chairs_amount']) }} FCFA@endif</span>
+                    </div>
+                    <div class="flex justify-between font-semibold border-t border-white/10 pt-2 mt-2"><span>Total</span><span id="coth-total-amount">{{ number_format((int) $q['booking_total']) }} FCFA</span></div>
                 </div>
                 <div class="coth-select-due px-3 py-3 space-y-1">
                     <div class="flex justify-between font-semibold text-brand-gold"><span id="coth-due-label">{{ $dueLabel }}</span><span id="coth-due-amount">{{ number_format($dueToday) }} FCFA</span></div>

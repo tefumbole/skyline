@@ -716,7 +716,7 @@ class GroupContactExportService
         if ($dirty) {
             $this->writeMembers($jid, $people);
         }
-        $pending = $this->resolveContactNames($jid, 0, true);
+        $pending = $this->resolveContactNames($jid, 25, true);
         if ($pending < 1) {
             return 0;
         }
@@ -859,22 +859,6 @@ class GroupContactExportService
             $people[$index]['name_source'] = 'campay';
             unset($people[$index]['name_checked'], $people[$index]['name_attempts']);
             $this->rememberContact($digits, $campayName);
-            $this->writeMembers($jid, $people);
-
-            return ['success' => true, 'named' => true];
-        }
-        $resolved = $this->resolvePersonName($digits, $this->profileNames(false), $this->savedNames());
-        if ($resolved === null) {
-            $this->writeMembers($jid, $people);
-
-            return ['success' => false, 'busy' => true, 'named' => false];
-        }
-        if ($this->isPersonName($resolved, $digits)) {
-            $people[$index]['name'] = $resolved;
-            $people[$index]['name_source'] = 'other';
-            $people[$index]['name_checked'] = time();
-            unset($people[$index]['name_attempts']);
-            $this->rememberContact($digits, $resolved);
             $this->writeMembers($jid, $people);
 
             return ['success' => true, 'named' => true];
@@ -1122,6 +1106,38 @@ class GroupContactExportService
             ->onQueue('whatsapp');
     }
 
+    public function reopenUnnamedForCampay()
+    {
+        $paths = glob(storage_path('app/whatsapp-group-members/*.json'));
+        if (! is_array($paths)) {
+            return;
+        }
+        foreach ($paths as $path) {
+            $people = json_decode((string) file_get_contents($path), true);
+            if (! is_array($people)) {
+                continue;
+            }
+            $dirty = false;
+            foreach ($people as $i => $person) {
+                if (! is_array($person)) {
+                    continue;
+                }
+                $phone = isset($person['phone']) ? (string) $person['phone'] : '';
+                $name = isset($person['name']) ? (string) $person['name'] : '';
+                if ($this->isPersonName($name, $phone) || ! empty($person['name_edited'])) {
+                    continue;
+                }
+                if (isset($people[$i]['name_checked']) || isset($people[$i]['name_attempts'])) {
+                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                    $dirty = true;
+                }
+            }
+            if ($dirty) {
+                file_put_contents($path, json_encode(array_values($people)));
+            }
+        }
+    }
+
     public function resolveContactNames($jid = null, $limit = 12, $force = false)
     {
         $jid = trim((string) $jid);
@@ -1189,72 +1205,35 @@ class GroupContactExportService
                 if (! $force && $checked && (time() - $checked) < 30 * 60 && ! $this->isPersonName($current, $phone)) {
                     continue;
                 }
+                if ($this->isPersonName($current, $phone)) {
+                    continue;
+                }
                 if ($used >= (int) $limit) {
                     $remaining++;
                     continue;
                 }
                 $used++;
                 $digits = preg_replace('/\D+/', '', $phone);
-                if ($this->isCameroon($digits)) {
-                    $campayName = $this->campayPersonName($digits);
-                    if ($this->isPersonName($campayName, $digits)) {
-                        $people[$i]['name'] = $campayName;
-                        $people[$i]['name_source'] = 'campay';
-                        unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
-                        $this->rememberContact($phone, $campayName);
-                        if ($digits !== '') {
-                            $map[$digits] = $campayName;
-                            if (strlen($digits) > 9) {
-                                $map[substr($digits, -9)] = $campayName;
-                            }
-                            $others[substr($digits, -9)] = $campayName;
-                        }
-                        $this->othersCache = $others;
-                        $dirty = true;
-                        usleep(200000);
-                        continue;
-                    }
-                }
-                if ($this->isPersonName($current, $phone)) {
-                    $people[$i]['name_source'] = 'other';
-                    $people[$i]['name_checked'] = time();
-                    $dirty = true;
-                    usleep(200000);
-                    continue;
-                }
-                $resolved = $this->resolvePersonName($phone, $map, $others);
-                if ($resolved === null) {
-                    $attempts = isset($person['name_attempts']) ? (int) $person['name_attempts'] : 0;
-                    $attempts++;
-                    $people[$i]['name_attempts'] = $attempts;
-                    if ($attempts >= 4) {
-                        $people[$i]['name_checked'] = time();
-                        $people[$i]['name_attempts'] = 0;
-                    }
-                    $remaining++;
-                    $dirty = true;
-                    continue;
-                }
-                unset($people[$i]['name_attempts']);
-                if ($resolved !== '') {
-                    $people[$i]['name'] = $resolved;
-                    $people[$i]['name_source'] = 'other';
-                    $people[$i]['name_checked'] = time();
-                    $this->rememberContact($phone, $resolved);
-                    $digits = preg_replace('/\D+/', '', $phone);
+                $campayName = $this->campayPersonName($digits);
+                if ($this->isPersonName($campayName, $digits)) {
+                    $people[$i]['name'] = $campayName;
+                    $people[$i]['name_source'] = 'campay';
+                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                    $this->rememberContact($phone, $campayName);
                     if ($digits !== '') {
-                        $map[$digits] = $resolved;
+                        $map[$digits] = $campayName;
                         if (strlen($digits) > 9) {
-                            $map[substr($digits, -9)] = $resolved;
+                            $map[substr($digits, -9)] = $campayName;
                         }
-                        $others[substr($digits, -9)] = $resolved;
+                        $others[substr($digits, -9)] = $campayName;
                     }
                     $this->othersCache = $others;
                 } else {
                     $people[$i]['name_checked'] = time();
+                    $people[$i]['name_attempts'] = 0;
                 }
                 $dirty = true;
-                usleep(200000);
+                usleep(150000);
             }
             if ($dirty) {
                 $this->writeMembers($groupJid, $people);
@@ -1775,39 +1754,13 @@ class GroupContactExportService
 
     public function deepResolve($fetchGroups = 6, $names = 25)
     {
-        $summary = $this->memberships();
-        $fetched = 0;
-        $busy = false;
-        if (! empty($summary['success'])) {
-            $groups = isset($summary['groups']) ? $summary['groups'] : [];
-            foreach ($groups as $group) {
-                if ($fetched >= (int) $fetchGroups) {
-                    break;
-                }
-                $jid = isset($group['jid']) ? (string) $group['jid'] : '';
-                if (substr($jid, -5) !== '@g.us') {
-                    continue;
-                }
-                $cached = $this->readMembers($jid);
-                if ($cached) {
-                    continue;
-                }
-                $result = $this->fetchGroupContacts($jid);
-                $fetched++;
-                if (! empty($result['busy']) || empty($result['success'])) {
-                    $busy = true;
-                    break;
-                }
-                usleep(300000);
-            }
-        }
-        $remaining = $this->resolveContactNames(null, (int) $names, true);
+        $remaining = $this->resolveContactNames(null, (int) $names, false);
 
         return [
-            'fetched' => $fetched,
+            'fetched' => 0,
             'remaining' => (int) $remaining,
-            'busy' => $busy,
-            'groups' => ! empty($summary['success']),
+            'busy' => false,
+            'groups' => true,
         ];
     }
 
@@ -1902,15 +1855,12 @@ class GroupContactExportService
     protected function campayPersonName($digits)
     {
         try {
-            $hit = app(\App\Services\MobileMoneyHolderService::class)->lookup($digits);
+            $name = app(\App\Services\Coth\CothHolderLookup::class)->name($digits);
         } catch (\Throwable $e) {
-            return null;
-        }
-        if (! is_array($hit) || (isset($hit['source']) ? (string) $hit['source'] : '') !== 'campay') {
             return '';
         }
 
-        return isset($hit['name']) ? trim((string) $hit['name']) : '';
+        return trim((string) $name);
     }
 
     protected function recentlyChecked($phone)

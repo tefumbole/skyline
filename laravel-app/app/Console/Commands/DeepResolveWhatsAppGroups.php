@@ -9,21 +9,17 @@ class DeepResolveWhatsAppGroups extends Command
 {
     protected $signature = 'whatsapp:deep-resolve {--rounds=40}';
 
-    protected $description = 'Fetch WhatsApp groups, resolve Cameroon numbers with Campay, and other numbers from WhatsApp or saved names.';
+    protected $description = 'Resolve group numbers to names with Campay.';
 
     public function handle()
     {
         @set_time_limit(0);
         $rounds = max(1, (int) $this->option('rounds'));
         $service = app(GroupContactExportService::class);
+        $service->reopenUnnamedForCampay();
         for ($i = 1; $i <= $rounds; $i++) {
-            $result = $service->deepResolve(4, 20);
-            $this->line(
-                'Round '.$i
-                .': fetched '.$result['fetched']
-                .' groups, '.$result['remaining'].' names still open'
-                .(! empty($result['busy']) ? ', WhatsApp is busy' : '')
-            );
+            $result = $service->deepResolve(0, 25);
+            $this->line('Round '.$i.': '.$result['remaining'].' names still open');
             if ((int) $result['remaining'] < 1 && (int) $result['fetched'] < 1) {
                 $this->info('Group names are resolved.');
 

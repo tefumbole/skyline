@@ -673,8 +673,8 @@ class WhatsAppHubController extends Controller
         }
         $pending = app(\App\Services\WhatsApp\GroupContactExportService::class)->queueResolveGroup($jid);
         $message = $pending > 0
-            ? 'Resolving all '.$pending.' '.($pending === 1 ? 'number' : 'numbers').' in this group. Cameroon numbers use Campay. Other numbers use the WhatsApp name or a name saved for that number.'
-            : 'Every number in this group already has a name.';
+            ? 'Campay is resolving the '.$pending.' '.($pending === 1 ? 'number' : 'numbers').' that still need a name. Names appear here as Campay returns them.'
+            : 'Every number in this group already has a name, or Campay has no name for the ones still blank.';
 
         return redirect()->route('whatsapp.groups.show', ['jid' => $jid])->with('message', $message);
     }
@@ -695,17 +695,14 @@ class WhatsAppHubController extends Controller
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('whatsapp.groups.show', ['jid' => $jid])->with('not_permitted', $e->getMessage());
         }
-        if (! empty($result['busy'])) {
-            $message = 'WhatsApp is busy. Resolve that number again in a moment.';
-            $key = 'not_permitted';
-        } elseif (! empty($result['kept'])) {
+        if (! empty($result['kept'])) {
             $message = 'That number already has a saved name, so it was left as you wrote it.';
             $key = 'message';
         } elseif (! empty($result['named'])) {
-            $message = 'Resolved a name for that number.';
+            $message = 'Campay returned a name for that number.';
             $key = 'message';
         } else {
-            $message = 'No name was found for that number on WhatsApp or Campay.';
+            $message = 'Campay has no name for that number.';
             $key = 'message';
         }
 

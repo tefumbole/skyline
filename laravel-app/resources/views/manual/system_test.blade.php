@@ -127,10 +127,13 @@
             display: flex;
             gap: 8px;
             overflow-x: auto;
-            padding: 12px 0;
+            padding: 12px 0 4px;
             margin: 8px 0 4px;
-            background: linear-gradient(var(--paper), var(--paper));
+            background: linear-gradient(var(--paper), rgba(244, 246, 251, 0.92));
+            backdrop-filter: blur(10px);
+            scrollbar-width: none;
         }
+        .nav::-webkit-scrollbar { display: none; }
         .nav a {
             flex: 0 0 auto;
             text-decoration: none;

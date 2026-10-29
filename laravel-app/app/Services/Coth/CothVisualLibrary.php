@@ -21,10 +21,22 @@ class CothVisualLibrary
     {
         return [
             [
+                'slug' => 'couch-eight',
+                'name' => 'Lounge set · Gray',
+                'style' => 'couch',
+                'applies_to_capacities' => [8],
+                'swatch' => ['#6B6E73', '#C4783A', '#E6D3B3'],
+                'tabletop_material' => 'Teak',
+                'tabletop_color' => '#C4783A',
+                'upholstery_color' => '#6B6E73',
+                'cushion_colors' => 'Gray with beige and rust pillows',
+                'trim_color' => '#C4783A',
+            ],
+            [
                 'slug' => 'couch-sand',
                 'name' => 'Curved couch · Sand',
                 'style' => 'couch',
-                'applies_to_capacities' => [4, 6, 8, 10],
+                'applies_to_capacities' => [4, 6, 10],
                 'swatch' => ['#C4B39A', '#4A3428', '#5C3A1E'],
                 'tabletop_material' => 'Walnut',
                 'tabletop_color' => '#5C3A1E',
@@ -36,7 +48,7 @@ class CothVisualLibrary
                 'slug' => 'couch-gray',
                 'name' => 'Curved couch · Shades of gray',
                 'style' => 'couch',
-                'applies_to_capacities' => [4, 6, 8, 10],
+                'applies_to_capacities' => [4, 6, 10],
                 'swatch' => ['#D5D5D5', '#6E6E6E', '#5C3A1E'],
                 'tabletop_material' => 'Walnut',
                 'tabletop_color' => '#5C3A1E',
@@ -48,7 +60,7 @@ class CothVisualLibrary
                 'slug' => 'couch-teal',
                 'name' => 'Curved couch · Teal blue',
                 'style' => 'couch',
-                'applies_to_capacities' => [4, 6, 8, 10],
+                'applies_to_capacities' => [4, 6, 10],
                 'swatch' => ['#3E9AA8', '#0E4F55', '#5C3A1E'],
                 'tabletop_material' => 'Walnut',
                 'tabletop_color' => '#5C3A1E',
@@ -176,6 +188,9 @@ class CothVisualLibrary
     {
         $style = $this->styleFor($table);
         $code = (string) optional($table->section)->code;
+        if ($style === 'couch' && (int) $table->capacity === 8) {
+            return $this->preset('couch-eight');
+        }
         if ($style === 'couch' && in_array($code, ['yard', 'outer'], true)) {
             return $this->preset('couch-sand');
         }
@@ -193,6 +208,10 @@ class CothVisualLibrary
     {
         $fixed = $this->fixedPreset($table);
         if ($fixed) {
+            if ($fixed['slug'] === 'couch-eight') {
+                return 'Lounge set';
+            }
+
             return $fixed['style'] === 'couch' ? 'Curved couch' : 'High chair';
         }
         $slug = (string) $table->visual_preset;
@@ -284,6 +303,9 @@ class CothVisualLibrary
     public function chipFor(CothTable $table)
     {
         $style = $this->styleFor($table);
+        if ($style === 'couch' && (int) $table->capacity === 8) {
+            return 'Lounge set';
+        }
         if ($style === 'couch') {
             return 'Curved couch';
         }

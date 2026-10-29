@@ -140,7 +140,7 @@
                     ];
                 }
             @endphp
-            <p class="cothx-lead">Set the name, price, and extra chairs. Premium and Outer Restaurant couches use the sand curved couch. Every high table uses the walnut high chair.</p>
+            <p class="cothx-lead">Set the name, price, and extra chairs. Premium and Outer Restaurant couches use the sand curved couch. Every table of 8 uses the gray lounge set. Every high table uses the walnut high chair.</p>
             <div class="cothx-chips" id="cothx-secs">
                 <button type="button" class="cothx-chip is-on" data-sec="all">All sections</button>
                 @foreach ($sections as $section)

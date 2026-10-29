@@ -2068,7 +2068,7 @@
                                 @foreach($lims_product_list as $product)
                                     @php $posName = \App\Support\PosDisplay::name($product->name, $product->price ?? 0); @endphp
                                     <div class="col-md-3 product-img sound-btn text-center" title="{{ $posName }}" data-product="{{ $product->code . ' (' . $product->name . ')' }}">
-                                        <img src="{{ $product->base_image ? asset('public/images/product/'.$product->base_image) : asset('public/images/product/zummXD2dvAtI.png') }}" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
+                                        <img src="{{ \App\Support\PosProductImage::url($product->base_image, false) }}" width="120" height="70" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
                                         <p class="text-center">{{ $posName }}</p>
                                     </div>
                                 @endforeach
@@ -2667,6 +2667,11 @@
         var coupon_list = <?php echo json_encode($lims_coupon_list) ?>;
         var currency = <?php echo json_encode($currency) ?>;
         window.POS_PRODUCT_IMAGE_BASE = @json(rtrim(asset('public/images/product'), '/') . '/');
+        function posTileSrc(image) {
+            if (!image) return window.POS_PRODUCT_IMAGE_BASE + 'zummXD2dvAtI.png';
+            if (/^(https?:|\/|data:)/.test(image)) return image;
+            return window.POS_PRODUCT_IMAGE_BASE + image;
+        }
         var newCustomerId = @json(session('new_customer_id'));
         var posMinSearchChars = {{ (int) (env('MINIMUM_SEARCH_CHAR') ?: 1) }};
 
@@ -3243,9 +3248,9 @@
                     var label = posDisplayName(data.name[index], data.price ? data.price[index] : 0);
                     var safeLabel = $('<div>').text(label).html();
                     var productInfo = $('<div>').text(data.code[index] + ' (' + data.name[index] + ')').html();
-                    var image = data.image[index] ? window.POS_PRODUCT_IMAGE_BASE + data.image[index] : window.POS_PRODUCT_IMAGE_BASE + 'zummXD2dvAtI.png';
+                    var image = posTileSrc(data.image[index]);
                     html += '<div class="col-md-3 product-img sound-btn text-center" title="'+safeLabel+'" data-product="'+productInfo+'">';
-                    html += '<img src="'+image+'" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p class="text-center">'+safeLabel+'</p></div>';
+                    html += '<img src="'+image+'" width="120" height="70" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\''+window.POS_PRODUCT_IMAGE_BASE+'zummXD2dvAtI.png\';" /><p class="text-center">'+safeLabel+'</p></div>';
                 });
             } else {
                 html += '<div class="col-md-12 text-center">No data available</div>';

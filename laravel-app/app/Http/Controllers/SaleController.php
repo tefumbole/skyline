@@ -1816,6 +1816,7 @@ class SaleController extends Controller
                 }
             }
 
+            $lims_product_list = $this->sortByOrderFrequency($lims_product_list);
             $product_number = count($lims_product_list);
             $lims_pos_setting_data = PosSetting::latest()->first();
             $general_setting_defaults = \App\GeneralSetting::latest()->first();
@@ -1939,7 +1940,7 @@ class SaleController extends Controller
                     $data['code'][$index] = $variant->pivot['item_code'];
                     $data['price'][$index] = $product->price;
                     $images = explode(",", $product->image);
-                    $data['image'][$index] = $images[0];
+                    $data['image'][$index] = $this->posTileImage($images[0]);
                     $index++;
                 }
             }
@@ -1948,7 +1949,7 @@ class SaleController extends Controller
                 $data['code'][$index] = $product->code;
                 $data['price'][$index] = $product->price;
                 $images = explode(",", $product->image);
-                $data['image'][$index] = $images[0];
+                $data['image'][$index] = $this->posTileImage($images[0]);
                 $index++;
             }
         }
@@ -1958,10 +1959,10 @@ class SaleController extends Controller
     public function getFeatured()
     {
         $data = [];
-        $lims_product_list = Product::where([
+        $lims_product_list = $this->sortByOrderFrequency(Product::where([
             ['is_active', true],
             ['featured', true]
-        ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.price', 'products.is_variant')->get();
+        ])->select('products.id', 'products.name', 'products.code', 'products.image', 'products.price', 'products.is_variant')->get());
 
         $index = 0;
         foreach ($lims_product_list as $product) {
@@ -1973,7 +1974,7 @@ class SaleController extends Controller
                     $data['code'][$index] = $variant->pivot['item_code'];
                     $data['price'][$index] = $product->price;
                     $images = explode(",", $product->image);
-                    $data['image'][$index] = $images[0];
+                    $data['image'][$index] = $this->posTileImage($images[0]);
                     $index++;
                 }
             }
@@ -1982,11 +1983,52 @@ class SaleController extends Controller
                 $data['code'][$index] = $product->code;
                 $data['price'][$index] = $product->price;
                 $images = explode(",", $product->image);
-                $data['image'][$index] = $images[0];
+                $data['image'][$index] = $this->posTileImage($images[0]);
                 $index++;
             }
         }
         return $data;
+    }
+
+    /**
+     * Products ordered on the most bills come first. Quantity breaks a tie.
+     */
+    protected function sortByOrderFrequency($products)
+    {
+        $ranks = $this->productOrderRanks();
+        $items = $products instanceof \Illuminate\Support\Collection ? $products : collect($products);
+
+        return $items->sortByDesc(function ($product) use ($ranks) {
+            $id = (int) (is_object($product) ? $product->id : 0);
+            $rank = isset($ranks[$id]) ? $ranks[$id] : ['orders' => 0, 'qty' => 0];
+
+            return sprintf('%08d%012d%08d', (int) $rank['orders'], (int) round($rank['qty']), $id);
+        })->values();
+    }
+
+    protected function productOrderRanks()
+    {
+        if (! \Schema::hasTable('product_sales')) {
+            return [];
+        }
+        $ranks = [];
+        $rows = \DB::table('product_sales')
+            ->select('product_id', \DB::raw('COUNT(*) as order_count'), \DB::raw('SUM(qty) as sold_qty'))
+            ->groupBy('product_id')
+            ->get();
+        foreach ($rows as $row) {
+            $ranks[(int) $row->product_id] = [
+                'orders' => (int) $row->order_count,
+                'qty' => (float) $row->sold_qty,
+            ];
+        }
+
+        return $ranks;
+    }
+
+    protected function posTileImage($filename)
+    {
+        return \App\Support\PosProductImage::url($filename, false);
     }
 
     public function getCustomerGroup($id)

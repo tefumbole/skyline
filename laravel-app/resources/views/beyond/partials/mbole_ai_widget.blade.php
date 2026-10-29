@@ -270,13 +270,18 @@
 
   function scheduleIdleCheck() {
     if (idleTimer) clearTimeout(idleTimer);
+    var last = lastActivityMs();
+    var wait = IDLE_MS;
+    if (last) {
+      wait = Math.max(1000, IDLE_MS - (nowMs() - last));
+    }
     idleTimer = setTimeout(function () {
       if (isIdleExpired()) {
         startFreshChat('idle');
       } else {
         scheduleIdleCheck();
       }
-    }, Math.min(30000, IDLE_MS));
+    }, wait);
   }
 
   function startFreshChat(reason) {
@@ -297,12 +302,8 @@
     showErr(phoneErr, '');
     showErr(nameErr, '');
     applyOnboarding('need_phone');
-    if (reason === 'idle' && panel.classList.contains('open')) {
-      appendMsg({
-        id: 'idle-' + nowMs(),
-        role: 'assistant',
-        body: 'This chat ended after 5 minutes of inactivity. Starting a new conversation — please confirm your phone number to continue.'
-      });
+    if (reason === 'idle') {
+      setOpen(false);
     }
     scheduleIdleCheck();
   }

@@ -31,24 +31,16 @@ class WaSenderWebhookController extends Controller
     {
         $raw = $request->getContent();
         $header = $request->header('X-Webhook-Signature', $request->header('x-webhook-signature'));
-        if (! WaSenderSignature::isValid($raw, $header)) {
-            $sigHeaders = [];
-            foreach ($request->headers->keys() as $name) {
-                if (! preg_match('/sign|hook|wasender|auth/i', $name)) {
-                    continue;
-                }
-                $sigHeaders[] = $name.':'.strlen((string) $request->header($name));
-            }
-            $secret = WaSenderSignature::secret();
-            $secretHeader = trim((string) $request->header('X-Webhook-Secret', ''));
-            $sigHeader = trim((string) $header);
+        $secretHeader = $request->header('X-Webhook-Secret');
+        $learned = WaSenderSignature::learnFromWasender($request->ip(), $raw, $header, $secretHeader);
+        if (! WaSenderSignature::isValid($raw, $header, $secretHeader)) {
+            $secretHeader = trim((string) $secretHeader);
+            $signature = trim((string) $header);
             Log::warning('[whatsapp-hub] rejected webhook (signature)', [
                 'ip' => $request->ip(),
-                'sig_headers' => implode(',', $sigHeaders),
-                'content_len' => strlen($raw),
-                'secret_header_match' => $secret !== '' && $secretHeader !== '' && hash_equals($secret, $secretHeader),
-                'signature_match' => $secret !== '' && $sigHeader !== '' && hash_equals($secret, $sigHeader),
-                'md5_match' => $secret !== '' && $sigHeader !== '' && hash_equals(hash_hmac('md5', $raw, $secret), $sigHeader),
+                'learned' => $learned,
+                'pair_equal' => $secretHeader !== '' && $signature !== '' && strlen($secretHeader) === strlen($signature) && hash_equals($secretHeader, $signature),
+                'pair_hmac' => $secretHeader !== '' && $signature !== '' && strlen($signature) === 64 && hash_equals(hash_hmac('sha256', $raw, $secretHeader), $signature),
             ]);
 
             return response()->json(['ok' => false, 'error' => 'invalid signature'], 401);

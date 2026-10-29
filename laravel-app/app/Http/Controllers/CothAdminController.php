@@ -177,7 +177,13 @@ class CothAdminController extends Controller
         $allowChairs = $request->has('allow_extra_chairs') ? 1 : 0;
 
         $library = app(\App\Services\Coth\CothVisualLibrary::class);
-        $preset = $library->resolvePreset($data['seating_style'], (int) $data['capacity'], $data['visual_preset'] ?: null);
+        $probe = clone $table;
+        $probe->seating_style = $data['seating_style'];
+        $probe->is_high_table = $highTable;
+        $preset = $library->fixedPreset($probe);
+        if (! $preset) {
+            $preset = $library->resolvePreset($data['seating_style'], (int) $data['capacity'], $data['visual_preset'] ?: null);
+        }
         if ($preset && $preset['style'] !== $data['seating_style']) {
             $preset = null;
         }

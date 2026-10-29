@@ -21,6 +21,18 @@ class CothVisualLibrary
     {
         return [
             [
+                'slug' => 'couch-sand',
+                'name' => 'Curved couch · Sand',
+                'style' => 'couch',
+                'applies_to_capacities' => [4, 6, 8, 10],
+                'swatch' => ['#C4B39A', '#4A3428', '#5C3A1E'],
+                'tabletop_material' => 'Walnut',
+                'tabletop_color' => '#5C3A1E',
+                'upholstery_color' => '#C4B39A',
+                'cushion_colors' => 'Sand and dark brown',
+                'trim_color' => '#C6A15B',
+            ],
+            [
                 'slug' => 'couch-gray',
                 'name' => 'Curved couch · Shades of gray',
                 'style' => 'couch',
@@ -42,6 +54,18 @@ class CothVisualLibrary
                 'tabletop_color' => '#5C3A1E',
                 'upholstery_color' => '#1F7A86',
                 'cushion_colors' => 'Deep teal and aqua',
+                'trim_color' => '#C6A15B',
+            ],
+            [
+                'slug' => 'high-stool',
+                'name' => 'High chair · Walnut',
+                'style' => 'high_table',
+                'applies_to_capacities' => [2, 3, 4, 6],
+                'swatch' => ['#8B6B52', '#4A3428', '#C6A15B'],
+                'tabletop_material' => 'Walnut',
+                'tabletop_color' => '#6B3E26',
+                'upholstery_color' => '#8B6B52',
+                'cushion_colors' => 'Brown with a dark lumbar pillow',
                 'trim_color' => '#C6A15B',
             ],
             [
@@ -131,7 +155,10 @@ class CothVisualLibrary
      */
     public function colorsFor(CothTable $table)
     {
-        $preset = $table->visual_preset ? $this->preset($table->visual_preset) : null;
+        $preset = $this->fixedPreset($table);
+        if (! $preset && $table->visual_preset) {
+            $preset = $this->preset($table->visual_preset);
+        }
 
         return [
             'tabletop_material' => $table->tabletop_material ?: ($preset['tabletop_material'] ?? ''),
@@ -143,14 +170,53 @@ class CothVisualLibrary
     }
 
     /**
-     * Resolve the artwork URL to render for this table.
-     * Looks for a per-capacity asset under the chosen preset, then falls back
-     * to the default artwork under /images/coth/tables/{cap}.png or couch.png.
+     * One shared look for Premium and Outer couches, and one look for every high table.
      */
+    public function fixedPreset(CothTable $table)
+    {
+        $style = $this->styleFor($table);
+        $code = (string) optional($table->section)->code;
+        if ($style === 'couch' && in_array($code, ['yard', 'outer'], true)) {
+            return $this->preset('couch-sand');
+        }
+        if ($style === 'high_table') {
+            return $this->preset('high-stool');
+        }
+
+        return null;
+    }
+
+    /**
+     * Short name shown on a table card.
+     */
+    public function lookLabel(CothTable $table)
+    {
+        $fixed = $this->fixedPreset($table);
+        if ($fixed) {
+            return $fixed['style'] === 'couch' ? 'Curved couch' : 'High chair';
+        }
+        $slug = (string) $table->visual_preset;
+        if (strpos($slug, 'teal') !== false) {
+            return 'Teal blue';
+        }
+        if (strpos($slug, 'gray') !== false) {
+            return 'Shades of gray';
+        }
+
+        return 'Table';
+    }
+
     public function assetFor(CothTable $table)
     {
         $style = $this->styleFor($table);
         $cap = $this->normalizedCapacity($table);
+        $fixed = $this->fixedPreset($table);
+        if ($fixed) {
+            $found = $this->templateImage($fixed['slug'], $cap);
+            if ($found) {
+                return $found;
+            }
+        }
         $preset = $this->resolvePreset($style, $cap, $table->visual_preset);
 
         if ($preset) {
@@ -238,6 +304,11 @@ class CothVisualLibrary
      */
     public function presetsForTable(CothTable $table)
     {
+        $fixed = $this->fixedPreset($table);
+        if ($fixed) {
+            return [$fixed];
+        }
+
         return $this->choicesFor($this->styleFor($table), (int) $table->capacity);
     }
 

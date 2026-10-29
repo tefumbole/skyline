@@ -317,8 +317,7 @@
                                     @php
                                         $table = $row['table'];
                                         $m = $statusMeta($row['state']);
-                                        $slug = (string) $table->visual_preset;
-                                        $colorName = strpos($slug, 'teal') !== false ? 'Teal blue' : (strpos($slug, 'gray') !== false ? 'Shades of gray' : 'Table');
+                                        $colorName = $visuals->lookLabel($table);
                                     @endphp
                                     <article class="coth-variant">
                                         <img src="{{ $artFor($table) }}" alt="{{ $colorName }} {{ $groupLabel }}">

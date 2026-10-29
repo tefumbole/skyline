@@ -140,7 +140,7 @@
                     ];
                 }
             @endphp
-            <p class="cothx-lead">Set the name, price, and extra chairs. The colour list follows the style and uses the template library, so a curved couch can be shades of gray or teal blue.</p>
+            <p class="cothx-lead">Set the name, price, and extra chairs. Premium and Outer Restaurant couches use the sand curved couch. Every high table uses the walnut high chair.</p>
             <div class="cothx-chips" id="cothx-secs">
                 <button type="button" class="cothx-chip is-on" data-sec="all">All sections</button>
                 @foreach ($sections as $section)
@@ -150,7 +150,7 @@
             @foreach ($tables as $t)
                 @php
                     $allowedPresets = $visuals->presetsForTable($t);
-                    $selectedPreset = $visuals->resolvePreset($visuals->styleFor($t), (int) $t->capacity, $t->visual_preset);
+                    $selectedPreset = $visuals->fixedPreset($t) ?: $visuals->resolvePreset($visuals->styleFor($t), (int) $t->capacity, $t->visual_preset);
                     $resolvedRate = $pricing->extraChairRate($t);
                     $sec = optional($t->section)->code ?: 'other';
                 @endphp

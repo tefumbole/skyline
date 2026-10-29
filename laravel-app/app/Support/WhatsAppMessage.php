@@ -65,13 +65,13 @@ class WhatsAppMessage
     public static function plainAiReply($body)
     {
         $body = str_replace(["\r\n", "\r"], "\n", (string) $body);
+        $body = self::readableChat($body);
         $body = self::withoutSystemName($body);
         $body = preg_replace('/^[ \t]*Ref:\s*.+$/mi', '', $body);
         $company = trim(self::companyName());
         if ($company !== '') {
             $quoted = preg_quote($company, '/');
             $body = preg_replace('/(?:^|\n)[ \t]*_?'.$quoted.'_?[ \t]*(?=\n|$)/iu', "\n", $body);
-            $body = preg_replace('/\b'.$quoted.'\b/iu', '', $body);
         }
         $body = preg_replace('/\b(?:I am|I\'m|this is)\s+Beyond Assistant\b[^.!\n]*[.!]?\s*/iu', '', $body);
         $body = preg_replace('/\bBeyond Assistant\b/iu', '', $body);
@@ -79,6 +79,24 @@ class WhatsAppMessage
         $body = preg_replace("/\n{3,}/", "\n\n", $body);
 
         return trim($body);
+    }
+
+    /**
+     * Turn markdown into short lines a phone chat can read.
+     */
+    public static function readableChat($body)
+    {
+        $body = (string) $body;
+        $body = preg_replace_callback('/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/i', function ($match) {
+            return trim($match[1])."\n".$match[2];
+        }, $body);
+        $body = preg_replace('/\*\*([^*\n]+)\*\*/', '$1', $body);
+        $body = preg_replace('/__([^_\n]+)__/', '$1', $body);
+        $body = preg_replace('/(?<!\w)\*([^*\n]+)\*(?!\w)/', '$1', $body);
+        $body = preg_replace('/^#{1,6}[ \t]*/m', '', $body);
+        $body = preg_replace('/^[ \t]*[-*][ \t]+/m', '• ', $body);
+
+        return $body;
     }
 
     public static function signatureRequest($customerName, $bookingRef, $signUrl, $company = null, $contractType = null)

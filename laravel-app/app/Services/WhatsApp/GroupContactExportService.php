@@ -1147,6 +1147,9 @@ class GroupContactExportService
 
     public function resolveContactNames($jid = null, $limit = 12, $force = false)
     {
+        if (\Illuminate\Support\Facades\Cache::has('campay:holder-session')) {
+            return 0;
+        }
         $jid = trim((string) $jid);
         $files = [];
         if (substr($jid, -5) === '@g.us') {
@@ -1209,13 +1212,14 @@ class GroupContactExportService
                 if ($source === 'other' && $checked && (time() - $checked) < 6 * 3600 && $this->isPersonName($current, $phone)) {
                     continue;
                 }
-                if (! $force && $checked && (time() - $checked) < 30 * 60 && ! $this->isPersonName($current, $phone)) {
-                    continue;
-                }
                 if ($this->isPersonName($current, $phone)) {
                     continue;
                 }
                 $digits = preg_replace('/\D+/', '', $phone);
+                $retryFor = $this->isCameroon($digits) ? 24 * 3600 : 30 * 60;
+                if (! $force && $checked && (time() - $checked) < $retryFor && ! $this->isPersonName($current, $phone)) {
+                    continue;
+                }
                 $localName = $this->directoryName($digits);
                 if (! $this->isPersonName($localName, $digits)) {
                     $localName = $this->knownName($digits);
@@ -1274,6 +1278,123 @@ class GroupContactExportService
         $this->fillAnnouncementRecipients(null, false);
 
         return $remaining;
+    }
+
+    /**
+     * Group names saved from WhatsApp, keyed by group id.
+     */
+    public function groupNames()
+    {
+        $names = [];
+        foreach ($this->readDirectory() as $id => $row) {
+            $names[(string) $id] = is_array($row) && isset($row['name']) ? (string) $row['name'] : '';
+        }
+
+        return $names;
+    }
+
+    /**
+     * Ask Campay for one Cameroon number in the given groups.
+     * A miss is not asked again for 24 hours.
+     *
+     * @return array{blocked:bool,looked:bool,named:bool,remaining:int}
+     */
+    public function lookupNextListed(array $jids)
+    {
+        if ($this->campayBlocked()) {
+            return ['blocked' => true, 'looked' => false, 'named' => false, 'remaining' => 0];
+        }
+        $pending = [];
+        $files = [];
+        foreach ($jids as $jid) {
+            $jid = (string) $jid;
+            $people = $this->readMembers($jid);
+            $dirty = false;
+            foreach ($people as $i => $person) {
+                if (! is_array($person) || ! empty($person['name_edited'])) {
+                    continue;
+                }
+                $phone = isset($person['phone']) ? (string) $person['phone'] : '';
+                $corrected = $this->cameroonLookupDigits($phone);
+                if ($corrected !== '') {
+                    $people[$i]['phone'] = $corrected;
+                    $phone = $corrected;
+                    $dirty = true;
+                }
+                $digits = preg_replace('/\D+/', '', $phone);
+                if (! $this->isCameroon($digits)) {
+                    continue;
+                }
+                $current = trim((string) (isset($person['name']) ? $person['name'] : ''));
+                if ($this->isPersonName($current, $digits)) {
+                    continue;
+                }
+                $known = $this->localPersonName($digits);
+                if (! $this->isPersonName($known, $digits)) {
+                    $known = $this->knownName($digits);
+                }
+                if ($this->isPersonName($known, $digits)) {
+                    $people[$i]['name'] = $known;
+                    $people[$i]['name_source'] = 'directory';
+                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                    $this->rememberContact($phone, $known);
+                    $dirty = true;
+                    continue;
+                }
+                $checked = isset($person['name_checked']) ? (int) $person['name_checked'] : 0;
+                if ($checked && (time() - $checked) < 24 * 3600) {
+                    continue;
+                }
+                if (! isset($pending[$digits])) {
+                    $pending[$digits] = $phone;
+                }
+            }
+            $files[$jid] = $people;
+            if ($dirty) {
+                $this->writeMembers($jid, $people);
+            }
+        }
+        $remaining = count($pending);
+        if ($remaining < 1) {
+            return ['blocked' => false, 'looked' => false, 'named' => false, 'remaining' => 0];
+        }
+        $digits = (string) array_key_first($pending);
+        $phone = $pending[$digits];
+        $hit = $this->campayHolder($digits);
+        if (! empty($hit['blocked'])) {
+            return ['blocked' => true, 'looked' => false, 'named' => false, 'remaining' => $remaining];
+        }
+        $campayName = isset($hit['name']) ? trim((string) $hit['name']) : '';
+        $named = $this->isPersonName($campayName, $digits);
+        foreach ($files as $jid => $people) {
+            $dirty = false;
+            foreach ($people as $i => $person) {
+                if (! is_array($person)) {
+                    continue;
+                }
+                $rowDigits = preg_replace('/\D+/', '', (string) (isset($person['phone']) ? $person['phone'] : ''));
+                if ($rowDigits !== $digits && substr($rowDigits, -9) !== substr($digits, -9)) {
+                    continue;
+                }
+                if ($named) {
+                    $people[$i]['name'] = $campayName;
+                    $people[$i]['name_source'] = 'campay';
+                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                } else {
+                    $people[$i]['name_checked'] = time();
+                    $people[$i]['name_source'] = 'campay-miss';
+                }
+                $dirty = true;
+            }
+            if ($dirty) {
+                $this->writeMembers($jid, $people);
+            }
+        }
+        if ($named) {
+            $this->rememberContact($phone, $campayName);
+        }
+
+        return ['blocked' => false, 'looked' => true, 'named' => $named, 'remaining' => $remaining - 1];
     }
 
     public function resolveUncheckedGroup($jid, $limit = 20)

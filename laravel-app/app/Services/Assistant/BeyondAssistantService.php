@@ -540,6 +540,12 @@ class BeyondAssistantService
                     'choices' => isset($conversationalResult['ui']['options']) ? $conversationalResult['ui']['options'] : null,
                 ];
             }
+            if (! $isClosing && ! empty($turnDiag['links']) && is_array($turnDiag['links'])) {
+                if (! is_array($media)) {
+                    $media = [];
+                }
+                $media['links'] = $turnDiag['links'];
+            }
 
             // Safety net: plain-text Playback/Piano/Full or extras lists still get clickable cards.
             if (! $isClosing && (! is_array($media) || (empty($media['choices']) && empty($media['ui']['options']))) && is_string($reply)) {

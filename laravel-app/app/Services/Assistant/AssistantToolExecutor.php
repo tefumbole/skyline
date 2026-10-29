@@ -108,6 +108,8 @@ class AssistantToolExecutor
             'get_sound_experience_options', 'get_event_extras_options', 'get_sound_packages',
             'get_lighting_packages', 'calculate_stage_price', 'calculate_screen_price',
             'get_truss_options', 'calculate_transport_price', 'check_appointment_availability',
+            'search_menu_products', 'get_menu_product', 'get_coth_event', 'search_coth_tables',
+            'quote_coth_table', 'get_payment_methods', 'get_service_links',
         ];
         if (in_array($name, $identity, true)) {
             return 'IDENTITY';
@@ -1057,5 +1059,40 @@ class AssistantToolExecutor
             'payment_status' => $row->payment_status,
             'grand_total' => null,
         ];
+    }
+
+    protected function toolSearchMenuProducts(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->searchProducts($params);
+    }
+
+    protected function toolGetMenuProduct(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->product($params);
+    }
+
+    protected function toolGetCothEvent(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->event();
+    }
+
+    protected function toolSearchCothTables(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->tables($params);
+    }
+
+    protected function toolQuoteCothTable(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->quote($params);
+    }
+
+    protected function toolGetPaymentMethods(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->payments();
+    }
+
+    protected function toolGetServiceLinks(array $params, array $context)
+    {
+        return app(SkylineGuestGuide::class)->links($params);
     }
 }

@@ -27,7 +27,8 @@
 .mbole-msg.staff{border-left:3px solid #f59e0b}
 .mbole-msg.has-choices{white-space:normal;max-width:100%;width:100%}
 .mbole-msg-text{white-space:pre-wrap}
-.mbole-choices{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mbole-choices,.mbole-links{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mbole-links a{display:block;text-align:center;text-decoration:none;background:#0c1830;color:#fffaf3;border:1px solid #C5A059;border-radius:8px;padding:8px 10px;font-weight:700}
 .mbole-choice{
   display:flex;align-items:center;gap:10px;width:100%;border:1px solid #cbd5e1;border-radius:12px;
   padding:9px 12px;background:#fff;color:#0b3d91;font-size:13px;font-weight:650;cursor:pointer;text-align:left
@@ -479,6 +480,7 @@
     }
     var el = document.createElement('div');
     var hasChoices = msg.role === 'assistant' && msg.choices && msg.choices.length;
+    var hasLinks = msg.role === 'assistant' && msg.links && msg.links.length;
     // Never render the obsolete LED Screen / No screen pair (stuck UI from older turns).
     if (hasChoices) {
       var vals = msg.choices.map(function (c) { return String(c.value || '').toLowerCase(); });
@@ -488,7 +490,7 @@
       }
     }
     var multi = hasChoices && (msg.choice_mode === 'checkbox' || (msg.ui && msg.ui.mode === 'checkbox'));
-    el.className = 'mbole-msg ' + (msg.role || 'assistant') + (hasChoices ? ' has-choices' : '');
+    el.className = 'mbole-msg ' + (msg.role || 'assistant') + ((hasChoices || hasLinks) ? ' has-choices' : '');
     el.setAttribute('data-id', msg.id);
     if (hasChoices) {
       var text = document.createElement('div');
@@ -572,6 +574,20 @@
       el.appendChild(wrap);
     } else {
       el.textContent = msg.body || '';
+    }
+    if (hasLinks) {
+      var links = document.createElement('div');
+      links.className = 'mbole-links';
+      msg.links.forEach(function (link) {
+        if (!link || !link.url || !link.label) return;
+        var a = document.createElement('a');
+        a.href = link.url;
+        a.textContent = link.label;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        links.appendChild(a);
+      });
+      if (links.childNodes.length) el.appendChild(links);
     }
     thread.appendChild(el);
     thread.scrollTop = thread.scrollHeight;

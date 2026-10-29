@@ -696,6 +696,30 @@ class WebsiteChatService
                 $payload['confirm_label'] = $payload['ui']['confirm_label'];
             }
         }
+        if (! empty($media['links']) && is_array($media['links'])) {
+            $payload['links'] = app(\App\Services\Assistant\SkylineGuestGuide::class)->safeLinks(array_map(function ($link) {
+                if (! is_array($link) || empty($link['url']) || empty($link['label'])) {
+                    return null;
+                }
+                $path = parse_url($link['url'], PHP_URL_PATH);
+                $route = null;
+                if ($path === '/menu') {
+                    $route = 'restaurant.menu';
+                } elseif ($path === '/chill-on-the-hill') {
+                    $route = 'coth.index';
+                } elseif ($path === '/chill-on-the-hill/tables') {
+                    $route = 'coth.tables';
+                } elseif ($path === '/chill-on-the-hill/book') {
+                    $route = 'coth.book';
+                }
+                if (! $route) {
+                    return null;
+                }
+                parse_str((string) parse_url($link['url'], PHP_URL_QUERY), $query);
+
+                return ['label' => $link['label'], 'route' => $route, 'query' => is_array($query) ? $query : []];
+            }, $media['links']));
+        }
 
         return $payload;
     }

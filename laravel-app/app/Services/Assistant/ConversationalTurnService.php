@@ -252,6 +252,10 @@ class ConversationalTurnService
             $payload['ui'] = $payload['memory']['_ui'];
             unset($payload['memory']['_ui']);
         }
+        if (empty($payload['links']) && ! empty($payload['memory']['_links'])) {
+            $payload['links'] = $payload['memory']['_links'];
+            unset($payload['memory']['_links']);
+        }
         $this->recordDiagnostics($payload);
 
         return $payload;
@@ -321,6 +325,14 @@ class ConversationalTurnService
         unset($args['customer_id'], $args['user_id'], $args['otp_code']);
         $params = array_merge($slots, $args);
         $result = $this->tools->execute($name, $params, $context);
+        foreach (['event_date', 'coth_table_code', 'coth_section'] as $key) {
+            if (! empty($result[$key]) && is_scalar($result[$key])) {
+                $facts[$key] = $result[$key];
+            }
+        }
+        if (! empty($result['links']) && is_array($result['links'])) {
+            $facts['_links'] = $result['links'];
+        }
         if ($name === 'request_human_handover' && ! empty($result['handed_over'])) {
             return [
                 'result' => $result,

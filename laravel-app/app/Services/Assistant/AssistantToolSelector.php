@@ -76,6 +76,13 @@ class AssistantToolSelector
             'check_appointment_availability',
             'create_appointment',
             'get_my_appointments',
+            'search_menu_products',
+            'get_menu_product',
+            'get_coth_event',
+            'search_coth_tables',
+            'quote_coth_table',
+            'get_payment_methods',
+            'get_service_links',
         ];
         $rental = [
             'search_rental_products',

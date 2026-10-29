@@ -482,7 +482,7 @@ class Controller extends BaseController
                 "currency": "XAF",
                 "external_reference": "'.$patient_id.'",
                 "redirect_url": "'.$route.'",
-                "payment_options":"MOMO,CARD",
+                "payment_options":"MOMO",
                 "failure_redirect_url": "'.$route.'"
             }',
             CURLOPT_HTTPHEADER => array(
@@ -522,7 +522,7 @@ class Controller extends BaseController
                 "currency": "XAF",
                 "external_reference": "'.$failure_route.',' .$orders.'",
                 "redirect_url": "'.$route.'",
-                "payment_options":"MOMO,CARD",
+                "payment_options":"MOMO",
                 "failure_redirect_url": "'.$route.'"
             }',
             CURLOPT_HTTPHEADER => array(

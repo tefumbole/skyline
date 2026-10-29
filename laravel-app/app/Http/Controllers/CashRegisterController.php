@@ -23,10 +23,21 @@ class CashRegisterController extends Controller
 	}
 	public function store(Request $request)
 	{
-		$data = $request->all();
-		$data['status'] = true;
-		$data['user_id'] = Auth::id();
-		CashRegister::create($data);
+		$warehouseId = $request->input('warehouse_id');
+		if ($warehouseId === null || $warehouseId === '') {
+			$warehouseId = optional(\App\PosSetting::latest()->first())->warehouse_id
+				?: \App\Warehouse::where('is_active', true)->value('id');
+		}
+		$cashInHand = $request->input('cash_in_hand');
+		if ($cashInHand === null || $cashInHand === '') {
+			$cashInHand = 0;
+		}
+		CashRegister::create([
+			'cash_in_hand' => $cashInHand,
+			'user_id' => Auth::id(),
+			'warehouse_id' => $warehouseId,
+			'status' => true,
+		]);
 		return redirect()->back()->with('message', 'Cash register created successfully');
 	}
 

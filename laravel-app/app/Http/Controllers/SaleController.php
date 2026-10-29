@@ -542,6 +542,16 @@ class SaleController extends Controller
             }
         }
 
+        if (empty($data['warehouse_id'])) {
+            $data['warehouse_id'] = optional(PosSetting::latest()->first())->warehouse_id
+                ?: optional(\App\GeneralSetting::latest()->first())->default_warehouse_id
+                ?: Warehouse::where('is_active', true)->value('id');
+        }
+        if (empty($data['biller_id'])) {
+            $data['biller_id'] = optional(PosSetting::latest()->first())->biller_id
+                ?: optional(\App\GeneralSetting::latest()->first())->default_biller_id
+                ?: Biller::where('is_active', true)->value('id');
+        }
 
         $lims_sale_data = Sale::create($data);
 
@@ -802,9 +812,13 @@ class SaleController extends Controller
                 $paying_method = 'Pay Later';
             }
             elseif ($data['paid_by_id'] == 8) {
-
+                $paying_method = 'Momo';
                 $biller = Biller::find($request->biller_id);
-                $this->sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, 'Momo/Orange', $net_unit_price);
+                try {
+                    $this->sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, 'Momo', $net_unit_price);
+                } catch (\Throwable $e) {
+                    \Log::warning('POS Momo receipt was not sent: '.$e->getMessage());
+                }
 
                 $data['status'] = 0;
 
@@ -813,17 +827,25 @@ class SaleController extends Controller
                     return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
                 }
                 $route = route('pos.payment_check');
-                $mtn_number = ! empty($data['momo_phone']) ? preg_replace('/[^0-9]/', '', (string) $data['momo_phone']) : $lims_customer_data->phone_number;
-                $amount = $lims_sale_data->grand_total;
+                $rawPhone = ! empty($data['momo_phone']) ? $data['momo_phone'] : ($lims_customer_data ? $lims_customer_data->phone_number : '');
+                $mtn_number = preg_replace('/\D+/', '', (string) $rawPhone);
+                if (strlen($mtn_number) === 9) {
+                    $mtn_number = '237'.$mtn_number;
+                }
+                if (strlen($mtn_number) < 11) {
+                    return back()->with('not_permitted', 'Enter the Momo phone number that should receive the payment prompt.');
+                }
+                $amount = (int) round((float) $lims_sale_data->grand_total);
+                if ($amount < 1) {
+                    return back()->with('not_permitted', 'The amount to collect must be greater than zero.');
+                }
                 $link = $this->mobileMoneyRequestLink($token, $amount, $route, $lims_sale_data->id, $mtn_number);
                 if ($link == false) {
-                    $message = 'Phone Number is incorrect or There is any other issue in payment method';
-                    return back()->with('not_permitted', $message);
+                    return back()->with('not_permitted', 'Campay could not start the Momo payment. Check the phone number and try again.');
                 }
                 Session::put('data', $data);
 
-                header("Location: $link");
-                die();
+                return redirect()->away($link);
             }
             elseif ($data['paid_by_id'] == 3) {
                 $paying_method = 'JE method';
@@ -1723,6 +1745,13 @@ class SaleController extends Controller
                 $all_permission[] = $permission->name;
             if(empty($all_permission))
                 $all_permission[] = 'dummy text';
+            if (Auth::user()->isSuperAdmin()) {
+                foreach (['price-change', 'search_all_products'] as $ownerPermission) {
+                    if (! in_array($ownerPermission, $all_permission, true)) {
+                        $all_permission[] = $ownerPermission;
+                    }
+                }
+            }
 
             $lims_customer_list = Customer::select('id', 'name', 'phone_number', 'email', 'address', 'city', 'deposit', 'expense', 'points')->where('is_active', true)->get();
             $customer_owing = \App\Sale::selectRaw('customer_id, SUM(grand_total - paid_amount) as owing')
@@ -1738,7 +1767,7 @@ class SaleController extends Controller
             $lims_reward_point_setting_data = RewardPointSetting::latest()->first();
             $lims_tax_list = Tax::select('id', 'name', 'rate')->where('is_active', true)->get();
             $lims_unit_list = Unit::select('id', 'unit_name', 'unit_code')->where('is_active', true)->get();
-            $lims_category_list = Category::select('id', 'name', 'parent_id')->where('is_active', true)->get();
+            $lims_category_list = Category::select('id', 'name', 'parent_id', 'image')->where('is_active', true)->get();
 
             $canSearchAllProducts = in_array('search_all_products', $all_permission, true);
             $baseProductsLimit = $canSearchAllProducts ? 900 : 300;

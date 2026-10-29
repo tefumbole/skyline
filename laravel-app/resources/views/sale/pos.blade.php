@@ -1682,11 +1682,7 @@
                                                 <button style="background-color: #00cec9" type="button" class="btn btn-custom payment-btn" id="cash-btn"><i class="fa fa-money"></i> Cash</button>
                                             </div>
                                             <div class="column-5">
-                                                {{--                                <button style="background-color: #e28d02" type="button" class="btn btn-custom" data-toggle="modal" data-target="#add-payment" id="><i class="dripicons-flag"></i> </button>--}}
-                                                <button style="background-color: #da7828" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="orange-btn"><i class="dripicons-flag"></i> Orange Money</button>
-                                            </div>
-                                            <div class="column-5">
-                                                <button style="background-color: #fd7272" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="momo-btn"><i class="fa fa-money"></i> MTN momo</button>
+                                                <button style="background-color: #da7828" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="momo-btn"><i class="fa fa-money"></i> Momo</button>
                                             </div>
                                             {{--                            <div class="column-5">--}}
                                             {{--                                <button style="background-color: #5f27cd" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="gift-card-btn"><i class="fa fa-credit-card-alt"></i> GiftCard</button>--}}
@@ -1738,7 +1734,7 @@
                                                             <label>{{trans('file.Paid By')}}</label>
                                                             <select name="paid_by_id_select" class="form-control selectpicker">
                                                                 <option value="1">Cash</option>
-                                                                <option value="8">Momo/Orange</option>
+                                                                <option value="8">Momo</option>
                                                                 <option value="9">Send to Payment</option>
                                                                 <option value="6">Deposit</option>
                                                             </select>
@@ -2022,9 +2018,9 @@
                                                 @foreach($lims_category_list as $category)
                                                     <div class="col-md-3 category-img text-center" data-category="{{$category->id}}">
                                                         @if($category->image)
-                                                            <img  src="{{ asset('public/images/category/'.$category->image) }}" />
+                                                            <img src="{{ asset('public/images/category/'.$category->image) }}" alt="{{ $category->name }}" onerror="this.onerror=null;this.src='{{ asset('public/images/product/zummXD2dvAtI.png') }}';" />
                                                         @else
-                                                            <img  src="{{ asset('public/images/product/zummXD2dvAtI.png') }}" />
+                                                            <img src="{{ asset('public/images/product/zummXD2dvAtI.png') }}" alt="{{ $category->name }}" />
                                                         @endif
                                                         <p class="text-center">{{$category->name}}</p>
                                                     </div>
@@ -2352,7 +2348,7 @@
                                             <div class="row">
                                                 <div class="col-md-6 form-group warehouse-section">
                                                     <label>{{trans('file.Warehouse')}} *</strong> </label>
-                                                    <select required name="warehouse_id" class="selectpicker form-control" data-live-search="true"   title="Select warehouse...">
+                                                    <select name="warehouse_id" class="selectpicker form-control" data-live-search="true"   title="Select warehouse...">
                                                         @foreach($lims_warehouse_list as $warehouse)
                                                             <option value="{{$warehouse->id}}">{{$warehouse->name}}</option>
                                                         @endforeach
@@ -2360,7 +2356,7 @@
                                                 </div>
                                                 <div class="col-md-6 form-group">
                                                     <label>{{trans('file.Cash in Hand')}} *</strong> </label>
-                                                    <input type="number" name="cash_in_hand" required class="form-control">
+                                                    <input type="number" name="cash_in_hand" required min="0" step="any" value="0" class="form-control">
                                                 </div>
                                                 <div class="col-md-12 form-group">
                                                     <button type="submit" class="btn btn-primary">{{trans('file.submit')}}</button>
@@ -2666,8 +2662,8 @@
         var pos;
         var keyboard_active = <?php echo json_encode($keybord_active); ?>;
         var role_id = <?php echo json_encode(\Auth::user()->role_id) ?>;
-        var warehouse_id = <?php echo json_encode(\Auth::user()->warehouse_id) ?>;
-        var biller_id = <?php echo json_encode(\Auth::user()->biller_id) ?>;
+        var warehouse_id = <?php echo json_encode(\Auth::user()->warehouse_id) ?> || $("input[name='warehouse_id_hidden']").val();
+        var biller_id = <?php echo json_encode(\Auth::user()->biller_id) ?> || $("input[name='biller_id_hidden']").val();
         var coupon_list = <?php echo json_encode($lims_coupon_list) ?>;
         var currency = <?php echo json_encode($currency) ?>;
         window.POS_PRODUCT_IMAGE_BASE = @json(rtrim(asset('public/images/product'), '/') . '/');
@@ -3729,18 +3725,6 @@
             }
         }
 
-        $("#orange-btn").on("click",function() {
-            $('select[name="paid_by_id_select"]').val(8);
-            $('input[name="paid_amount"]').prop('readonly', false);
-            $('input[name="paying_amount"]').prop('readonly', false);
-            $('.selectpicker').selectpicker('refresh');
-            $('div.qc').show();
-            $('div.debit').hide();
-            $('div.credit').show();
-            hide();
-            toggleMomoPhone(true);
-        });
-
         $("#momo-btn").on("click",function() {
             $('select[name="paid_by_id_select"]').val(8);
             $('input[name="paid_amount"]').prop('readonly', false);
@@ -4064,14 +4048,14 @@
             var lineName = $('<div>').text(posDisplayName(data[0], data[2])).html();
             temp_unit_name = (data[6]).split(',');
             pos = product_code.indexOf(data[1]);
-            @if(in_array("price-change", $all_permission))
+            @if(in_array("price-change", $all_permission) || Auth::user()->isSuperAdmin())
                 cols += '<td class="col-sm-4 product-title"><div class="pos-line-name"><strong>' + lineName + '</strong><button type="button" class="pos-note-btn" title="Add a note">+</button><a class="edit-product btn btn-link" data-toggle="modal" data-target="#editModal"><i class="fa fa-pencil-square"></i></a></div><input type="text" name="item_comment[]" class="form-control pos-item-note" placeholder="Item note" style="display:none"></td>';
             @else
                 cols += '<td class="col-sm-4 product-title"><div class="pos-line-name"><strong>' + lineName + '</strong><button type="button" class="pos-note-btn" title="Add a note">+</button></div><input type="text" name="item_comment[]" class="form-control pos-item-note" placeholder="Item note" style="display:none"></td>';
             @endif
             var savedBatchId = (data[12] && product_batch_id[pos]) ? product_batch_id[pos] : '';
             cols += '<input type="hidden" class="product-batch-id" name="product_batch_id[]" value="'+savedBatchId+'"/>';
-            @if(in_array("price-change", $all_permission))
+            @if(in_array("price-change", $all_permission) || Auth::user()->isSuperAdmin())
                 cols += '<td class="col-sm-2"><input onchange="changePrice(this)" onkeyup="changePrice(this)" type="text" class="product_price_change form-control" inputmode="decimal" /></td>';
             @else
                 cols += '<td class="col-sm-2 product-price"></td>';
@@ -4555,6 +4539,18 @@
         }
 
         $(document).on('submit', '.payment-form', function(e) {
+            if (!$('select[name="warehouse_id"]').val()) {
+                var fallbackWarehouse = $("input[name='warehouse_id_hidden']").val();
+                if (fallbackWarehouse) {
+                    $('select[name="warehouse_id"]').val(fallbackWarehouse);
+                }
+            }
+            if (!$('select[name="biller_id"]').val()) {
+                var fallbackBiller = $("input[name='biller_id_hidden']").val();
+                if (fallbackBiller) {
+                    $('select[name="biller_id"]').val(fallbackBiller);
+                }
+            }
             var rownumber = $('table.order-list tbody tr:last').index();
             if (rownumber < 0) {
                 alert("Please insert product to order table!")

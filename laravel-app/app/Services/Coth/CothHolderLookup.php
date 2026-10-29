@@ -13,42 +13,66 @@ use Illuminate\Support\Facades\Cache;
  */
 class CothHolderLookup
 {
+    public function blocked()
+    {
+        return Cache::has($this->blockKey());
+    }
+
     public function name($phoneDigits)
     {
+        $hit = $this->holder($phoneDigits);
+
+        return $hit['name'];
+    }
+
+    /**
+     * @return array{name:string,blocked:bool}
+     */
+    public function holder($phoneDigits)
+    {
+        if ($this->blocked()) {
+            return ['name' => '', 'blocked' => true];
+        }
         $digits = preg_replace('/\D/', '', (string) $phoneDigits);
         if ($digits === '' || strlen($digits) < 10) {
-            return '';
+            return ['name' => '', 'blocked' => false];
         }
         // Campay's holder_info only knows CEMAC subscribers; sending another
         // country's number just comes back empty, which is fine - callers
         // treat an empty string as "type the name yourself".
         $token = $this->accessToken();
         if ($token === '') {
-            return '';
+            return ['name' => '', 'blocked' => false];
         }
         $url = $this->base().'/holder_info/?phone_number='.rawurlencode($digits);
         list($status, $body) = $this->get($url, [
             'Accept: application/json',
             'Authorization: Token '.$token,
         ]);
+        if ($this->blocked()) {
+            return ['name' => '', 'blocked' => true];
+        }
         if ($status === 401) {
             // Token can expire; refresh once if we have username/password.
             Cache::forget($this->cacheKey());
             $token = $this->accessToken();
             if ($token === '') {
-                return '';
+                return ['name' => '', 'blocked' => false];
             }
             list($status, $body) = $this->get($url, [
                 'Accept: application/json',
                 'Authorization: Token '.$token,
             ]);
+            if ($this->blocked()) {
+                return ['name' => '', 'blocked' => true];
+            }
         }
         if ($status < 200 || $status >= 300 || ! is_array($body)) {
-            return '';
+            return ['name' => '', 'blocked' => false];
         }
         $name = isset($body['full_name']) ? trim((string) $body['full_name']) : '';
 
-        return $name;
+        return ['name' => $name, 'blocked' => false];
     }
 
     protected function accessToken()
@@ -85,6 +109,11 @@ class CothHolderLookup
         return 'coth:campay:access-token';
     }
 
+    protected function blockKey()
+    {
+        return 'campay:holder-blocked';
+    }
+
     protected function get($url, array $headers)
     {
         $ch = curl_init($url);
@@ -94,6 +123,9 @@ class CothHolderLookup
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
+        if ($status === 403 && is_string($raw) && stripos($raw, 'failed attempts') !== false) {
+            Cache::put($this->blockKey(), time() + 86400, 86400);
+        }
 
         return [$status, is_string($raw) ? json_decode($raw, true) : null];
     }

@@ -29,6 +29,9 @@ class ResolveWhatsAppContactNamesJob implements ShouldQueue
     {
         $tenantId = app(\App\Services\Cloud\CloudWhatsAppConnectionResolver::class)->soleTenantId();
         $work = function () use ($groups) {
+            if ($groups->campayBlocked()) {
+                return;
+            }
             if ($this->jid === null) {
                 Cache::put('wa_contact_names_global', 1, 120);
             }

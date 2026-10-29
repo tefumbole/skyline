@@ -672,6 +672,10 @@ class WhatsAppHubController extends Controller
             return redirect()->route('whatsapp.groups');
         }
         $pending = app(\App\Services\WhatsApp\GroupContactExportService::class)->queueResolveGroup($jid);
+        if ($pending < 0) {
+            return redirect()->route('whatsapp.groups.show', ['jid' => $jid])
+                ->with('not_permitted', 'Campay is limiting name lookups. Try Resolve again in 24 hours.');
+        }
         $message = $pending > 0
             ? 'Campay is resolving the '.$pending.' '.($pending === 1 ? 'number' : 'numbers').' that still need a name. Names appear here as Campay returns them.'
             : 'Every number in this group already has a name, or Campay has no name for the ones still blank.';
@@ -695,7 +699,10 @@ class WhatsAppHubController extends Controller
         } catch (\InvalidArgumentException $e) {
             return redirect()->route('whatsapp.groups.show', ['jid' => $jid])->with('not_permitted', $e->getMessage());
         }
-        if (! empty($result['kept'])) {
+        if (! empty($result['blocked'])) {
+            $message = 'Campay is limiting name lookups. Try Resolve again in 24 hours.';
+            $key = 'not_permitted';
+        } elseif (! empty($result['kept'])) {
             $message = 'That number already has a saved name, so it was left as you wrote it.';
             $key = 'message';
         } elseif (! empty($result['named'])) {

@@ -717,6 +717,9 @@ class GroupContactExportService
             $this->writeMembers($jid, $people);
         }
         $pending = $this->resolveContactNames($jid, 25, true);
+        if ($this->campayBlocked()) {
+            return -1;
+        }
         if ($pending < 1) {
             return 0;
         }
@@ -853,7 +856,11 @@ class GroupContactExportService
             $digits = $completed;
         }
         unset($people[$index]['name_checked'], $people[$index]['name_attempts']);
-        $campayName = $this->campayPersonName($digits);
+        $hit = $this->campayHolder($digits);
+        if (! empty($hit['blocked'])) {
+            return ['success' => false, 'blocked' => true, 'named' => false];
+        }
+        $campayName = $hit['name'];
         if ($this->isPersonName($campayName, $digits)) {
             $people[$index]['name'] = $campayName;
             $people[$index]['name_source'] = 'campay';
@@ -1208,13 +1215,30 @@ class GroupContactExportService
                 if ($this->isPersonName($current, $phone)) {
                     continue;
                 }
+                $digits = preg_replace('/\D+/', '', $phone);
+                $localName = $this->directoryName($digits);
+                if (! $this->isPersonName($localName, $digits)) {
+                    $localName = $this->knownName($digits);
+                }
+                if ($this->isPersonName($localName, $digits)) {
+                    $people[$i]['name'] = $localName;
+                    $people[$i]['name_source'] = 'directory';
+                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
+                    $this->rememberContact($phone, $localName);
+                    $dirty = true;
+                    continue;
+                }
                 if ($used >= (int) $limit) {
                     $remaining++;
                     continue;
                 }
                 $used++;
-                $digits = preg_replace('/\D+/', '', $phone);
-                $campayName = $this->campayPersonName($digits);
+                $hit = $this->campayHolder($digits);
+                if (! empty($hit['blocked'])) {
+                    $remaining++;
+                    break 2;
+                }
+                $campayName = $hit['name'];
                 if ($this->isPersonName($campayName, $digits)) {
                     $people[$i]['name'] = $campayName;
                     $people[$i]['name_source'] = 'campay';
@@ -1752,14 +1776,29 @@ class GroupContactExportService
         return '2376'.$national;
     }
 
+    public function campayBlocked()
+    {
+        return app(\App\Services\Coth\CothHolderLookup::class)->blocked();
+    }
+
     public function deepResolve($fetchGroups = 6, $names = 25)
     {
+        if ($this->campayBlocked()) {
+            return [
+                'fetched' => 0,
+                'remaining' => 0,
+                'busy' => false,
+                'blocked' => true,
+                'groups' => true,
+            ];
+        }
         $remaining = $this->resolveContactNames(null, (int) $names, false);
 
         return [
             'fetched' => 0,
             'remaining' => (int) $remaining,
             'busy' => false,
+            'blocked' => $this->campayBlocked(),
             'groups' => true,
         ];
     }
@@ -1852,15 +1891,28 @@ class GroupContactExportService
         }
     }
 
-    protected function campayPersonName($digits)
+    protected function campayHolder($digits)
     {
         try {
-            $name = app(\App\Services\Coth\CothHolderLookup::class)->name($digits);
+            $hit = app(\App\Services\Coth\CothHolderLookup::class)->holder($digits);
         } catch (\Throwable $e) {
-            return '';
+            return ['name' => '', 'blocked' => false];
+        }
+        if (! is_array($hit)) {
+            return ['name' => '', 'blocked' => false];
         }
 
-        return trim((string) $name);
+        return [
+            'name' => isset($hit['name']) ? trim((string) $hit['name']) : '',
+            'blocked' => ! empty($hit['blocked']),
+        ];
+    }
+
+    protected function campayPersonName($digits)
+    {
+        $hit = $this->campayHolder($digits);
+
+        return $hit['name'];
     }
 
     protected function recentlyChecked($phone)

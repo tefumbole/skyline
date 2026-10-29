@@ -3,7 +3,7 @@
 return [
     'enabled' => filter_var(env('OPENAI_ENABLED', env('WHATSAPP_ASSISTANT_ENABLED', false)), FILTER_VALIDATE_BOOLEAN),
     'provider' => strtolower((string) env('AI_PROVIDER', 'openai')),
-    'api_key' => env('OPENAI_API_KEY', env('AI_API_KEY', '')),
+    'api_key' => env('OPENAI_API_KEY') ?: env('AI_API_KEY', ''),
     'api_url' => env('OPENAI_API_URL', env('AI_API_URL', 'https://api.openai.com/v1/chat/completions')),
     'model' => env('OPENAI_MODEL', env('AI_MODEL', 'gpt-4o-mini')),
     'timeout' => max(5, (int) env('OPENAI_TIMEOUT', env('AI_TIMEOUT', 20))),

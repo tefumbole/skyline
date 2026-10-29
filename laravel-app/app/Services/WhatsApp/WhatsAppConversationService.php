@@ -473,14 +473,15 @@ class WhatsAppConversationService
 
         $mediaJson = null;
         $hadServiceMenu = strpos($body, '1. Sound') !== false;
-        if ($conversation->isWebsite() && is_array($media) && (! empty($media['choices']) || ! empty($media['ui']))) {
+        if ($conversation->isWebsite() && is_array($media) && (! empty($media['choices']) || ! empty($media['ui']) || ! empty($media['links']))) {
             $payload = array_filter([
                 'choices' => isset($media['choices']) ? $media['choices'] : null,
                 'ui' => isset($media['ui']) ? $media['ui'] : null,
+                'links' => isset($media['links']) ? $media['links'] : null,
             ], function ($v) {
-                return $v !== null;
+                return $v !== null && $v !== [];
             });
-            $mediaJson = json_encode($payload);
+            $mediaJson = $payload ? json_encode($payload) : null;
         } elseif ($conversation->isWebsite() && $hadServiceMenu) {
             $menu = app(\App\Services\Assistant\ServiceMenu::class);
             $body = trim(preg_replace('/\n*You can tap a service below.*$/s', "\n\n".$menu->websitePrompt(), $body));

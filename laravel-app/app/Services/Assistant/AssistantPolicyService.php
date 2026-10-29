@@ -18,10 +18,21 @@ class AssistantPolicyService
         return $saved === '1' || $saved === 'true';
     }
 
+    public function websiteAssistantEnabled()
+    {
+        if (! config('assistant.enabled')) {
+            return false;
+        }
+        $saved = WhatsAppSetting::getValue('website_ai_enabled', '1');
+
+        return $saved === '1' || $saved === 'true';
+    }
+
     public function mayProcess(WhatsAppConversation $conversation)
     {
         $mode = strtoupper((string) $conversation->mode);
-        if (! $this->globallyEnabled()) {
+        $websiteAi = $conversation->isWebsite() && $this->websiteAssistantEnabled();
+        if (! $this->globallyEnabled() && ! $websiteAi) {
             return [false, 'assistant_disabled'];
         }
         if ($mode === WhatsAppConversation::MODE_HUMAN) {

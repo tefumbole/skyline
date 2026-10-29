@@ -70,9 +70,10 @@ class WebsiteChatService
         }
 
         $contact = $this->ensureWebsiteContact($token);
+        $policy = app(\App\Services\Assistant\AssistantPolicyService::class);
         $conversation = WhatsAppConversation::create(array_filter([
             'contact_id' => $contact->id,
-            'mode' => app(\App\Services\Assistant\AssistantPolicyService::class)->globallyEnabled()
+            'mode' => ($this->enabled() && $policy->websiteAssistantEnabled()) || $policy->globallyEnabled()
                 ? WhatsAppConversation::MODE_AI
                 : WhatsAppConversation::MODE_HUMAN,
             'status' => WhatsAppConversation::STATUS_OPEN,
@@ -166,6 +167,7 @@ class WebsiteChatService
 
         $assistantResult = null;
         $conversation = $conversation->fresh(['contact']);
+        $this->ensureWebsiteAi($conversation);
         if ($conversation->mode === WhatsAppConversation::MODE_AI) {
             try {
                 $assistantResult = $this->assistant->handleIncoming($message->fresh(['conversation.contact']));
@@ -174,6 +176,10 @@ class WebsiteChatService
                     'message_id' => $message->id,
                     'error' => $e->getMessage(),
                 ]);
+                $this->postAssistant($conversation, 'I could not answer that just now. Please try again in a moment.');
+            }
+            if (is_array($assistantResult) && ! empty($assistantResult['skipped']) && ($assistantResult['reason'] ?? '') !== 'duplicate') {
+                $this->postAssistant($conversation, 'I could not answer that just now. Please try again in a moment.');
             }
         }
 
@@ -252,6 +258,30 @@ class WebsiteChatService
         }
 
         return self::ONBOARD_READY;
+    }
+
+    protected function ensureWebsiteAi(WhatsAppConversation $conversation)
+    {
+        if (! $conversation->isWebsite() || $conversation->mode !== WhatsAppConversation::MODE_HUMAN) {
+            return;
+        }
+        $policy = app(\App\Services\Assistant\AssistantPolicyService::class);
+        if (! $this->enabled() || ! $policy->websiteAssistantEnabled() || $policy->globallyEnabled()) {
+            return;
+        }
+        if ($conversation->assigned_user_id) {
+            return;
+        }
+        $handedOver = \App\WhatsApp\WhatsAppConversationEvent::where('conversation_id', $conversation->id)
+            ->whereIn('type', [
+                \App\WhatsApp\WhatsAppConversationEvent::TAKEOVER,
+                \App\WhatsApp\WhatsAppConversationEvent::MODE,
+            ])->exists();
+        if ($handedOver) {
+            return;
+        }
+        $conversation->mode = WhatsAppConversation::MODE_AI;
+        $conversation->save();
     }
 
     protected function isWebsitePlaceholder($phone)

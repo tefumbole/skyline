@@ -1464,8 +1464,18 @@
                             {{-- <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li> --}}
                             <li><a href="{{ url('/admin/leaders') }}" data-nav-key="leaders"> <i class="dripicons-user-group"></i><span>About Us Leaders</span></a></li>
                         @endif
-                        @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 4)
-                            <li><a href="{{ url('/admin/coth') }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
+                        @php
+                            $canCothDesk = Auth::user()->hasFullAdminAccess() || in_array((int) Auth::user()->role_id, [2, 4], true);
+                            if (! $canCothDesk) {
+                                try {
+                                    $canCothDesk = Auth::user()->hasPermissionTo('coth-reservations');
+                                } catch (\Throwable $e) {
+                                    $canCothDesk = false;
+                                }
+                            }
+                        @endphp
+                        @if($canCothDesk)
+                            <li id="coth-reservations-menu"><a href="{{ route('coth.admin', ['tab' => 'tables']) }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
                         @endif
                         <li><a href="{{ route('admin.help') }}" data-nav-key="help"> <i class="dripicons-question"></i><span>Help</span></a></li>
                         <?php
@@ -4158,6 +4168,14 @@
               });
 
               window.beyondBuildModuleTabs = buildModuleTabs;
+              function hideForeignModuleTabs() {
+                  var here = (window.location.pathname || '');
+                  if (here.indexOf('/admin/coth') !== 0) return;
+                  var tabs = document.getElementById('beyond-module-tabs');
+                  if (!tabs) return;
+                  tabs.classList.remove('is-visible');
+                  tabs.style.display = 'none';
+              }
               (function markSidebarFromLocation() {
                   function pathOf(href) {
                       if (!href) return '';
@@ -4229,7 +4247,13 @@
                       $peopleList.closest('li').addClass('active');
                       return;
                   }
+                  if (path.indexOf('/admin/coth') === 0) {
+                      $('#side-main-menu li.active').removeClass('active');
+                      $('#coth-reservations-menu').addClass('active');
+                      return;
+                  }
                   if (path === '/admin') {
+                      $('#side-main-menu li.active').removeClass('active');
                       $('#sidebar-dashboard').addClass('active');
                       return;
                   }
@@ -4268,7 +4292,11 @@
                   }
               })();
               buildModuleTabs();
-              $(document).ready(buildModuleTabs);
+              hideForeignModuleTabs();
+              $(document).ready(function () {
+                  buildModuleTabs();
+                  hideForeignModuleTabs();
+              });
           })();
         </script>
         <script>

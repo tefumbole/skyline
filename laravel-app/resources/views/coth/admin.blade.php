@@ -2,6 +2,7 @@
 @section('content')
 @php
     $tab = request()->query('tab', 'tables');
+    $location = strtolower(trim((string) request()->query('location', '')));
     $prefixCounts = [];
     foreach ($tables as $row) {
         if (preg_match('/^([A-Za-z0-9]+)-/', (string) $row->code, $match)) {
@@ -52,13 +53,15 @@
     .cothx-panel { display: none; }
     .cothx-panel.is-on { display: block; }
     .cothx-lead { color: #6f7b91; margin: 0 0 16px; }
-    .cothx-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .cothx-locations { margin: 0 0 16px; }
+    .cothx-locations p { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #8a7424; }
+    .cothx-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
     .cothx-chip {
-        border: 1px solid #d5dce8; background: #fff; color: #1f2a44;
-        border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+        display: inline-block; border: 2px solid #C5A059; background: #fffaf3; color: #3f2a12;
+        border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 700; text-decoration: none;
     }
-    .cothx-chip:hover { border-color: #0c1830; color: #0c1830; }
-    .cothx-chip.is-on { border-color: #0c1830; color: #fff; background: #0c1830; }
+    .cothx-chip:hover { background: #f6ead0; color: #1a1208; text-decoration: none; }
+    .cothx-chip.is-on { background: #C5A059; color: #1a1208; border-color: #8a6230; }
     .cothx-card {
         display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: start;
         background: #fff; border: 1px solid #e6ebf3; border-radius: 16px;
@@ -90,7 +93,7 @@
     .cothx-list-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
     .cothx-list-tools .form-control { max-width: 280px; }
     #cothx-print h2 { color: #0c1830; margin: 0 0 4px; }
-    .cothx-list-row.is-hidden { display: none; }
+    .cothx-list-row.is-hidden, .cothx-card.is-hidden { display: none; }
     @media print {
         body * { visibility: hidden; }
         #cothx-print, #cothx-print * { visibility: visible; }
@@ -140,13 +143,24 @@
                     ];
                 }
             @endphp
-            <p class="cothx-lead">Set the name, price, and extra chairs. Premium and Outer Restaurant couches use the sand curved couch. Every table of 8 uses the gray lounge set. Every high table uses the walnut high chair.</p>
-            <div class="cothx-chips" id="cothx-secs">
-                <button type="button" class="cothx-chip is-on" data-sec="all">All sections</button>
-                @foreach ($sections as $section)
-                    <button type="button" class="cothx-chip" data-sec="{{ $section->code }}">{{ $section->name }}</button>
-                @endforeach
+            @php
+                $locationChips = $sections;
+                if ($locationChips->isEmpty()) {
+                    $locationChips = $tables->map(function ($row) {
+                        return $row->section;
+                    })->filter()->unique('id')->sortBy('sort')->values();
+                }
+            @endphp
+            <div class="cothx-locations">
+                <p>Locations</p>
+                <nav class="cothx-chips" id="cothx-secs" aria-label="Locations">
+                    <a class="cothx-chip {{ $location === '' ? 'is-on' : '' }}" href="{{ route('coth.admin', ['tab' => 'tables']) }}">All sections</a>
+                    @foreach ($locationChips as $section)
+                        <a class="cothx-chip {{ $location === $section->code ? 'is-on' : '' }}" data-sec="{{ $section->code }}" href="{{ route('coth.admin', ['tab' => 'tables', 'location' => $section->code]) }}">{{ $section->name }}</a>
+                    @endforeach
+                </nav>
             </div>
+            <p class="cothx-lead">Set the name, price, and extra chairs. Premium and Outer Restaurant couches use the sand curved couch. Every table of 8 uses the gray lounge set. Every high table uses the walnut high chair.</p>
             @foreach ($tables as $t)
                 @php
                     $allowedPresets = $visuals->presetsForTable($t);
@@ -154,7 +168,7 @@
                     $resolvedRate = $pricing->extraChairRate($t);
                     $sec = optional($t->section)->code ?: 'other';
                 @endphp
-                <form class="cothx-card" data-sec="{{ $sec }}" method="POST" action="{{ route('coth.admin.table', $t->id) }}">
+                <form class="cothx-card {{ $location !== '' && $location !== $sec ? 'is-hidden' : '' }}" data-sec="{{ $sec }}" method="POST" action="{{ route('coth.admin.table', $t->id) }}" @if($location !== '' && $location !== $sec) hidden @endif>
                     @csrf
                     <input type="hidden" name="tab" value="tables">
                     <div class="cothx-photo">
@@ -536,14 +550,21 @@ if (listSec) {
         document.getElementById('cothx-list-title').textContent = title;
     });
 }
-document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (chip) { chip.classList.remove('is-on'); });
-        btn.classList.add('is-on');
-        var sec = btn.getAttribute('data-sec');
+document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (chip) {
+    chip.addEventListener('click', function (event) {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (other) { other.classList.remove('is-on'); });
+        chip.classList.add('is-on');
+        var sec = chip.getAttribute('data-sec') || '';
         document.querySelectorAll('.cothx-card').forEach(function (card) {
-            card.style.display = (sec === 'all' || card.getAttribute('data-sec') === sec) ? '' : 'none';
+            var show = sec === '' || card.getAttribute('data-sec') === sec;
+            card.classList.toggle('is-hidden', !show);
+            card.hidden = !show;
         });
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', chip.getAttribute('href'));
+        }
     });
 });
 </script>

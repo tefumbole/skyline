@@ -1192,44 +1192,20 @@ class GroupContactExportService
                     $dirty = true;
                 }
                 $current = trim((string) (isset($person['name']) ? $person['name'] : ''));
-                $display = $this->savedDisplayName($phone);
-                if (! empty($people[$i]['name_edited'])) {
-                    continue;
-                }
-                if ($display !== '') {
-                    if ($current !== $display) {
-                        $people[$i]['name'] = $display;
-                        $people[$i]['name_edited'] = 1;
-                        $dirty = true;
-                    }
-                    continue;
-                }
                 $source = isset($people[$i]['name_source']) ? (string) $people[$i]['name_source'] : '';
+                $digits = preg_replace('/\D+/', '', $phone);
                 $checked = isset($person['name_checked']) ? (int) $person['name_checked'] : 0;
+                if ($source !== 'campay' && $this->isPersonName($current, $phone) && empty($people[$i]['wa_name'])) {
+                    $people[$i]['wa_name'] = $current;
+                    $dirty = true;
+                }
                 if ($source === 'campay' && $this->isPersonName($current, $phone)) {
                     continue;
                 }
-                if ($source === 'other' && $checked && (time() - $checked) < 6 * 3600 && $this->isPersonName($current, $phone)) {
-                    continue;
-                }
-                if ($this->isPersonName($current, $phone)) {
-                    continue;
-                }
-                $digits = preg_replace('/\D+/', '', $phone);
+                $fallback = $this->fallbackPersonName($people[$i], $phone, $map);
                 $retryFor = $this->isCameroon($digits) ? 24 * 3600 : 30 * 60;
-                if (! $force && $checked && (time() - $checked) < $retryFor && ! $this->isPersonName($current, $phone)) {
-                    continue;
-                }
-                $localName = $this->directoryName($digits);
-                if (! $this->isPersonName($localName, $digits)) {
-                    $localName = $this->knownName($digits);
-                }
-                if ($this->isPersonName($localName, $digits)) {
-                    $people[$i]['name'] = $localName;
-                    $people[$i]['name_source'] = 'directory';
-                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
-                    $this->rememberContact($phone, $localName);
-                    $dirty = true;
+                if (! $force && $checked && (time() - $checked) < $retryFor) {
+                    $dirty = $this->applyFallbackName($people[$i], $fallback) || $dirty;
                     continue;
                 }
                 if ($used >= (int) $limit) {
@@ -1237,6 +1213,7 @@ class GroupContactExportService
                     continue;
                 }
                 if (! $this->isCameroon($digits)) {
+                    $this->applyFallbackName($people[$i], $fallback);
                     $people[$i]['name_checked'] = time();
                     $dirty = true;
                     continue;
@@ -1264,6 +1241,8 @@ class GroupContactExportService
                 } else {
                     $people[$i]['name_checked'] = time();
                     $people[$i]['name_attempts'] = 0;
+                    $people[$i]['name_source'] = 'campay-miss';
+                    $this->applyFallbackName($people[$i], $fallback);
                 }
                 $dirty = true;
                 usleep(150000);
@@ -1311,7 +1290,7 @@ class GroupContactExportService
             $people = $this->readMembers($jid);
             $dirty = false;
             foreach ($people as $i => $person) {
-                if (! is_array($person) || ! empty($person['name_edited'])) {
+                if (! is_array($person)) {
                     continue;
                 }
                 $phone = isset($person['phone']) ? (string) $person['phone'] : '';
@@ -1326,23 +1305,17 @@ class GroupContactExportService
                     continue;
                 }
                 $current = trim((string) (isset($person['name']) ? $person['name'] : ''));
-                if ($this->isPersonName($current, $digits)) {
-                    continue;
-                }
-                $known = $this->localPersonName($digits);
-                if (! $this->isPersonName($known, $digits)) {
-                    $known = $this->knownName($digits);
-                }
-                if ($this->isPersonName($known, $digits)) {
-                    $people[$i]['name'] = $known;
-                    $people[$i]['name_source'] = 'directory';
-                    unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
-                    $this->rememberContact($phone, $known);
+                $source = isset($person['name_source']) ? (string) $person['name_source'] : '';
+                if ($source !== 'campay' && $this->isPersonName($current, $digits) && empty($people[$i]['wa_name'])) {
+                    $people[$i]['wa_name'] = $current;
                     $dirty = true;
+                }
+                if ($source === 'campay' && $this->isPersonName($current, $digits)) {
                     continue;
                 }
                 $checked = isset($person['name_checked']) ? (int) $person['name_checked'] : 0;
                 if ($checked && (time() - $checked) < 24 * 3600) {
+                    $dirty = $this->applyFallbackName($people[$i], $this->fallbackPersonName($people[$i], $phone)) || $dirty;
                     continue;
                 }
                 if (! isset($pending[$digits])) {
@@ -1383,6 +1356,7 @@ class GroupContactExportService
                 } else {
                     $people[$i]['name_checked'] = time();
                     $people[$i]['name_source'] = 'campay-miss';
+                    $this->applyFallbackName($people[$i], $this->fallbackPersonName($people[$i], isset($person['phone']) ? $person['phone'] : ''));
                 }
                 $dirty = true;
             }
@@ -1452,6 +1426,15 @@ class GroupContactExportService
 
     public function nameForPhone($phone, $live = false)
     {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if ($live && $this->isCameroon($digits) && ! $this->campayBlocked() && ! $this->recentlyChecked($phone)) {
+            $hit = $this->campayHolder($digits);
+            if (empty($hit['blocked']) && $this->isPersonName(isset($hit['name']) ? $hit['name'] : '', $digits)) {
+                $this->storeResolvedName($phone, $hit['name']);
+
+                return $hit['name'];
+            }
+        }
         $local = $this->localPersonName($phone);
         if ($local !== '') {
             return $local;
@@ -1466,6 +1449,58 @@ class GroupContactExportService
         $this->storeResolvedName($phone, $resolved);
 
         return $resolved;
+    }
+
+    /**
+     * Campay is asked first. A saved display name, then the WhatsApp name, is used only when Campay has no record.
+     *
+     * @return array{name:string,source:string}
+     */
+    protected function fallbackPersonName(array $person, $phone, array $map = [])
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        $saved = $this->savedDisplayName($phone);
+        if ($this->isPersonName($saved, $digits)) {
+            return ['name' => $saved, 'source' => 'saved'];
+        }
+        $whatsapp = trim((string) (isset($person['wa_name']) ? $person['wa_name'] : ''));
+        if (! $this->isPersonName($whatsapp, $digits)) {
+            $current = trim((string) (isset($person['name']) ? $person['name'] : ''));
+            $source = isset($person['name_source']) ? (string) $person['name_source'] : '';
+            if (! in_array($source, ['campay', 'campay-miss'], true) && $this->isPersonName($current, $digits)) {
+                $whatsapp = $current;
+            }
+        }
+        if (! $this->isPersonName($whatsapp, $digits)) {
+            $whatsapp = $this->registeredWhatsAppName($phone, $map ?: $this->profileNames(false));
+        }
+        if (! $this->isPersonName($whatsapp, $digits)) {
+            $whatsapp = $this->knownName($digits);
+        }
+        if ($this->isPersonName($whatsapp, $digits)) {
+            return ['name' => $whatsapp, 'source' => 'whatsapp'];
+        }
+
+        return ['name' => '', 'source' => ''];
+    }
+
+    protected function applyFallbackName(array &$person, array $fallback)
+    {
+        $name = isset($fallback['name']) ? trim((string) $fallback['name']) : '';
+        if (! $this->isPersonName($name, isset($person['phone']) ? $person['phone'] : '')) {
+            return false;
+        }
+        $current = trim((string) (isset($person['name']) ? $person['name'] : ''));
+        if ($current === $name && (isset($person['name_source']) ? $person['name_source'] : '') === $fallback['source']) {
+            return false;
+        }
+        if ((isset($person['name_source']) ? $person['name_source'] : '') === 'campay') {
+            return false;
+        }
+        $person['name'] = $name;
+        $person['name_source'] = $fallback['source'];
+
+        return true;
     }
 
     public function fillAnnouncementRecipients($announcement = null, $live = false)
@@ -2147,10 +2182,19 @@ class GroupContactExportService
                     if ($rowPhone !== $digits && ($tail === '' || substr($rowPhone, -9) !== $tail)) {
                         continue;
                     }
-                    if ($this->isPersonName(isset($person['name']) ? $person['name'] : '', $rowPhone)) {
+                    $existing = trim((string) (isset($person['name']) ? $person['name'] : ''));
+                    $existingSource = isset($person['name_source']) ? (string) $person['name_source'] : '';
+                    if ($existingSource === 'campay' && $this->isPersonName($existing, $rowPhone)) {
                         continue;
                     }
+                    if ($existing === $name && $existingSource === 'campay') {
+                        continue;
+                    }
+                    if ($existing !== '' && $existing !== $name && $existingSource !== 'campay' && empty($people[$i]['wa_name']) && $this->isPersonName($existing, $rowPhone)) {
+                        $people[$i]['wa_name'] = $existing;
+                    }
                     $people[$i]['name'] = $name;
+                    $people[$i]['name_source'] = 'campay';
                     unset($people[$i]['name_checked'], $people[$i]['name_attempts']);
                     $dirty = true;
                 }

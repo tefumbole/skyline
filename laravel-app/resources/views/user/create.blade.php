@@ -99,7 +99,7 @@
                                                   $pickRole = ($asRole === 'supervisor' && strpos($rolePick, 'supervisor') !== false)
                                                       || ($asRole === 'intern' && strpos($rolePick, 'intern') !== false && strpos($rolePick, 'supervisor') === false);
                                               @endphp
-                                              <option value="{{$role->id}}" {{ $pickRole ? 'selected' : '' }}>{{$role->name}}</option>
+                                              <option value="{{$role->id}}" data-role="{{ $role->name }}" {{ $pickRole ? 'selected' : '' }}>{{$role->name}}</option>
                                           @endforeach
                                         </select>
                                     </div>
@@ -191,7 +191,8 @@
     });
 
     $('select[name="role_id"]').on('change', function() {
-        if($(this).val() == 5) {
+        var roleName = ($(this).find('option:selected').data('role') || '').toString().toLowerCase();
+        if(roleName === 'customer') {
             $('#sign').hide(300);
             $('#stemp').hide(300);
             $('#approve').hide(300);
@@ -203,7 +204,7 @@
             $('select[name="warehouse_id"]').prop('required',false);
             $('select[name="biller_id"]').prop('required',false);
         }
-        else if($(this).val() > 2 && $(this).val() < 8 && $(this).val() != 5) {
+        else if($(this).val() > 2 && $(this).val() < 8) {
             $('select[name="warehouse_id"]').prop('required',true);
             $('select[name="biller_id"]').prop('required',true);
             $('#biller-id').show(300);

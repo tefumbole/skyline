@@ -1452,7 +1452,7 @@
               </div>
                 <div class="main-menu">
                     <ul id="side-main-menu" class="side-menu list-unstyled">
-                        @if(Auth::user()->role_id != 7)
+                        @if(!Auth::user()->isAssetStaff())
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
                         @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
@@ -2560,7 +2560,7 @@
                         ])->first() : null;
                         ?>
                         @if($hrm_active)
-                            @if(Auth::user()->role_id != 5)
+                            @if(!Auth::user()->isShopCustomer())
                                 <li class=""><a href="#hrm" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-user-group"></i><span>HRM</span></a>
                                     <ul id="hrm" class="collapse list-unstyled ">
                                         @if($department_active)

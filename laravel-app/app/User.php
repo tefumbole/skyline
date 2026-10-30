@@ -54,6 +54,19 @@ class User extends Authenticatable
         return $this->roleName() === 'Super Admin';
     }
 
+    /** Shop buyer. Role id 5 is Restaurant, so the name is the check. */
+    public function isShopCustomer()
+    {
+        return strcasecmp($this->roleName(), 'Customer') === 0;
+    }
+
+    public function isAssetStaff()
+    {
+        $name = strtolower($this->roleName());
+
+        return $name === 'asset' || $name === 'assets' || $name === 'asset manager';
+    }
+
     /**
      * Hotel administrator (role 1) or Super Admin. Owner tools such as
      * WhatsApp Hub stay on Super Admin only.

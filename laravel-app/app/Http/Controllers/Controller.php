@@ -25,16 +25,19 @@ class Controller extends BaseController
 
         $this->middleware(function ($request, $next) {
             $this->user = \Illuminate\Support\Facades\Auth::user();
-            if ($this->user && $this->user->role_id != 5) {
-                $role = Role::find($this->user->role_id);
+            if ($this->user && ! $this->user->isShopCustomer()) {
                 $all_permission = [];
-                if ($role) {
-                    $permissions = Role::findByName($role->name)->permissions;
-                    foreach ($permissions as $permission) {
-                        $all_permission[] = $permission->name;
+                try {
+                    $role = Role::find($this->user->role_id);
+                    if ($role) {
+                        foreach ($role->permissions as $permission) {
+                            $all_permission[] = $permission->name;
+                        }
                     }
+                } catch (\Throwable $e) {
+                    $all_permission = [];
                 }
-                View::share ('all_permission', $all_permission);
+                View::share('all_permission', $all_permission);
             }
             return $next($request);
         });

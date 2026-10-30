@@ -755,6 +755,11 @@ class CartController extends Controller
                 }
             } else {
                 $session::forget('otp');
+                $signedIn = Auth::user();
+                if ($signedIn && ! $signedIn->isShopCustomer()) {
+                    return redirect(\App\Support\AuthIntended::afterLogin($signedIn));
+                }
+
                 return redirect()->route('frontend.home');
             }
         }

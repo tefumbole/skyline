@@ -407,10 +407,10 @@ echo $response;
             return redirect()->route('check.otp');
         }
 
-        if(Auth::user()->role_id == 7) {
+        if(Auth::user()->isAssetStaff()) {
             return redirect()->route('asset.dashboard');
         }
-        if(Auth::user()->role_id == 5) {
+        if(Auth::user()->isShopCustomer()) {
             $customer = Customer::select('id', 'points')->where('user_id', Auth::id())->first();
             $points = $customer->points;
             $lims_sale_data = Sale::with('warehouse')->where('customer_id', $customer->id)->orderBy('created_at', 'desc')->get();

@@ -306,7 +306,7 @@ class BeyondAuthController extends Controller
         $request->session()->forget(['beyond_otp_verified', 'beyond_masked_phone']);
 
         $role = Role::find(Auth::user()->role_id);
-        if ($role && (int) $role->id !== 5) {
+        if ($role && ! Auth::user()->isShopCustomer()) {
             if (\App\Support\StaffOtp::required(Auth::user())) {
                 Auth::user()->update(['otp_verify' => 0, 'otp' => null, 'otp_time' => null]);
                 \App\Services\ActivityLogService::log([

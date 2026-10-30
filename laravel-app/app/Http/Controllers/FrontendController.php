@@ -93,7 +93,11 @@ class FrontendController extends Controller
 
     public function index() {
 
-        $checkPayments = $this->checkOrderPayment();
+        try {
+            $this->checkOrderPayment();
+        } catch (\Throwable $e) {
+            \Log::warning('Store payment check skipped: '.$e->getMessage());
+        }
         $new_arrival = Product::where('is_active', true)->where('price', '>', 0)->where('type','!=' , 'donation')->where('type','!=' , 'service')->orderByDesc('id')->take(6)->get();
         $best_selling = Product::where('is_active', true)->where('price', '>', 0)->where('type','!=' , 'donation')->where('type','!=' , 'service')->orderByDesc('qty')->take(6)->get();
         $hot_deal = Product::where('is_active', true)->where('price', '>', 0)->where('type','!=' , 'donation')->where('type','!=' , 'service')->orderBy('price')->take(6)->get();
@@ -115,6 +119,9 @@ class FrontendController extends Controller
     }
 
     private function checkOrderPayment(){
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('orders', 'reference')) {
+            return;
+        }
         $orders = Order::select('id', 'reference', 'name', 'user_id', 'vendor_id', 'grand_total', 'payment_method', 'payment_status')->where('payment_method', 'MTN')->where('payment_status', 0)->get();
         $general_setting = GeneralSetting::first();
         $token = getenv("MOMO_TOKEN");

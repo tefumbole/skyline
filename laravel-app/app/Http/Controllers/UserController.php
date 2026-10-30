@@ -420,7 +420,9 @@ class UserController extends Controller
         $data['password'] = bcrypt($data['password']);
         $data['phone'] = $data['phone_number'];
         $user = User::create($data);
-        if($data['role_id'] == 5 || $data['role_id'] == 12) {
+        $assignedRole = Role::find($data['role_id'] ?? null);
+        $customerRole = $assignedRole && strcasecmp($assignedRole->name, 'Customer') === 0;
+        if($customerRole || (int) ($data['role_id'] ?? 0) === 12) {
             $data['user_id'] = $user->id;
             $data['name'] = $data['customer_name'];
             $data['phone_number'] = $data['phone'];

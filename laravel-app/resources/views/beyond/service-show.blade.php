@@ -31,27 +31,27 @@
                    class="w-full rounded-2xl bg-black/70 border border-brand-gold/40 px-4 py-3 text-white placeholder-white/40 outline-none focus:border-brand-gold">
         </label>
 
-        <div class="flex md:grid md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 overflow-x-auto pb-1 svc-cats">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 svc-cats">
             <a href="{{ route('beyond.services.show', $service) }}"
-               class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 {{ $current ? 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' : 'border-brand-gold bg-brand-gold/15' }}">
-                <span class="w-12 h-12 rounded-full flex items-center justify-center {{ $current ? 'border border-brand-gold/50 text-brand-gold' : 'bg-brand-gold text-[#0A0A0A]' }}">
-                    <i data-lucide="layout-grid" class="w-6 h-6"></i>
+               class="rounded-2xl border overflow-hidden flex flex-col text-center {{ $current ? 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' : 'border-brand-gold bg-brand-gold/15' }}">
+                <span class="aspect-square w-full flex items-center justify-center {{ $current ? 'text-brand-gold' : 'bg-brand-gold text-[#0A0A0A]' }}">
+                    <i data-lucide="layout-grid" class="w-8 h-8"></i>
                 </span>
-                <span class="text-sm font-semibold leading-tight {{ $current ? 'text-white/90' : 'text-brand-gold' }}">All</span>
+                <span class="px-2 py-3 text-sm font-semibold leading-tight {{ $current ? 'text-white/90' : 'text-brand-gold' }}">All</span>
             </a>
             @foreach ($categories as $cat)
                 @php $active = $current && (int) $current['id'] === (int) $cat['id']; @endphp
                 <a href="{{ route('beyond.services.show', [$service, $cat['id']]) }}"
-                   class="shrink-0 w-28 md:w-auto rounded-2xl border px-3 py-4 flex flex-col items-center text-center gap-2 transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
-                    <span class="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden {{ $active ? 'ring-2 ring-brand-gold' : 'border border-brand-gold/50 text-brand-gold' }}">
+                   class="rounded-2xl border overflow-hidden flex flex-col text-center transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
+                    <span class="aspect-square w-full flex items-center justify-center overflow-hidden bg-[#14110e] {{ $active ? 'ring-2 ring-inset ring-brand-gold' : '' }}">
                         @if ($cat['image'])
-                            <img src="{{ $cat['image'] }}" alt="" class="w-full h-full object-cover">
+                            <img src="{{ $cat['image'] }}" alt="{{ $cat['name'] }}" class="w-full h-full object-cover">
                         @else
-                            <i data-lucide="{{ $cat['icon'] }}" class="w-6 h-6"></i>
+                            <i data-lucide="{{ $cat['icon'] }}" class="w-8 h-8 text-brand-gold"></i>
                         @endif
                     </span>
-                    <span class="text-sm font-semibold leading-tight {{ $active ? 'text-brand-gold' : 'text-white/90' }}">{{ $cat['name'] }}</span>
-                    <span class="text-[11px] text-white/45">{{ $cat['count'] }}</span>
+                    <span class="px-2 pt-2 text-sm font-semibold leading-tight {{ $active ? 'text-brand-gold' : 'text-white/90' }}">{{ $cat['name'] }}</span>
+                    <span class="px-2 pb-3 text-[11px] text-white/45">{{ $cat['count'] }}</span>
                 </a>
             @endforeach
         </div>

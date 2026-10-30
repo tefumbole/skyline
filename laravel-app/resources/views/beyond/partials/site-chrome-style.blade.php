@@ -118,12 +118,12 @@
         border-color: rgba(197, 160, 89, 0.5);
     }
     .sky-foot {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
         align-items: center;
-        justify-content: space-between;
-        gap: 18px;
+        column-gap: 16px;
         background: #0A0A0A;
-        padding: 14px max(22px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+        padding: 10px max(118px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
         font-family: Inter, ui-sans-serif, system-ui, sans-serif;
         flex-shrink: 0;
     }
@@ -131,17 +131,27 @@
     .sky-credit {
         display: flex;
         align-items: center;
-        gap: 10px;
+        justify-content: flex-end;
+        gap: 6px;
         margin: 0;
         color: #C5A059;
-        font-size: 14px;
+        font-size: 11px;
+        line-height: 1.3;
         white-space: nowrap;
     }
     .sky-credit a { color: inherit; text-decoration: none; white-space: nowrap; }
     .sky-credit a:hover { color: #f0cb86; }
-    .sky-brand-text { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
-    .sky-version { margin: 0; color: #C5A059; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; white-space: nowrap; }
-    .sky-foot .sky-brand { margin-left: auto; flex: 0 1 auto; }
+    .sky-version {
+        margin: 0;
+        justify-self: center;
+        text-align: center;
+        color: #C5A059;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        white-space: nowrap;
+    }
+    .sky-foot .sky-brand { margin-left: 0; justify-self: end; flex: 0 1 auto; }
     .sky-foot-links { display: flex; align-items: center; justify-content: flex-start; gap: 28px; }
     .sky-contact { gap: 8px; color: #C5A059; font-size: 14px; text-decoration: none; white-space: nowrap; }
     .sky-contact svg { flex-shrink: 0; color: #C5A059; }
@@ -150,10 +160,11 @@
         .sky-hotel, .sky-actions .sky-rule { display: none; }
     }
     @media (max-width: 1180px) {
-        .sky-foot { flex-wrap: wrap; row-gap: 8px; }
-        .sky-foot .sky-brand { flex: 1 1 100%; min-width: 0; margin-left: 0; justify-content: flex-end; }
-        .sky-credit { white-space: normal; flex-wrap: wrap; line-height: 1.45; row-gap: 2px; }
-        .sky-foot-links { flex: 1 1 100%; margin-left: 0; justify-content: flex-start; flex-wrap: wrap; gap: 4px 22px; }
+        .sky-foot { display: flex; flex-wrap: wrap; row-gap: 6px; justify-content: space-between; }
+        .sky-version { order: 2; flex: 1 1 100%; text-align: center; }
+        .sky-foot .sky-brand { order: 3; flex: 1 1 auto; min-width: 0; margin-left: auto; justify-content: flex-end; }
+        .sky-credit { white-space: normal; flex-wrap: wrap; justify-content: flex-end; line-height: 1.35; row-gap: 2px; }
+        .sky-foot-links { order: 1; flex: 1 1 auto; margin-left: 0; justify-content: flex-start; flex-wrap: wrap; gap: 4px 22px; }
         .sky-contact { min-height: 44px; }
     }
     @media (max-width: 860px) {
@@ -186,9 +197,8 @@
     }
     @media (max-width: 640px) {
         .sky-foot { align-items: stretch; padding: 12px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-        .sky-foot .sky-brand { align-items: flex-start; }
-        .sky-foot .sky-rule { height: 22px; margin-top: 4px; }
-        .sky-credit { display: block; font-size: 14px; text-align: right; }
+        .sky-foot .sky-brand { align-items: flex-end; }
+        .sky-credit { display: block; font-size: 11px; text-align: right; }
         .sky-foot-links { flex-direction: column; align-items: stretch; gap: 0; }
         .sky-contact { min-height: 48px; font-size: 15px; padding: 6px 2px; border-top: 1px solid rgba(225, 179, 104, 0.28); }
     }
@@ -198,7 +208,7 @@
         .sky-logo { width: 32px; height: 32px; }
         .sky-logo-mark::before { inset: 1px; }
         .sky-login { min-height: 36px; padding: 6px 10px; font-size: 12px; }
-        .sky-credit { font-size: 13px; gap: 6px; }
+        .sky-credit { font-size: 10px; gap: 4px; }
     }
     @media (max-width: 340px) {
         .sky-event { font-size: 10px; letter-spacing: 0.03em; }

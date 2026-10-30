@@ -13,14 +13,8 @@
             +237 694 677 541
         </a>
     </div>
+    <p class="sky-version">{{ \App\Support\AppVersion::erp() }}</p>
     <div class="sky-brand">
-        <span class="sky-logo-mark">
-            <img class="sky-logo" src="{{ url('public/branding/skyline-logo.png') }}" alt="">
-        </span>
-        <span class="sky-rule" aria-hidden="true"></span>
-        <div class="sky-brand-text">
-            <p class="sky-credit">Developed By <span aria-hidden="true">|</span> Sr. Engr. Tefu R. Mbole <span aria-hidden="true">|</span> <a href="https://wa.me/237675321739" target="_blank" rel="noopener">237 675 321 739</a></p>
-            <p class="sky-version">{{ \App\Support\AppVersion::erp() }}</p>
-        </div>
+        <p class="sky-credit">Developed By <span aria-hidden="true">|</span> Sr. Engr. Tefu R. Mbole <span aria-hidden="true">|</span> <a href="https://wa.me/237675321739" target="_blank" rel="noopener">237 675 321 739</a></p>
     </div>
 </footer>

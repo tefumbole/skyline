@@ -36,7 +36,7 @@
                 <tr>
                     <td>{{$key}}</td>
                     <td>{{ $account->account_no }}</td>
-                    <td>{{ @$account->departments->name }} / {{ @$account->departments->code }}</td>
+                    <td>{{ optional($account->departments)->name }} / {{ optional($account->departments)->code }}</td>
                     <td>{{ $account->name }}</td>
                     @if($account->initial_balance)
                         <td>{{ number_format((float)$account->initial_balance, 2, '.', '') }}</td>

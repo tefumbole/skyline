@@ -123,6 +123,63 @@
             padding: 0;
         }
         body.beyond-pos-active .pos-item-note { margin-top: 6px; }
+        body.beyond-pos-active .pos-service-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 12px;
+            margin: 12px 0 4px;
+            padding: 12px;
+            background: #fffaf3;
+            border: 1px solid #C5A059;
+            border-radius: 16px;
+        }
+        body.beyond-pos-active .pos-service-toggle {
+            display: flex;
+            background: #fff;
+            border: 1px solid #C5A059;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        body.beyond-pos-active .pos-service-toggle label { margin: 0; cursor: pointer; position: relative; }
+        body.beyond-pos-active .pos-service-toggle input { position: absolute; opacity: 0; }
+        body.beyond-pos-active .pos-service-toggle span {
+            display: block;
+            padding: 9px 14px;
+            font-weight: 700;
+            color: #3f2a12;
+            white-space: nowrap;
+        }
+        body.beyond-pos-active .pos-service-toggle input:checked + span,
+        body.beyond-pos-active .pos-service-toggle input:focus + span {
+            background: #3f2a12;
+            color: #fffaf3;
+        }
+        body.beyond-pos-active .pos-service-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 180px;
+            flex: 1;
+            margin: 0;
+        }
+        body.beyond-pos-active .pos-service-field > span {
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #8a6230;
+            font-weight: 700;
+        }
+        body.beyond-pos-active .pos-service-field select {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #C5A059;
+            border-radius: 12px;
+            padding: 0 12px;
+            background: #fff;
+            color: #1a1208;
+            font-weight: 600;
+        }
         body.beyond-pos-active .pos-order-note { margin: 10px 0 16px; }
         body.beyond-pos-active .pos-order-note label { color: #3f2a12; font-weight: 700; }
         body.beyond-pos-active #pay-later-btn { background: #3f2a12 !important; color: #fffaf3 !important; border: 2px solid #C5A059 !important; }
@@ -1582,27 +1639,23 @@
                                         </div>
                                     </div>
 @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
-                                    <div class="row" style="margin:8px 0;">
-                                        <div class="col-sm-12"><strong>Restaurant order</strong> <span class="text-muted">Place food and drinks here. Kitchen and bar receive them from this sale.</span></div>
-                                        <div class="col-sm-3">
-                                            <label>Service</label>
-                                            <select name="service_type" class="form-control">
-                                                <option value="dine_in">Dine In</option>
-                                                <option value="take_away">Take Away</option>
-                                                <option value="">Not a restaurant order</option>
-                                            </select>
+                                    <div class="pos-service-bar">
+                                        <div class="pos-service-toggle" role="group" aria-label="Service">
+                                            <label><input type="radio" name="service_type" value="dine_in" checked><span>Dine in</span></label>
+                                            <label><input type="radio" name="service_type" value="take_away"><span>Take away</span></label>
+                                            <label><input type="radio" name="service_type" value=""><span>Not an order</span></label>
                                         </div>
-                                        <div class="col-sm-3">
-                                            <label>Waitress / waiter</label>
-                                            @php
-                                                $posWaiterId = (int) auth()->id();
-                                                $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
-                                                $posWaiterIds = [];
-                                                foreach ($posWaiters as $posWaiter) {
-                                                    $posWaiterIds[] = (int) $posWaiter->id;
-                                                }
-                                            @endphp
-                                            <select name="waitress_user_id" class="form-control">
+                                        @php
+                                            $posWaiterId = (int) auth()->id();
+                                            $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
+                                            $posWaiterIds = [];
+                                            foreach ($posWaiters as $posWaiter) {
+                                                $posWaiterIds[] = (int) $posWaiter->id;
+                                            }
+                                        @endphp
+                                        <label class="pos-service-field">
+                                            <span>Waitress / waiter</span>
+                                            <select name="waitress_user_id">
                                                 @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
                                                     <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
                                                 @endif
@@ -1610,17 +1663,17 @@
                                                     <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
                                                 @endforeach
                                             </select>
-                                        </div>
+                                        </label>
                                         @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
-                                        <div class="col-sm-3">
-                                            <label for="restaurant_table_id">Assign table</label>
-                                            <select name="restaurant_table_id" id="restaurant_table_id" class="form-control">
+                                        <label class="pos-service-field" for="restaurant_table_id">
+                                            <span>Assign table</span>
+                                            <select name="restaurant_table_id" id="restaurant_table_id">
                                                 <option value="">Select table</option>
                                                 @foreach(\App\RestaurantTable::numbered() as $table)
                                                     <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
                                                 @endforeach
                                             </select>
-                                        </div>
+                                        </label>
                                         @endif
                                     </div>
                                     <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">

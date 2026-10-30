@@ -37,7 +37,7 @@
                     <td>{{ $item->email }}</td>
                     <td>{{ number_format($item->grand_total, 2)  }}</td>
                     @php
-                        $commission_amount = $item->vendor->commission ?? 10;
+                        $commission_amount = optional($item->vendor)->commission ?? 10;
                         $commission = $commission_amount/100*$item->grand_total;
                     @endphp
                     <td>{{ number_format($commission, 2)  }}</td>

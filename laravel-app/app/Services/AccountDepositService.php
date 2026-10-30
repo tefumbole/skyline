@@ -52,4 +52,28 @@ class AccountDepositService
             return $deposit;
         });
     }
+
+    public function creditPending(Deposit $deposit)
+    {
+        return DB::transaction(function () use ($deposit) {
+            $locked = Deposit::where('id', $deposit->id)->lockForUpdate()->first();
+            if (! $locked || (int) $locked->status === 1) {
+                return $locked;
+            }
+            $account = Account::where('id', $locked->account_id)->lockForUpdate()->first();
+            if (! $account) {
+                return $locked;
+            }
+            $current = (float) $account->total_balance;
+            if ($current == 0.0 && (float) $account->initial_balance > 0) {
+                $current = (float) $account->initial_balance;
+            }
+            $account->total_balance = $current + (float) $locked->amount;
+            $account->save();
+            $locked->status = 1;
+            $locked->save();
+
+            return $locked;
+        });
+    }
 }

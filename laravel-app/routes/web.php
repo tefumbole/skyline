@@ -54,6 +54,18 @@ Route::post('/contracts/sign/{token}', 'ContractSignController@submit')->name('c
 Route::post('/contracts/sign/{token}/decline', 'ContractSignController@decline')->name('contracts.sign.decline');
 
 
+Route::get('/payments', 'PublicDonateController@hub')->name('payments.hub');
+Route::get('/payments/deposit', 'PublicDonateController@show')->name('payments.deposit');
+Route::get('/payments/deposit/lookup', 'PublicDonateController@lookup')->middleware('throttle:40,1')->name('payments.deposit.lookup');
+Route::post('/payments/deposit', 'PublicDonateController@store')->middleware('throttle:12,1')->name('payments.deposit.store');
+Route::get('/payments/deposit/{token}/status', 'PublicDonateController@status')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.poll');
+Route::get('/payments/deposit/{token}', 'PublicDonateController@waiting')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.status');
+Route::get('/request-payment', 'PayoutController@publicOpen')->name('payout.request.open');
+Route::get('/payout/request/{token}/search', 'PayoutController@publicSearch')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('payout.request.search');
+Route::get('/payout/request/{token}/lookup', 'PayoutController@publicLookup')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:20,1')->name('payout.request.lookup');
+Route::get('/payout/request/{token}', 'PayoutController@publicForm')->where('token', '[A-Za-z0-9]{32,64}')->name('payout.request.form');
+Route::post('/payout/request/{token}', 'PayoutController@publicStore')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:8,1')->name('payout.request.store');
+
 Route::get('/', 'BeyondController@home')->name('beyond.home');
 Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');
 Route::post('/menu', 'RestaurantMenuController@checkout')->name('restaurant.checkout');
@@ -1574,6 +1586,26 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('payment/index', 'PaymentController@index')->name('payment.index');
     Route::get('payment/desposits', 'PaymentController@Desposit')->name('deposit.index');
     Route::post('payment/desposits', 'PaymentController@storeDeposit')->name('deposit.store');
+    Route::post('payment/desposits/delete-selection', 'PaymentController@depositDeleteSelection')->name('deposit.delete_selection');
+    Route::get('payment/desposits/search', 'PaymentController@searchCustomers')->name('deposit.search');
+    Route::get('payment/desposits/client', 'PaymentController@clientCheck')->name('deposit.client');
+    Route::get('payment/desposits/phone', 'PaymentController@phoneLookup')->name('deposit.phone');
+    Route::get('payment/desposits/{id}/status', 'PaymentController@depositStatus')->where('id', '[0-9]+')->name('deposit.status');
+    Route::get('/admin/payout', 'PayoutController@index')->name('payout.index');
+    Route::get('/admin/payout/lookup', 'PayoutController@lookup')->name('payout.lookup');
+    Route::get('/admin/payout/search', 'PayoutController@search')->name('payout.search');
+    Route::get('/admin/payout/request', 'PayoutController@requestLink')->name('payout.request');
+    Route::post('/admin/payout/request/invite', 'PayoutController@invite')->name('payout.request.invite');
+    Route::post('/admin/payout/request/resend', 'PayoutController@resend')->name('payout.request.resend');
+    Route::post('/admin/payout/request/revise', 'PayoutController@revise')->name('payout.request.revise');
+    Route::post('/admin/payout/request/{id}/mass-payout', 'PayoutController@massPayout')->where('id', '[0-9]+')->name('payout.mass');
+    Route::post('/admin/payout/retry', 'PayoutController@retry')->name('payout.retry');
+    Route::post('/admin/payout/drop', 'PayoutController@drop')->name('payout.drop');
+    Route::post('/admin/payout/pending/delete', 'PayoutController@deletePending')->name('payout.pending.delete');
+    Route::post('/admin/payout/pay', 'PayoutController@pay')->name('payout.pay');
+    Route::post('/admin/payout/direct', 'PayoutController@direct')->name('payout.direct');
+    Route::get('/admin/momo-payments', 'PublicDonateController@adminIndex')->name('momo.payments');
+    Route::post('/admin/momo-payments/delete-selection', 'PublicDonateController@adminDeleteSelection')->name('momo.payments.delete');
     Route::get('/payment/list', 'OrderController@paymentList')->name('payment.list');
     Route::get('/shops/payment/list/{id}', 'OrderController@paymentListShop')->name('shop.payments');
     Route::get('/payment/delete/{id}', 'OrderController@paymentDelete')->name('payment.delete');

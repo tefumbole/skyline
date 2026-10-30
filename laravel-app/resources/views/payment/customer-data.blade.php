@@ -15,6 +15,8 @@
     @endif
 
     <section>
+        @include('payout.partials.style')
+        @include('payout.tabs', ['tab' => 'payment'])
 
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">
@@ -144,6 +146,7 @@
                                 @endif
                                 <option value="6">Deposit</option>
                                 <option value="8">Momo/Orange</option>
+                                <option value="12">VISA</option>
                             </select>
                         </div>
                     </div>

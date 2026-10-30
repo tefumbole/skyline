@@ -8,6 +8,7 @@
         'services' => url('/services'),
         'gallery' => url('/gallery'),
         'reviews' => url('/reviews'),
+        'payments' => url('/payments'),
     ];
     $skyMenus = [];
     foreach (\App\Support\SiteMenu::landingOrder() as $skyKey) {

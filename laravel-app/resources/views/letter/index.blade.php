@@ -59,14 +59,17 @@
                                 <li>
                                     <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                 </li>
-                                @if($item->is_approve == 0)
-                                    @if(in_array("letter_edit", $all_permission))
+                                @php
+                                    $letterAdmin = auth()->check() && auth()->user()->hasFullAdminAccess();
+                                    $letterPerms = $all_permission ?? [];
+                                    $canEditQueue = $letterAdmin || in_array('letter_edit', $letterPerms, true) || in_array('letter_awaiting_edit', $letterPerms, true);
+                                @endphp
+                                @if($item->is_approve == 0 && $canEditQueue)
                                         <li>
                                             <a href="{{ route('letter.edit', $item->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
                                             <a href="{{ route('letter.edit.ok', $item->id) }}" class="btn btn-link"><i class="fa fa-check"></i> OK</a>
                                         </li>
                                         <li class="divider"></li>
-                                    @endif
 {{--                                    @if(in_array("letter_approve", $all_permission))--}}
 {{--                                        <li>--}}
 {{--                                            <a href="{{ route('letter.approve', $item->id) }}" class="btn btn-link"><i class="fa fa-check"></i> {{trans('file.Approve')}}</a>--}}

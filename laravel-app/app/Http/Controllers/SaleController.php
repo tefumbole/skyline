@@ -3191,6 +3191,12 @@ class SaleController extends Controller
             $paying_method = 'Deposit';
         elseif($data['paid_by_id'] == 7)
             $paying_method = 'Points';
+        elseif($data['paid_by_id'] == 8)
+            $paying_method = 'Momo/Orange';
+        elseif($data['paid_by_id'] == 12)
+            $paying_method = 'VISA';
+        else
+            $paying_method = 'Cash';
 
 
         $cash_register_data = CashRegister::where([

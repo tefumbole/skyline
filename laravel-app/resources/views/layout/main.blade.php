@@ -2037,8 +2037,11 @@
                             <li>
                                 <a href="#payments" data-nav-key="payments" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-dollar"></i><span>Payments</span></a>
                                 <ul id="payments" class="collapse list-unstyled ">
-                                    <li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>
-                                    <li id="desposit-index-menu"><a href="{{route('deposit.index')}}">All Deposits</a></li>
+                                    <li id="payment-index-menu"><a href="{{route('payment.index')}}">Payment</a></li>
+                                    <li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>
+                                    <li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>
+                                    <li id="momo-payments-menu"><a href="{{route('momo.payments')}}">Mobile Payments</a></li>
+                                    <li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Deposits</a></li>
                                 </ul>
                             </li>
                         @endif
@@ -3213,7 +3216,7 @@
                             <span class="sidebar-user-role">{{ ucfirst($role->name ?? 'User') }}</span>
                         </div>
                     </div>
-                    <a href="{{ url('/admin') }}" class="sidebar-user-link">
+                    <a href="{{ url('/') }}" class="sidebar-user-link">
                         <i class="dripicons-home"></i> Home
                     </a>
                     <a href="{{route('user.profile', ['id' => Auth::id()])}}" class="sidebar-user-link">

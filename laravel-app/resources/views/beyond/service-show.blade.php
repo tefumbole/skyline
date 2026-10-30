@@ -9,6 +9,12 @@
     .svc-qty input[type=number]::-webkit-outer-spin-button,
     .svc-qty input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .svc-qty input[type=number] { -moz-appearance: textfield; }
+    .svc-zoom { padding: 0; border: 0; background: transparent; cursor: zoom-in; line-height: 0; }
+    #svc-zoom-view { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 1.25rem; }
+    #svc-zoom-view[hidden] { display: none; }
+    #svc-zoom-view figure { margin: 0; text-align: center; }
+    #svc-zoom-view img { width: min(280px, 78vw); height: min(280px, 58vh); object-fit: contain; background: #f5f7fb; border-radius: 16px; }
+    #svc-zoom-view figcaption { margin-top: .6rem; color: #F7F1E8; font-weight: 600; }
 </style>
 @endpush
 
@@ -72,10 +78,12 @@
                         $img = \App\Support\ServiceCatalog::productImage($product);
                         $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
                     @endphp
-                    <label class="svc-item flex items-center gap-2 rounded-xl border border-brand-gold/25 bg-white/[0.03] px-2 py-1.5" data-name="{{ strtolower($product->name) }}">
+                    <div class="svc-item flex items-center gap-2 rounded-xl border border-brand-gold/25 bg-white/[0.03] px-2 py-1.5" data-name="{{ strtolower($product->name) }}">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
                         @if ($img)
-                            <img src="{{ $img }}" alt="" class="h-[52px] w-[52px] shrink-0 object-contain bg-[#f5f7fb] rounded-md" width="52" height="52" loading="lazy">
+                            <button type="button" class="svc-zoom shrink-0" data-src="{{ $img }}" data-title="{{ $product->name }}" aria-label="See {{ $product->name }}">
+                                <img src="{{ $img }}" alt="" class="h-[52px] w-[52px] object-contain bg-[#f5f7fb] rounded-md" width="52" height="52" loading="lazy">
+                            </button>
                         @else
                             <span class="h-[52px] w-[52px] shrink-0 flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-md">
                                 <i data-lucide="{{ $icon }}" class="w-5 h-5"></i>
@@ -96,7 +104,7 @@
                             <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-8 text-center rounded-md bg-black border border-white/15 px-0 py-1 text-sm text-white tabular-nums">
                             <button type="button" class="w-7 h-7 rounded-full border border-brand-gold/60 text-brand-gold text-base leading-none" data-step="1" aria-label="Increase">+</button>
                         </span>
-                    </label>
+                    </div>
                 @empty
                     <p class="text-white/60 col-span-full">Nothing in this list yet.</p>
                 @endforelse
@@ -130,6 +138,12 @@
             @endif
         </form>
     </div>
+</div>
+<div id="svc-zoom-view" hidden>
+    <figure>
+        <img alt="">
+        <figcaption></figcaption>
+    </figure>
 </div>
 @endsection
 
@@ -168,6 +182,26 @@
             });
         });
     }
+    var zoom = document.getElementById('svc-zoom-view');
+    var zoomImg = zoom ? zoom.querySelector('img') : null;
+    var zoomTitle = zoom ? zoom.querySelector('figcaption') : null;
+    document.addEventListener('click', function (e) {
+        var photo = e.target.closest('.svc-zoom');
+        if (photo && zoom && zoomImg) {
+            e.preventDefault();
+            zoomImg.src = photo.getAttribute('data-src');
+            zoomImg.alt = photo.getAttribute('data-title') || '';
+            if (zoomTitle) zoomTitle.textContent = photo.getAttribute('data-title') || '';
+            zoom.hidden = false;
+            return;
+        }
+        if (zoom && !zoom.hidden && e.target === zoom) {
+            zoom.hidden = true;
+        }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && zoom && !zoom.hidden) zoom.hidden = true;
+    });
     document.addEventListener('click', function (e) {
         var btn = e.target.closest('.svc-qty button[data-step]');
         if (!btn) return;

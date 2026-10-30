@@ -66,37 +66,35 @@
                 <h2 class="text-lg font-semibold text-white mb-3">{{ $current['name'] }}</h2>
             @endif
             <p id="svc-none" class="hidden text-white/60 mb-3">No matches for that search.</p>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="svc-items">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-2" id="svc-items">
                 @forelse ($items as $product)
                     @php
                         $img = \App\Support\ServiceCatalog::productImage($product);
                         $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
                     @endphp
-                    <label class="svc-item flex flex-col rounded-2xl border border-brand-gold/25 bg-white/[0.03] overflow-hidden" data-name="{{ strtolower($product->name) }}">
+                    <label class="svc-item flex items-center gap-2 rounded-xl border border-brand-gold/25 bg-white/[0.03] px-2 py-1.5" data-name="{{ strtolower($product->name) }}">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
-                        <span class="flex items-center justify-center h-[70px] mt-3">
-                            @if ($img)
-                                <img src="{{ $img }}" alt="{{ $product->name }}" class="h-[70px] w-auto max-w-[120px] object-contain bg-[#f5f7fb] rounded-lg" width="120" height="70" loading="lazy">
-                            @else
-                                <span class="h-[70px] w-[70px] flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-lg">
-                                    <i data-lucide="{{ $icon }}" class="w-8 h-8"></i>
-                                </span>
-                            @endif
-                        </span>
-                        <span class="p-3 flex flex-col gap-2 flex-1">
-                            <span class="block font-semibold leading-snug">{{ $product->name }}</span>
-                            <span class="text-sm text-brand-gold font-bold">
+                        @if ($img)
+                            <img src="{{ $img }}" alt="" class="h-[52px] w-[52px] shrink-0 object-contain bg-[#f5f7fb] rounded-md" width="52" height="52" loading="lazy">
+                        @else
+                            <span class="h-[52px] w-[52px] shrink-0 flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-md">
+                                <i data-lucide="{{ $icon }}" class="w-5 h-5"></i>
+                            </span>
+                        @endif
+                        <span class="min-w-0 flex-1 leading-tight">
+                            <span class="block text-sm font-semibold truncate">{{ $product->name }}</span>
+                            <span class="block text-xs text-brand-gold font-bold">
                                 @if ((float) $product->price > 0)
-                                    {{ number_format((float) $product->price, 0) }} XAF
+                                    {{ number_format((float) $product->price, 0) }}
                                 @else
-                                    Ask for the price
+                                    —
                                 @endif
                             </span>
-                            <span class="mt-auto flex items-center justify-between gap-2 svc-qty">
-                                <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
-                                <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-12 text-center rounded-md bg-black border border-white/15 px-1 py-2 text-white tabular-nums">
-                                <button type="button" class="w-9 h-9 rounded-full border border-brand-gold/60 text-brand-gold text-lg leading-none" data-step="1" aria-label="Increase">+</button>
-                            </span>
+                        </span>
+                        <span class="flex items-center gap-1 svc-qty shrink-0">
+                            <button type="button" class="w-7 h-7 rounded-full border border-brand-gold/60 text-brand-gold text-base leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
+                            <input type="number" name="qty[]" min="0" value="{{ old('qty.'.$loop->index, 0) }}" class="w-8 text-center rounded-md bg-black border border-white/15 px-0 py-1 text-sm text-white tabular-nums">
+                            <button type="button" class="w-7 h-7 rounded-full border border-brand-gold/60 text-brand-gold text-base leading-none" data-step="1" aria-label="Increase">+</button>
                         </span>
                     </label>
                 @empty

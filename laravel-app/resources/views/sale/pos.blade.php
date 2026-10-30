@@ -133,7 +133,7 @@
             background: #fffaf3;
             border: 1px solid #C5A059;
             border-radius: 12px;
-            overflow-x: auto;
+            overflow: visible;
         }
         body.beyond-pos-active .pos-service-toggle {
             display: flex;
@@ -174,18 +174,21 @@
             font-weight: 700;
             white-space: nowrap;
         }
-        body.beyond-pos-active .pos-service-field select {
-            width: auto;
-            min-width: 140px;
+        body.beyond-pos-active .pos-service-field select,
+        body.beyond-pos-active .pos-service-bar .bootstrap-select > .dropdown-toggle {
+            width: 180px;
+            min-width: 160px;
             max-width: 220px;
             height: 34px;
-            border: 1px solid #C5A059;
+            border: 1px solid #C5A059 !important;
             border-radius: 10px;
             padding: 0 10px;
-            background: #fff;
-            color: #1a1208;
+            background: #fff !important;
+            color: #1a1208 !important;
             font-weight: 600;
         }
+        body.beyond-pos-active .pos-service-bar .bootstrap-select { width: 180px !important; flex: 0 0 180px; }
+        body.beyond-pos-active .pos-service-bar .bootstrap-select .filter-option-inner-inner { color: #1a1208; line-height: 32px; }
         body.beyond-pos-active .pos-order-note { margin: 10px 0 16px; }
         body.beyond-pos-active .pos-order-note label { color: #3f2a12; font-weight: 700; }
         body.beyond-pos-active #pay-later-btn { background: #3f2a12 !important; color: #fffaf3 !important; border: 2px solid #C5A059 !important; }
@@ -1455,29 +1458,11 @@
                                             <label><input type="radio" name="service_type" value="take_away"><span>Take away</span></label>
                                             <label><input type="radio" name="service_type" value=""><span>Not an order</span></label>
                                         </div>
-                                        @php
-                                            $posWaiterId = (int) auth()->id();
-                                            $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
-                                            $posWaiterIds = [];
-                                            foreach ($posWaiters as $posWaiter) {
-                                                $posWaiterIds[] = (int) $posWaiter->id;
-                                            }
-                                        @endphp
-                                        <label class="pos-service-field">
-                                            <span>Waitress / waiter</span>
-                                            <select name="waitress_user_id">
-                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
-                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
-                                                @endif
-                                                @foreach($posWaiters as $person)
-                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </label>
+                                        <input type="hidden" name="waitress_user_id" value="{{ auth()->id() }}">
                                         @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
                                         <label class="pos-service-field" for="restaurant_table_id">
                                             <span>Assign table</span>
-                                            <select name="restaurant_table_id" id="restaurant_table_id">
+                                            <select name="restaurant_table_id" id="restaurant_table_id" class="selectpicker" data-live-search="true" data-width="180px" title="Select table">
                                                 <option value="">Select table</option>
                                                 @foreach(\App\RestaurantTable::numbered() as $table)
                                                     <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
@@ -1526,7 +1511,12 @@
                                                     option.textContent = data.label || data.name;
                                                     option.selected = true;
                                                     select.appendChild(option);
-                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
+                                                    if (window.jQuery) {
+                                                        if (jQuery(select).data('selectpicker')) {
+                                                            jQuery(select).selectpicker('refresh');
+                                                        }
+                                                        jQuery('#create-table-modal').modal('hide');
+                                                    }
                                                 });
                                             });
                                         })();

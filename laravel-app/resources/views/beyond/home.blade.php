@@ -171,67 +171,6 @@
             line-height: 1.25;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
         }
-        .count {
-            position: absolute;
-            left: 50%;
-            top: 56%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            width: max-content;
-            max-width: 96%;
-            line-height: 1.1;
-            text-align: center;
-        }
-        .count-label {
-            margin: 0;
-            font-family: Cinzel, Georgia, serif;
-            font-size: clamp(12px, 2.23vw, 27px);
-            font-weight: 600;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            color: #C5A059;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
-        }
-        .count-grid {
-            display: flex;
-            justify-content: center;
-            gap: clamp(6px, 1.28vw, 17px);
-        }
-        .count-cell {
-            min-width: clamp(52px, 11vw, 145px);
-            text-align: center;
-            border: 1px solid rgba(197, 160, 89, 0.75);
-            border-radius: 12px;
-            padding: 8px 12px 7px;
-            background: rgba(10, 10, 10, 0.72);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-        }
-        .count-cell strong {
-            display: block;
-            font-variant-numeric: tabular-nums;
-            font-size: clamp(18px, 3.62vw, 51px);
-            font-weight: 600;
-            color: #fff6df;
-        }
-        .count-cell span {
-            display: block;
-            margin-top: 3px;
-            font-size: clamp(9px, 1.6vw, 22px);
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #C5A059;
-        }
-        .count.is-done .count-grid { display: none; }
-        .count-done {
-            display: none;
-            margin: 0;
-            color: #fff6df;
-            font-weight: 600;
-        }
-        .count.is-done .count-done { display: block; }
         .foot {
             display: flex;
             align-items: center;
@@ -366,48 +305,10 @@
             <div class="when-block">
                 <p class="when">24th Dec, 2026 - 02 Jan, 2027</p>
             </div>
-            <section class="count" id="opening-countdown" aria-label="Launching 1st November" data-target="2026-11-01T00:00:00+01:00">
-                <p class="count-label">Launching 1st November</p>
-                <div class="count-grid">
-                    <div class="count-cell"><strong data-unit="days">00</strong><span>Days</span></div>
-                    <div class="count-cell"><strong data-unit="hours">00</strong><span>Hours</span></div>
-                    <div class="count-cell"><strong data-unit="minutes">00</strong><span>Minutes</span></div>
-                    <div class="count-cell"><strong data-unit="seconds">00</strong><span>Seconds</span></div>
-                </div>
-                <p class="count-done">Launching 1st November</p>
-            </section>
         </div>
     </main>
 
     @include('beyond.partials.site-footer')
-    <script>
-        (function () {
-            var root = document.getElementById('opening-countdown');
-            if (!root) return;
-            var target = new Date(root.getAttribute('data-target')).getTime();
-            var units = {
-                days: root.querySelector('[data-unit="days"]'),
-                hours: root.querySelector('[data-unit="hours"]'),
-                minutes: root.querySelector('[data-unit="minutes"]'),
-                seconds: root.querySelector('[data-unit="seconds"]')
-            };
-            function pad(n) { return (n < 10 ? '0' : '') + n; }
-            function tick() {
-                var left = target - Date.now();
-                if (left <= 0) {
-                    root.classList.add('is-done');
-                    return;
-                }
-                var seconds = Math.floor(left / 1000);
-                units.days.textContent = pad(Math.floor(seconds / 86400));
-                units.hours.textContent = pad(Math.floor((seconds % 86400) / 3600));
-                units.minutes.textContent = pad(Math.floor((seconds % 3600) / 60));
-                units.seconds.textContent = pad(seconds % 60);
-            }
-            tick();
-            setInterval(tick, 1000);
-        })();
-    </script>
     @include('beyond.partials.mbole_ai_widget')
 </body>
 </html>

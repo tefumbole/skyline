@@ -22,16 +22,25 @@
 <div class="bg-[#0A0A0A] text-white min-h-[70vh] py-10 px-4">
     <div class="max-w-5xl mx-auto">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0"><a href="{{ url('/services') }}" class="hover:underline">Services</a></p>
-        <h1 class="font-serif text-3xl text-white mt-2">{{ $meta['label'] }}</h1>
-        <p class="text-white/70 text-sm mt-2">{{ $meta['blurb'] }} Choose quantities and place one order.</p>
+        @if ($current)
+            <a href="{{ route('beyond.services.show', $service) }}" class="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-gold/60 text-brand-gold px-4 py-2 text-sm font-semibold hover:bg-brand-gold hover:text-[#0A0A0A]">
+                <span aria-hidden="true">&larr;</span> Back to {{ $meta['label'] }}
+            </a>
+            <h1 class="font-serif text-3xl text-white mt-4">{{ $current['name'] }}</h1>
+            <p class="text-white/70 text-sm mt-2">{{ $current['count'] }} {{ $current['count'] == 1 ? 'item' : 'items' }} in {{ $meta['label'] }}. Choose quantities and place one order.</p>
+        @else
+            <h1 class="font-serif text-3xl text-white mt-2">{{ $meta['label'] }}</h1>
+            <p class="text-white/70 text-sm mt-2">{{ $meta['blurb'] }} Choose a category to see its items.</p>
+        @endif
 
         <label class="block mt-6">
-            <span class="sr-only">Search {{ $meta['label'] }}</span>
-            <input id="svc-search" type="search" placeholder="Search {{ $meta['label'] }}" autocomplete="off"
+            <span class="sr-only">Search {{ $current ? $current['name'] : $meta['label'] }}</span>
+            <input id="svc-search" type="search" placeholder="Search {{ $current ? $current['name'] : $meta['label'] }}" autocomplete="off"
                    class="w-full rounded-2xl bg-black/70 border border-brand-gold/40 px-4 py-3 text-white placeholder-white/40 outline-none focus:border-brand-gold">
         </label>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 svc-cats">
+        @if (! $current)
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-6 svc-cats" id="svc-cats">
             <a href="{{ route('beyond.services.show', $service) }}"
                class="rounded-2xl border overflow-hidden flex flex-col text-center {{ $current ? 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' : 'border-brand-gold bg-brand-gold/15' }}">
                 <span class="aspect-square w-full flex items-center justify-center {{ $current ? 'text-brand-gold' : 'bg-brand-gold text-[#0A0A0A]' }}">
@@ -42,7 +51,8 @@
             @foreach ($categories as $cat)
                 @php $active = $current && (int) $current['id'] === (int) $cat['id']; @endphp
                 <a href="{{ route('beyond.services.show', [$service, $cat['id']]) }}"
-                   class="rounded-2xl border overflow-hidden flex flex-col text-center transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
+                   data-name="{{ strtolower($cat['name']) }}"
+                   class="svc-cat rounded-2xl border overflow-hidden flex flex-col text-center transition-colors {{ $active ? 'border-brand-gold bg-brand-gold/15' : 'border-brand-gold/25 bg-white/[0.03] hover:border-brand-gold/70' }}">
                     <span class="aspect-square w-full flex items-center justify-center overflow-hidden bg-[#14110e] {{ $active ? 'ring-2 ring-inset ring-brand-gold' : '' }}">
                         @if ($cat['image'])
                             <img src="{{ $cat['image'] }}" alt="{{ $cat['name'] }}" class="w-full h-full object-cover">
@@ -55,6 +65,8 @@
                 </a>
             @endforeach
         </div>
+        <p id="svc-none" class="hidden text-white/60 mt-4">No categories match that search.</p>
+        @endif
 
         @if (session('not_permitted'))
             <div class="mt-6 bg-red-950/40 border border-red-400/40 text-red-200 rounded-xl px-4 py-3 text-sm">{{ session('not_permitted') }}</div>
@@ -65,12 +77,10 @@
             </div>
         @endif
 
+        @if ($current)
         <form method="POST" action="{{ route('restaurant.checkout') }}" class="mt-6" id="svc-order">
             @csrf
             <input type="hidden" name="checkout_token" value="{{ $token }}">
-            @if ($current)
-                <h2 class="text-lg font-semibold text-white mb-3">{{ $current['name'] }}</h2>
-            @endif
             <p id="svc-none" class="hidden text-white/60 mb-3">No matches for that search.</p>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-2" id="svc-items">
                 @forelse ($items as $product)
@@ -82,10 +92,10 @@
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
                         @if ($img)
                             <button type="button" class="svc-zoom shrink-0" data-src="{{ $img }}" data-title="{{ $product->name }}" aria-label="See {{ $product->name }}">
-                                <img src="{{ $img }}" alt="" class="h-[52px] w-[52px] object-contain bg-[#f5f7fb] rounded-md" width="52" height="52" loading="lazy">
+                                <img src="{{ $img }}" alt="" class="h-24 w-24 object-cover bg-[#14110e] rounded-md" width="96" height="96" loading="lazy">
                             </button>
                         @else
-                            <span class="h-[52px] w-[52px] shrink-0 flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-md">
+                            <span class="h-24 w-24 shrink-0 flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-md">
                                 <i data-lucide="{{ $icon }}" class="w-5 h-5"></i>
                             </span>
                         @endif
@@ -137,6 +147,7 @@
                 </div>
             @endif
         </form>
+        @endif
     </div>
 </div>
 <div id="svc-zoom-view" hidden>
@@ -152,12 +163,14 @@
 (function () {
     var search = document.getElementById('svc-search');
     var items = document.querySelectorAll('#svc-items .svc-item');
+    var cats = document.querySelectorAll('#svc-cats .svc-cat');
     var none = document.getElementById('svc-none');
     if (search) {
         search.addEventListener('input', function () {
             var q = search.value.trim().toLowerCase();
             var shown = 0;
-            items.forEach(function (row) {
+            var rows = items.length ? items : cats;
+            rows.forEach(function (row) {
                 var match = q === '' || (row.getAttribute('data-name') || '').indexOf(q) !== -1;
                 row.style.display = match ? '' : 'none';
                 if (match) shown++;

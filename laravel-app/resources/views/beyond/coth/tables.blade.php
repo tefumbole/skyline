@@ -318,6 +318,7 @@
                                         $table = $row['table'];
                                         $m = $statusMeta($row['state']);
                                         $colorName = $visuals->lookLabel($table);
+                                        $q = $row['quote'];
                                     @endphp
                                     <article class="coth-variant">
                                         <img src="{{ $artFor($table) }}" alt="{{ $colorName }} {{ $groupLabel }}">
@@ -325,6 +326,22 @@
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="font-serif text-xl">{{ $colorName }}</span>
                                                 <span class="text-xs text-white/55">{{ $table->code }}</span>
+                                            </div>
+                                            <div class="text-sm">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="text-white/60">Table</span>
+                                                    <span class="font-semibold">{{ number_format((int) $q['final_price']) }} FCFA</span>
+                                                </div>
+                                                @if (! empty($q['discounted']))
+                                                    <div class="flex items-center justify-between gap-2 text-xs text-emerald-300">
+                                                        <span>Discount</span>
+                                                        <span>−{{ number_format((int) $q['discount_amount']) }} FCFA</span>
+                                                    </div>
+                                                @endif
+                                                <div class="flex items-center justify-between gap-2 text-brand-gold">
+                                                    <span>Deposit</span>
+                                                    <span>{{ number_format((int) $q['deposit_due']) }} FCFA</span>
+                                                </div>
                                             </div>
                                             <div class="text-xs {{ $m['text'] }}"><span class="coth-dot align-middle mr-1" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}</div>
                                             @if ($row['available'])

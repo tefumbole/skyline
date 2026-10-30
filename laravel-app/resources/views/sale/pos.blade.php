@@ -1471,6 +1471,7 @@
                                                 });
                                             });
                                         })();
+                                    </script>
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="row">
@@ -1667,7 +1668,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                                                        </script>
                                     @endif
                                     <div class="pos-order-note">
                                         <label for="pos-order-note">Order note</label>

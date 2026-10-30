@@ -61,6 +61,9 @@
                                     <li>
                                         <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                     </li>
+                                    <li>
+                                        @include('letter.partials.forward_control', ['letter' => $item])
+                                    </li>
                                     @if(in_array("letter_edit", $all_permission))
                                         <li>
                                             <a href="{{ route('letter.edit', $item->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>

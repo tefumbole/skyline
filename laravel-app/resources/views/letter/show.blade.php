@@ -6,7 +6,7 @@
                 @if(in_array("donor-index", $all_permission))
                     <a href="{{route('letter.index')}}" class="btn btn-info"><i class="dripicons-list"></i> {{trans('file.Letters List')}} </a>
                 @endif
-                @if(in_array("letter_send", $all_permission))
+                @if($canSendLetter ?? in_array("letter_send", $all_permission))
                     @if($data->is_sign == 1 && $data->is_approve == 1 && $data->is_sent == 1)
                         <a href="{{ route('letter.send.whatsapp', $data->id) }}" class="btn btn-success"><i class="fa fa-whatsapp"></i> Send Whatsapp PDF</a>
                         <a href="{{ route('letter.send.mail', $data->id) }}" class="btn btn-primary"><i class="dripicons-mail"></i> Send Mail</a>
@@ -31,13 +31,16 @@
                     </div>
                 </div>
                 @php
-                    $letterAdmin = auth()->check() && auth()->user()->hasFullAdminAccess();
+                    $letterDesk = auth()->check() && auth()->user()->canManageHotelSettings();
                     $letterPerms = $all_permission ?? [];
-                    $canEditQueue = $letterAdmin || in_array('letter_edit', $letterPerms, true) || in_array('letter_awaiting_edit', $letterPerms, true);
-                    $canApproveLetter = $letterAdmin || in_array('letter_approve', $letterPerms, true);
-                    $canRejectLetter = $letterAdmin || in_array('letter_rejected', $letterPerms, true);
+                    $canEditQueue = $letterDesk || in_array('letter_edit', $letterPerms, true) || in_array('letter_awaiting_edit', $letterPerms, true);
+                    $canApproveLetter = $letterDesk || in_array('letter_approve', $letterPerms, true);
+                    $canRejectLetter = $letterDesk || in_array('letter_rejected', $letterPerms, true);
+                    $canSignLetter = $letterDesk || in_array('letter_sign', $letterPerms, true);
+                    $canSendLetter = $letterDesk || in_array('letter_send', $letterPerms, true);
                 @endphp
                 <div class="pull-right">
+                    @include('letter.partials.forward_control', ['letter' => $data])
                     @if((int) $data->is_edit === 0 && (int) $data->is_rejected === 0 && $canEditQueue)
                         <a href="{{ route('letter.edit', $data->id) }}" class="btn btn-warning"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
                         <a href="{{ route('letter.edit.ok', $data->id) }}" class="btn btn-success"><i class="fa fa-check"></i> OK</a>
@@ -50,21 +53,21 @@
                         <a href="{{ route('letter.reject', $data->id) }}" class="btn btn-danger"><i class="fa fa-close"></i> Reject</a>
                     @endif
 
-                    @if(in_array("letter_sign", $all_permission))
+                    @if($canSignLetter)
                         @if($data->is_sign == 0 && $data->is_approve == 1)
                             <a href="{{ route('letter.sign', $data->id) }}" class="btn btn-success"><i class="fa fa-pencil"></i> Sign</a>
                             <a href="{{ route('letter.sign.send', $data->id) }}" class="btn btn-info"><i class="fa fa-send"></i> Sign & Send</a>
                         @endif
                     @endif
 
-                    @if(in_array("letter_send", $all_permission))
+                    @if($canSendLetter ?? in_array("letter_send", $all_permission))
                         @if($data->is_sign == 1 && $data->is_approve == 1 && $data->is_sent == 0)
                             <a href="{{ route('letter.send', $data->id) }}" class="btn btn-success"><i class="fa fa-send"></i> Send</a>
                             <a href="{{ route('letter.edit.last', $data->id) }}" class="btn btn-warning"><i class="fa fa-pencil"></i> {{trans('file.edit')}}</a>
                         @endif
                     @endif
 
-                    @if(in_array("letter_send", $all_permission))
+                    @if($canSendLetter ?? in_array("letter_send", $all_permission))
                         @if($data->is_sign == 1 && $data->is_approve == 1 && $data->is_sent == 1)
                             <a href="{{ route('letter.send', $data->id) }}" class="btn btn-success"><i class="fa fa-send"></i> Send Again</a>
                             <a href="{{ route('letter.edit.last', $data->id) }}" class="btn btn-warning"><i class="fa fa-pencil"></i> {{trans('file.edit')}}</a>

@@ -372,7 +372,7 @@ class LetterController extends Controller
                 $is_template = true;
             }
 
-            $forwardTo = isset($data['forward_letter']) ? (string) $data['forward_letter'] : 'editor';
+            $forwardTo = (string) $request->input('forward_letter', 'editor');
             $creator = Auth::user();
             $this->applyLetterForwardSkip($data, $forwardTo, $creator);
 
@@ -640,19 +640,8 @@ class LetterController extends Controller
                 LetterAttachment::create(['letter_id' => $id, 'attachment' => $attachmentName]);
             }
         }
-        if($letter->people_type == "csv") {
-            $to_csv = $request->to_csv;
-            if (isset($to_csv)) {
-                $imageName = date("Ymdhis").$to_csv->getClientOriginalName();
-                $to_csv->move('public/letter/csv', $imageName);
-                $data['to'] = $imageName;
-            }
-        } else {
-            $data['to'] = implode(",", $data['to']);
-            $data['cc'] = isset($data['cc']) ? implode(",", $data['cc']) : null;
-        }
-        unset($data['attachments']);
-        unset($data['to_csv']);
+        $this->applyLetterRecipientUpdate($data, $letter, $request);
+        $data = $this->stripLetterRequestMeta($data);
         $data['edit_by'] = Auth::user()->id;
         $letter->update($data);
 
@@ -671,20 +660,8 @@ class LetterController extends Controller
             }
         }
 
-        if($letter->people_type == "csv") {
-            $to_csv = $request->to_csv;
-            if (isset($to_csv)) {
-                $imageName = date("Ymdhis").$to_csv->getClientOriginalName();
-                $to_csv->move('public/letter/csv', $imageName);
-                $data['to'] = $imageName;
-            }
-        } else {
-            $data['to'] = implode(",", $data['to']);
-            $data['cc'] = isset($data['cc']) ? implode(",", $data['cc']) : null;
-        }
-        unset($data['attachments']);
-        unset($data['to_csv']);
-        unset($data['signature_image']);
+        $this->applyLetterRecipientUpdate($data, $letter, $request);
+        $data = $this->stripLetterRequestMeta($data);
         $data['is_rejected'] = 0;
         $data['reject_by'] = null;
         $data['is_edit'] = 1;
@@ -727,6 +704,32 @@ class LetterController extends Controller
         $this->sendMsgToConcernPerson($letter);
 
         return redirect()->route('letter.index.edited')->with('message', 'Letter updated successfully. It is now awaiting approval.');
+    }
+
+    public function forward(Request $request, $id)
+    {
+        $letter = Letter::findOrFail($id);
+        if ((int) $letter->is_sent === 1 || (int) $letter->is_rejected === 1) {
+            return back()->with('not_permitted', 'This letter can no longer be forwarded.');
+        }
+
+        $forwardTo = (string) $request->input('forward_letter', 'approver');
+        $data = [];
+        $this->applyLetterForwardSkip($data, $forwardTo, Auth::user());
+        $letter->update($data);
+        $letter->refresh();
+        $this->sendMsgToConcernPerson($letter);
+
+        $msg = 'Letter forwarded to the editor.';
+        if ($forwardTo === 'approver') {
+            $msg = 'Letter forwarded. It is now awaiting approval.';
+        } elseif ($forwardTo === 'signer') {
+            $msg = 'Letter forwarded. It is now awaiting signature.';
+        } elseif ($forwardTo === 'sender') {
+            $msg = 'Letter forwarded. It is ready to send.';
+        }
+
+        return redirect()->to($this->letterForwardRedirectRoute($forwardTo))->with('message', $msg);
     }
 
     public function sendOTP($data) {
@@ -841,15 +844,7 @@ class LetterController extends Controller
     {
         $data = $letter->findorfail($id);
         if (Auth::user()->otp_verify == 1) {
-            if ($data->people_type == 'customer') {
-                $customer = Customer::class;
-            } elseif ($data->people_type == 'all') {
-                $customer = Customer::class;
-            } else {
-                $customer = Employee::class;
-            }
-
-            $this->dispatchLetterQueueAfterResponse($data, $id, $customer);
+            $this->dispatchLetterQueueAfterResponse($data, $id, $this->letterSendCustomer($data));
 
             $data->update(['is_sent' => true, 'sent_by' => Auth::user()->id, 'otp' => null]);
             return redirect()->route('message.delivery.index')
@@ -862,17 +857,10 @@ class LetterController extends Controller
     public function sendStore(Request $request, Letter $letter, $id)
     {
         $letter = $letter->find($id);
-        if($letter->people_type == 'customer') {
-            $customer = Customer::class;
-        } elseif ($letter->people_type == 'all') {
-            $customer = Customer::class;
-        } else {
-            $customer = Employee::class;
-        }
 
         if ($this->checkOtp($request, $letter) == true) {
 
-            $this->dispatchLetterQueueAfterResponse($letter, $id, $customer);
+            $this->dispatchLetterQueueAfterResponse($letter, $id, $this->letterSendCustomer($letter));
 
             $letter->update(['is_sent'=>true, 'sent_by'=>Auth::user()->id, 'otp' => null]);
             return redirect()->route('message.delivery.index')
@@ -1864,11 +1852,7 @@ class LetterController extends Controller
         if ($this->checkOtp($request, $letter) == true) {
             foreach ($request->ids as $id) {
                 $letter = Letter::find($id);
-                if ($letter->people_type == 'customer' || $letter->people_type == 'all') {
-                    $customer = Customer::class;
-                } else {
-                    $customer = Employee::class;
-                }
+                $customer = $this->letterSendCustomer($letter);
 //                foreach (explode(",", $letter->to) as $to) {
 //                    $lims_customer_data = $customer::find($to);
 //                    $message = $this->sendPDF($letter, $lims_customer_data, $to);
@@ -1890,6 +1874,69 @@ class LetterController extends Controller
 
         $letter->update(['otp' => null]);
         return redirect()->route('letter.index.sent')->with('not_permitted', 'OTP is wrong or Expired');
+    }
+
+    protected function letterSendCustomer($letter)
+    {
+        $type = (string) ($letter->people_type ?? '');
+        if ($type === 'directory' || $type === 'csv') {
+            return null;
+        }
+
+        return LetterRecipients::recipientModel($type);
+    }
+
+    protected function stripLetterRequestMeta(array $data): array
+    {
+        foreach ([
+            '_token', '_method', 'signature_image', 'use_account_signature',
+            'attachments', 'to_csv', 'forward_letter', 'recipient_ids', 'cc_ids',
+        ] as $key) {
+            unset($data[$key]);
+        }
+
+        return $data;
+    }
+
+    protected function applyLetterRecipientUpdate(array &$data, Letter $letter, Request $request): void
+    {
+        if ($letter->people_type === 'csv') {
+            $toCsv = $request->file('to_csv');
+            if ($toCsv) {
+                $imageName = date('Ymdhis').$toCsv->getClientOriginalName();
+                $toCsv->move('public/letter/csv', $imageName);
+                $data['to'] = $imageName;
+            } else {
+                unset($data['to']);
+            }
+            unset($data['cc']);
+
+            return;
+        }
+
+        if (in_array($letter->people_type, ['directory', 'all'], true)) {
+            unset($data['to'], $data['cc']);
+
+            return;
+        }
+
+        if (isset($data['to']) && is_array($data['to'])) {
+            $to = array_values(array_filter($data['to'], function ($id) {
+                return $id !== null && $id !== '';
+            }));
+            $data['to'] = implode(',', $to);
+        } else {
+            unset($data['to']);
+        }
+
+        if (isset($data['cc']) && is_array($data['cc'])) {
+            $cc = array_values(array_filter($data['cc'], function ($id) {
+                return $id !== null && $id !== '';
+            }));
+            $data['cc'] = $cc ? implode(',', $cc) : null;
+        } else {
+            unset($data['cc']);
+        }
     }
 
     protected function saveSignatureFromRequest(Request $request, string $prefix)

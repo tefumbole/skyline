@@ -1523,6 +1523,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/letters/{id}/edit/last', 'LetterController@editLast')->name('letter.edit.last');
     Route::get('/letters/{id}/edit/ok', 'LetterController@editOk')->name('letter.edit.ok');
     Route::POST('/letters/{id}/edit/ok/store', 'LetterController@editOkStore')->name('letter.edit.ok.store');
+    Route::post('/letters/{id}/forward', 'LetterController@forward')->name('letter.forward');
     Route::get('/letters/{id}/sign', 'LetterController@sign')->name('letter.sign');
     Route::get('/letters/{id}/sign/send', 'LetterController@signSend')->name('letter.sign.send');
     Route::POST('/letters/{id}/sign/send/store', 'LetterController@signSendStore')->name('letter.sign.send.store');

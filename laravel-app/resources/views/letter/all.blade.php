@@ -72,6 +72,9 @@
                                 <li>
                                     <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                 </li>
+                                <li>
+                                    @include('letter.partials.forward_control', ['letter' => $item])
+                                </li>
                                 @if($item->is_edit == 0)
                                     @if(in_array("letter_edit", $all_permission))
                                         <li>
@@ -100,21 +103,21 @@
                                         </li>
                                     @endif
                                 @endif
-                                @if(in_array("letter_sign", $all_permission))
+                                @if((auth()->check() && auth()->user()->canManageHotelSettings()) || in_array("letter_sign", $all_permission))
                                     @if($item->is_sign == 0 && $item->is_approve == 1)
                                         <li>
                                             <a href="{{ route('letter.sign', $item->id) }}" class="btn btn-link"><i class="fa fa-pencil"></i> {{trans('file.Sign')}}</a>
                                         </li>
                                     @endif
                                 @endif
-                                @if(in_array("letter_send", $all_permission))
+                                @if((auth()->check() && auth()->user()->canManageHotelSettings()) || in_array("letter_send", $all_permission))
                                     @if($item->is_sign == 1 && $item->is_approve == 1 && $item->is_sent == 0)
                                         <li>
                                             <a href="{{ route('letter.send', $item->id) }}" class="btn btn-link"><i class="fa fa-send"></i> {{trans('file.Send')}}</a>
                                         </li>
                                     @endif
                                 @endif
-                                @if(in_array("letter_send", $all_permission))
+                                @if((auth()->check() && auth()->user()->canManageHotelSettings()) || in_array("letter_send", $all_permission))
                                     @if($item->is_sign == 1 && $item->is_approve == 1 && $item->is_sent == 1)
                                         <li>
                                             <a href="{{ route('letter.send', $item->id) }}" class="btn btn-link"><i class="fa fa-send"></i> Send Again</a>

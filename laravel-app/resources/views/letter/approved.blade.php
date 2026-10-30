@@ -63,13 +63,16 @@
                                     <li>
                                         <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                     </li>
+                                    <li>
+                                        @include('letter.partials.forward_control', ['letter' => $item])
+                                    </li>
                                     @if(in_array("letter_edit", $all_permission))
                                         <li>
                                             <a href="{{ route('letter.edit', $item->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
                                         </li>
                                         <li class="divider"></li>
                                     @endif
-                                    @if(in_array("letter_sign", $all_permission))
+                                    @if((auth()->check() && auth()->user()->canManageHotelSettings()) || in_array("letter_sign", $all_permission))
                                         @if($item->is_sign == 0 && $item->is_approve == 1)
                                             <li>
                                                 <a href="{{ route('letter.sign', $item->id) }}" class="btn btn-link"><i class="fa fa-pencil"></i> {{trans('file.Sign')}}</a>

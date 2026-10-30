@@ -82,10 +82,6 @@
                                             <label>{{trans('file.Author Name')}} <strong>*</strong> </label>
                                             <input type="text" name="name" required class="form-control" value="{{ !empty($clone) ? $clone->name : '' }}">
                                             <input type="hidden" name="is_active" value="1">
-                                            <input type="hidden" name="is_edit" value="0">
-                                            <input type="hidden" name="is_approve" value="0">
-                                            <input type="hidden" name="is_sign" value="0">
-                                            <input type="hidden" name="is_sent" value="0">
                                             <input type="hidden" name="people_type_mode" value="">
                                         </div>
                                     </div>
@@ -117,19 +113,17 @@
                                             <input type="datetime-local" name="date_time" class="form-control" value="{{ !empty($clone) && $clone->date_time ? \Carbon\Carbon::parse($clone->date_time)->format('Y-m-d\TH:i') : '' }}">
                                         </div>
                                     </div>
-                                    @if(in_array("forward_letter", $all_permission))
-                                        <div class="col-md-4">
-                                            <div class="form-group">
-                                                <label>Forward Letter To Any </label>
-                                                <select name="forward_letter" class="form-control" data-live-search="true" required>
-                                                    <option value="editor">Editor</option>
-                                                    <option value="approver">Approver</option>
-                                                    <option value="signer">Signer</option>
-                                                    <option value="sender">Sender</option>
-                                                </select>
-                                            </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>Forward Letter To</label>
+                                            <select name="forward_letter" class="form-control" required>
+                                                <option value="editor">Editor (Awaiting Editing)</option>
+                                                <option value="approver">Approver (Awaiting Approval)</option>
+                                                <option value="signer">Signer (Awaiting Signature)</option>
+                                                <option value="sender">Sender (Ready To Send)</option>
+                                            </select>
                                         </div>
-                                    @endif
+                                    </div>
                                     {{--                            <div class="col-md-4">--}}
                                     {{--                                <div class="form-group">--}}
                                     {{--                                    <label>Attachment </label>--}}

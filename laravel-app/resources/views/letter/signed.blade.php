@@ -66,9 +66,12 @@
                                     <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                 </li>
                                 <li>
+                                    @include('letter.partials.forward_control', ['letter' => $item])
+                                </li>
+                                <li>
                                     <a href="{{ route('letter.edit.last', $item->id) }}" class="btn btn-link"><i class="fa fa-pencil"></i> {{trans('file.edit')}}</a>
                                 </li>
-                                @if(in_array("letter_send", $all_permission))
+                                @if((auth()->check() && auth()->user()->canManageHotelSettings()) || in_array("letter_send", $all_permission))
                                 @if($item->is_sign == 1 && $item->is_approve == 1 && $item->is_sent == 0)
                                     <li>
                                         <a href="{{ route('letter.send', $item->id) }}" class="btn btn-link"><i class="fa fa-send"></i> {{trans('file.Send')}}</a>

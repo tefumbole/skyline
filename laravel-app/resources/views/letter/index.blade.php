@@ -60,10 +60,13 @@
                                     <a href="{{ route('letter.show', $item->id) }}" class="btn btn-link"><i class="fa fa-eye"></i> {{trans('file.View')}}</a>
                                 </li>
                                 @php
-                                    $letterAdmin = auth()->check() && auth()->user()->hasFullAdminAccess();
+                                    $letterDesk = auth()->check() && auth()->user()->canManageHotelSettings();
                                     $letterPerms = $all_permission ?? [];
-                                    $canEditQueue = $letterAdmin || in_array('letter_edit', $letterPerms, true) || in_array('letter_awaiting_edit', $letterPerms, true);
+                                    $canEditQueue = $letterDesk || in_array('letter_edit', $letterPerms, true) || in_array('letter_awaiting_edit', $letterPerms, true);
                                 @endphp
+                                <li>
+                                    @include('letter.partials.forward_control', ['letter' => $item])
+                                </li>
                                 @if($item->is_approve == 0 && $canEditQueue)
                                         <li>
                                             <a href="{{ route('letter.edit', $item->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>

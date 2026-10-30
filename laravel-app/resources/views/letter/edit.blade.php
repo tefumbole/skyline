@@ -78,6 +78,18 @@
                                             </select>
                                         </div>
                                     </div>
+                                @elseif($data->people_type === 'directory' || $data->people_type === 'all')
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label>Recipients</label>
+                                            <p class="form-control-static">
+                                                @foreach(\App\Support\LetterRecipients::decodePeopleJson($data->recipients_json) as $person)
+                                                    <span class="badge badge-info">{{ $person['name'] ?? 'Recipient' }}</span>
+                                                @endforeach
+                                            </p>
+                                            <small class="text-muted">These recipients stay on the letter. Forwarding and OK do not change who receives it.</small>
+                                        </div>
+                                    </div>
                                 @else
                                     <div class="col-md-6 csv">
                                         <div class="form-group">

@@ -1697,31 +1697,81 @@ class ReportController extends Controller
             $query->where('warehouse_id', $warehouse_id);
         }
         $sales = $query->get();
-        $variantNames = $this->saleVariantNames($sales);
-        $totals = [
-            'count' => $sales->count(),
-            'qty' => (float) $sales->sum('total_qty'),
-            'grand' => (float) $sales->sum('grand_total'),
-            'paid' => (float) $sales->sum('paid_amount'),
-            'due' => (float) $sales->sum(function ($sale) {
-                return (float) $sale->grand_total - (float) $sale->paid_amount;
-            }),
-        ];
+        $lines = $this->saleReportLines($sales, $this->saleVariantNames($sales));
+        $total = 0;
+        foreach ($lines as $line) {
+            $total += $line['total'];
+        }
 
         if ($request->input('export') === 'csv') {
-            return $this->downloadSalesCsv($sales, $variantNames, $start_date, $end_date);
+            return $this->downloadSalesCsv($lines, $start_date, $end_date);
         }
         if ($request->input('export') === 'pdf') {
             $pdf = \PDF::loadView('pdf.sales_report', compact(
-                'sales', 'variantNames', 'start_date', 'end_date', 'warehouse_name', 'totals'
+                'lines', 'start_date', 'end_date', 'warehouse_name', 'total'
             ))->setPaper('a4', 'portrait');
 
             return $pdf->download('sales-'.$start_date.'-to-'.$end_date.'.pdf');
         }
 
         return view('report.sales_by_date', compact(
-            'sales', 'variantNames', 'start_date', 'end_date', 'warehouse_id', 'warehouse_name', 'lims_warehouse_list', 'totals'
+            'lines', 'start_date', 'end_date', 'warehouse_id', 'warehouse_name', 'lims_warehouse_list', 'total'
         ));
+    }
+
+    protected function saleReportLines($sales, array $variantNames)
+    {
+        $rows = [];
+        foreach ($sales as $sale) {
+            $warehouse = $sale->warehouse ? $sale->warehouse->name : '';
+            $when = date('d-m-Y H:i', strtotime($sale->created_at));
+            $products = $sale->products;
+            if ($products->isEmpty()) {
+                $rows[] = [
+                    'date' => $when,
+                    'reference' => $sale->reference_no,
+                    'product' => '',
+                    'qty' => (float) $sale->total_qty,
+                    'price' => 0,
+                    'warehouse' => $warehouse,
+                    'total' => (float) $sale->grand_total,
+                ];
+                continue;
+            }
+            foreach ($products as $line) {
+                $qty = (float) $line->qty;
+                $amount = (float) $line->total;
+                $price = (float) $line->net_unit_price;
+                if ($price <= 0 && $qty > 0 && $amount > 0) {
+                    $price = $amount / $qty;
+                }
+                if ($amount <= 0 && $price > 0) {
+                    $amount = $price * $qty;
+                }
+                if ($amount <= 0 && $products->count() === 1) {
+                    $amount = (float) $sale->grand_total;
+                    $price = $qty > 0 ? $amount / $qty : $amount;
+                }
+                if ($qty <= 0 && $amount <= 0) {
+                    continue;
+                }
+                $name = $line->product ? $line->product->name : 'Item';
+                if ($line->variant_id && isset($variantNames[$line->variant_id])) {
+                    $name .= ' ['.$variantNames[$line->variant_id].']';
+                }
+                $rows[] = [
+                    'date' => $when,
+                    'reference' => $sale->reference_no,
+                    'product' => $name,
+                    'qty' => $qty,
+                    'price' => $price,
+                    'warehouse' => $warehouse,
+                    'total' => $amount,
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     protected function reportDate($value, $fallback)
@@ -1752,57 +1802,23 @@ class ReportController extends Controller
         return Variant::whereIn('id', array_unique($ids))->pluck('name', 'id')->all();
     }
 
-    protected function downloadSalesCsv($sales, array $variantNames, $start_date, $end_date)
+    protected function downloadSalesCsv(array $lines, $start_date, $end_date)
     {
         $filename = 'sales-'.$start_date.'-to-'.$end_date.'.csv';
 
-        return response()->streamDownload(function () use ($sales, $variantNames) {
+        return response()->streamDownload(function () use ($lines) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Date', 'Reference', 'Customer', 'Warehouse', 'Cashier', 'Product', 'Qty', 'Unit price', 'Discount', 'Tax', 'Line total', 'Sale total', 'Paid', 'Due']);
-            foreach ($sales as $sale) {
-                $due = (float) $sale->grand_total - (float) $sale->paid_amount;
-                $lines = $sale->products;
-                if ($lines->isEmpty()) {
-                    fputcsv($out, [
-                        date('Y-m-d H:i', strtotime($sale->created_at)),
-                        $sale->reference_no,
-                        $sale->customer ? $sale->customer->name : '',
-                        $sale->warehouse ? $sale->warehouse->name : '',
-                        $sale->user ? $sale->user->name : '',
-                        '',
-                        $sale->total_qty,
-                        '',
-                        $sale->total_discount,
-                        $sale->total_tax,
-                        '',
-                        $sale->grand_total,
-                        $sale->paid_amount,
-                        $due,
-                    ]);
-                    continue;
-                }
-                foreach ($lines as $index => $line) {
-                    $name = $line->product ? $line->product->name : 'Item';
-                    if ($line->variant_id && isset($variantNames[$line->variant_id])) {
-                        $name .= ' ['.$variantNames[$line->variant_id].']';
-                    }
-                    fputcsv($out, [
-                        $index === 0 ? date('Y-m-d H:i', strtotime($sale->created_at)) : '',
-                        $index === 0 ? $sale->reference_no : '',
-                        $index === 0 ? ($sale->customer ? $sale->customer->name : '') : '',
-                        $index === 0 ? ($sale->warehouse ? $sale->warehouse->name : '') : '',
-                        $index === 0 ? ($sale->user ? $sale->user->name : '') : '',
-                        $name,
-                        $line->qty,
-                        $line->net_unit_price,
-                        $line->discount,
-                        $line->tax,
-                        $line->total,
-                        $index === 0 ? $sale->grand_total : '',
-                        $index === 0 ? $sale->paid_amount : '',
-                        $index === 0 ? $due : '',
-                    ]);
-                }
+            fputcsv($out, ['Date', 'Reference', 'Product', 'Qty', 'Price', 'Warehouse', 'Total']);
+            foreach ($lines as $line) {
+                fputcsv($out, [
+                    $line['date'],
+                    $line['reference'],
+                    $line['product'],
+                    $line['qty'],
+                    $line['price'],
+                    $line['warehouse'],
+                    $line['total'],
+                ]);
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv']);

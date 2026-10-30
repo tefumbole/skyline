@@ -2,92 +2,70 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Detailed Sale Report</title>
+    <title>Sale Report</title>
     @include('pdf.partials._invoice_styles')
     <style type="text/css">
-        table.sale-lines { width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 9px; }
-        table.sale-lines th, table.sale-lines td { border: 1px solid #dfe3ec; padding: 3px 4px; }
-        table.sale-lines th { background: #0c1830; color: #fffaf3; text-align: left; }
+        .period { text-align: center; margin: 0 0 10px; font-size: 11px; }
+        table.sale-lines { width: 100%; border-collapse: collapse; margin: 0; font-size: 9px; }
+        table.sale-lines th, table.sale-lines td {
+            border: 1px solid #c5cedd;
+            padding: 5px 6px;
+            vertical-align: middle;
+        }
+        table.sale-lines th {
+            background: #0c1830;
+            color: #fffaf3;
+            text-align: left;
+            font-weight: bold;
+        }
         table.sale-lines td.num, table.sale-lines th.num { text-align: right; }
-        tr.sale-head td { background: #f4efe4; font-weight: bold; }
-        .period { text-align: center; margin: 0 0 8px; font-size: 11px; }
-        .totals { width: 100%; border-collapse: collapse; margin: 0 0 10px; }
-        .totals td { border: 1px solid #dfe3ec; padding: 5px 6px; width: 25%; background: #f8f9fc; }
+        table.sale-lines tbody tr { page-break-inside: avoid; }
+        table.sale-lines tfoot td {
+            background: #f4efe4;
+            font-weight: bold;
+            border-top: 2px solid #0c1830;
+        }
     </style>
 </head>
 <body>
 @include('pdf.partials._invoice_open')
-@php
-    $money = function ($amount) {
-        return number_format((float) $amount, 0);
-    };
-@endphp
-<div class="inv-title">Detailed Sale Report</div>
+<div class="inv-title">Sale Report</div>
 <p class="period">{{ date('j F Y', strtotime($start_date)) }} to {{ date('j F Y', strtotime($end_date)) }} · {{ $warehouse_name }}</p>
-<table class="totals">
-    <tr>
-        <td><strong>Sales</strong><br>{{ $totals['count'] }}</td>
-        <td><strong>Grand total</strong><br>{{ $money($totals['grand']) }}</td>
-        <td><strong>Paid</strong><br>{{ $money($totals['paid']) }}</td>
-        <td><strong>Due</strong><br>{{ $money($totals['due']) }}</td>
-    </tr>
-</table>
 <table class="sale-lines">
     <thead>
         <tr>
+            <th>Date</th>
+            <th>Reference</th>
             <th>Product</th>
             <th class="num">Qty</th>
-            <th class="num">Unit price</th>
-            <th class="num">Discount</th>
-            <th class="num">Tax</th>
-            <th class="num">Line total</th>
+            <th class="num">Price</th>
+            <th>Warehouse</th>
+            <th class="num">Total</th>
         </tr>
     </thead>
     <tbody>
-        @forelse($sales as $sale)
-            @php
-                $due = (float) $sale->grand_total - (float) $sale->paid_amount;
-                $pay = (int) $sale->payment_status === 4 ? 'Paid' : ((int) $sale->payment_status === 3 ? 'Partial' : ((int) $sale->payment_status === 2 ? 'Due' : 'Pending'));
-            @endphp
-            <tr class="sale-head">
-                <td colspan="6">
-                    {{ date('Y-m-d H:i', strtotime($sale->created_at)) }}
-                    · {{ $sale->reference_no }}
-                    · {{ $sale->customer ? $sale->customer->name : 'Walk-in' }}
-                    · {{ $sale->warehouse ? $sale->warehouse->name : '' }}
-                    @if($sale->user) · {{ $sale->user->name }} @endif
-                    · {{ $pay }}
-                    · Total {{ $money($sale->grand_total) }}
-                    · Paid {{ $money($sale->paid_amount) }}
-                    · Due {{ $money($due) }}
-                </td>
+        @forelse($lines as $line)
+            <tr>
+                <td>{{ $line['date'] }}</td>
+                <td>{{ $line['reference'] }}</td>
+                <td>{{ $line['product'] }}</td>
+                <td class="num">{{ number_format((float) $line['qty'], 0) }}</td>
+                <td class="num">{{ number_format((float) $line['price'], 0) }}</td>
+                <td>{{ $line['warehouse'] }}</td>
+                <td class="num">{{ number_format((float) $line['total'], 0) }}</td>
             </tr>
-            @foreach($sale->products as $line)
-                @php
-                    $name = $line->product ? $line->product->name : 'Item';
-                    if ($line->variant_id && isset($variantNames[$line->variant_id])) {
-                        $name .= ' ['.$variantNames[$line->variant_id].']';
-                    }
-                @endphp
-                <tr>
-                    <td>{{ $name }}</td>
-                    <td class="num">{{ $line->qty + 0 }}</td>
-                    <td class="num">{{ $money($line->net_unit_price) }}</td>
-                    <td class="num">{{ $money($line->discount) }}</td>
-                    <td class="num">{{ $money($line->tax) }}</td>
-                    <td class="num">{{ $money($line->total) }}</td>
-                </tr>
-            @endforeach
         @empty
             <tr>
-                <td colspan="6">No sales in this period.</td>
+                <td colspan="7">No sales in this period.</td>
             </tr>
         @endforelse
-        <tr class="sale-head">
-            <td colspan="5" class="num">Period total</td>
-            <td class="num">{{ $money($totals['grand']) }}</td>
-        </tr>
     </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="6">Total</td>
+            <td class="num">{{ number_format((float) $total, 0) }}</td>
+        </tr>
+    </tfoot>
 </table>
 @include('pdf.partials._invoice_close')
 </body>

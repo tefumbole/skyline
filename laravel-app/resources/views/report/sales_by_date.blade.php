@@ -1,137 +1,76 @@
 @extends('layout.main')
 @section('content')
 @php
-    $money = function ($amount) {
-        return number_format((float) $amount, 0);
-    };
-    $query = ['start_date' => $start_date, 'end_date' => $end_date, 'warehouse_id' => $warehouse_id];
+    $pdfQuery = ['start_date' => $start_date, 'end_date' => $end_date, 'warehouse_id' => $warehouse_id, 'export' => 'pdf'];
 @endphp
 <section class="forms">
     <div class="container-fluid">
         <div class="card">
             <div class="card-header mt-2">
-                <h3 class="text-center">Detailed Sale Report</h3>
-                <p class="text-center mb-0">{{ date('j F Y', strtotime($start_date)) }} to {{ date('j F Y', strtotime($end_date)) }} · {{ $warehouse_name }}</p>
+                <h4 class="text-center">{{ trans('file.Sale Report') }}</h4>
             </div>
             <form method="get" action="{{ route('report.sales') }}">
-                <div class="row mb-3">
-                    <div class="col-md-3 offset-md-1 mt-3">
-                        <label><strong>From</strong></label>
-                        <input type="date" name="start_date" class="form-control" value="{{ $start_date }}" required>
-                    </div>
-                    <div class="col-md-3 mt-3">
-                        <label><strong>To</strong></label>
-                        <input type="date" name="end_date" class="form-control" value="{{ $end_date }}" required>
-                    </div>
-                    <div class="col-md-3 mt-3">
-                        <label><strong>{{ trans('file.Warehouse') }}</strong></label>
-                        <select name="warehouse_id" class="form-control">
-                            <option value="0">{{ trans('file.All Warehouse') }}</option>
-                            @foreach($lims_warehouse_list as $warehouse)
-                                <option value="{{ $warehouse->id }}" @if((int) $warehouse_id === (int) $warehouse->id) selected @endif>{{ $warehouse->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-2 mt-3">
-                        <label class="d-block">&nbsp;</label>
-                        <button class="btn btn-primary" type="submit">{{ trans('file.submit') }}</button>
+                <div class="col-md-8 offset-md-2 mt-4 mb-3">
+                    <div class="form-group row">
+                        <label class="d-tc mt-2"><strong>{{ trans('file.Choose Your Date') }}</strong> &nbsp;</label>
+                        <div class="d-tc">
+                            <div class="input-group">
+                                <input type="text" class="daterangepicker-field form-control" value="{{ $start_date }} To {{ $end_date }}" required />
+                                <input type="hidden" name="start_date" value="{{ $start_date }}" />
+                                <input type="hidden" name="end_date" value="{{ $end_date }}" />
+                                <select name="warehouse_id" class="form-control" style="max-width:180px;">
+                                    <option value="0">{{ trans('file.All Warehouse') }}</option>
+                                    @foreach($lims_warehouse_list as $warehouse)
+                                        <option value="{{ $warehouse->id }}" @if((int) $warehouse_id === (int) $warehouse->id) selected @endif>{{ $warehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="input-group-append">
+                                    <button class="btn btn-primary" type="submit">{{ trans('file.submit') }}</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </form>
-            <p class="px-3">
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('report.sales', ['start_date' => date('Y-m-d'), 'end_date' => date('Y-m-d'), 'warehouse_id' => $warehouse_id]) }}">Today</a>
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('report.sales', ['start_date' => date('Y-m-01'), 'end_date' => date('Y-m-t'), 'warehouse_id' => $warehouse_id]) }}">This month</a>
-                <a class="btn btn-sm btn-primary" href="{{ route('report.sales', $query + ['export' => 'pdf']) }}">Export PDF</a>
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('report.sales', $query + ['export' => 'csv']) }}">Export CSV</a>
-            </p>
-            <div class="row px-3 pb-3">
-                <div class="col-md-3"><strong>{{ $totals['count'] }}</strong> sales</div>
-                <div class="col-md-3"><strong>Grand total</strong> {{ $money($totals['grand']) }}</div>
-                <div class="col-md-3"><strong>Paid</strong> {{ $money($totals['paid']) }}</div>
-                <div class="col-md-3"><strong>Due</strong> {{ $money($totals['due']) }}</div>
-            </div>
         </div>
     </div>
     <div class="table-responsive mb-4">
-        <table class="table table-bordered">
+        <table id="report-table" class="table table-hover" data-pdf="{{ route('report.sales', $pdfQuery) }}">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Reference</th>
-                    <th>Customer</th>
-                    <th>Product</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Unit price</th>
-                    <th class="text-right">Discount</th>
-                    <th class="text-right">Tax</th>
-                    <th class="text-right">Line total</th>
+                    <th class="not-exported"></th>
+                    <th>{{ trans('file.Date') }}</th>
+                    <th>{{ trans('file.reference') }}</th>
+                    <th>{{ trans('file.product') }}</th>
+                    <th>{{ trans('file.Qty') }}</th>
+                    <th>{{ trans('file.Price') }}</th>
+                    <th>{{ trans('file.Warehouse') }}</th>
+                    <th>{{ trans('file.Total') }}</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($sales as $sale)
-                    @php
-                        $due = (float) $sale->grand_total - (float) $sale->paid_amount;
-                        $lines = $sale->products;
-                        $pay = (int) $sale->payment_status === 4 ? 'Paid' : ((int) $sale->payment_status === 3 ? 'Partial' : ((int) $sale->payment_status === 2 ? 'Due' : 'Pending'));
-                    @endphp
-                    <tr class="table-active">
-                        <td>{{ date('Y-m-d H:i', strtotime($sale->created_at)) }}</td>
-                        <td>{{ $sale->reference_no }}</td>
-                        <td colspan="4">
-                            {{ $sale->customer ? $sale->customer->name : 'Walk-in' }}
-                            · {{ $sale->warehouse ? $sale->warehouse->name : '' }}
-                            @if($sale->user) · {{ $sale->user->name }} @endif
-                            · {{ $pay }}
-                        </td>
-                        <td class="text-right" colspan="3">
-                            Total {{ $money($sale->grand_total) }}
-                            · Paid {{ $money($sale->paid_amount) }}
-                            · Due {{ $money($due) }}
-                        </td>
-                    </tr>
-                    @forelse($lines as $line)
-                        @php
-                            $name = $line->product ? $line->product->name : 'Item';
-                            if ($line->variant_id && isset($variantNames[$line->variant_id])) {
-                                $name .= ' ['.$variantNames[$line->variant_id].']';
-                            }
-                        @endphp
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td>{{ $name }}</td>
-                            <td class="text-right">{{ $line->qty + 0 }}</td>
-                            <td class="text-right">{{ $money($line->net_unit_price) }}</td>
-                            <td class="text-right">{{ $money($line->discount) }}</td>
-                            <td class="text-right">{{ $money($line->tax) }}</td>
-                            <td class="text-right">{{ $money($line->total) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="9" class="text-muted">No line items on this sale.</td>
-                        </tr>
-                    @endforelse
-                    @if((float) $sale->order_discount || (float) $sale->order_tax || (float) $sale->shipping_cost)
-                        <tr>
-                            <td colspan="9" class="text-right text-muted">
-                                @if((float) $sale->order_discount) Order discount {{ $money($sale->order_discount) }} @endif
-                                @if((float) $sale->order_tax) · Order tax {{ $money($sale->order_tax) }} @endif
-                                @if((float) $sale->shipping_cost) · Shipping {{ $money($sale->shipping_cost) }} @endif
-                            </td>
-                        </tr>
-                    @endif
-                @empty
+                @foreach($lines as $key => $line)
                     <tr>
-                        <td colspan="9" class="text-center">No sales in this period.</td>
+                        <td>{{ $key }}</td>
+                        <td>{{ $line['date'] }}</td>
+                        <td>{{ $line['reference'] }}</td>
+                        <td>{{ $line['product'] }}</td>
+                        <td>{{ number_format((float) $line['qty'], 0, '.', '') }}</td>
+                        <td>{{ number_format((float) $line['price'], 2, '.', '') }}</td>
+                        <td>{{ $line['warehouse'] }}</td>
+                        <td>{{ number_format((float) $line['total'], 2, '.', '') }}</td>
                     </tr>
-                @endforelse
+                @endforeach
             </tbody>
-            <tfoot>
-                <tr>
-                    <th colspan="8" class="text-right">Period total</th>
-                    <th class="text-right">{{ $money($totals['grand']) }}</th>
-                </tr>
+            <tfoot class="tfoot active">
+                <th></th>
+                <th>{{ trans('file.Total') }}:</th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th>0.00</th>
             </tfoot>
         </table>
     </div>
@@ -140,5 +79,90 @@
     $("ul#report").siblings('a').attr('aria-expanded','true');
     $("ul#report").addClass("show");
     $("ul#report #sale-report-menu").addClass("active");
+
+    var salesPdf = $('#report-table').data('pdf');
+
+    $('#report-table').DataTable({
+        order: [],
+        language: {
+            lengthMenu: '_MENU_ {{ trans("file.records per page") }}',
+            info: '<small>{{ trans("file.Showing") }} _START_ - _END_ (_TOTAL_)</small>',
+            search: '{{ trans("file.Search") }}',
+            paginate: {
+                previous: '<i class="dripicons-chevron-left"></i>',
+                next: '<i class="dripicons-chevron-right"></i>'
+            }
+        },
+        columnDefs: [
+            {
+                orderable: false,
+                targets: 0
+            },
+            {
+                render: function (data, type) {
+                    if (type === 'display') {
+                        data = '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>';
+                    }
+                    return data;
+                },
+                checkboxes: {
+                    selectRow: true,
+                    selectAllRender: '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>'
+                },
+                targets: [0]
+            }
+        ],
+        select: { style: 'multi', selector: 'td:first-child' },
+        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        dom: '<"row"lfB>rtip',
+        buttons: [
+            {
+                text: '<i title="export to pdf" class="fa fa-file-pdf-o"></i>',
+                action: function () {
+                    window.location = salesPdf;
+                }
+            },
+            {
+                extend: 'csv',
+                text: '<i title="export to csv" class="fa fa-file-text-o"></i>',
+                exportOptions: {
+                    columns: ':visible:Not(.not-exported)',
+                    rows: ':visible'
+                },
+                footer: true
+            },
+            {
+                extend: 'print',
+                text: '<i title="print" class="fa fa-print"></i>',
+                exportOptions: {
+                    columns: ':visible:Not(.not-exported)',
+                    rows: ':visible'
+                },
+                footer: true
+            },
+            {
+                extend: 'colvis',
+                text: '<i title="column visibility" class="fa fa-eye"></i>',
+                columns: ':gt(0)'
+            }
+        ],
+        drawCallback: function () {
+            datatable_sum(this.api(), false);
+        }
+    });
+
+    function datatable_sum(dt_selector) {
+        $(dt_selector.column(7).footer()).html(dt_selector.column(7, { page: 'current' }).data().sum().toFixed(2));
+    }
+
+    $(".daterangepicker-field").daterangepicker({
+        callback: function (startDate, endDate) {
+            var start_date = startDate.format('YYYY-MM-DD');
+            var end_date = endDate.format('YYYY-MM-DD');
+            $(this).val(start_date + ' To ' + end_date);
+            $('input[name="start_date"]').val(start_date);
+            $('input[name="end_date"]').val(end_date);
+        }
+    });
 </script>
 @endsection

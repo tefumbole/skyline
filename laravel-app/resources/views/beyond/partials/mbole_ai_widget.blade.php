@@ -29,6 +29,7 @@
 .mbole-msg-text{white-space:pre-wrap}
 .mbole-choices,.mbole-links{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .mbole-links a{display:block;text-align:center;text-decoration:none;background:#0c1830;color:#fffaf3;border:1px solid #C5A059;border-radius:8px;padding:8px 10px;font-weight:700}
+.mbole-msg a{color:#C5A059;font-weight:700;text-decoration:underline}
 .mbole-choice{
   display:flex;align-items:center;gap:10px;width:100%;border:1px solid #cbd5e1;border-radius:12px;
   padding:9px 12px;background:#fff;color:#0b3d91;font-size:13px;font-weight:650;cursor:pointer;text-align:left
@@ -473,6 +474,46 @@
     });
   }
 
+  function guestHref(href) {
+    if (!href) return '';
+    if (href.charAt(0) === '/') {
+      return (href.indexOf('/chill-on-the-hill') === 0 || href.indexOf('/menu') === 0) ? href : '';
+    }
+    try {
+      var url = new URL(href);
+      var host = (url.hostname || '').toLowerCase();
+      var path = url.pathname || '';
+      if ((host === 'skylinehotel.org' || host === 'www.skylinehotel.org') && (path.indexOf('/chill-on-the-hill') === 0 || path.indexOf('/menu') === 0)) {
+        return url.href;
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  function fillBody(node, body) {
+    node.textContent = '';
+    var text = String(body || '');
+    var re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|(\/(?:chill-on-the-hill|menu)[^\s<]*)/gi;
+    var last = 0;
+    var match;
+    while ((match = re.exec(text))) {
+      if (match.index > last) node.appendChild(document.createTextNode(text.slice(last, match.index)));
+      var href = guestHref(match[2] || match[3] || match[4] || '');
+      if (href) {
+        var link = document.createElement('a');
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = match[1] || href;
+        node.appendChild(link);
+      } else {
+        node.appendChild(document.createTextNode(match[0]));
+      }
+      last = match.index + match[0].length;
+    }
+    if (last < text.length) node.appendChild(document.createTextNode(text.slice(last)));
+  }
+
   function appendMsg(msg) {
     if (!msg || !msg.id) return;
     if (thread.querySelector('[data-id="' + msg.id + '"]')) return;
@@ -496,7 +537,7 @@
     if (hasChoices) {
       var text = document.createElement('div');
       text.className = 'mbole-msg-text';
-      text.textContent = msg.body || '';
+      fillBody(text, msg.body || '');
       el.appendChild(text);
       var wrap = document.createElement('div');
       wrap.className = 'mbole-choices' + (multi ? ' is-check' : '');
@@ -574,7 +615,7 @@
       }
       el.appendChild(wrap);
     } else {
-      el.textContent = msg.body || '';
+      fillBody(el, msg.body || '');
     }
     if (hasLinks) {
       var links = document.createElement('div');

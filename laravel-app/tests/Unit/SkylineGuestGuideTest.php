@@ -107,5 +107,29 @@ class SkylineGuestGuideTest extends TestCase
         $this->assertStringContainsString('Do not create quotations', $prompt);
         $this->assertStringContainsString('Respond in the customer’s language', $prompt);
         $this->assertStringContainsString('13:00', $prompt);
+        $this->assertStringContainsString('Do not say the tables are unavailable', $prompt);
+        $this->assertStringContainsString('Premium — GUARDEN', $prompt);
+    }
+
+    public function test_dates_are_read_without_one_required_format()
+    {
+        $guide = app(SkylineGuestGuide::class);
+
+        $this->assertSame('2026-12-24', $guide->eventDate('24th December')['date']);
+        $this->assertSame('2026-12-24', $guide->eventDate('24/12/2026')['date']);
+        $this->assertSame('2026-12-24', $guide->eventDate('Christmas Eve')['date']);
+        $this->assertSame('2026-12-26', $guide->eventDate('the 26th')['date']);
+        $this->assertSame('2027-01-01', $guide->eventDate('1 Jan')['date']);
+    }
+
+    public function test_a_table_list_without_a_night_is_not_reported_unavailable()
+    {
+        $menu = app(SkylineGuestGuide::class)->publishedMenu();
+
+        $this->assertTrue($menu['success']);
+        $this->assertStringContainsString('Do not say the tables are unavailable', $menu['instruction']);
+        $this->assertStringContainsString('can be booked', $menu['message']);
+        $this->assertNotEmpty($menu['sections']);
+        $this->assertNotEmpty($menu['links']);
     }
 }

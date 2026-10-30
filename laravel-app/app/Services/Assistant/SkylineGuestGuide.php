@@ -89,6 +89,10 @@ class SkylineGuestGuide
     {
         $parsed = $this->eventDate(isset($params['event_date']) ? $params['event_date'] : (isset($params['date']) ? $params['date'] : ''));
         if (empty($parsed['ok'])) {
+            if (isset($parsed['error']) && $parsed['error'] === 'date_required') {
+                return $this->publishedMenu();
+            }
+
             return $parsed;
         }
         $date = $parsed['date'];
@@ -111,13 +115,27 @@ class SkylineGuestGuide
         }
         $pool = $this->chairPool($date);
         $rows = [];
-        foreach ($query->orderBy('code')->limit(12)->get() as $table) {
+        foreach ($query->orderBy('code')->get() as $table) {
             $rows[] = $this->tableCard($table, $date, $settings, $pricing, $extra, $pool);
+        }
+        $open = 0;
+        foreach ($rows as $row) {
+            if (! empty($row['available'])) {
+                $open++;
+            }
         }
 
         return [
             'success' => true,
             'event_date' => $date,
+            'open_count' => $open,
+            'table_count' => count($rows),
+            'message' => $open > 0
+                ? $open.' tables are open on '.Carbon::parse($date)->format('j F Y').'.'
+                : 'No table is still open on '.Carbon::parse($date)->format('j F Y').'. Another Chill on the Hill night may still have space.',
+            'instruction' => $open > 0
+                ? 'Tell the guest the open tables, sections, and prices. Do not say that the tables are unavailable.'
+                : 'This night is full. Offer another open Chill on the Hill night. Do not say the event has no tables.',
             'currency' => 'XAF',
             'timezone' => $settings ? ($settings->timezone ?: 'Africa/Douala') : 'Africa/Douala',
             'tables' => $rows,
@@ -214,6 +232,7 @@ class SkylineGuestGuide
 
     public function eventDate($value)
     {
+        $allowed = app(CothCatalog::class)->eventDates();
         $raw = trim((string) $value);
         if ($raw === '') {
             return [
@@ -221,15 +240,20 @@ class SkylineGuestGuide
                 'ok' => false,
                 'error' => 'date_required',
                 'message' => 'Which event night? Chill on the Hill books one date at a time.',
-                'event_dates' => app(CothCatalog::class)->eventDates(),
+                'event_dates' => $allowed,
+                'event_dates_spoken' => $this->spokenDates($allowed),
             ];
         }
-        try {
-            $date = Carbon::parse($raw, 'Africa/Douala')->toDateString();
-        } catch (\Throwable $e) {
-            return ['success' => false, 'ok' => false, 'error' => 'invalid_date', 'message' => 'That date could not be read.'];
+        $date = $this->readEventDate($raw, $allowed);
+        if ($date === null) {
+            return [
+                'success' => false,
+                'ok' => false,
+                'error' => 'invalid_date',
+                'message' => 'That date could not be read. Chill on the Hill nights are '.$this->spokenDates($allowed).'.',
+                'event_dates' => $allowed,
+            ];
         }
-        $allowed = app(CothCatalog::class)->eventDates();
         if (! in_array($date, $allowed, true)) {
             return [
                 'success' => false,
@@ -237,10 +261,53 @@ class SkylineGuestGuide
                 'error' => 'outside_event',
                 'message' => 'That date is not an open Chill on the Hill night.',
                 'event_dates' => $allowed,
+                'event_dates_spoken' => $this->spokenDates($allowed),
             ];
         }
 
         return ['ok' => true, 'date' => $date];
+    }
+
+    public function promptFacts()
+    {
+        $dates = $this->spokenDates(app(CothCatalog::class)->eventDates());
+        $lines = [];
+        $lines[] = 'Chill on the Hill brief. Use it for dates, tables, and prices.';
+        $lines[] = 'Open nights: '.$dates.'. Closed inside that span: 28 December 2026 and 29 December 2026. One booking is one night.';
+        $lines[] = 'Deposit is 20 percent of the night price and is not refundable. Apply a discount only when the quote tool returns one.';
+        foreach ($this->resolvedSections() as $section) {
+            $bits = [];
+            foreach ($section['options'] as $option) {
+                $bits[] = $option['capacity'].'-seat '.$option['seating'].' '.number_format($option['list_price_fcfa']).' FCFA ('.$option['tables'].' tables)';
+            }
+            $lines[] = $section['name'].': '.implode('; ', $bits).'.';
+        }
+        $lines[] = 'These tables are published and can be booked on an open night. If the guest asks which tables are available and has not named a night, list these options and the open nights. Do not say the tables are unavailable. A table is unavailable only when that night is Held or Booked.';
+        $lines[] = 'Read a date however the guest writes it: 24th December, 24/12, Dec 24, Christmas Eve, or the 26th.';
+
+        return implode("\n", $lines);
+    }
+
+    public function publishedMenu()
+    {
+        $dates = app(CothCatalog::class)->eventDates();
+        $sections = $this->resolvedSections();
+
+        return [
+            'success' => true,
+            'needs_night' => true,
+            'message' => 'These Chill on the Hill tables can be booked. Open nights: '.$this->spokenDates($dates).'.',
+            'instruction' => 'The guest has not chosen a night. List these published tables, their prices, and the open nights. Do not say the tables are unavailable.',
+            'event_dates' => $dates,
+            'event_dates_spoken' => $this->spokenDates($dates),
+            'closed_dates_inside_span' => ['2026-12-28', '2026-12-29'],
+            'currency' => 'XAF',
+            'deposit_percent' => 20,
+            'sections' => $sections,
+            'links' => $this->safeLinks([
+                $this->link('View Tables', 'coth.index'),
+            ]),
+        ];
     }
 
     public function safeLinks(array $links)
@@ -319,6 +386,9 @@ class SkylineGuestGuide
             'nightly_operating_hours_status' => 'not_configured',
             'discount_percent' => $settings ? (int) $settings->discount_percent : 0,
             'discount_dates' => $discountDates,
+            'sections' => $this->resolvedSections(),
+            'message' => 'Chill on the Hill tables are published. Ask which night the guest wants if they have not chosen one.',
+            'instruction' => 'If the guest asks which tables are available and has not named a night, list the sections, seat counts, and prices. Do not say the tables are unavailable.',
             'deposit_percent' => $settings ? (int) $settings->deposit_percent : 0,
             'deposit_refundable' => false,
             'published_summary' => $publication ? $this->plain($publication->public_summary, 400) : null,
@@ -349,16 +419,34 @@ class SkylineGuestGuide
         $slot = Schema::hasTable('coth_slots')
             ? CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', $date)->first()
             : null;
-        $available = $table->is_active && $slot && $slot->is_enabled && $slot->status === 'open';
+        if (! $table->is_active) {
+            $available = false;
+            $state = 'Closed';
+        } elseif (! $slot) {
+            $available = true;
+            $state = 'Published';
+        } elseif (! $slot->is_enabled) {
+            $available = false;
+            $state = 'Closed';
+        } elseif ($slot->status === 'open') {
+            $available = true;
+            $state = 'Available';
+        } elseif ($slot->status === 'held') {
+            $available = false;
+            $state = 'Held';
+        } else {
+            $available = false;
+            $state = 'Booked';
+        }
 
         return [
             'code' => $table->code,
-            'section' => $table->section ? $table->section->name : null,
+            'section' => $table->section ? $this->guestSectionName($table->section->code, $table->section->name) : null,
             'section_code' => $table->section ? $table->section->code : null,
             'capacity' => (int) $table->capacity,
             'seating_style' => $table->seating_style,
             'available' => (bool) $available,
-            'state' => ! $slot || ! $slot->is_enabled ? 'Closed' : ($slot->status === 'open' ? 'Available' : ($slot->status === 'held' ? 'Held' : 'Booked')),
+            'state' => $state,
             'list_price_fcfa' => (int) $table->price,
             'quote' => $quote,
             'balance_after_deposit_fcfa' => $quote ? ((int) $quote['booking_total'] - (int) $quote['deposit_due']) : null,
@@ -397,6 +485,183 @@ class SkylineGuestGuide
         }
 
         return Category::whereIn('id', $ids)->pluck('name', 'id')->all();
+    }
+
+    protected function resolvedSections()
+    {
+        if (! Schema::hasTable('coth_tables') || ! Schema::hasTable('coth_sections')) {
+            return $this->publishedSections();
+        }
+        try {
+            $tables = CothTable::query()->where('is_active', 1)->with('section')->orderBy('code')->get();
+        } catch (\Throwable $e) {
+            return $this->publishedSections();
+        }
+        if ($tables->isEmpty()) {
+            return $this->publishedSections();
+        }
+        $grouped = [];
+        foreach ($tables as $table) {
+            $code = $table->section ? $table->section->code : 'table';
+            if (! isset($grouped[$code])) {
+                $grouped[$code] = [
+                    'code' => $code,
+                    'name' => $this->guestSectionName($code, $table->section ? $table->section->name : 'Table'),
+                    'options' => [],
+                ];
+            }
+            $key = (int) $table->capacity.'|'.$table->seating_style.'|'.(int) $table->price;
+            if (! isset($grouped[$code]['options'][$key])) {
+                $grouped[$code]['options'][$key] = [
+                    'capacity' => (int) $table->capacity,
+                    'seating' => str_replace('_', ' ', (string) $table->seating_style),
+                    'tables' => 0,
+                    'list_price_fcfa' => (int) $table->price,
+                    'currency' => 'XAF',
+                    'per' => 'table for one event night',
+                ];
+            }
+            $grouped[$code]['options'][$key]['tables']++;
+        }
+        $out = [];
+        foreach ($grouped as $section) {
+            $section['options'] = array_values($section['options']);
+            $out[] = $section;
+        }
+
+        return $out;
+    }
+
+    protected function publishedSections()
+    {
+        $out = [];
+        foreach (app(CothCatalog::class)->sections() as $section) {
+            $options = [];
+            foreach ($section['rows'] as $row) {
+                $options[] = [
+                    'capacity' => (int) $row['capacity'],
+                    'seating' => str_replace('_', ' ', $row['style']),
+                    'tables' => (int) $row['count'],
+                    'list_price_fcfa' => (int) $row['price'],
+                    'currency' => 'XAF',
+                    'per' => 'table for one event night',
+                ];
+            }
+            $out[] = [
+                'code' => $section['code'],
+                'name' => $this->guestSectionName($section['code'], $section['name']),
+                'options' => $options,
+            ];
+        }
+
+        return $out;
+    }
+
+    protected function guestSectionName($code, $fallback)
+    {
+        if ($code === 'yard') {
+            return 'Premium — GUARDEN';
+        }
+
+        return (string) $fallback;
+    }
+
+    protected function spokenDates(array $dates)
+    {
+        $spoken = [];
+        foreach ($dates as $date) {
+            $spoken[] = Carbon::parse($date)->format('j F Y');
+        }
+
+        return implode(', ', $spoken);
+    }
+
+    protected function readEventDate($raw, array $allowed)
+    {
+        $text = strtolower(trim($raw));
+        $text = str_replace(['’', '`'], "'", $text);
+        $text = preg_replace('/(\d+)\s*(st|nd|rd|th)\b/i', '$1', $text);
+        $named = [
+            'christmas eve' => '2026-12-24',
+            'christmas day' => '2026-12-25',
+            'christmas' => '2026-12-25',
+            'boxing day' => '2026-12-26',
+            'new year\'s eve' => '2026-12-31',
+            'new years eve' => '2026-12-31',
+            'new year eve' => '2026-12-31',
+            'new year\'s day' => '2027-01-01',
+            'new years day' => '2027-01-01',
+            'new year' => '2027-01-01',
+            'nouvel an' => '2027-01-01',
+            'noël' => '2026-12-25',
+            'noel' => '2026-12-25',
+            'réveillon' => '2026-12-31',
+            'reveillon' => '2026-12-31',
+        ];
+        foreach ($named as $phrase => $date) {
+            if (strpos($text, $phrase) !== false) {
+                return $date;
+            }
+        }
+        $months = [
+            'janvier' => 'january', 'février' => 'february', 'fevrier' => 'february', 'mars' => 'march',
+            'avril' => 'april', 'mai' => 'may', 'juin' => 'june', 'juillet' => 'july',
+            'août' => 'august', 'aout' => 'august', 'septembre' => 'september', 'octobre' => 'october',
+            'novembre' => 'november', 'décembre' => 'december', 'decembre' => 'december',
+        ];
+        $text = strtr($text, $months);
+        $short = [
+            'jan' => 'january', 'feb' => 'february', 'mar' => 'march', 'apr' => 'april',
+            'jun' => 'june', 'jul' => 'july', 'aug' => 'august', 'sep' => 'september',
+            'sept' => 'september', 'oct' => 'october', 'nov' => 'november', 'dec' => 'december',
+        ];
+        foreach ($short as $from => $to) {
+            $text = preg_replace('/\b'.$from.'\b/', $to, $text);
+        }
+        if (preg_match('/\b(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?\b/', $text, $match)) {
+            $day = (int) $match[1];
+            $month = (int) $match[2];
+            $year = isset($match[3]) && $match[3] !== '' ? (int) $match[3] : 0;
+            if ($month > 12 && $day <= 12) {
+                $swap = $day;
+                $day = $month;
+                $month = $swap;
+            }
+            if ($year > 0 && $year < 100) {
+                $year += 2000;
+            }
+            if ($year === 0) {
+                $year = $month === 1 ? 2027 : 2026;
+            }
+            if ($month >= 1 && $month <= 12 && $day >= 1 && $day <= 31) {
+                return sprintf('%04d-%02d-%02d', $year, $month, $day);
+            }
+        }
+        if (! preg_match('/\d{4}/', $text) && ! preg_match('/january|february|march|april|may|june|july|august|september|october|november|december/', $text)) {
+            if (preg_match('/\b(\d{1,2})\b/', $text, $match)) {
+                $day = sprintf('%02d', (int) $match[1]);
+                foreach ($allowed as $date) {
+                    if (substr($date, -2) === $day) {
+                        return $date;
+                    }
+                }
+            }
+        }
+        if (! preg_match('/\d|january|february|march|april|may|june|july|august|september|october|november|december|christmas|noel|boxing|reveillon|nouvel/', $text)) {
+            return null;
+        }
+        try {
+            $parsed = Carbon::parse($text, 'Africa/Douala');
+            if ((int) $parsed->month === 1 && (int) $parsed->year < 2027) {
+                $parsed->year(2027);
+            } elseif ((int) $parsed->year < 2026) {
+                $parsed->year(2026);
+            }
+
+            return $parsed->toDateString();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     protected function link($label, $route, array $query = [])

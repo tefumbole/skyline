@@ -21,6 +21,8 @@ class ConversationalTurnService
     protected $selector;
     protected $prompts;
 
+    protected $parsedEventDate;
+
     public function __construct(
         AiProviderInterface $provider,
         AssistantToolExecutor $tools,
@@ -52,12 +54,19 @@ class ConversationalTurnService
         $lastModel = AssistantAiConfig::model();
         $toolChoice = 'auto';
         $forceCoth = $this->mentionsCoth($incoming);
+        $asksTables = $this->asksForTables($incoming);
+        $parsedDate = app(SkylineGuestGuide::class)->eventDate($incoming);
+        $this->parsedEventDate = ! empty($parsedDate['ok']) ? $parsedDate['date'] : null;
         $started = microtime(true);
 
         for ($i = 0; $i < $maxIter; $i++) {
-            $toolChoice = ($i === 0 && $forceCoth)
-                ? ['type' => 'function', 'function' => ['name' => 'get_coth_event']]
-                : 'auto';
+            if ($i === 0 && $forceCoth && $asksTables) {
+                $toolChoice = ['type' => 'function', 'function' => ['name' => 'search_coth_tables']];
+            } elseif ($i === 0 && $forceCoth) {
+                $toolChoice = ['type' => 'function', 'function' => ['name' => 'get_coth_event']];
+            } else {
+                $toolChoice = 'auto';
+            }
             $result = $this->provider->complete($messages, [
                 'tools' => $openAiTools,
                 'tool_choice' => $toolChoice,
@@ -245,6 +254,11 @@ class ConversationalTurnService
         return (bool) preg_match('/\b(coth|chill)\b|on the hill/i', (string) $incoming);
     }
 
+    protected function asksForTables($incoming)
+    {
+        return (bool) preg_match('/table|seat|price|how much|available|book/i', (string) $incoming);
+    }
+
     protected function finish(array $payload, $model, array $tools, $toolChoice, $started)
     {
         $payload['handled'] = true;
@@ -333,6 +347,10 @@ class ConversationalTurnService
         }
         unset($args['customer_id'], $args['user_id'], $args['otp_code']);
         $params = array_merge($slots, $args);
+        if (in_array($name, ['search_coth_tables', 'quote_coth_table', 'get_service_links'], true)
+            && empty($params['event_date']) && empty($params['date']) && ! empty($this->parsedEventDate)) {
+            $params['event_date'] = $this->parsedEventDate;
+        }
         $result = $this->tools->execute($name, $params, $context);
         foreach (['event_date', 'coth_table_code', 'coth_section'] as $key) {
             if (! empty($result[$key]) && is_scalar($result[$key])) {

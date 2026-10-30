@@ -21,7 +21,7 @@ class StaffOtp
         }
 
         $role = Role::find($user->role_id);
-        if (! $role || (int) $role->id === 5) {
+        if (! $role) {
             return false;
         }
 

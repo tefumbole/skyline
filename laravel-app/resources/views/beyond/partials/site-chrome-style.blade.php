@@ -157,9 +157,31 @@
         .sky-contact { min-height: 44px; }
     }
     @media (max-width: 860px) {
-        .sky-bar { gap: 10px; padding: 10px max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left)); }
-        .sky-bar .sky-brand { gap: 10px; overflow: hidden; }
-        .sky-menus a { font-size: 13px; letter-spacing: 0.05em; padding: 8px 12px; }
+        .sky-bar {
+            flex-wrap: wrap;
+            row-gap: 8px;
+            gap: 10px;
+            padding: 10px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+        }
+        .sky-bar .sky-brand { gap: 10px; overflow: hidden; flex: 1 1 auto; }
+        .sky-menus {
+            order: 3;
+            flex: 1 1 100%;
+            gap: 6px;
+            padding-bottom: 4px;
+            scroll-snap-type: x mandatory;
+        }
+        .sky-menus a {
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            padding: 0 14px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            scroll-snap-align: start;
+        }
+        .sky-login { min-height: 44px; }
+        input, select, textarea { font-size: 16px; }
         .sky-event { font-size: clamp(10px, 2.7vw, 15px); letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; }
     }
     @media (max-width: 640px) {

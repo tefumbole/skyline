@@ -52,6 +52,9 @@ class HomeController extends Controller
         if (! \App\Support\StaffOtp::required(Auth::user()) && Auth::user()->otp_verify == 0) {
             Auth::user()->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
         }
+        if (Auth::user()->isStationStaff()) {
+            return redirect(\App\Support\AuthIntended::afterLogin(Auth::user(), url('/orders?lane=restaurant&tab=awaiting')));
+        }
         $role = Role::find(Auth::user()->role_id);
         return view('home');
     }
@@ -405,6 +408,9 @@ echo $response;
         }
         if (\App\Support\StaffOtp::required(Auth::user()) && Auth::user()->otp_verify == 0) {
             return redirect()->route('check.otp');
+        }
+        if (Auth::user()->isStationStaff()) {
+            return redirect(\App\Support\AuthIntended::afterLogin(Auth::user(), url('/orders?lane=restaurant&tab=awaiting')));
         }
 
         if(Auth::user()->isAssetStaff()) {

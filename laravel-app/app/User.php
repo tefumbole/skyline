@@ -67,6 +67,14 @@ class User extends Authenticatable
         return $name === 'asset' || $name === 'assets' || $name === 'asset manager';
     }
 
+    /** Kitchen, bar, and floor staff. Their home is the order queue. */
+    public function isStationStaff()
+    {
+        $name = strtolower($this->roleName());
+
+        return in_array($name, ['restaurant', 'bar', 'waiter'], true);
+    }
+
     /**
      * Hotel administrator (role 1) or Super Admin. Owner tools such as
      * WhatsApp Hub stay on Super Admin only.

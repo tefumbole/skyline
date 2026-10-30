@@ -32,7 +32,19 @@
         .sky-actions .btn-primary { background:#0c1830; border-color:#0c1830; color:#e1b368; font-weight:700; border-radius:999px; }
         .sky-empty { background:#fff; border:1px dashed #d7deea; border-radius:16px; padding:28px; color:#5c6b80; }
         .sky-note { margin:8px 0 0; padding:8px 10px; border-radius:12px; background:#f6f0e4; color:#6a5420; font-size:13px; }
+        .sky-accept { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+        .sky-accept input { width:110px; }
         @media (max-width:900px) { .sky-ticket { grid-template-columns:1fr; } }
+        @media (max-width:640px) {
+            .sky-head h1 { font-size:22px; }
+            .sky-tabs { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+            .sky-tabs a { min-height:44px; display:inline-flex; align-items:center; flex:0 0 auto; }
+            .sky-actions .btn, .sky-actions form { width:100%; }
+            .sky-accept { width:100%; }
+            .sky-accept input { flex:1; width:auto; min-height:44px; font-size:16px; }
+            .sky-actions .btn { min-height:44px; }
+            .sky-item { font-size:18px; }
+        }
     </style>
     <section class="container-fluid">
         @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
@@ -109,7 +121,7 @@
                         @if($item->status === 'awaiting' && ($canAdd || $canDelete))
                             <div style="margin-bottom:8px;">
                                 @if($canAdd)
-                                    <form method="post" action="{{ route('restaurant.accept', $item->id) }}" style="display:inline-flex;gap:6px;align-items:center;">
+                                    <form method="post" action="{{ route('restaurant.accept', $item->id) }}" class="sky-accept">
                                         @csrf
                                         <input class="form-control" type="number" name="minutes" min="1" max="240" required placeholder="Minutes" title="How long this will take to prepare" style="width:110px;">
                                         <button class="btn btn-primary" type="submit">Accept</button>

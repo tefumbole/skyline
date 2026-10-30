@@ -3,6 +3,17 @@
 @section('title', 'Deposit')
 @section('meta_description', 'Deposit to Skyline Hotel with MTN, Orange, VISA, or crypto.')
 
+@push('head')
+<style>
+    #donateForm input, #donateForm select, #donateForm textarea { min-height: 48px; font-size: 16px; }
+    #donateForm textarea { min-height: 96px; }
+    #donateForm button { min-height: 48px; }
+    @media (max-width: 520px) {
+        .donate-phone-row, .donate-pay-row { flex-direction: column; }
+        .donate-phone-row select { max-width: none; width: 100%; }
+    }
+</style>
+@endpush
 @section('content')
 <section class="py-10 sm:py-14 bg-slate-50">
     <div class="max-w-xl mx-auto px-4">
@@ -20,7 +31,7 @@
             <form method="POST" action="{{ route('payments.deposit.store') }}" id="donateForm">
                 @csrf
                 <label class="block text-sm font-semibold mb-1" for="donatePhone">Phone number</label>
-                <div class="flex gap-2 mb-1">
+                <div class="flex gap-2 mb-1 donate-phone-row">
                     <select id="donateCountry" name="country_code" class="border border-slate-300 rounded-lg px-2 py-2 bg-white max-w-[46%]" aria-label="Country code">
                         @foreach(\App\Support\CountryDialCodes::all() as $code => $label)
                             <option value="{{ $code }}" {{ old('country_code', '+237') === $code ? 'selected' : '' }}>{{ $label }}</option>
@@ -35,7 +46,7 @@
                 <input id="donateAmount" name="amount" type="number" required min="100" max="1000000" step="1" value="{{ old('amount') }}" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4">
                 <label class="block text-sm font-semibold mb-1" for="donateNote">Note</label>
                 <textarea id="donateNote" name="note" maxlength="180" rows="3" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-5" placeholder="What this deposit is for">{{ old('note') }}</textarea>
-                <div class="flex gap-2">
+                <div class="flex gap-2 donate-pay-row">
                     <button class="flex-1 min-w-0 rounded-full bg-brand-blue text-white font-bold py-3 px-2 text-sm" type="submit" name="method" value="momo">Momo/OM</button>
                     <button class="flex-1 min-w-0 rounded-full border border-brand-blue text-brand-blue font-bold py-3 px-2 text-sm bg-white" type="submit" name="method" value="visa">VISA</button>
                     <button class="flex-1 min-w-0 rounded-full border border-brand-gold text-brand-blue font-bold py-3 px-2 text-sm bg-white" type="submit" name="method" value="crypto">Crypto</button>

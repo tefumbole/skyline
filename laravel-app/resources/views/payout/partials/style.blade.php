@@ -69,5 +69,10 @@
     @media (max-width: 700px) {
         .pay-total { font-size: 26px; }
         .pay-card-body, .pay-card-head { padding-left: 12px; padding-right: 12px; }
+        .pay-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+        .pay-tabs .btn { flex: 0 0 auto; min-height: 44px; }
+        .pay-open, .pay-danger, .pay-go, .pay-new { min-height: 44px; }
+        .pay-app .form-control, .pay-app input, .pay-app select, .pay-app textarea { font-size: 16px; min-height: 44px; }
+        .pay-table { font-size: 13px; }
     }
 </style>

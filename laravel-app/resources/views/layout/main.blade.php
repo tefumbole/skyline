@@ -1394,6 +1394,39 @@
                 section {
                     padding-top: 12px;
                 }
+                .side-menu > li > a,
+                .side-menu .collapse li a {
+                    min-height: 44px;
+                    display: flex;
+                    align-items: center;
+                }
+                .form-control, .btn, select.form-control {
+                    min-height: 44px;
+                    font-size: 16px;
+                }
+                .btn-sm { min-height: 40px; font-size: 14px; }
+                .modal-dialog {
+                    width: auto;
+                    margin: 12px;
+                    max-width: calc(100vw - 24px);
+                }
+                .pull-right {
+                    float: none !important;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+                .pull-right .btn { flex: 1 1 calc(50% - 8px); }
+                .dataTables_wrapper .dataTables_length,
+                .dataTables_wrapper .dataTables_filter {
+                    float: none;
+                    text-align: left;
+                }
+                .dataTables_wrapper .dataTables_filter input {
+                    width: 100%;
+                    margin-left: 0;
+                    min-height: 44px;
+                }
             }
 
             @media (min-width: 1200px) {
@@ -1452,7 +1485,7 @@
               </div>
                 <div class="main-menu">
                     <ul id="side-main-menu" class="side-menu list-unstyled">
-                        @if(!Auth::user()->isAssetStaff())
+                        @if(!Auth::user()->isAssetStaff() && !Auth::user()->isStationStaff())
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
                         @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)

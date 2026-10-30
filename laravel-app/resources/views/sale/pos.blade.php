@@ -125,14 +125,15 @@
         body.beyond-pos-active .pos-item-note { margin-top: 6px; }
         body.beyond-pos-active .pos-service-bar {
             display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 12px;
-            margin: 12px 0 4px;
-            padding: 12px;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 8px;
+            padding: 6px 8px;
             background: #fffaf3;
             border: 1px solid #C5A059;
-            border-radius: 16px;
+            border-radius: 12px;
+            overflow-x: auto;
         }
         body.beyond-pos-active .pos-service-toggle {
             display: flex;
@@ -145,7 +146,8 @@
         body.beyond-pos-active .pos-service-toggle input { position: absolute; opacity: 0; }
         body.beyond-pos-active .pos-service-toggle span {
             display: block;
-            padding: 9px 14px;
+            padding: 6px 10px;
+            font-size: 13px;
             font-weight: 700;
             color: #3f2a12;
             white-space: nowrap;
@@ -157,25 +159,29 @@
         }
         body.beyond-pos-active .pos-service-field {
             display: flex;
-            flex-direction: column;
-            gap: 4px;
-            min-width: 180px;
-            flex: 1;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            flex: 1 1 auto;
             margin: 0;
         }
         body.beyond-pos-active .pos-service-field > span {
             font-size: 11px;
-            letter-spacing: .08em;
+            letter-spacing: .06em;
             text-transform: uppercase;
             color: #8a6230;
             font-weight: 700;
+            white-space: nowrap;
         }
         body.beyond-pos-active .pos-service-field select {
-            width: 100%;
-            height: 40px;
+            width: auto;
+            min-width: 140px;
+            max-width: 220px;
+            height: 34px;
             border: 1px solid #C5A059;
-            border-radius: 12px;
-            padding: 0 12px;
+            border-radius: 10px;
+            padding: 0 10px;
             background: #fff;
             color: #1a1208;
             font-weight: 600;
@@ -1442,6 +1448,90 @@
                                 ['permissions.name', 'customers-add'],
                                 ['role_id', \Auth::user()->role_id] ])->first();
                             @endphp
+@if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
+                                    <div class="pos-service-bar">
+                                        <div class="pos-service-toggle" role="group" aria-label="Service">
+                                            <label><input type="radio" name="service_type" value="dine_in" checked><span>Dine in</span></label>
+                                            <label><input type="radio" name="service_type" value="take_away"><span>Take away</span></label>
+                                            <label><input type="radio" name="service_type" value=""><span>Not an order</span></label>
+                                        </div>
+                                        @php
+                                            $posWaiterId = (int) auth()->id();
+                                            $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
+                                            $posWaiterIds = [];
+                                            foreach ($posWaiters as $posWaiter) {
+                                                $posWaiterIds[] = (int) $posWaiter->id;
+                                            }
+                                        @endphp
+                                        <label class="pos-service-field">
+                                            <span>Waitress / waiter</span>
+                                            <select name="waitress_user_id">
+                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
+                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
+                                                @endif
+                                                @foreach($posWaiters as $person)
+                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </label>
+                                        @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
+                                        <label class="pos-service-field" for="restaurant_table_id">
+                                            <span>Assign table</span>
+                                            <select name="restaurant_table_id" id="restaurant_table_id">
+                                                <option value="">Select table</option>
+                                                @foreach(\App\RestaurantTable::numbered() as $table)
+                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
+                                                @endforeach
+                                            </select>
+                                        </label>
+                                        @endif
+                                    </div>
+                                    <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+                                        <div role="document" class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Create table</h5>
+                                                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="form-group"><label>Name</label><input id="new-table-name" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Description</label><input id="new-table-description" class="form-control" type="text"></div>
+                                                    <div class="form-group"><label>Number of persons</label><input id="new-table-capacity" class="form-control" type="number" min="1"></div>
+                                                    <button type="button" class="btn btn-primary" id="save-new-table">Add table</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <script>
+                                        (function () {
+                                            var button = document.getElementById('save-new-table');
+                                            if (!button) return;
+                                            button.addEventListener('click', function () {
+                                                var name = document.getElementById('new-table-name').value;
+                                                var body = new FormData();
+                                                body.append('name', name);
+                                                body.append('description', document.getElementById('new-table-description').value);
+                                                body.append('capacity', document.getElementById('new-table-capacity').value);
+                                                body.append('_token', '{{ csrf_token() }}');
+                                                fetch('{{ route('restaurant.tables.store') }}', {
+                                                    method: 'POST',
+                                                    headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'},
+                                                    body: body,
+                                                    credentials: 'same-origin'
+                                                }).then(function (res) { return res.json(); }).then(function (data) {
+                                                    if (!data || !data.id) return;
+                                                    var select = document.getElementById('restaurant_table_id');
+                                                    var option = document.createElement('option');
+                                                    option.value = data.id;
+                                                    option.textContent = data.label || data.name;
+                                                    option.selected = true;
+                                                    select.appendChild(option);
+                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
+                                                });
+                                            });
+                                        })();
+                                    </script>
+                                    @endif
                             <div class="row">
                                 <div class="col-md-12">
                                     <div class="row">
@@ -1638,90 +1728,6 @@
                                             </div>
                                         </div>
                                     </div>
-@if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables') && (\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders')))
-                                    <div class="pos-service-bar">
-                                        <div class="pos-service-toggle" role="group" aria-label="Service">
-                                            <label><input type="radio" name="service_type" value="dine_in" checked><span>Dine in</span></label>
-                                            <label><input type="radio" name="service_type" value="take_away"><span>Take away</span></label>
-                                            <label><input type="radio" name="service_type" value=""><span>Not an order</span></label>
-                                        </div>
-                                        @php
-                                            $posWaiterId = (int) auth()->id();
-                                            $posWaiters = \App\Services\Restaurant\RestaurantAccess::usersWithPermission('waiter-orders');
-                                            $posWaiterIds = [];
-                                            foreach ($posWaiters as $posWaiter) {
-                                                $posWaiterIds[] = (int) $posWaiter->id;
-                                            }
-                                        @endphp
-                                        <label class="pos-service-field">
-                                            <span>Waitress / waiter</span>
-                                            <select name="waitress_user_id">
-                                                @if($posWaiterId && ! in_array($posWaiterId, $posWaiterIds, true))
-                                                    <option value="{{ $posWaiterId }}" selected>{{ auth()->user()->name }}</option>
-                                                @endif
-                                                @foreach($posWaiters as $person)
-                                                    <option value="{{ $person->id }}" @if((int) $person->id === $posWaiterId) selected @endif>{{ $person->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </label>
-                                        @if(\Illuminate\Support\Facades\Schema::hasTable('restaurant_tables'))
-                                        <label class="pos-service-field" for="restaurant_table_id">
-                                            <span>Assign table</span>
-                                            <select name="restaurant_table_id" id="restaurant_table_id">
-                                                <option value="">Select table</option>
-                                                @foreach(\App\RestaurantTable::numbered() as $table)
-                                                    <option value="{{ $table->id }}">{{ $table->name }}@if($table->capacity) ({{ $table->capacity }} persons)@endif</option>
-                                                @endforeach
-                                            </select>
-                                        </label>
-                                        @endif
-                                    </div>
-                                    <div id="create-table-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
-                                        <div role="document" class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Create table</h5>
-                                                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="form-group"><label>Name</label><input id="new-table-name" class="form-control" type="text"></div>
-                                                    <div class="form-group"><label>Description</label><input id="new-table-description" class="form-control" type="text"></div>
-                                                    <div class="form-group"><label>Number of persons</label><input id="new-table-capacity" class="form-control" type="number" min="1"></div>
-                                                    <button type="button" class="btn btn-primary" id="save-new-table">Add table</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <script>
-                                        (function () {
-                                            var button = document.getElementById('save-new-table');
-                                            if (!button) return;
-                                            button.addEventListener('click', function () {
-                                                var name = document.getElementById('new-table-name').value;
-                                                var body = new FormData();
-                                                body.append('name', name);
-                                                body.append('description', document.getElementById('new-table-description').value);
-                                                body.append('capacity', document.getElementById('new-table-capacity').value);
-                                                body.append('_token', '{{ csrf_token() }}');
-                                                fetch('{{ route('restaurant.tables.store') }}', {
-                                                    method: 'POST',
-                                                    headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'},
-                                                    body: body,
-                                                    credentials: 'same-origin'
-                                                }).then(function (res) { return res.json(); }).then(function (data) {
-                                                    if (!data || !data.id) return;
-                                                    var select = document.getElementById('restaurant_table_id');
-                                                    var option = document.createElement('option');
-                                                    option.value = data.id;
-                                                    option.textContent = data.label || data.name;
-                                                    option.selected = true;
-                                                    select.appendChild(option);
-                                                    if (window.jQuery) { jQuery('#create-table-modal').modal('hide'); }
-                                                });
-                                            });
-                                        })();
-                                    </script>
-                                    @endif
                                     <div class="pos-order-note">
                                         <label for="pos-order-note">Order note</label>
                                         <input type="text" id="pos-order-note" name="customer_comment" class="form-control" maxlength="500" placeholder="Note for the whole order">

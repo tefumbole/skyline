@@ -74,11 +74,11 @@
                     @endphp
                     <label class="svc-item flex flex-col rounded-2xl border border-brand-gold/25 bg-white/[0.03] overflow-hidden" data-name="{{ strtolower($product->name) }}">
                         <input type="hidden" name="product_id[]" value="{{ $product->id }}">
-                        <span class="flex items-center justify-center bg-[#f5f7fb] h-[70px] mt-3 mx-3 rounded-lg overflow-hidden">
+                        <span class="flex items-center justify-center h-[70px] mt-3">
                             @if ($img)
-                                <img src="{{ $img }}" alt="{{ $product->name }}" class="h-[70px] w-auto max-w-full object-contain" width="120" height="70" loading="lazy">
+                                <img src="{{ $img }}" alt="{{ $product->name }}" class="h-[70px] w-auto max-w-[120px] object-contain bg-[#f5f7fb] rounded-lg" width="120" height="70" loading="lazy">
                             @else
-                                <span class="h-[70px] w-full flex items-center justify-center text-brand-gold/70 bg-[#14110e]">
+                                <span class="h-[70px] w-[70px] flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-lg">
                                     <i data-lucide="{{ $icon }}" class="w-8 h-8"></i>
                                 </span>
                             @endif

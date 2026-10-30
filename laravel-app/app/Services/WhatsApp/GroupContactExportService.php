@@ -2057,7 +2057,7 @@ class GroupContactExportService
     protected function campayHolder($digits)
     {
         try {
-            $hit = app(\App\Services\Coth\CothHolderLookup::class)->holder($digits);
+            $hit = app(\App\Services\Coth\CothHolderLookup::class)->holder($digits, true);
         } catch (\Throwable $e) {
             return ['name' => '', 'blocked' => false];
         }

@@ -17,14 +17,31 @@ class CothHolderLookup
 
     const CAMPAY_MISS_DAYS = 14;
 
+    const GROUP_PAUSE_SECONDS = 604800;
+
+    /**
+     * Pause that applies only to bulk WhatsApp group name resolution.
+     * Payments, deposits, and one-number lookups are not paused by this.
+     */
     public function blocked()
     {
-        if (Cache::has($this->blockKey())) {
+        if (Cache::has($this->groupPauseKey())) {
             return true;
         }
         $store = $this->readHolderStore();
 
-        return (int) $store['blocked_until'] > time();
+        return (int) (isset($store['group_paused_until']) ? $store['group_paused_until'] : 0) > time();
+    }
+
+    public function pauseGroupNames()
+    {
+        $until = time() + self::GROUP_PAUSE_SECONDS;
+        Cache::put($this->groupPauseKey(), $until, self::GROUP_PAUSE_SECONDS);
+        $this->mutateHolderStore(function ($store) use ($until) {
+            $store['group_paused_until'] = $until;
+
+            return $store;
+        });
     }
 
     public function name($phoneDigits)
@@ -37,7 +54,7 @@ class CothHolderLookup
     /**
      * @return array{name:string,blocked:bool}
      */
-    public function holder($phoneDigits)
+    public function holder($phoneDigits, $groupSweep = false)
     {
         $digits = $this->holderKey($phoneDigits);
         if ($digits === '') {
@@ -52,11 +69,11 @@ class CothHolderLookup
         if ($missedAt > 0 && (time() - $missedAt) < self::CAMPAY_MISS_DAYS * 86400) {
             return ['name' => '', 'blocked' => false];
         }
-        if ($this->blocked()) {
+        if ($groupSweep && $this->blocked()) {
             return ['name' => '', 'blocked' => true];
         }
         $today = date('Y-m-d');
-        if ((string) $store['calls_on'] === $today && (int) $store['calls'] >= self::CAMPAY_DAILY_CALLS) {
+        if ($groupSweep && (string) $store['calls_on'] === $today && (int) $store['calls'] >= self::CAMPAY_DAILY_CALLS) {
             return ['name' => '', 'blocked' => true];
         }
         $token = (string) config('services.campay.token');
@@ -70,15 +87,13 @@ class CothHolderLookup
         ]);
         $this->noteHolderCall();
         if ($status === 403 || $status === 429) {
-            $until = time() + 86400;
-            Cache::put($this->blockKey(), $until, 86400);
-            $this->mutateHolderStore(function ($store) use ($until) {
-                $store['blocked_until'] = $until;
+            if ($groupSweep) {
+                $this->pauseGroupNames();
 
-                return $store;
-            });
+                return ['name' => '', 'blocked' => true];
+            }
 
-            return ['name' => '', 'blocked' => true];
+            return ['name' => '', 'blocked' => false];
         }
         $name = $this->extractHolderName($body);
         if ($name !== '') {
@@ -136,9 +151,9 @@ class CothHolderLookup
         return 'coth:campay:access-token';
     }
 
-    protected function blockKey()
+    protected function groupPauseKey()
     {
-        return 'campay:holder-blocked';
+        return 'campay:group-name-paused';
     }
 
     protected function get($url, array $headers)
@@ -150,10 +165,6 @@ class CothHolderLookup
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
-        if ($status === 403 && is_string($raw) && stripos($raw, 'failed attempts') !== false) {
-            Cache::put($this->blockKey(), time() + 86400, 86400);
-        }
-
         return [$status, is_string($raw) ? json_decode($raw, true) : null];
     }
 
@@ -225,6 +236,7 @@ class CothHolderLookup
             'hits' => [],
             'misses' => [],
             'blocked_until' => 0,
+            'group_paused_until' => 0,
             'calls_on' => '',
             'calls' => 0,
         ];

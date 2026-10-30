@@ -1668,6 +1668,146 @@ class ReportController extends Controller
         return view('report.purchase_report',compact('product_id', 'variant_id', 'product_name', 'product_qty', 'start_date', 'end_date', 'lims_warehouse_list', 'warehouse_id'));
     }
 
+    public function salesByDate(Request $request)
+    {
+        $role = Role::find(Auth::user()->role_id);
+        if (! $role->hasPermissionTo('sale-report') && ! $role->hasPermissionTo('daily-sale')) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+
+        $start_date = $this->reportDate($request->input('start_date'), date('Y-m-d'));
+        $end_date = $this->reportDate($request->input('end_date'), $start_date);
+        if ($end_date < $start_date) {
+            $swap = $start_date;
+            $start_date = $end_date;
+            $end_date = $swap;
+        }
+        $warehouse_id = (int) $request->input('warehouse_id', 0);
+        $lims_warehouse_list = Warehouse::where('is_active', true)->get();
+        $warehouse_name = 'All warehouses';
+        if ($warehouse_id) {
+            $selected = $lims_warehouse_list->firstWhere('id', $warehouse_id);
+            $warehouse_name = $selected ? $selected->name : 'Warehouse';
+        }
+        $query = Sale::with(['customer', 'warehouse', 'user', 'products.product'])
+            ->whereDate('created_at', '>=', $start_date)
+            ->whereDate('created_at', '<=', $end_date)
+            ->orderBy('created_at');
+        if ($warehouse_id) {
+            $query->where('warehouse_id', $warehouse_id);
+        }
+        $sales = $query->get();
+        $variantNames = $this->saleVariantNames($sales);
+        $totals = [
+            'count' => $sales->count(),
+            'qty' => (float) $sales->sum('total_qty'),
+            'grand' => (float) $sales->sum('grand_total'),
+            'paid' => (float) $sales->sum('paid_amount'),
+            'due' => (float) $sales->sum(function ($sale) {
+                return (float) $sale->grand_total - (float) $sale->paid_amount;
+            }),
+        ];
+
+        if ($request->input('export') === 'csv') {
+            return $this->downloadSalesCsv($sales, $variantNames, $start_date, $end_date);
+        }
+        if ($request->input('export') === 'pdf') {
+            $pdf = \PDF::loadView('pdf.sales_report', compact(
+                'sales', 'variantNames', 'start_date', 'end_date', 'warehouse_name', 'totals'
+            ))->setPaper('a4', 'portrait');
+
+            return $pdf->download('sales-'.$start_date.'-to-'.$end_date.'.pdf');
+        }
+
+        return view('report.sales_by_date', compact(
+            'sales', 'variantNames', 'start_date', 'end_date', 'warehouse_id', 'warehouse_name', 'lims_warehouse_list', 'totals'
+        ));
+    }
+
+    protected function reportDate($value, $fallback)
+    {
+        $raw = trim((string) $value);
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return $fallback;
+        }
+        $time = strtotime($raw);
+
+        return $time ? date('Y-m-d', $time) : $fallback;
+    }
+
+    protected function saleVariantNames($sales)
+    {
+        $ids = [];
+        foreach ($sales as $sale) {
+            foreach ($sale->products as $line) {
+                if ($line->variant_id) {
+                    $ids[] = $line->variant_id;
+                }
+            }
+        }
+        if (! $ids) {
+            return [];
+        }
+
+        return Variant::whereIn('id', array_unique($ids))->pluck('name', 'id')->all();
+    }
+
+    protected function downloadSalesCsv($sales, array $variantNames, $start_date, $end_date)
+    {
+        $filename = 'sales-'.$start_date.'-to-'.$end_date.'.csv';
+
+        return response()->streamDownload(function () use ($sales, $variantNames) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Reference', 'Customer', 'Warehouse', 'Cashier', 'Product', 'Qty', 'Unit price', 'Discount', 'Tax', 'Line total', 'Sale total', 'Paid', 'Due']);
+            foreach ($sales as $sale) {
+                $due = (float) $sale->grand_total - (float) $sale->paid_amount;
+                $lines = $sale->products;
+                if ($lines->isEmpty()) {
+                    fputcsv($out, [
+                        date('Y-m-d H:i', strtotime($sale->created_at)),
+                        $sale->reference_no,
+                        $sale->customer ? $sale->customer->name : '',
+                        $sale->warehouse ? $sale->warehouse->name : '',
+                        $sale->user ? $sale->user->name : '',
+                        '',
+                        $sale->total_qty,
+                        '',
+                        $sale->total_discount,
+                        $sale->total_tax,
+                        '',
+                        $sale->grand_total,
+                        $sale->paid_amount,
+                        $due,
+                    ]);
+                    continue;
+                }
+                foreach ($lines as $index => $line) {
+                    $name = $line->product ? $line->product->name : 'Item';
+                    if ($line->variant_id && isset($variantNames[$line->variant_id])) {
+                        $name .= ' ['.$variantNames[$line->variant_id].']';
+                    }
+                    fputcsv($out, [
+                        $index === 0 ? date('Y-m-d H:i', strtotime($sale->created_at)) : '',
+                        $index === 0 ? $sale->reference_no : '',
+                        $index === 0 ? ($sale->customer ? $sale->customer->name : '') : '',
+                        $index === 0 ? ($sale->warehouse ? $sale->warehouse->name : '') : '',
+                        $index === 0 ? ($sale->user ? $sale->user->name : '') : '',
+                        $name,
+                        $line->qty,
+                        $line->net_unit_price,
+                        $line->discount,
+                        $line->tax,
+                        $line->total,
+                        $index === 0 ? $sale->grand_total : '',
+                        $index === 0 ? $sale->paid_amount : '',
+                        $index === 0 ? $due : '',
+                    ]);
+                }
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
     public function saleReport(Request $request)
     {
         $data = $request->all();

@@ -2832,7 +2832,7 @@
                                             <input type="hidden" name="start_date" value="{{date('Y-m').'-'.'01'}}" />
                                             <input type="hidden" name="end_date" value="{{date('Y-m-d')}}" />
                                             <input type="hidden" name="warehouse_id" value="0" />
-                                            <a id="sale-report-link" href="">{{trans('file.Sale Report')}}</a>
+                                            <a id="sale-report-link" href="{{ route('report.sales') }}">{{trans('file.Sale Report')}}</a>
                                             {!! Form::close() !!}
                                         </li>
                                     @endif
@@ -3825,11 +3825,6 @@
             $("#purchase-report-form").submit();
           });
 
-          $("a#sale-report-link").click(function(e){
-            e.preventDefault();
-            $("#sale-report-form").submit();
-          });
-
           $("a#payment-report-link").click(function(e){
             e.preventDefault();
             $("#payment-report-form").submit();
@@ -4052,13 +4047,25 @@
                   $sub.empty().removeClass('is-visible');
                   var seenHref = {};
 
-                  $submenu.find('> li > a').each(function (index) {
-                      var $link = $(this);
-                      var href = $link.attr('href');
-                      if (!href || href === '#' || href.indexOf('javascript') === 0 || seenHref[href]) {
+                  $submenu.find('> li').each(function (index) {
+                      var $li = $(this);
+                      var $link = $li.children('a').first();
+                      if (!$link.length) {
+                          $link = $li.find('form a').first();
+                      }
+                      if (!$link.length) {
                           return;
                       }
-                      seenHref[href] = true;
+                      var href = $.trim($link.attr('href') || '');
+                      var $form = $link.closest('form');
+                      if (href.indexOf('javascript') === 0) {
+                          return;
+                      }
+                      var key = href && href !== '#' ? href : ('form:' + ($form.attr('id') || '') + ':' + $.trim($link.text()));
+                      if (seenHref[key]) {
+                          return;
+                      }
+                      seenHref[key] = true;
 
                       var $li = $link.closest('li');
                       var $badge = $link.find('.beyond-attention-badge, .badge-count, .badge').first();
@@ -4075,10 +4082,17 @@
                       var toneClass = tones[index % tones.length];
                       var isActive = $link.closest('li').hasClass('active');
                       var iconClass = resolveTabIcon($link, $parentLink);
+                      var tabHref = href && href !== '#' ? href : '#';
                       var $tab = $('<a>', {
                           'class': 'beyond-module-tab ' + toneClass + (isActive ? ' is-active' : ''),
-                          'href': href
+                          'href': tabHref
                       });
+                      if ($form.length && tabHref === '#') {
+                          $tab.on('click', function (e) {
+                              e.preventDefault();
+                              $form.trigger('submit');
+                          });
+                      }
                       $tab.append($('<i>', { 'class': iconClass }));
                       $tab.append($('<span>').text(label));
                       if (badgeCount !== '') {

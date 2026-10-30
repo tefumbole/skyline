@@ -1190,6 +1190,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('report/product_report_data', 'ReportController@productReportData');
 	Route::post('report/category_report_data', 'ReportController@categoryReportData')->name('report.category.data');
 	Route::post('report/purchase', 'ReportController@purchaseReport')->name('report.purchase');
+	Route::get('report/sales', 'ReportController@salesByDate')->name('report.sales');
 	Route::post('report/sale_report', 'ReportController@saleReport')->name('report.sale');
 	Route::post('report/payment_report_by_date', 'ReportController@paymentReportByDate')->name('report.paymentByDate');
 	Route::post('report/warehouse_report', 'ReportController@warehouseReport')->name('report.warehouse');

@@ -1200,7 +1200,7 @@
                                         <input type="hidden" name="start_date" value="{{date('Y-m').'-'.'01'}}" />
                                         <input type="hidden" name="end_date" value="{{date('Y-m-d')}}" />
                                         <input type="hidden" name="warehouse_id" value="0" />
-                                        <a id="sale-report-link" href="">{{trans('file.Sale Report')}}</a>
+                                        <a id="sale-report-link" href="{{ route('report.sales') }}">{{trans('file.Sale Report')}}</a>
                                         {!! Form::close() !!}
                                     </li>
                                 @endif

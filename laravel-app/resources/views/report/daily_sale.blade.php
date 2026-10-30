@@ -15,6 +15,15 @@
 				</select>
 				</h4>
 				{{ Form::close() }}
+				@php
+					$monthStart = sprintf('%04d-%02d-01', $year, $month);
+					$monthEnd = sprintf('%04d-%02d-%02d', $year, $month, $number_of_day);
+					$monthSales = url('report/sales').'?start_date='.$monthStart.'&end_date='.$monthEnd.'&warehouse_id='.$warehouse_id;
+				@endphp
+				<p class="text-center mt-3 mb-0">
+					<a class="btn btn-sm btn-outline-secondary" href="{{ $monthSales }}">Detailed sale report for this month</a>
+					<a class="btn btn-sm btn-outline-secondary" href="{{ $monthSales }}&export=pdf">Export PDF</a>
+				</p>
 				<div class="table-responsive mt-4">
 					<table class="table table-bordered" style="border-top: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6;">
 						<thead>
@@ -44,10 +53,12 @@
 						    				break;
 
 						    			if($flag){
+						    				$dayDate = sprintf('%04d-%02d-%02d', $year, $month, $i);
+						    				$dayUrl = url('report/sales').'?start_date='.$dayDate.'&end_date='.$dayDate.'&warehouse_id='.$warehouse_id;
 						    				if($year.'-'.$month.'-'.$i == date('Y').'-'.date('m').'-'.(int)date('d'))
-						    					echo '<td><p style="color:red"><strong>'.$i.'</strong></p>';
+						    					echo '<td><p style="color:red"><strong><a href="'.$dayUrl.'">'.$i.'</a></strong></p>';
 						    				else
-						    					echo '<td><p><strong>'.$i.'</strong></p>';
+						    					echo '<td><p><strong><a href="'.$dayUrl.'">'.$i.'</a></strong></p>';
 
 						    				if($total_discount[$i]){
 						    					echo '<strong>'.trans("file.Product Discount").'</strong><br><span>'.$total_discount[$i].'</span><br><br>';
@@ -65,16 +76,18 @@
 						    					echo '<strong>'.trans("file.Shipping Cost").'</strong><br><span>'.$shipping_cost[$i].'</span><br><br>';
 						    				}
 						    				if($grand_total[$i]){
-						    					echo '<strong>'.trans("file.grand total").'</strong><br><span>'.$grand_total[$i].'</span><br><br>';
+						    					echo '<strong><a href="'.$dayUrl.'">'.trans("file.grand total").'</a></strong><br><span>'.$grand_total[$i].'</span><br><br>';
 						    				}
 						    				echo '</td>';
 						    				$i++;
 						    			}
 						    			elseif($j == $start_day){
+						    				$dayDate = sprintf('%04d-%02d-%02d', $year, $month, $i);
+						    				$dayUrl = url('report/sales').'?start_date='.$dayDate.'&end_date='.$dayDate.'&warehouse_id='.$warehouse_id;
 						    				if($year.'-'.$month.'-'.$i == date('Y').'-'.date('m').'-'.(int)date('d'))
-						    					echo '<td><p style="color:red"><strong>'.$i.'</strong></p>';
+						    					echo '<td><p style="color:red"><strong><a href="'.$dayUrl.'">'.$i.'</a></strong></p>';
 						    				else
-						    					echo '<td><p><strong>'.$i.'</strong></p>';
+						    					echo '<td><p><strong><a href="'.$dayUrl.'">'.$i.'</a></strong></p>';
 
 						    				if($total_discount[$i]){
 						    					echo '<strong>'.trans("file.Product Discount").'</strong><br><span>'.$total_discount[$i].'</span><br><br>';
@@ -92,7 +105,7 @@
 						    					echo '<strong>'.trans("file.Shipping Cost").'</strong><br><span>'.$shipping_cost[$i].'</span><br><br>';
 						    				}
 						    				if($grand_total[$i]){
-						    					echo '<strong>'.trans("file.grand total").'</strong><br><span>'.$grand_total[$i].'</span><br><br>';
+						    					echo '<strong><a href="'.$dayUrl.'">'.trans("file.grand total").'</a></strong><br><span>'.$grand_total[$i].'</span><br><br>';
 						    				}
 						    				echo '</td>';
 						    				$flag = 1;

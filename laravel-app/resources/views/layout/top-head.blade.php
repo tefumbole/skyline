@@ -408,6 +408,10 @@
     });
 
     $("a#sale-report-link").click(function(e){
+        var href = $(this).attr('href') || '';
+        if (href && href !== '#') {
+            return;
+        }
         e.preventDefault();
         $("#sale-report-form").submit();
     });

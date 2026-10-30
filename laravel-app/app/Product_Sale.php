@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class Product_Sale extends Model
 {
     protected $table = 'product_sales';
+
+    public function product()
+    {
+        return $this->belongsTo('App\Product');
+    }
     protected $fillable =[
         "sale_id", "product_id", "category_id", "warehouse_id", "product_batch_id", "multi_product_batch_id", "multi_product_batch_qty", "variant_id", "qty", "sale_unit_id", "net_unit_price", "discount", "tax_rate", "tax", "total"
     ];

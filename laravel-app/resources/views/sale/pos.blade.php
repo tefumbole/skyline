@@ -1904,7 +1904,7 @@
                                             <button type="button" data-dismiss="modal" aria-label="Close" class="close" style="color:#fff;"><span aria-hidden="true">&times;</span></button>
                                         </div>
                                         <div class="modal-body">
-                                            <p>The order goes to the kitchen only after Campay confirms this payment. Use Submit to place an order without taking payment.</p>
+                                            <p>A prompt is sent to the phone. The order, the receipt, and the kitchen ticket wait until that debit is approved. Use Submit to place an order without taking payment.</p>
                                             <div class="form-group">
                                                 <label for="momo-collect-phone">Momo number</label>
                                                 <input id="momo-collect-phone" class="form-control" type="text" inputmode="tel" autocomplete="off">
@@ -1914,8 +1914,8 @@
                                             <label><input type="radio" name="momo_pay_mode" value="partial"> Partial payment</label>
                                             <div id="momo-partial-wrap" class="form-group" style="display:none;margin-top:12px;">
                                                 <label for="momo-partial-amount">Amount to collect now (XAF)</label>
-                                                <input id="momo-partial-amount" class="form-control" type="number" min="1" step="1">
-                                                <small class="text-muted">The rest is sent to Payments.</small>
+                                                <input id="momo-partial-amount" class="form-control" type="number" min="100" step="1">
+                                                <small class="text-muted">At least 100 XAF. The rest is sent to Payments.</small>
                                             </div>
                                         </div>
                                         <div class="modal-footer">
@@ -3790,7 +3790,7 @@
                 data: {_token: '{{ csrf_token() }}', phone: digits},
                 success: function (res) {
                     if (res && res.name) {
-                        box.css('color', '#178a45').text(res.name);
+                        box.css('color', '#178a45').text('Wallet: ' + res.name);
                     } else if (res && res.blocked) {
                         box.css('color', '#8a5a1f').text('Campay name lookup is paused. Confirm the number yourself.');
                     } else {
@@ -3834,11 +3834,15 @@
             var charge = total;
             if (mode === 'partial') {
                 charge = moneyNumber($('#momo-partial-amount').val());
-                if (!(charge >= 1) || charge >= total) {
-                    alert('Enter a partial amount that is less than the bill. The rest goes to Payments.');
+                if (!(charge >= 100) || charge >= total) {
+                    alert('Enter a whole amount of at least 100 XAF, and less than the bill. The rest goes to Payments.');
                     return;
                 }
+            } else if (!(total >= 100)) {
+                alert('Mobile Money needs a whole amount of at least 100 XAF.');
+                return;
             }
+            charge = Math.round(charge);
             var phone = $('#momo-collect-phone').val() || '';
             if (phone.replace(/\D/g, '').length < 9) {
                 alert('Enter the Momo number.');

@@ -553,46 +553,30 @@ class Controller extends BaseController
      *
      * @return array{status:string,amount:float,reference:string,external:string}|null
      */
-    public function verifyCampayTransaction($reference)
+    public function verifyCampayTransaction($reference, $expectedAmount = null, $expectedPhone = null, $externalReference = null)
     {
         $reference = trim((string) $reference);
         if ($reference === '' || ! preg_match('/^[A-Za-z0-9\-]{8,80}$/', $reference)) {
             return null;
         }
-        $token = $this->campayBearerToken();
-        if ($token === '') {
+        $campay = app(\App\Services\CampayCollectService::class);
+        $pattern = null;
+        if ($externalReference !== null && (string) $externalReference !== '') {
+            $pattern = '/^'.preg_quote((string) $externalReference, '/').'$/';
+        }
+        $outcome = $campay->collectionOutcome($reference, $expectedAmount, $expectedPhone, $pattern);
+        if ($outcome['state'] !== 'paid' || empty($outcome['confirmed'])) {
             return null;
         }
-        $base = rtrim((string) config('services.campay.base_url', 'https://www.campay.net/api'), '/');
-        $curl = curl_init($base.'/transaction/'.rawurlencode($reference).'/');
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
-                'Authorization: Token '.$token,
-            ],
-        ]);
-        $raw = curl_exec($curl);
-        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-        $body = is_string($raw) ? json_decode($raw, true) : null;
-        if ($status !== 200 || ! is_array($body)) {
-            \Log::warning('Campay transaction verify failed', ['status' => $status]);
-
-            return null;
-        }
-        $state = strtoupper(trim((string) (isset($body['status']) ? $body['status'] : '')));
-        $amount = (float) (isset($body['amount']) ? $body['amount'] : 0);
-        if ($state !== 'SUCCESSFUL' || $amount <= 0) {
-            return null;
-        }
+        $body = $campay->transaction($reference);
+        $amount = is_array($body) && isset($body['amount']) ? (float) $body['amount'] : (float) $expectedAmount;
+        $external = is_array($body) ? trim((string) (isset($body['external_reference']) ? $body['external_reference'] : '')) : '';
 
         return [
             'status' => 'SUCCESSFUL',
             'amount' => $amount,
             'reference' => $reference,
-            'external' => trim((string) (isset($body['external_reference']) ? $body['external_reference'] : '')),
+            'external' => $external,
         ];
     }
 

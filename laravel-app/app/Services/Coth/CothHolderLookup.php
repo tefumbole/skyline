@@ -13,9 +13,18 @@ use Illuminate\Support\Facades\Cache;
  */
 class CothHolderLookup
 {
+    const CAMPAY_DAILY_CALLS = 120;
+
+    const CAMPAY_MISS_DAYS = 14;
+
     public function blocked()
     {
-        return Cache::has($this->blockKey());
+        if (Cache::has($this->blockKey())) {
+            return true;
+        }
+        $store = $this->readHolderStore();
+
+        return (int) $store['blocked_until'] > time();
     }
 
     public function name($phoneDigits)
@@ -30,24 +39,27 @@ class CothHolderLookup
      */
     public function holder($phoneDigits)
     {
+        $digits = $this->holderKey($phoneDigits);
+        if ($digits === '') {
+            return ['name' => '', 'blocked' => false];
+        }
+        $store = $this->readHolderStore();
+        $hit = isset($store['hits'][$digits]) && is_array($store['hits'][$digits]) ? $store['hits'][$digits] : null;
+        if ($hit && ! empty($hit['name'])) {
+            return ['name' => (string) $hit['name'], 'blocked' => false];
+        }
+        $missedAt = isset($store['misses'][$digits]) ? (int) $store['misses'][$digits] : 0;
+        if ($missedAt > 0 && (time() - $missedAt) < self::CAMPAY_MISS_DAYS * 86400) {
+            return ['name' => '', 'blocked' => false];
+        }
         if ($this->blocked()) {
             return ['name' => '', 'blocked' => true];
         }
-        $digits = preg_replace('/\D/', '', (string) $phoneDigits);
-        if (strlen($digits) === 9 && isset($digits[0]) && $digits[0] === '6') {
-            $digits = '237'.$digits;
+        $today = date('Y-m-d');
+        if ((string) $store['calls_on'] === $today && (int) $store['calls'] >= self::CAMPAY_DAILY_CALLS) {
+            return ['name' => '', 'blocked' => true];
         }
-        if (strpos($digits, '237') !== 0 || strlen($digits) < 12) {
-            return ['name' => '', 'blocked' => false];
-        }
-        $cached = Cache::get('campay:holder-name:'.$digits);
-        if (is_string($cached)) {
-            return ['name' => $cached, 'blocked' => false];
-        }
-        // Campay's holder_info only knows CEMAC subscribers; sending another
-        // country's number just comes back empty, which is fine - callers
-        // treat an empty string as "type the name yourself".
-        $token = $this->accessToken();
+        $token = (string) config('services.campay.token');
         if ($token === '') {
             return ['name' => '', 'blocked' => false];
         }
@@ -56,31 +68,38 @@ class CothHolderLookup
             'Accept: application/json',
             'Authorization: Token '.$token,
         ]);
-        if ($this->blocked()) {
+        $this->noteHolderCall();
+        if ($status === 403 || $status === 429) {
+            $until = time() + 86400;
+            Cache::put($this->blockKey(), $until, 86400);
+            $this->mutateHolderStore(function ($store) use ($until) {
+                $store['blocked_until'] = $until;
+
+                return $store;
+            });
+
             return ['name' => '', 'blocked' => true];
         }
-        if ($status === 401) {
-            // Token can expire; refresh once if we have username/password.
-            Cache::forget($this->cacheKey());
-            $token = $this->accessToken();
-            if ($token === '') {
-                return ['name' => '', 'blocked' => false];
-            }
-            list($status, $body) = $this->get($url, [
-                'Accept: application/json',
-                'Authorization: Token '.$token,
-            ]);
-            if ($this->blocked()) {
-                return ['name' => '', 'blocked' => true];
-            }
-        }
-        if ($status < 200 || $status >= 300 || ! is_array($body)) {
-            return ['name' => '', 'blocked' => false];
-        }
-        $name = isset($body['full_name']) ? trim((string) $body['full_name']) : '';
-        Cache::put('campay:holder-name:'.$digits, $name, $name !== '' ? now()->addDays(7) : now()->addHours(6));
+        $name = $this->extractHolderName($body);
+        if ($name !== '') {
+            $this->mutateHolderStore(function ($store) use ($digits, $name) {
+                $store['hits'][$digits] = ['name' => $name, 'address' => ''];
+                unset($store['misses'][$digits]);
 
-        return ['name' => $name, 'blocked' => false];
+                return $store;
+            });
+
+            return ['name' => $name, 'blocked' => false];
+        }
+        if ($status === 404 || $status === 400 || $status === 200) {
+            $this->mutateHolderStore(function ($store) use ($digits) {
+                $store['misses'][$digits] = time();
+
+                return $store;
+            });
+        }
+
+        return ['name' => '', 'blocked' => false];
     }
 
     protected function accessToken()
@@ -151,5 +170,127 @@ class CothHolderLookup
         curl_close($ch);
 
         return [$status, is_string($raw) ? json_decode($raw, true) : null];
+    }
+
+    protected function holderKey($phone)
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strpos($digits, '237') === 0) {
+            $digits = substr($digits, 3);
+        }
+        if (strlen($digits) !== 9 || ! isset($digits[0]) || $digits[0] !== '6') {
+            return '';
+        }
+
+        return '237'.$digits;
+    }
+
+    protected function extractHolderName($body)
+    {
+        if (! is_array($body)) {
+            return '';
+        }
+        $bags = [$body];
+        foreach (['data', 'result', 'output', 'accountHolder'] as $key) {
+            if (isset($body[$key]) && is_array($body[$key])) {
+                $bags[] = $body[$key];
+            }
+        }
+        $keys = ['full_name', 'fullName', 'registeredName', 'requestedName', 'accountHolderName', 'account_holder_name', 'name'];
+        foreach ($bags as $bag) {
+            foreach ($keys as $key) {
+                if (! isset($bag[$key]) || ! is_string($bag[$key])) {
+                    continue;
+                }
+                $name = trim($bag[$key]);
+                if ($name === '' || preg_match('/^\+?\d{8,}$/', $name)) {
+                    continue;
+                }
+
+                return $name;
+            }
+        }
+
+        return '';
+    }
+
+    protected function holderStorePath()
+    {
+        return storage_path('app/campay-holder-cache.json');
+    }
+
+    protected function emptyHolderStore()
+    {
+        return [
+            'hits' => [],
+            'misses' => [],
+            'blocked_until' => 0,
+            'calls_on' => '',
+            'calls' => 0,
+        ];
+    }
+
+    protected function readHolderStore()
+    {
+        $path = $this->holderStorePath();
+        if (! is_file($path)) {
+            return $this->emptyHolderStore();
+        }
+        $fp = @fopen($path, 'r');
+        if (! $fp) {
+            return $this->emptyHolderStore();
+        }
+        flock($fp, LOCK_SH);
+        $raw = stream_get_contents($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        $decoded = json_decode((string) $raw, true);
+        if (! is_array($decoded)) {
+            return $this->emptyHolderStore();
+        }
+
+        return array_merge($this->emptyHolderStore(), $decoded);
+    }
+
+    protected function noteHolderCall()
+    {
+        $this->mutateHolderStore(function ($store) {
+            $today = date('Y-m-d');
+            if ((string) $store['calls_on'] !== $today) {
+                $store['calls_on'] = $today;
+                $store['calls'] = 0;
+            }
+            $store['calls'] = (int) $store['calls'] + 1;
+
+            return $store;
+        });
+    }
+
+    protected function mutateHolderStore($fn)
+    {
+        $path = $this->holderStorePath();
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $fp = @fopen($path, 'c+');
+        if (! $fp) {
+            return null;
+        }
+        flock($fp, LOCK_EX);
+        $raw = stream_get_contents($fp);
+        $store = json_decode((string) $raw, true);
+        $store = is_array($store) ? array_merge($this->emptyHolderStore(), $store) : $this->emptyHolderStore();
+        $next = $fn($store);
+        if (is_array($next)) {
+            rewind($fp);
+            ftruncate($fp, 0);
+            fwrite($fp, json_encode($next));
+            fflush($fp);
+        }
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        return is_array($next) ? $next : $store;
     }
 }

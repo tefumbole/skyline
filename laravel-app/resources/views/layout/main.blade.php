@@ -1657,9 +1657,12 @@
                                     @endphp
                                     @foreach($orderLanes as $laneKey => $laneLabel)
                                         @if(\App\Services\Restaurant\RestaurantAccess::seeLane(auth()->user(), $laneKey))
-                                            @php $laneTotal = (int) ($orderCounts[$laneKey]['awaiting'] ?? 0); @endphp
+                                            @php
+                                                $laneTab = \App\Services\Restaurant\RestaurantAccess::seeStatus(auth()->user(), 'awaiting') ? 'awaiting' : 'ready';
+                                                $laneTotal = (int) ($orderCounts[$laneKey][$laneTab] ?? 0);
+                                            @endphp
                                             <li>
-                                                <a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => 'awaiting']) }}">{{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif</a>
+                                                <a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => $laneTab]) }}">{{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif</a>
                                                 @if($onOrders && $openLane === $laneKey)
                                                     <ul>
                                                         @foreach($orderTabs as $tabKey => $tabLabel)
@@ -1676,7 +1679,9 @@
                                             </li>
                                         @endif
                                     @endforeach
+                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'orders-index'))
                                     <li id="restaurant-tables-menu"><a href="{{ route('restaurant.tables') }}">Tables</a></li>
+                                    @endif
                                 </ul>
                             </li>
                         @endif
@@ -4342,10 +4347,12 @@
                 }
                 function render() {
                     if (!queue.length) { box.hidden = true; body.innerHTML = ''; return; }
-                    title.textContent = 'Order waiting · ' + queue.length;
+                    var readyCount = queue.filter(function (item) { return item.status === 'ready'; }).length;
+                    title.textContent = (readyCount === queue.length ? 'Ready for delivery' : 'Order waiting') + ' · ' + queue.length;
                     body.innerHTML = queue.slice(0, 8).map(function (item) {
-                        var by = item.placed_by ? ('<br>By ' + esc(item.placed_by)) : '';
-                        return '<div class="sky-order-row"><p><strong>Waiting</strong> · ' + esc(item.lane_label) + ' · ' + esc(item.ref) +
+                        var word = item.status === 'ready' ? 'Ready for delivery' : 'Waiting';
+                        var by = item.placed_by ? ('<br>' + esc(item.placed_by)) : '';
+                        return '<div class="sky-order-row"><p><strong>' + word + '</strong> · ' + esc(item.lane_label) + ' · ' + esc(item.ref) +
                             '<br>' + esc(item.name) + ' × ' + esc(item.qty) + by + '</p>' +
                             '<a class="go" href="' + esc(item.href) + '">Open</a>' +
                             '<button type="button" class="stay" data-dismiss-id="' + esc(item.id) + '">Dismiss</button></div>';
@@ -4405,7 +4412,7 @@
                         .then(function (data) {
                             var seen = seenMap();
                             queue = (data.items || []).filter(function (item) {
-                                return item.status === 'awaiting' && !seen[String(item.id)];
+                                return (item.status === 'awaiting' || item.status === 'ready') && !seen[String(item.id)];
                             });
                             render();
                         }).catch(function () {});

@@ -158,8 +158,8 @@ class RestaurantOrderController extends Controller
     public function deliver(Request $request, $item)
     {
         $row = $this->item($item);
-        if ($deny = $this->denyOrder($request, $row, 'edit')) {
-            return $deny;
+        if (! RestaurantAccess::canDeliver($request->user(), $row)) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         try {
             $this->orders->deliver($row, $request->user());
@@ -234,6 +234,31 @@ class RestaurantOrderController extends Controller
         }
         $items = [];
         $summary = [];
+        if (RestaurantAccess::installed() && RestaurantAccess::canSeeOrders($user) && RestaurantAccess::can($user, 'waiter-orders') && RestaurantAccess::seeStatus($user, 'ready')) {
+            $readyRows = RestaurantOrderItem::with(['order.sale', 'order.diningTable'])
+                ->where('status', 'ready')
+                ->orderBy('id', 'desc')
+                ->limit(20)
+                ->get();
+            foreach ($readyRows as $row) {
+                $sale = $row->order ? $row->order->sale : null;
+                $lane = $row->lane ?: ($row->department === 'drinks' ? 'bar' : 'restaurant');
+                if ($lane === 'coffee') {
+                    $lane = 'bar';
+                }
+                $items[] = [
+                    'id' => 'ready-'.(int) $row->id,
+                    'name' => $row->product_name,
+                    'qty' => $row->qty,
+                    'status' => 'ready',
+                    'lane' => $lane,
+                    'lane_label' => RestaurantAccess::lanes()[$lane] ?? $lane,
+                    'ref' => $sale ? $sale->reference_no : '',
+                    'placed_by' => optional(optional($row->order)->diningTable)->name ?: '',
+                    'href' => route('restaurant.orders', ['lane' => $lane, 'tab' => 'ready']),
+                ];
+            }
+        }
         if (RestaurantAccess::installed() && RestaurantAccess::canSeeOrders($user) && RestaurantAccess::seeStatus($user, 'awaiting')) {
             $lanes = [];
             foreach (array_keys(RestaurantAccess::lanes()) as $lane) {

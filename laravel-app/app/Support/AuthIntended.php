@@ -72,6 +72,20 @@ class AuthIntended
             return $supervisor;
         }
 
+        if (class_exists(\App\Services\Restaurant\RestaurantAccess::class)) {
+            $access = \App\Services\Restaurant\RestaurantAccess::class;
+            $fullOrders = $access::can($user, 'orders-index');
+            if (! $fullOrders && $access::can($user, 'kitchen-orders') && ! $access::can($user, 'bar-orders') && ! $access::can($user, 'waiter-orders')) {
+                return url('/orders?lane=restaurant&tab=awaiting');
+            }
+            if (! $fullOrders && $access::can($user, 'bar-orders') && ! $access::can($user, 'kitchen-orders') && ! $access::can($user, 'waiter-orders')) {
+                return url('/orders?lane=bar&tab=awaiting');
+            }
+            if (! $fullOrders && $access::can($user, 'waiter-orders')) {
+                return url('/orders?lane=restaurant&tab=ready');
+            }
+        }
+
         return $default;
     }
 

@@ -61,6 +61,7 @@
                     $canAdd = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'add', $item);
                     $canEdit = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'edit', $item);
                     $canDelete = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'delete', $item);
+                    $canDeliver = \App\Services\Restaurant\RestaurantAccess::canDeliver(auth()->user(), $item);
                     $late = $item->expected_ready_at && $item->expected_ready_at->isPast() && $item->status === 'preparing';
                 @endphp
                 <article class="sky-ticket">
@@ -110,7 +111,7 @@
                                 @if($canAdd)
                                     <form method="post" action="{{ route('restaurant.accept', $item->id) }}" style="display:inline-flex;gap:6px;align-items:center;">
                                         @csrf
-                                        <input class="form-control" type="number" name="minutes" min="1" max="240" required placeholder="Minutes" title="How long the meal will take" style="width:96px;">
+                                        <input class="form-control" type="number" name="minutes" min="1" max="240" required placeholder="Minutes" title="How long this will take to prepare" style="width:110px;">
                                         <button class="btn btn-primary" type="submit">Accept</button>
                                     </form>
                                 @endif
@@ -131,12 +132,12 @@
                             <form method="post" action="{{ route('restaurant.estimate', $item->id) }}">
                                 @csrf
                                 <div class="input-group">
-                                    <input class="form-control" type="number" name="minutes" min="1" max="240" placeholder="New minutes" required>
+                                    <input class="form-control" type="number" name="minutes" min="1" max="240" value="{{ (int) $item->estimate_minutes ?: '' }}" placeholder="New minutes" required>
                                     <span class="input-group-btn"><button class="btn btn-default" type="submit">Update time</button></span>
                                 </div>
                             </form>
                         @endif
-                        @if($item->status === 'ready' && $canEdit)
+                        @if($item->status === 'ready' && $canDeliver)
                             <form method="post" action="{{ route('restaurant.deliver', $item->id) }}">
                                 @csrf
                                 <button class="btn btn-primary btn-block" type="submit">Delivered</button>

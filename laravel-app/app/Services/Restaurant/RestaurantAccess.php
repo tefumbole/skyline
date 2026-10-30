@@ -181,13 +181,13 @@ class RestaurantAccess
             return true;
         }
         if ($lane === 'restaurant') {
-            return self::can($user, 'kitchen-orders');
+            return self::can($user, 'kitchen-orders') || self::can($user, 'waiter-orders');
         }
         if ($lane === 'online') {
             return self::can($user, 'kitchen-orders') || self::can($user, 'bar-orders') || self::can($user, 'waiter-orders');
         }
         if ($lane === 'bar') {
-            return self::can($user, 'bar-orders');
+            return self::can($user, 'bar-orders') || self::can($user, 'waiter-orders');
         }
 
         return false;
@@ -209,6 +209,18 @@ class RestaurantAccess
         }
 
         return self::canSeeOrders($user);
+    }
+
+    public static function canDeliver($user, $item)
+    {
+        if (! $item || $item->status !== 'ready') {
+            return false;
+        }
+
+        return self::can($user, 'orders-index')
+            || self::can($user, 'order-logs')
+            || self::can($user, 'orders-ready-edit')
+            || self::can($user, 'waiter-orders');
     }
 
     public static function canOrder($user, $action, $item = null)
@@ -239,7 +251,7 @@ class RestaurantAccess
         if (($action === 'add' || $action === 'edit') && $item && self::canItem($user, $item)) {
             return true;
         }
-        if ($action === 'edit' && self::can($user, 'waiter-orders')) {
+        if ($action === 'edit' && $status === 'ready' && self::can($user, 'waiter-orders')) {
             return true;
         }
 

@@ -317,6 +317,11 @@
                                         <button class="pay-open" type="submit" name="action" value="approve" style="border:0;cursor:pointer" onclick="return confirm('Approve and pay everyone still waiting on this request?')">Approve and Pay</button>
                                     </form>
                                     <a class="pay-open" href="{{ route('payout.request', ['review' => $row->id]) }}" style="background:#e7eef8;color:#0b3f90 !important">Edit</a>
+                                    <form method="POST" action="{{ route('payout.pending.delete') }}">
+                                        @csrf
+                                        <input type="hidden" name="ids[]" value="{{ $row->id }}">
+                                        <button class="pay-open" type="submit" style="border:0;cursor:pointer;background:#fdecec;color:#9b1c1c" onclick="return confirm('Cancel this payment request?')">Cancel</button>
+                                    </form>
                                 @elseif($item['kind'] === 'submitted' && ($linePending + $lineFailed) > 0)
                                     <form method="POST" action="{{ route('payout.mass', $row->id) }}">
                                         @csrf

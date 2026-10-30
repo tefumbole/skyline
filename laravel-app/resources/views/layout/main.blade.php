@@ -2291,7 +2291,6 @@
                                 </ul>
                             </li>
                         @endif
-                        <li><a href="{{ route('property.index') }}" data-nav-key="properties"> <i class="fa fa-building"></i><span>Properties</span></a></li>
                         <?php
                         $index_permission = DB::table('permissions')->where('name', 'quotes-index')->first();
                         $index_permission_active = DB::table('role_has_permissions')->where([
@@ -2919,6 +2918,7 @@
                             </li>
                         @endif
 
+                        @if(Auth::user()->canManageHotelSettings())
                         <li><a href="#setting" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-gear"></i><span>{{trans('file.settings')}}</span></a>
                             <ul id="setting" class="collapse list-unstyled ">
                                 <?php
@@ -3059,6 +3059,7 @@
                                 @endif
                             </ul>
                         </li>
+                        @endif
                     </ul>
                     @php
                         $__sideMenuOrder = \App\Support\SiteMenu::sideOrder();

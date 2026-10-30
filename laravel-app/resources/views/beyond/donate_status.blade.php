@@ -32,6 +32,10 @@
                         <p class="text-2xl font-extrabold text-brand-blue m-0">{{ $donation->payment_link }}</p>
                     @endif
                 @endif
+                <form method="POST" action="{{ route('payments.deposit.cancel', ['token' => $donation->token]) }}" class="mt-5">
+                    @csrf
+                    <button type="submit" class="w-full rounded-full border border-red-700 text-red-800 font-bold py-3 bg-white">Cancel</button>
+                </form>
                 @if(is_array($crypto) && ! empty($crypto['address']))
                     <p class="mt-4 mb-1 text-sm text-slate-600">Send exactly</p>
                     <p class="text-2xl font-extrabold text-brand-blue m-0">{{ $crypto['usdt'] }} {{ $crypto['coin'] }}</p>

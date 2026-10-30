@@ -51,7 +51,6 @@ class SiteMenu
             'orders'       => 'Orders',
             'events'       => 'Events',
             'invitations'  => 'Digital Invitations',
-            'properties'   => 'Properties',
             'tasks'        => 'Task Manager',
             'jobs'         => 'Job Board',
             'contracts'    => 'Contracts',

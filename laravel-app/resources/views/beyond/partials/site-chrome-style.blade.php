@@ -1,5 +1,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+    html {
+        scrollbar-gutter: stable;
+        overflow-x: clip;
+    }
     .sky-bar {
         display: flex;
         align-items: center;
@@ -18,16 +22,17 @@
     .sky-actions { gap: 16px; flex: 0 0 auto; }
     .sky-logo-mark {
         position: relative;
-        width: 46px;
-        height: 46px;
+        width: 54px;
+        height: 54px;
         flex-shrink: 0;
         display: grid;
         place-items: center;
+        overflow: hidden;
     }
     .sky-logo-mark::before {
         content: "";
         position: absolute;
-        inset: -4px;
+        inset: 2px;
         border-radius: 50%;
         background: conic-gradient(from 0deg, transparent 0 62%, #C5A059 84%, #fff6df 92%, transparent 100%);
         animation: sky-logo-spin 2.8s linear infinite;
@@ -35,19 +40,14 @@
         mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
     }
     .sky-logo {
-        width: 46px;
-        height: 46px;
+        width: 42px;
+        height: 42px;
         object-fit: contain;
         display: block;
         position: relative;
         z-index: 1;
-        animation: sky-logo-glow 2.6s ease-in-out infinite;
     }
     @keyframes sky-logo-spin { to { transform: rotate(360deg); } }
-    @keyframes sky-logo-glow {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(225, 179, 104, 0)); }
-        50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(225, 179, 104, 0.9)); }
-    }
     .sky-rule { width: 1px; height: 28px; background: rgba(230, 211, 161, 0.55); flex-shrink: 0; }
     .sky-event {
         margin: 0;
@@ -172,8 +172,9 @@
     }
     @media (max-width: 420px) {
         .sky-event { font-size: 11px; letter-spacing: 0.06em; }
-        .sky-logo-mark, .sky-logo { width: 36px; height: 36px; }
-        .sky-logo-mark::before { inset: -3px; }
+        .sky-logo-mark { width: 42px; height: 42px; }
+        .sky-logo { width: 32px; height: 32px; }
+        .sky-logo-mark::before { inset: 1px; }
         .sky-login { min-height: 36px; padding: 6px 10px; font-size: 12px; }
         .sky-credit { font-size: 13px; gap: 6px; }
     }
@@ -181,9 +182,10 @@
         .sky-event { font-size: 10px; letter-spacing: 0.03em; }
         .sky-bar { gap: 8px; }
         .sky-brand { gap: 8px; }
-        .sky-logo-mark, .sky-logo { width: 32px; height: 32px; }
+        .sky-logo-mark { width: 38px; height: 38px; }
+        .sky-logo { width: 28px; height: 28px; }
     }
     @media (prefers-reduced-motion: reduce) {
-        .sky-logo, .sky-logo-mark::before { animation: none; }
+        .sky-logo-mark::before { animation: none; }
     }
 </style>

@@ -59,6 +59,7 @@ Route::get('/payments/deposit', 'PublicDonateController@show')->name('payments.d
 Route::get('/payments/deposit/lookup', 'PublicDonateController@lookup')->middleware('throttle:40,1')->name('payments.deposit.lookup');
 Route::post('/payments/deposit', 'PublicDonateController@store')->middleware('throttle:12,1')->name('payments.deposit.store');
 Route::get('/payments/deposit/{token}/status', 'PublicDonateController@status')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.poll');
+Route::post('/payments/deposit/{token}/cancel', 'PublicDonateController@cancel')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.cancel');
 Route::get('/payments/deposit/{token}', 'PublicDonateController@waiting')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.status');
 Route::get('/request-payment', 'PayoutController@publicOpen')->name('payout.request.open');
 Route::get('/payout/request/{token}/search', 'PayoutController@publicSearch')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('payout.request.search');

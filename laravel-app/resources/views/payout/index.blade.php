@@ -175,7 +175,7 @@
                                     <form method="POST" action="{{ route('payout.pending.delete') }}">
                                         @csrf
                                         <input type="hidden" name="ids[]" value="{{ $row->id }}">
-                                        <button class="pay-danger" type="submit" onclick="return confirm('Delete this pending payout?')">Delete</button>
+                                        <button class="pay-danger" type="submit" onclick="return confirm('Cancel this pending payout?')">Cancel</button>
                                     </form>
                                 </div>
                             </td>

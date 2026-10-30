@@ -231,6 +231,23 @@ class PublicDonateController extends Controller
         return view('beyond.donate_status', ['donation' => $donation]);
     }
 
+    public function cancel($token)
+    {
+        $donation = $this->find($token);
+        $this->refresh($donation);
+        $donation = $donation->fresh();
+        if ($donation->status === 'paid') {
+            return redirect()->route('payments.deposit')->with('message', 'Your deposit of '.number_format($donation->amount, 0, '.', ' ').' XAF has already been received.');
+        }
+        if (in_array($donation->status, ['pending', 'waiting'], true)) {
+            $donation->status = 'failed';
+            $donation->error = 'Cancelled.';
+            $donation->save();
+        }
+
+        return redirect()->route('payments.deposit')->with('message', 'The payment request was cancelled.');
+    }
+
     public function status($token)
     {
         $donation = $this->find($token);

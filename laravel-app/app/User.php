@@ -76,6 +76,12 @@ class User extends Authenticatable
         return (int) $this->role_id === 1 || $this->isSuperAdmin();
     }
 
+    /** Settings stays with administrators. Station roles use My Profile instead. */
+    public function canManageHotelSettings()
+    {
+        return $this->hasFullAdminAccess() || strcasecmp($this->roleName(), 'Admin') === 0;
+    }
+
     /** First usable WhatsApp number on the staff profile. */
     public function whatsappPhone()
     {

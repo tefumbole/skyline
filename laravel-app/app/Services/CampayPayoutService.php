@@ -247,12 +247,11 @@ class CampayPayoutService
             return;
         }
         $row->phone = $phone;
-        $operator = $this->operatorName($phone);
-        $row->operator = $operator;
-        $wallet = $this->operatorBalance($operator);
+        $row->operator = $this->operatorName($phone);
+        $wallet = $this->spendableBalance();
         if ($wallet !== null && $wallet + 0.001 < (int) $row->amount) {
             $row->status = 'failed';
-            $row->error = $operator.' balance is '.number_format($wallet, 0, '.', ' ').' XAF. Campay pays this number from the '.$operator.' wallet. The total balance is not used while that wallet is empty.';
+            $row->error = 'Campay balance is '.number_format($wallet, 0, '.', ' ').' XAF, which is less than this payout.';
             $row->save();
 
             return;
@@ -294,15 +293,14 @@ class CampayPayoutService
         }
     }
 
-    public function operatorBalance($operator)
+    public function spendableBalance()
     {
         $body = $this->call('GET', 'balance/', []);
-        if (! is_array($body)) {
+        if (! is_array($body) || ! isset($body['total_balance']) || ! is_numeric($body['total_balance'])) {
             return null;
         }
-        $key = strtoupper((string) $operator) === 'MTN' ? 'mtn_balance' : 'orange_balance';
 
-        return isset($body[$key]) && is_numeric($body[$key]) ? (float) $body[$key] : null;
+        return (float) $body['total_balance'];
     }
 
     public function awaitWithdraw(CampayPayout $row, $seconds = 12)

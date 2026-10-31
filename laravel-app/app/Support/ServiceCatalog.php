@@ -118,7 +118,7 @@ class ServiceCatalog
             $ids[] = $parent->id;
         }
 
-        return Product::where('is_active', true)->whereIn('category_id', $ids)->orderBy('name')->get();
+        return Product::with('category')->where('is_active', true)->whereIn('category_id', $ids)->orderBy('name')->get();
     }
 
     /** The parent category's own photo, for the card on the services page. */

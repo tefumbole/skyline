@@ -35,7 +35,7 @@
 
         <label class="block mt-6">
             <span class="sr-only">Search {{ $current ? $current['name'] : $meta['label'] }}</span>
-            <input id="svc-search" type="search" placeholder="Search {{ $current ? $current['name'] : $meta['label'] }}" autocomplete="off"
+            <input id="svc-search" type="search" placeholder="Search an item or a category" autocomplete="off"
                    class="w-full rounded-2xl bg-black/70 border border-brand-gold/40 px-4 py-3 text-white placeholder-white/40 outline-none focus:border-brand-gold">
         </label>
 
@@ -66,6 +66,78 @@
             @endforeach
         </div>
         <p id="svc-none" class="hidden text-white/60 mt-4">No categories match that search.</p>
+        @if ($items->isNotEmpty())
+        <div id="svc-search-items" class="hidden mt-6">
+            <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Items</p>
+            <form method="POST" action="{{ route('restaurant.checkout') }}" class="mt-3" id="svc-order">
+                @csrf
+                <input type="hidden" name="checkout_token" value="{{ $token }}">
+                <p id="svc-item-none" class="hidden text-white/60 mb-3">No items match that search.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-2" id="svc-items">
+                    @foreach ($items as $product)
+                        @php
+                            $img = \App\Support\ServiceCatalog::productImage($product);
+                            $icon = \App\Support\ServiceCatalog::categoryIcon($product->name);
+                            $catName = optional($product->category)->name;
+                        @endphp
+                        <div class="svc-item flex items-center gap-2 rounded-xl border border-brand-gold/25 bg-white/[0.03] px-2 py-1.5" data-name="{{ strtolower($product->name.' '.$catName) }}">
+                            <input type="hidden" name="product_id[]" value="{{ $product->id }}">
+                            @if ($img)
+                                <button type="button" class="svc-zoom shrink-0" data-src="{{ $img }}" data-title="{{ $product->name }}" aria-label="See {{ $product->name }}">
+                                    <img src="{{ $img }}" alt="" class="h-24 w-24 object-cover bg-[#14110e] rounded-md" width="96" height="96" loading="lazy">
+                                </button>
+                            @else
+                                <span class="h-24 w-24 shrink-0 flex items-center justify-center text-brand-gold/70 bg-[#14110e] rounded-md">
+                                    <i data-lucide="{{ $icon }}" class="w-5 h-5"></i>
+                                </span>
+                            @endif
+                            <span class="min-w-0 flex-1 leading-tight">
+                                <span class="block text-sm font-semibold truncate">{{ $product->name }}</span>
+                                @if ($catName)
+                                    <span class="block text-[11px] text-white/45 truncate">{{ $catName }}</span>
+                                @endif
+                                <span class="block text-xs text-brand-gold font-bold">
+                                    @if ((float) $product->price > 0)
+                                        {{ number_format((float) $product->price, 0) }}
+                                    @else
+                                        —
+                                    @endif
+                                </span>
+                            </span>
+                            <span class="flex items-center gap-1 svc-qty shrink-0">
+                                <button type="button" class="w-7 h-7 rounded-full border border-brand-gold/60 text-brand-gold text-base leading-none" data-step="-1" aria-label="Decrease">&minus;</button>
+                                <input type="number" name="qty[]" min="0" value="0" class="w-8 text-center rounded-md bg-black border border-white/15 px-0 py-1 text-sm text-white tabular-nums">
+                                <button type="button" class="w-7 h-7 rounded-full border border-brand-gold/60 text-brand-gold text-base leading-none" data-step="1" aria-label="Increase">+</button>
+                            </span>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="mt-8 rounded-3xl border border-brand-gold/35 bg-gradient-to-b from-[#1a140b] to-black/40 p-5 sm:p-6">
+                    <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold m-0">Checkout</p>
+                    <h2 class="text-xl font-semibold text-white mt-1 mb-4">Your details</h2>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Name</span>
+                            <input name="name" value="{{ old('name') }}" required placeholder="Your name" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-brand-gold">
+                        </label>
+                        <label class="block">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">WhatsApp</span>
+                            <input name="phone" value="{{ old('phone') }}" required placeholder="6XX XXX XXX" class="w-full rounded-2xl bg-black/70 border border-white/10 px-4 py-3 text-white placeholder-white/30 outline-none focus:border-brand-gold">
+                        </label>
+                        <div class="block md:col-span-2">
+                            <span class="block text-[11px] uppercase tracking-[0.16em] text-white/50 mb-2">Service</span>
+                            <input type="hidden" name="service_type" id="svc-service" value="{{ old('service_type', 'dine_in') }}">
+                            <div class="grid grid-cols-2 gap-2" id="svc-service-picks">
+                                <button type="button" data-service="dine_in" class="rounded-2xl border px-4 py-3 font-semibold border-brand-gold bg-brand-gold text-[#0A0A0A]">Dine in</button>
+                                <button type="button" data-service="take_away" class="rounded-2xl border px-4 py-3 font-semibold border-white/15 text-white">Take away</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-6 w-full sm:w-auto bg-brand-gold text-[#0A0A0A] font-bold tracking-[0.12em] uppercase px-8 py-3.5 rounded-full">Place order</button>
+                </div>
+            </form>
+        </div>
+        @endif
         @endif
 
         @if (session('not_permitted'))
@@ -165,17 +237,29 @@
     var items = document.querySelectorAll('#svc-items .svc-item');
     var cats = document.querySelectorAll('#svc-cats .svc-cat');
     var none = document.getElementById('svc-none');
+    var searchItems = document.getElementById('svc-search-items');
     if (search) {
         search.addEventListener('input', function () {
             var q = search.value.trim().toLowerCase();
-            var shown = 0;
-            var rows = items.length ? items : cats;
-            rows.forEach(function (row) {
+            var catShown = 0;
+            var itemShown = 0;
+            cats.forEach(function (row) {
                 var match = q === '' || (row.getAttribute('data-name') || '').indexOf(q) !== -1;
                 row.style.display = match ? '' : 'none';
-                if (match) shown++;
+                if (match) catShown++;
             });
-            if (none) none.classList.toggle('hidden', q === '' || shown > 0);
+            items.forEach(function (row) {
+                var match = q !== '' && (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+                if (!searchItems) match = q === '' || (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+                row.style.display = match ? '' : 'none';
+                if (match) itemShown++;
+            });
+            if (searchItems) searchItems.classList.toggle('hidden', q === '' || itemShown === 0);
+            if (none && cats.length) none.classList.toggle('hidden', q === '' || catShown > 0);
+            if (none && !cats.length) none.classList.toggle('hidden', q === '' || itemShown > 0);
+            if (window.lucide && searchItems && !searchItems.classList.contains('hidden')) {
+                lucide.createIcons();
+            }
         });
     }
     var picks = document.getElementById('svc-service-picks');

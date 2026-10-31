@@ -163,6 +163,26 @@ class QuotationController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
+    public function quickSupplier(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone_number' => 'nullable|string|max:32',
+            'company_name' => 'nullable|string|max:255',
+        ]);
+        $supplier = Supplier::create([
+            'name' => $data['name'],
+            'phone_number' => isset($data['phone_number']) ? $data['phone_number'] : '',
+            'company_name' => isset($data['company_name']) && $data['company_name'] !== '' ? $data['company_name'] : $data['name'],
+            'is_active' => 1,
+        ]);
+
+        return response()->json([
+            'id' => $supplier->id,
+            'label' => $supplier->name.' ('.$supplier->company_name.')',
+        ]);
+    }
+
     public function cloneQuotation($id)
     {
         $role = Role::find(Auth::user()->role_id);

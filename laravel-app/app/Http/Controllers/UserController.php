@@ -50,8 +50,9 @@ class UserController extends Controller
             $rolesById = DB::table('roles')
                 ->whereIn('id', $lims_user_list->pluck('role_id')->filter()->unique()->values())
                 ->pluck('name', 'id');
+            $roleChoices = DB::table('roles')->orderBy('name')->get(['id', 'name']);
 
-            return view('user.index', compact('lims_user_list', 'all_permission', 'category', 'rolesById'));
+            return view('user.index', compact('lims_user_list', 'all_permission', 'category', 'rolesById', 'roleChoices'));
         }
         else
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
@@ -532,6 +533,29 @@ class UserController extends Controller
             $input['password'] = bcrypt($request['password']);
         $lims_user_data->update($input);
         return redirect('user')->with('message2', 'Data updated successfullly');
+    }
+
+    public function updateBasics(Request $request, $id)
+    {
+        $role = Role::find(Auth::user()->role_id);
+        if (! $role || ! $role->hasPermissionTo('users-edit')) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $user = User::findOrFail($id);
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:32',
+            'role_id' => 'required|integer',
+        ]);
+        if (! DB::table('roles')->where('id', $data['role_id'])->exists()) {
+            return redirect()->back()->with('not_permitted', 'Choose a role from the list.');
+        }
+        $user->name = $data['name'];
+        $user->phone = $data['phone'];
+        $user->role_id = (int) $data['role_id'];
+        $user->save();
+
+        return redirect()->route('user.index')->with('message2', 'Name, phone, and role updated.');
     }
 
     public function profile($id)

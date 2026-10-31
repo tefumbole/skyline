@@ -13,13 +13,15 @@ class RestaurantPayController extends Controller
     public function show($sale, $token)
     {
         $sale = $this->sale($sale, $token);
-        $paid = (float) $sale->paid_amount;
-        $due = max(0, (float) $sale->grand_total - $paid);
+        $paidAmount = (float) $sale->paid_amount;
+        $due = max(0, (float) $sale->grand_total - $paidAmount);
+        $empty = (float) $sale->grand_total <= 0.009 && $paidAmount <= 0.009;
 
         return view('restaurant.pay', [
             'sale' => $sale,
             'due' => $due,
-            'paid' => (int) $sale->payment_status === 4 || $due <= 0,
+            'empty' => $empty,
+            'paid' => ! $empty && ($paidAmount > 0.009 && ((int) $sale->payment_status === 4 || $due <= 0)),
         ]);
     }
 
@@ -56,7 +58,6 @@ class RestaurantPayController extends Controller
 
     public function callback(Request $request)
     {
-        $status = $request->input('status');
         $saleId = $request->input('external_reference');
         $sale = Sale::find($saleId);
         if (! $sale) {
@@ -64,20 +65,22 @@ class RestaurantPayController extends Controller
         }
         $token = SalePayQr::token($sale);
         $back = redirect()->route('restaurant.pay', [$sale->id, $token]);
-        if ($status !== 'SUCCESSFUL') {
-            return $back->with('not_permitted', 'Payment was not completed.');
+        $reference = trim((string) $request->input('reference', ''));
+        $verified = $reference !== ''
+            ? $this->verifyCampayTransaction($reference, null, null, (string) $sale->id)
+            : null;
+        if ($verified) {
+            $result = RestaurantPayments::recordGateway($sale, $verified['amount'], $reference, null);
+            if ($result === 'duplicate' || $result === 'paid' || $result === 'recorded') {
+                return $back->with('message', 'Payment received. Thank you.');
+            }
         }
-        $reference = $request->input('reference');
-        $amount = $request->input('app_amount', $request->input('amount'));
-        $result = RestaurantPayments::recordGateway($sale, $amount, $reference, null);
-        if ($result === 'duplicate' || $result === 'paid') {
-            return $back->with('message', 'This payment was already recorded.');
-        }
-        if ($result !== 'recorded') {
-            return $back->with('not_permitted', 'Payment could not be recorded.');
+        $status = strtoupper(trim((string) $request->input('status', '')));
+        if ($status === '' || $status === 'PENDING') {
+            return $back->with('message', 'Waiting for Mobile Money. The bill stays unpaid until Campay confirms it.');
         }
 
-        return $back->with('message', 'Payment received. Thank you.');
+        return $back->with('not_permitted', 'Payment was not completed. The bill is still unpaid.');
     }
 
     protected function sale($id, $token)
@@ -88,5 +91,40 @@ class RestaurantPayController extends Controller
         }
 
         return $sale;
+    }
+
+    public function webhook(Request $request)
+    {
+        $reference = trim((string) $request->input('reference', ''));
+        $external = trim((string) $request->input('external_reference', ''));
+        if ($reference === '') {
+            return response('ok', 200);
+        }
+        $pending = null;
+        $sale = null;
+        if (strpos($external, 'sale-momo-') === 0) {
+            $pending = \Illuminate\Support\Facades\Cache::get($external);
+            if (is_array($pending) && ! empty($pending['sale_id'])) {
+                $sale = Sale::find($pending['sale_id']);
+            }
+        } elseif (ctype_digit($external)) {
+            $sale = Sale::find((int) $external);
+        }
+        if ($sale) {
+            $verified = $this->verifyCampayTransaction($reference, null, null, $external);
+            if ($verified) {
+                RestaurantPayments::recordGateway(
+                    $sale,
+                    $verified['amount'],
+                    $reference,
+                    is_array($pending) && isset($pending['user_id']) ? $pending['user_id'] : null
+                );
+                if (strpos($external, 'sale-momo-') === 0) {
+                    \Illuminate\Support\Facades\Cache::forget($external);
+                }
+            }
+        }
+
+        return response('ok', 200);
     }
 }

@@ -114,12 +114,11 @@
                     </div>
                     <div>
                         <label class="text-sm font-semibold text-white/80">Country</label>
-                        <select name="country" required class="w-full mt-1 rounded-md bg-black border border-white/15 px-3 py-2 text-white">
-                            <option value="">Select a country</option>
-                            @foreach(array_merge($priorityCountries, $otherCountries) as $country)
-                                <option value="{{ $country }}" @if(old('country', 'Cameroon') === $country) selected @endif>{{ $country }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative mt-1" id="review-country-box">
+                            <input type="text" id="review-country-search" autocomplete="off" placeholder="Search a country" value="{{ old('country', 'Cameroon') }}" class="w-full rounded-md bg-black border border-white/15 px-3 py-2 text-white">
+                            <input type="hidden" name="country" id="review-country-value" value="{{ old('country', 'Cameroon') }}" required>
+                            <div id="review-country-list" class="hidden absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-auto rounded-md border border-white/15 bg-black shadow-lg"></div>
+                        </div>
                     </div>
                     <div>
                         <label class="text-sm font-semibold text-white/80">WhatsApp number</label>
@@ -165,6 +164,53 @@
 @endsection
 
 @push('scripts')
+<script>
+(function () {
+    var countries = @json(array_values(array_merge($priorityCountries, $otherCountries)));
+    var box = document.getElementById('review-country-box');
+    var search = document.getElementById('review-country-search');
+    var value = document.getElementById('review-country-value');
+    var list = document.getElementById('review-country-list');
+    if (!box || !search || !value || !list) return;
+    function paint(query) {
+        var needle = (query || '').trim().toLowerCase();
+        list.innerHTML = '';
+        var shown = 0;
+        countries.forEach(function (country) {
+            if (needle && country.toLowerCase().indexOf(needle) === -1) return;
+            if (shown >= 12 && needle === '') return;
+            shown += 1;
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = country;
+            button.className = 'block w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10';
+            button.addEventListener('click', function () {
+                search.value = country;
+                value.value = country;
+                list.classList.add('hidden');
+            });
+            list.appendChild(button);
+        });
+        list.classList.toggle('hidden', shown === 0);
+    }
+    search.addEventListener('focus', function () { paint(search.value === value.value ? '' : search.value); });
+    search.addEventListener('input', function () {
+        value.value = '';
+        paint(search.value);
+    });
+    document.addEventListener('click', function (event) {
+        if (!box.contains(event.target)) list.classList.add('hidden');
+    });
+    var form = search.closest('form');
+    if (form) form.addEventListener('submit', function (event) {
+        if (!value.value) {
+            event.preventDefault();
+            search.focus();
+            paint(search.value);
+        }
+    });
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 <script>
 (function () {

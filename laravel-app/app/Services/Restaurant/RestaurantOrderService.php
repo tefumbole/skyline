@@ -587,12 +587,12 @@ class RestaurantOrderService
         }
         $sale->grand_total = max(0, round((float) $sale->grand_total - $amount, 2));
         $sale->total_price = max(0, round((float) $sale->total_price - $amount, 2));
-        if ((float) $sale->grand_total <= (float) $sale->paid_amount + 0.009) {
-            $sale->payment_status = 4;
-        } elseif ((float) $sale->paid_amount > 0.009) {
-            $sale->payment_status = 3;
-        } else {
+        if ((float) $sale->paid_amount <= 0.009) {
             $sale->payment_status = 2;
+        } elseif ((float) $sale->grand_total <= (float) $sale->paid_amount + 0.009) {
+            $sale->payment_status = 4;
+        } else {
+            $sale->payment_status = 3;
         }
         $sale->save();
     }

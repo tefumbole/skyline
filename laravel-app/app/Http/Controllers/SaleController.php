@@ -3151,6 +3151,107 @@ class SaleController extends Controller
         return view('sale.invoice', compact('header', 'footer', 'water_mark', 'all_permission', 'lims_account_data_cradit', 'lims_account_data_debit', 'lims_sale_data', 'lims_product_sale_data', 'lims_biller_data', 'lims_warehouse_data', 'lims_customer_data', 'lims_payment_data', 'numberInWords'));
     }
 
+    public function confirmCash($sale, $token)
+    {
+        $sale = Sale::findOrFail($sale);
+        $pending = \Illuminate\Support\Facades\Cache::get('sale-cash-'.$sale->id);
+        if (! is_array($pending) || ! hash_equals($this->cashConfirmToken($sale, $pending['amount']), (string) $token)) {
+            abort(404);
+        }
+
+        return view('payment.cash-confirm', [
+            'sale' => $sale,
+            'amount' => $pending['amount'],
+            'token' => $token,
+        ]);
+    }
+
+    public function storeCashConfirm(Request $request, $sale, $token)
+    {
+        $sale = Sale::findOrFail($sale);
+        $pending = \Illuminate\Support\Facades\Cache::get('sale-cash-'.$sale->id);
+        if (! is_array($pending) || ! hash_equals($this->cashConfirmToken($sale, $pending['amount']), (string) $token)) {
+            abort(404);
+        }
+        $amount = (float) $pending['amount'];
+        $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+        if ($amount <= 0 || $amount > $due + 0.009) {
+            return redirect()->route('sale.cash.confirm', [$sale->id, $token])->with('not_permitted', 'This amount is no longer due.');
+        }
+        $sale->paid_amount = (float) $sale->paid_amount + $amount;
+        $balance = (float) $sale->grand_total - (float) $sale->paid_amount;
+        $sale->payment_status = $balance <= 0.009 ? 4 : 3;
+        $sale->save();
+        $payment = new Payment();
+        $payment->user_id = isset($pending['user_id']) ? $pending['user_id'] : null;
+        $payment->sale_id = $sale->id;
+        $payment->account_id = isset($pending['account_id']) ? $pending['account_id'] : null;
+        $payment->payment_reference = 'spr-'.date('Ymd').'-'.date('His');
+        $payment->amount = $amount;
+        $payment->change = 0;
+        $payment->paying_method = 'Cash';
+        $payment->payment_note = 'Confirmed by the client';
+        $payment->save();
+        \Illuminate\Support\Facades\Cache::forget('sale-cash-'.$sale->id);
+
+        return redirect()->route('sale.cash.confirm', [$sale->id, $token])->with('message', 'Cash payment confirmed. Thank you.');
+    }
+
+    protected function cashConfirmToken(Sale $sale, $amount)
+    {
+        return hash_hmac('sha256', $sale->id.'|'.number_format((float) $amount, 2, '.', ''), (string) config('app.key'));
+    }
+
+    protected function askClientToConfirmPayment(Sale $sale, $customer, array $data, $paidBy)
+    {
+        $amount = (float) $data['amount'];
+        $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+        if ($amount <= 0 || $amount > $due + 0.009) {
+            return redirect()->back()->with('not_permitted', 'Enter an amount that is still due. The bill was not marked paid.');
+        }
+        $phone = $customer ? (string) ($customer->phone_number ?: '') : '';
+        if ($phone === '') {
+            return redirect()->back()->with('not_permitted', 'This client has no phone number, so they cannot confirm. The bill was not marked paid.');
+        }
+        if ($paidBy === 8) {
+            $collect = app(\App\Services\CampayCollectService::class);
+            $momo = $collect->momoNumber($phone);
+            if (! $momo) {
+                return redirect()->back()->with('not_permitted', 'The client number is not an MTN or Orange number. The bill was not marked paid.');
+            }
+            $external = 'sale-momo-'.$sale->id.'-'.date('His');
+            $body = $collect->collect($momo, (int) $amount, $external, 'Skyline '.$sale->reference_no);
+            $reference = is_array($body) && ! empty($body['reference']) ? (string) $body['reference'] : '';
+            if ($reference === '') {
+                return redirect()->back()->with('not_permitted', 'Mobile Money did not send a prompt. The bill was not marked paid.');
+            }
+            \Illuminate\Support\Facades\Cache::put($external, [
+                'sale_id' => $sale->id,
+                'amount' => $amount,
+                'user_id' => Auth::id(),
+                'reference' => $reference,
+            ], now()->addMinutes(30));
+
+            return redirect()->back()->with('message', 'A Mobile Money prompt was sent to the client. The bill stays unpaid until they approve.');
+        }
+        $token = $this->cashConfirmToken($sale, $amount);
+        \Illuminate\Support\Facades\Cache::put('sale-cash-'.$sale->id, [
+            'amount' => $amount,
+            'user_id' => Auth::id(),
+            'account_id' => isset($data['account_id']) ? $data['account_id'] : null,
+        ], now()->addHours(6));
+        $url = route('sale.cash.confirm', [$sale->id, $token]);
+        $sent = app(\App\Services\Messaging\NotificationRouter::class)->sendWhatsAppText(
+            $phone,
+            'Please confirm the cash payment of '.number_format($amount, 0).' XAF for '.$sale->reference_no.".\n".$url
+        );
+        if (empty($sent['success']) || ! empty($sent['skipped'])) {
+            return redirect()->back()->with('not_permitted', 'The confirmation message could not be sent. The bill was not marked paid.');
+        }
+
+        return redirect()->back()->with('message', 'The client was asked to confirm the cash payment. The bill stays unpaid until they confirm.');
+    }
+
     public function addPayment(Request $request)
     {
         $data = $request->all();
@@ -3159,6 +3260,10 @@ class SaleController extends Controller
 
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
+        $paidBy = (int) ($data['paid_by_id'] ?? 0);
+        if ($paidBy === 1 || $paidBy === 8) {
+            return $this->askClientToConfirmPayment($lims_sale_data, $lims_customer_data, $data, $paidBy);
+        }
         $lims_sale_data->paid_amount += $data['amount'];
         $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;
         $lims_sale_data->payment_status = $this->paymentStatusForBalance($lims_sale_data->paid_amount, $balance);

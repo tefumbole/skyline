@@ -108,7 +108,7 @@ class SkylineGuestGuideTest extends TestCase
         $this->assertStringContainsString('Respond in the customer’s language', $prompt);
         $this->assertStringContainsString('13:00', $prompt);
         $this->assertStringContainsString('Do not say the tables are unavailable', $prompt);
-        $this->assertStringContainsString('Premium — GUARDEN', $prompt);
+        $this->assertStringContainsString('Premium — Garden', $prompt);
     }
 
     public function test_dates_are_read_without_one_required_format()

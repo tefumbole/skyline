@@ -19,6 +19,7 @@ class PayoutController extends Controller
     {
         $this->guard();
         $this->settleRecorded();
+        $this->refreshPendingStatuses();
         $tenantId = $this->tenantId();
         $unpaidIds = CampayPayout::query()->whereIn('status', ['pending', 'failed'])->distinct()->pluck('request_id')->filter()->all();
         $pending = $this->requests($tenantId)
@@ -56,6 +57,21 @@ class PayoutController extends Controller
         $people = collect();
 
         return view('payout.index', compact('pending', 'totals', 'open', 'lines', 'history', 'balance', 'making', 'q', 'people'));
+    }
+
+    protected function refreshPendingStatuses()
+    {
+        $service = app(CampayPayoutService::class);
+        $rows = CampayPayout::query()
+            ->where('status', 'pending')
+            ->whereNotNull('campay_reference')
+            ->where('campay_reference', '!=', '')
+            ->orderByDesc('id')
+            ->limit(8)
+            ->get();
+        foreach ($rows as $row) {
+            $this->confirmExisting($service, $row);
+        }
     }
 
     public function search(Request $request)

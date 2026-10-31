@@ -503,7 +503,7 @@ class Controller extends BaseController
         return $static ? (string) $static : '';
     }
 
-    public function mobileMoneyRequestLink($token, $amount, $route, $patient_id, $number){
+    public function mobileMoneyRequestLink($token, $amount, $route, $patient_id, $number, $webhook = null){
 
         $token = $this->campayBearerToken($token);
         if ($token === '') {
@@ -528,7 +528,8 @@ class Controller extends BaseController
                 "external_reference": "'.$patient_id.'",
                 "redirect_url": "'.$route.'",
                 "payment_options":"MOMO",
-                "failure_redirect_url": "'.$route.'"
+                "failure_redirect_url": "'.$route.'",
+                "webhook": "'.($webhook ?: url('/pay/campay/webhook')).'"
             }',
             CURLOPT_HTTPHEADER => array(
                 'Authorization: Token ' . $token,

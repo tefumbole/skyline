@@ -214,7 +214,7 @@
                             @endif
                         </a>
                         <span class="coth-exp-body">
-                            <h3>{{ $card['section']->name }}</h3>
+                            <h3>{{ $card['section']->code === 'yard' ? 'Premium — Garden' : $card['section']->name }}</h3>
                             <span class="coth-exp-count">{{ $card['open'] }} available</span>
                             <span class="coth-exp-pin" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>
@@ -229,7 +229,7 @@
         @if ($section)
             <a href="{{ route('coth.tables', ['date' => $date]) }}" class="coth-exp-kicker inline-block mt-8">&larr; ALL SECTIONS</a>
             <div class="flex items-center justify-between mt-3 gap-3">
-                <h2 class="text-xl m-0">{{ $section->name }}</h2>
+                <h2 class="text-xl m-0">{{ $section->code === 'yard' ? 'Premium — Garden' : $section->name }}</h2>
                 <a class="text-sm text-brand-gold underline" href="{{ route('coth.tables', ['date' => $date, 'section' => $section->code, 'view' => $viewMode === 'list' ? 'layout' : 'list']) }}">
                     {{ $viewMode === 'list' ? 'Show 3D layout' : 'Show list' }}
                 </a>
@@ -303,7 +303,7 @@
                                         <span class="text-xs text-white/55">{{ count($rows) }} {{ count($rows) === 1 ? 'table' : 'tables' }}</span>
                                     </div>
                                     <p class="text-xs text-white/60 mt-1 mb-3">
-                                        {{ $section->name }} · {{ $sample->capacity }} seats
+                                        {{ ($section->code === 'yard' ? 'Premium — Garden' : $section->name) }} · {{ $sample->capacity }} seats
                                         @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
                                     </p>
                                     <div class="text-sm font-semibold">

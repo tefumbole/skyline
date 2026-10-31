@@ -36,7 +36,7 @@ class RestaurantPayments
         if (self::alreadyRecorded($sale->id, $reference)) {
             return 'duplicate';
         }
-        if ((int) $sale->payment_status === 4) {
+        if ((int) $sale->payment_status === 4 && (float) $sale->paid_amount > 0.009) {
             return 'paid';
         }
 

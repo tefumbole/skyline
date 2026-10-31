@@ -52,7 +52,12 @@
                             <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
                                 @if(in_array("users-edit", $all_permission))
                                 <li>
-                                	<a href="{{ route('user.edit', $user->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
+                            <a href="{{ route('user.edit', $user->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
+                            <button type="button" class="btn btn-link edit-basics"
+                                data-id="{{ $user->id }}"
+                                data-name="{{ $user->name }}"
+                                data-phone="{{ $user->phone }}"
+                                data-role="{{ $user->role_id }}">Edit name, phone, role</button>
                                 </li>
                                 <li class="divider"></li>
                                 <li>
@@ -97,6 +102,39 @@
         </table>
     </div>
 </section>
+
+<div id="basics-modal" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+    <div role="document" class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="basics-form" action="">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Name, phone, and role</h5>
+                    <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="name" id="basics-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone" id="basics-phone" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role_id" id="basics-role" class="form-control" required>
+                            @foreach($roleChoices as $role)
+                                <option value="{{ $role->id }}">{{ $role->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script type="text/javascript">
 
@@ -221,6 +259,17 @@
 
     if(all_permission.indexOf("users-delete") == -1)
         $('.buttons-delete').addClass('d-none');
+
+    $(document).on('click', '.edit-basics', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var button = $(this);
+        $('#basics-name').val(button.attr('data-name') || '');
+        $('#basics-phone').val(button.attr('data-phone') || '');
+        $('#basics-role').val(String(button.attr('data-role') || ''));
+        $('#basics-form').attr('action', '{{ url('user') }}/' + button.attr('data-id') + '/basics');
+        $('#basics-modal').modal('show');
+    });
 
     $('#user-table tbody').on('click', 'tr', function (e) {
         if ($(e.target).closest('td:first-child, .btn-group, a, button, input, label, .dropdown-menu, .checkbox').length) {

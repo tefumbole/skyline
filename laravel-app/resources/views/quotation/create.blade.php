@@ -32,11 +32,14 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>{{trans('file.Supplier')}}</label>
+                                            <div class="input-with-action">
                                             <select name="supplier_id" class="selectpicker form-control" data-live-search="true" id="supplier-id"   title="Select Supplier...">
                                                 @foreach($lims_supplier_list as $supplier)
                                                 <option value="{{$supplier->id}}" @if(!empty($cloneQuotation) && $cloneQuotation->supplier_id == $supplier->id) selected @endif>{{$supplier->name . ' (' . $supplier->company_name . ')'}}</option>
                                                 @endforeach
                                             </select>
+                                            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#addSupplier" title="Add supplier"><i class="dripicons-plus"></i></button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -973,5 +976,56 @@ if (typeof tinymce !== 'undefined') {
         content_style: 'body{font-family:Arial,sans-serif;font-size:14px;line-height:1.5} h1{font-size:1.5em} h2{font-size:1.3em} h3{font-size:1.15em} ul,ol{padding-left:1.4em}'
     });
 }
+</script>
+<div id="addSupplier" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
+    <div role="document" class="modal-dialog">
+        <div class="modal-content">
+            <form id="supplier-quick-form">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add supplier</h5>
+                    <button type="button" data-dismiss="modal" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Company</label>
+                        <input type="text" name="company_name" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone_number" class="form-control">
+                    </div>
+                    <p id="supplier-quick-error" class="text-danger"></p>
+                    <button type="submit" class="btn btn-primary">Save supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+$('#supplier-quick-form').on('submit', function (event) {
+    event.preventDefault();
+    var form = $(this);
+    $('#supplier-quick-error').text('');
+    $.ajax({
+        url: '{{ route('quotation.supplier.quick') }}',
+        method: 'POST',
+        data: form.serialize() + '&_token={{ csrf_token() }}',
+        success: function (supplier) {
+            var select = $('#supplier-id');
+            select.append('<option value="' + supplier.id + '" selected>' + $('<div>').text(supplier.label).html() + '</option>');
+            select.selectpicker('refresh');
+            select.selectpicker('val', String(supplier.id));
+            form[0].reset();
+            $('#addSupplier').modal('hide');
+        },
+        error: function () {
+            $('#supplier-quick-error').text('The supplier was not saved.');
+        }
+    });
+});
 </script>
 @endsection

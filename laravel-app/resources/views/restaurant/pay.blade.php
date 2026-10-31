@@ -5,7 +5,9 @@
     <div class="card">
         <p>{{ optional($sale->customer)->name }}</p>
         <p>Invoice {{ number_format((float) $sale->grand_total, 0) }} · Paid {{ number_format((float) $sale->paid_amount, 0) }} · Due {{ number_format((float) $due, 0) }} XAF</p>
-        @if($paid)
+        @if(!empty($empty))
+            <p><strong>There is nothing left to pay on this order.</strong></p>
+        @elseif($paid)
             <p><strong>This invoice is paid.</strong> Scanning the code again will not charge you a second time.</p>
         @else
             <p class="muted">Choose Mobile Money or card. Opening this page does not take payment. Cash is collected by the cashier.</p>

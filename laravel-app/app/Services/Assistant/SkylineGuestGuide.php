@@ -560,7 +560,7 @@ class SkylineGuestGuide
     protected function guestSectionName($code, $fallback)
     {
         if ($code === 'yard') {
-            return 'Premium — GUARDEN';
+            return 'Premium — Garden';
         }
 
         return (string) $fallback;

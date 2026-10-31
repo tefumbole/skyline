@@ -78,6 +78,9 @@ Route::post('/order-review/{sale}/{token}', 'RestaurantTrackingController@storeR
 Route::get('/pay/invoice/{sale}/{token}', 'RestaurantPayController@show')->name('restaurant.pay');
 Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->name('restaurant.pay.start');
 Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
+Route::post('/pay/campay/webhook', 'RestaurantPayController@webhook')->name('campay.webhook');
+Route::get('/pay/cash/{sale}/{token}', 'SaleController@confirmCash')->name('sale.cash.confirm');
+Route::post('/pay/cash/{sale}/{token}', 'SaleController@storeCashConfirm')->name('sale.cash.confirm.store');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
 Route::get('/chill-on-the-hill', 'CothController@index')->name('coth.index');
@@ -1138,7 +1141,8 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('quotations/{id}/quote/reject', 'QuotationController@rejectClientQuote')->name('quotation.quote_reject');
 	Route::post('quotations/deletebyselection', 'QuotationController@deleteBySelection');
 	Route::get('quotations', 'QuotationController@index')->name('quotations.index');
-	Route::resource('quotations', 'QuotationController')->except(['index']);
+    Route::post('quotations/supplier-quick', 'QuotationController@quickSupplier')->name('quotation.supplier.quick');
+    Route::resource('quotations', 'QuotationController')->except(['index']);
 
 	Route::post('purchases/purchase-data', 'PurchaseController@purchaseData')->name('purchases.data');
 	Route::get('purchases/product_purchase/{id}','PurchaseController@productPurchaseData');
@@ -1225,6 +1229,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('user/{id}/signature/pad', 'UserSignatureController@savePad')->name('user.signature.pad');
 	Route::post('user/{id}/signature/request', 'UserSignatureController@requestLink')->name('user.signature.request');
 	Route::post('user/{id}/signature/delete', 'UserSignatureController@destroy')->name('user.signature.delete');
+	Route::post('user/{id}/basics', 'UserController@updateBasics')->name('user.basics');
 	Route::resource('user','UserController');
 
 	Route::get('setting/activity-logs', 'ActivityLogController@index')->name('activity-logs.index');

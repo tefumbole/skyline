@@ -362,6 +362,56 @@
                 results.innerHTML = '';
                 var people = data.people || [];
                 if (!people.length) {
+                    var digits = q.replace(/\D/g, '');
+                    if (digits.length >= 8) {
+                        results.innerHTML = '<p class="empty">Looking up the Mobile Money name…</p>';
+                        fetch(lookupUrl + '?phone=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
+                            .then(function (response) { return response.json(); })
+                            .then(function (hit) {
+                                if (searchBox.value.trim() !== q) return;
+                                results.innerHTML = '';
+                                if (!hit || !hit.name) {
+                                    results.innerHTML = '<p class="empty">Campay has no name for that number.</p>';
+                                    return;
+                                }
+                                var row = document.createElement('div');
+                                row.className = 'hit';
+                                var copy = document.createElement('div');
+                                var strong = document.createElement('strong');
+                                strong.textContent = hit.name;
+                                var meta = document.createElement('span');
+                                meta.textContent = (hit.operator || 'Mobile Money');
+                                copy.appendChild(strong);
+                                copy.appendChild(meta);
+                                var button = document.createElement('button');
+                                button.type = 'button';
+                                button.className = 'btn tiny';
+                                button.textContent = 'Add';
+                                button.addEventListener('click', function () {
+                                    openExtraPhone();
+                                    var inputs = body.querySelectorAll('.extra-phone');
+                                    var input = inputs[inputs.length - 1];
+                                    if (input) {
+                                        input.value = hit.phone || q;
+                                        input.dispatchEvent(new Event('input', {bubbles: true}));
+                                    }
+                                    var labels = body.querySelectorAll('.momo-label');
+                                    var label = labels[labels.length - 1];
+                                    if (label) label.textContent = hit.name + (hit.operator ? ' · ' + hit.operator : '');
+                                    var hidden = body.querySelectorAll('input[name="extra_momo[]"]');
+                                    if (hidden.length) hidden[hidden.length - 1].value = hit.name;
+                                    results.innerHTML = '';
+                                    resetSearch();
+                                });
+                                row.appendChild(copy);
+                                row.appendChild(button);
+                                results.appendChild(row);
+                            })
+                            .catch(function () {
+                                results.innerHTML = '<p class="empty">The name lookup did not answer. Try again.</p>';
+                            });
+                        return;
+                    }
                     results.innerHTML = '<p class="empty">No users or customers match that search.</p>';
                     return;
                 }

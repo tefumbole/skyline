@@ -293,7 +293,7 @@ class PayoutController extends Controller
             }
         }
 
-        $depositRequests = PublicDonation::query()->orderByDesc('id')->limit(20)->get();
+        $depositRequests = PublicDonation::query()->whereIn('status', ['pending', 'waiting'])->orderByDesc('id')->limit(40)->get();
 
         return view('payout.request', compact('url', 'invites', 'submitted', 'review', 'reviewLines', 'depositRequests'));
     }

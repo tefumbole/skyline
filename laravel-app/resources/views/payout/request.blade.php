@@ -9,21 +9,14 @@
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
-    <style>
-        .pay-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #ead9b4; border-radius: 16px; background: #fffaf3; margin-bottom: 12px; }
-        .pay-choice h3 { margin: 0 0 4px; font-size: 16px; color: #1a1208; }
-        .pay-choice .pay-help { margin: 0; }
-    </style>
+    <div class="pay-toolbar">
+        <a class="pay-new" href="{{ route('payout.index', ['new' => 1]) }}">Request a payout</a>
+        <button class="pay-new" type="button" id="openDepositRequest">Request for payment</button>
+    </div>
+
     <div class="pay-card">
         <div class="pay-card-head"><h2>Request for Payment</h2></div>
         <div class="pay-card-body">
-            <div class="pay-choice">
-                <div>
-                    <h3>Deposit Request</h3>
-                    <p class="pay-help">Ask an MTN or Orange number to pay into the wallet. The name comes from Campay.</p>
-                </div>
-                <button class="pay-plus" type="button" id="openDepositRequest" title="Request a deposit">+</button>
-            </div>
             <form method="POST" action="{{ route('payout.request.deposit') }}" id="depositRequestForm" style="display:none;margin-bottom:18px">
                 @csrf
                 <div class="form-group" style="max-width:420px">
@@ -41,6 +34,7 @@
                 </div>
                 <button class="pay-go" type="submit">Send deposit request</button>
             </form>
+            <h3 style="margin:0 0 10px;font-size:16px">Pending deposits</h3>
             @if(isset($depositRequests) && count($depositRequests))
                 <div class="table-responsive" style="margin-bottom:18px">
                     <table class="pay-table">
@@ -61,15 +55,10 @@
                         </tbody>
                     </table>
                 </div>
+            @else
+                <p class="pay-muted" style="margin-bottom:18px">No pending deposits.</p>
             @endif
 
-            <div class="pay-choice">
-                <div>
-                    <h3>Payout Request</h3>
-                    <p class="pay-help">Ask people to send the MTN or Orange number you should pay. Campay supplies the name.</p>
-                </div>
-                <button class="pay-plus" type="button" id="openPayoutRequest" title="Request a payout">+</button>
-            </div>
             <div id="payoutRequestBox" style="display:none">
             <form method="POST" action="{{ route('payout.request.invite') }}" id="inviteForm">
                 @csrf
@@ -299,7 +288,7 @@
     @endif
 
     <div class="pay-card">
-        <div class="pay-card-head"><h2>Requested payments</h2></div>
+        <div class="pay-card-head"><h2>Pending payout requests</h2></div>
         <div class="table-responsive">
             <table class="pay-table">
                 <thead>
@@ -312,7 +301,11 @@
                             $rows->push(['at' => $row->created_at, 'kind' => 'invite', 'row' => $row]);
                         }
                         foreach ($submitted as $row) {
-                            $rows->push(['at' => $row->created_at, 'kind' => 'submitted', 'row' => $row]);
+                            $lines = $row->lines;
+                            $waiting = ! $lines || $lines->isEmpty() || $row->status === 'pending' || $lines->where('status', 'pending')->count() > 0;
+                            if ($waiting) {
+                                $rows->push(['at' => $row->created_at, 'kind' => 'submitted', 'row' => $row]);
+                            }
                         }
                         $rows = $rows->sortByDesc(function ($item) {
                             return $item['at'] ? $item['at']->timestamp : 0;
@@ -401,7 +394,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="pay-muted">No payment requests yet.</td></tr>
+                        <tr><td colspan="5" class="pay-muted">No pending payout requests.</td></tr>
                     @endforelse
                 </tbody>
             </table>

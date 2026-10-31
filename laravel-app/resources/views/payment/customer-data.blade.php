@@ -76,7 +76,7 @@
                         </td>
                         <td>{{ $sale->created_at }}</td>
                         <td>
-                            <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $sale->id }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
+                            <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $sale->id }}" data-name="{{ e(optional($sale->customer)->name) }}" data-phone="{{ e(optional($sale->customer)->phone_number) }}" data-ref="{{ e($sale->reference_no) }}" data-due="{{ $due }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
                             <button type="button" class="get-payment btn btn-info btn-sm" data-id = "{{ $sale->id }}"><i class="fa fa-money"></i>{{ trans('file.View') }}</button>
                             <a class="get-payment btn btn-warning btn-sm" href="{{ route('sales.edit',$sale->id ) }}"><i class="fa fa-pencil"></i> Edit Sale</a>
                         </td>
@@ -113,83 +113,87 @@
         </div>
     </div>
 
-    <div id="add-payment" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
-        <div role="document" class="modal-dialog">
+    @php
+        $defaultPayAccount = $lims_account_list->first(function ($account) { return $account->is_default; });
+        if (! $defaultPayAccount) {
+            $defaultPayAccount = $lims_account_list->first();
+        }
+    @endphp
+    <style>
+        #add-payment .modal-dialog { max-width: 460px; margin: 28px auto; }
+        #add-payment .modal-content { border: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(12, 24, 48, .28); }
+        #add-payment .pay-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 18px 16px; background: #0c1830; color: #fff; }
+        #add-payment .pay-kicker { color: #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        #add-payment .pay-title { margin: 4px 0 0; font-size: 20px; font-weight: 700; }
+        #add-payment .pay-ref { margin-top: 2px; color: rgba(255,255,255,.72); font-size: 13px; }
+        #add-payment .pay-x { width: 36px; height: 36px; border: 0; border-radius: 18px; background: rgba(255,255,255,.1); color: #fff; font-size: 22px; line-height: 1; }
+        #add-payment .pay-body { padding: 16px 18px 18px; background: #f3f6fb; }
+        #add-payment .pay-due { margin-bottom: 12px; padding: 14px 16px; border-radius: 14px; background: #fff; }
+        #add-payment .pay-due strong { display: block; margin-top: 2px; color: #0c1830; font-size: 28px; letter-spacing: -.03em; }
+        #add-payment .pay-phone { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px 14px; border-radius: 14px; background: #fff; }
+        #add-payment .pay-phone span, #add-payment label { color: #5c6b82; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+        #add-payment .pay-phone strong { color: #0c1830; font-size: 16px; }
+        #add-payment label { display: block; margin: 0 0 6px; }
+        #add-payment .form-control { min-height: 46px; border: 1px solid #d7deea; border-radius: 12px; background: #fff; font-size: 16px; }
+        #add-payment .pay-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        #add-payment .pay-choice button { min-height: 52px; border: 1px solid #d7deea; border-radius: 14px; background: #fff; color: #0c1830; font-weight: 700; }
+        #add-payment .pay-choice button small { display: block; color: #5c6b82; font-weight: 600; }
+        #add-payment .pay-choice button.is-on { border-color: #0c1830; background: #0c1830; color: #fff; }
+        #add-payment .pay-choice button.is-on small { color: #e1b368; }
+        #add-payment .pay-amount { margin-bottom: 12px; }
+        #add-payment .pay-left { margin-top: 6px; color: #5c6b82; font-size: 13px; }
+        #add-payment .pay-error { display: none; margin-bottom: 10px; color: #9b1c1c; font-size: 13px; font-weight: 700; }
+        #add-payment .pay-send { width: 100%; min-height: 48px; border: 0; border-radius: 14px; background: #e1b368; color: #0c1830; font-weight: 700; }
+        #add-payment .pay-send:hover { background: #c99645; }
+        #add-payment .pay-hint { margin: 8px 0 0; color: #5c6b82; font-size: 12px; text-align: center; }
+    </style>
+    <div id="add-payment" tabindex="-1" role="dialog" aria-labelledby="addPaymentTitle" aria-hidden="true" class="modal fade text-left">
+        <div role="document" class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 id="exampleModalLabel" class="modal-title">{{trans('file.Add Payment')}}</h5>
-                    <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+                <div class="pay-head">
+                    <div>
+                        <div class="pay-kicker">Add payment</div>
+                        <h5 id="addPaymentTitle" class="pay-title">Client</h5>
+                        <div class="pay-ref" id="payRef"></div>
+                    </div>
+                    <button type="button" data-dismiss="modal" aria-label="Close" class="pay-x">&times;</button>
                 </div>
-                <div class="modal-body">
-                    {!! Form::open(['route' => 'sale.add-payment', 'method' => 'post', 'files' => true, 'class' => 'payment-form' ]) !!}
-                    <div class="row">
-                        <input type="hidden" name="balance">
-                        <div class="col-md-6">
-                            <label>Received Amount *</label>
-                            <input type="text" name="paying_amount" class="form-control numkey" step="any" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label>{{trans('file.Paying Amount')}} *</label>
-                            <input type="text" id="amount" name="amount" class="form-control"  step="any" required>
-                        </div>
-                        <div class="col-md-6 mt-1">
-                            <label>{{trans('file.Change')}} : </label>
-                            <p class="change ml-2">0.00</p>
-                        </div>
-                        <div class="col-md-6 mt-1">
-                            <label>{{trans('file.Paid By')}}</label>
-                            <select name="paid_by_id" class="form-control">
-                                <option value="1">Cash</option>
-                                @if(in_array("JE-method", $all_permission))
-                                    <option value="3">JE</option>
-                                @endif
-                                <option value="6">Deposit</option>
-                                <option value="8">Momo/Orange</option>
-                                <option value="12">VISA</option>
-                            </select>
-                        </div>
-                        <div class="col-md-12 mt-1 momo-phone-field" style="display:none;">
-                            <label>Momo phone number</label>
-                            <input type="text" name="momo_phone" class="form-control" placeholder="Leave blank to use the client's number, or enter another">
-                        </div>
-                    </div>
-                    <div class="form-group mt-2">
-                        <div class="card-element" class="form-control">
-                        </div>
-                        <div class="card-errors" role="alert"></div>
-                    </div>
-                    <div class="form-group">
-                        <label> {{trans('file.Account')}}</label>
-                        <select class="form-control selectpicker" name="account_id" data-live-search="true">
-                            @foreach($lims_account_list as $account)
-                                @if($account->is_default)
-                                    <option selected value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{optional($account->departments)->code}}</option>
-                                @else
-                                    <option value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{optional($account->departments)->code}}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group debit">
-                        <label>{{trans('file.Debit')}}</label>
-                        <select name="account_id_debit" class="form-control selectpicker" data-live-search="true">
-                            @foreach($lims_account_list as $account)
-                                @if($account->is_default_debit)
-                                    <option selected value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{optional($account->departments)->code}}</option>
-                                @else
-                                    <option value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{optional($account->departments)->code}}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>{{trans('file.Payment Note')}}</label>
-                        <textarea rows="3" class="form-control" name="payment_note"></textarea>
-                    </div>
-
+                <div class="pay-body">
+                    {!! Form::open(['route' => 'sale.add-payment', 'method' => 'post', 'class' => 'payment-form' ]) !!}
+                    <input type="hidden" name="balance">
+                    <input type="hidden" name="paying_amount">
+                    <input type="hidden" name="paid_by_id" value="1">
                     <input type="hidden" name="sale_id">
+                    <input type="hidden" name="account_id" value="{{ optional($defaultPayAccount)->id }}">
 
-                    <button type="submit" class="btn btn-primary">{{trans('file.submit')}}</button>
+                    <div class="pay-due">
+                        <div class="pay-kicker" style="color:#8a6230">Still due</div>
+                        <strong id="payDueLabel">0 XAF</strong>
+                    </div>
+                    <div class="pay-phone">
+                        <span>Client number</span>
+                        <strong id="payClientPhone">—</strong>
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <label for="payOtherPhone">Different number</label>
+                        <input type="text" id="payOtherPhone" name="momo_phone" class="form-control" placeholder="Leave blank to use the client number" autocomplete="off">
+                    </div>
+                    <div class="pay-choice" id="payMethods">
+                        <button type="button" class="pay-method is-on" data-id="1">Cash<small>Ask the client to confirm</small></button>
+                        <button type="button" class="pay-method" data-id="8">MoMo / OM<small>Prompt on the phone</small></button>
+                    </div>
+                    <div class="pay-choice" id="payModes">
+                        <button type="button" class="pay-mode is-on" data-mode="full">Full amount<small>Pay everything due</small></button>
+                        <button type="button" class="pay-mode" data-mode="part">Partial<small>Pay part now</small></button>
+                    </div>
+                    <div class="pay-amount">
+                        <label for="amount">Amount (XAF)</label>
+                        <input type="number" id="amount" name="amount" class="form-control" min="1" step="1" required readonly>
+                        <div class="pay-left">Left after this payment: <span id="payLeft">0 XAF</span></div>
+                    </div>
+                    <div class="pay-error" id="payError"></div>
+                    <button type="submit" class="pay-send">Ask the client to confirm</button>
+                    <p class="pay-hint">The bill stays unpaid until the client confirms.</p>
                     {{ Form::close() }}
                 </div>
             </div>
@@ -203,8 +207,6 @@
         $("ul#payments").addClass("show");
         $("ul#payments #payment-index-menu").addClass("active");
 
-        $(".debit").hide();
-
         var user_verified = <?php echo json_encode(true) ?>;
 
         $.ajaxSetup({
@@ -213,12 +215,67 @@
             }
         });
 
-        $('select[name="paid_by_id"]').on("change", function() {
-            var id = $(this).val();
-            $(".debit").hide();
-            $(".momo-phone-field").toggle(String(id) === '8');
-            if(id == 3){
-                $(".debit").show(300);
+        var payDue = 0;
+        function payMoney(amount) {
+            var value = Math.round(parseFloat(amount) || 0);
+            return value.toLocaleString('fr-FR') + ' XAF';
+        }
+        function syncPayAmount() {
+            var amount = parseFloat($('#add-payment input[name="amount"]').val());
+            if (isNaN(amount) || amount < 0) amount = 0;
+            $('#add-payment input[name="paying_amount"]').val(amount);
+            var left = Math.max(0, payDue - amount);
+            $('#payLeft').text(payMoney(left));
+        }
+        function setPayMethod(id) {
+            $('#add-payment input[name="paid_by_id"]').val(id);
+            $('#add-payment .pay-method').removeClass('is-on');
+            $('#add-payment .pay-method[data-id="' + id + '"]').addClass('is-on');
+        }
+        function setPayMode(mode) {
+            $('#add-payment .pay-mode').removeClass('is-on');
+            $('#add-payment .pay-mode[data-mode="' + mode + '"]').addClass('is-on');
+            var input = $('#add-payment input[name="amount"]');
+            if (mode === 'full') {
+                input.val(Math.round(payDue)).prop('readonly', true);
+            } else {
+                input.prop('readonly', false);
+                if (!input.val() || parseFloat(input.val()) >= payDue) {
+                    input.val('');
+                }
+            }
+            syncPayAmount();
+        }
+        $('#add-payment').on('click', '.pay-method', function () {
+            setPayMethod($(this).data('id'));
+        });
+        $('#add-payment').on('click', '.pay-mode', function () {
+            setPayMode($(this).data('mode'));
+            if ($(this).data('mode') === 'part') {
+                $('#add-payment input[name="amount"]').focus();
+            }
+        });
+        $('#add-payment input[name="amount"]').on('input', function () {
+            var amount = parseFloat($(this).val());
+            if (!isNaN(amount) && amount > payDue + 0.009) {
+                $(this).val(Math.round(payDue));
+            }
+            syncPayAmount();
+        });
+        $('#add-payment form.payment-form').on('submit', function (event) {
+            var amount = parseFloat($('#add-payment input[name="amount"]').val());
+            var other = $.trim($('#add-payment input[name="momo_phone"]').val());
+            var client = $.trim($('#payClientPhone').attr('data-phone') || '');
+            var error = $('#payError');
+            error.hide().text('');
+            if (!(amount > 0) || amount > payDue + 0.009) {
+                event.preventDefault();
+                error.text('Enter an amount up to the amount still due.').show();
+                return;
+            }
+            if (!other && !client) {
+                event.preventDefault();
+                error.text('Add a phone number so the client can confirm.').show();
             }
         });
 
@@ -232,34 +289,19 @@
         });
 
         $(document).on("click", "table.sale-list tbody .add-payment", function() {
-            $('select[name="paid_by_id"]').val(1);
-            $('.momo-phone-field').hide();
-            $('.selectpicker').selectpicker('refresh');
-            rowindex = $(this).closest('tr').index();
-            var sale_id = $(this).data('id').toString();
-            var balance = $('table.sale-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('td:nth-child(8)').text();
-            balance = parseFloat(balance.replace(/,/g, ''));
-            $('input[name="paying_amount"]').val(balance);
-            $('#add-payment input[name="balance"]').val(balance);
-            $('input[name="amount"]').val(balance);
-            $('input[name="sale_id"]').val(sale_id);
-        });
-
-        $('input[name="paying_amount"]').on("input", function() {
-            $(".change").text(parseFloat( $(this).val() - $('input[name="amount"]').val() ).toFixed(2));
-        });
-
-        $('input[name="amount"]').on("input", function() {
-            if( $(this).val() > parseFloat($('input[name="paying_amount"]').val()) ) {
-                alert('Paying amount cannot be bigger than recieved amount');
-                $(this).val('');
-            }
-            else if( $(this).val() > parseFloat($('input[name="balance"]').val()) ) {
-                alert('Paying amount cannot be bigger than due amount');
-                $(this).val('');
-            }
-            $(".change").text(parseFloat($('input[name="paying_amount"]').val() - $(this).val()).toFixed(2));
-
+            var button = $(this);
+            var phone = $.trim(button.attr('data-phone') || '');
+            payDue = parseFloat(button.attr('data-due')) || 0;
+            $('#addPaymentTitle').text(button.attr('data-name') || 'Client');
+            $('#payRef').text(button.attr('data-ref') || '');
+            $('#payClientPhone').text(phone || 'No number on file').attr('data-phone', phone);
+            $('#add-payment input[name="momo_phone"]').val('');
+            $('#add-payment input[name="balance"]').val(payDue);
+            $('#add-payment input[name="sale_id"]').val(button.data('id'));
+            $('#payDueLabel').text(payMoney(payDue));
+            $('#payError').hide().text('');
+            setPayMethod(1);
+            setPayMode('full');
         });
 
         $(document).on("click", "table.sale-list tbody .get-payment", function(event) {

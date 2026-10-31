@@ -161,7 +161,7 @@
         <div class="card">
             <div class="fields">
                 <div>
-                    <label for="requesterName">Your name</label>
+                    <label for="requesterName">Requested by</label>
                     <input id="requesterName" type="text" name="requester_name" maxlength="80" required value="{{ old('requester_name') }}">
                 </div>
                 <div>
@@ -350,10 +350,72 @@
         resetSearch();
         refresh();
     }
+    function localDigits(value) {
+        var digits = (value || '').replace(/\D/g, '');
+        if (digits.indexOf('237') === 0 && digits.length > 9) digits = digits.slice(3);
+        if (digits.indexOf('00237') === 0) digits = digits.slice(5);
+        return digits;
+    }
+    function isMomoQuery(value) {
+        var digits = localDigits(value);
+        return digits.length >= 9 && digits.charAt(0) === '6';
+    }
+    function showCampayHit(q) {
+        results.innerHTML = '<p class="empty">Looking up the Mobile Money name…</p>';
+        fetch(lookupUrl + '?phone=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
+            .then(function (response) { return response.json(); })
+            .then(function (hit) {
+                if (searchBox.value.trim() !== q) return;
+                results.innerHTML = '';
+                if (!hit || !hit.ok || !hit.name) {
+                    results.innerHTML = '<p class="empty">' + ((hit && hit.error) ? hit.error : 'Campay has no name for that number.') + '</p>';
+                    return;
+                }
+                var row = document.createElement('div');
+                row.className = 'hit';
+                var copy = document.createElement('div');
+                var strong = document.createElement('strong');
+                strong.textContent = hit.name;
+                var meta = document.createElement('span');
+                meta.textContent = (hit.operator ? hit.operator + ' · ' : '') + (hit.phone || q);
+                copy.appendChild(strong);
+                copy.appendChild(meta);
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn tiny';
+                button.textContent = 'Add';
+                button.addEventListener('click', function () {
+                    openExtraPhone();
+                    var inputs = body.querySelectorAll('.extra-phone');
+                    var input = inputs[inputs.length - 1];
+                    if (input) {
+                        input.value = hit.phone || q;
+                        input.dispatchEvent(new Event('input', {bubbles: true}));
+                    }
+                    var labels = body.querySelectorAll('.momo-label');
+                    var label = labels[labels.length - 1];
+                    if (label) label.textContent = hit.name + (hit.operator ? ' · ' + hit.operator : '');
+                    var hidden = body.querySelectorAll('input[name="extra_momo[]"]');
+                    if (hidden.length) hidden[hidden.length - 1].value = hit.name;
+                    results.innerHTML = '';
+                    resetSearch();
+                });
+                row.appendChild(copy);
+                row.appendChild(button);
+                results.appendChild(row);
+            })
+            .catch(function () {
+                results.innerHTML = '<p class="empty">The name lookup did not answer. Try again.</p>';
+            });
+    }
     function search() {
         var q = searchBox.value.trim();
         results.innerHTML = '';
         if (q.length < 2) return;
+        if (isMomoQuery(q)) {
+            showCampayHit(q);
+            return;
+        }
         results.innerHTML = '<p class="empty">Searching…</p>';
         fetch(searchUrl + '?q=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
             .then(function (response) { return response.json(); })
@@ -499,6 +561,29 @@
     }
     document.getElementById('addPhone').addEventListener('click', openExtraPhone);
     document.getElementById('addPhoneTop').addEventListener('click', openExtraPhone);
+    var requesterName = document.getElementById('requesterName');
+    var requesterPhone = document.getElementById('requesterPhone');
+    var requesterWait = null;
+    function fillRequester(phone) {
+        if (!isMomoQuery(phone)) return;
+        fetch(lookupUrl + '?phone=' + encodeURIComponent(phone), {headers: {Accept: 'application/json'}})
+            .then(function (response) { return response.json(); })
+            .then(function (hit) {
+                if (!hit || !hit.ok || !hit.name) return;
+                requesterName.value = hit.name;
+            });
+    }
+    requesterPhone.addEventListener('input', function () {
+        clearTimeout(requesterWait);
+        var phone = requesterPhone.value.trim();
+        requesterWait = setTimeout(function () { fillRequester(phone); }, 400);
+    });
+    requesterName.addEventListener('input', function () {
+        if (!isMomoQuery(requesterName.value)) return;
+        clearTimeout(requesterWait);
+        var phone = requesterName.value.trim();
+        requesterWait = setTimeout(function () { fillRequester(phone); }, 400);
+    });
     form.addEventListener('submit', function (event) {
         var ready = false;
         form.querySelectorAll('.person').forEach(function (row) {

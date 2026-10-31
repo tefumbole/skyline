@@ -9,7 +9,7 @@
     @if(session()->has('not_permitted'))
         <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
     @endif
-    <section class="forms">
+    <section class="forms letter-create">
         @include('letter.partials.compose_styles')
         <div class="container-fluid">
             <div class="row">
@@ -135,7 +135,7 @@
                                     </div>
 
                                     <div class="col-md-12">
-                                        <div class="letter-compose-section letter-editor-wrap">
+                                        <div class="letter-compose-section letter-editor-wrap letter-editor-compact">
                                             <span class="section-label">{{trans('file.Header')}}</span>
                                             <textarea name="header" class="form-control" id="header">@if(!empty($clone)){!! $clone->header !!}@endif</textarea>
                                         </div>
@@ -150,7 +150,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-12">
-                                        <div class="letter-compose-section letter-editor-wrap">
+                                        <div class="letter-compose-section letter-editor-wrap letter-editor-compact">
                                             <span class="section-label footer">{{trans('file.Footer')}}</span>
                                             <textarea name="footer" class="form-control" id="footer">@if(!empty($clone)){!! $clone->footer !!}@endif</textarea>
                                         </div>
@@ -366,7 +366,9 @@
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#header',
-                height: 72
+                height: 36,
+                min_height: 36,
+                toolbar: 'bold italic | removeformat'
             }));
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
@@ -403,7 +405,9 @@
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#footer',
-                height: 72
+                height: 36,
+                min_height: 36,
+                toolbar: 'bold italic | removeformat'
             }));
         }
 

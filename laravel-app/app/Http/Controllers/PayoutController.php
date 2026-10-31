@@ -875,7 +875,7 @@ class PayoutController extends Controller
         $requester = trim((string) $request->input('requester_name', ''));
         $note = trim((string) $request->input('note', ''));
         if ($requester === '' || strlen($requester) > 80) {
-            return back()->withInput()->with('not_permitted', 'Enter your name.');
+            return back()->withInput()->with('not_permitted', 'Enter who requested this payment.');
         }
         try {
             $requesterPhone = \App\Support\WhatsAppPhone::normalize($request->input('requester_phone'));

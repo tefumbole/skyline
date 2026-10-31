@@ -398,11 +398,16 @@ class PaymentController extends Controller
         $customer = Customer::where(function ($query) use ($phone, $tail) {
             $query->where('phone_number', $phone)->orWhere('phone_number', 'like', '%'.$tail);
         })->first();
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : ($customer ? (string) $customer->name : $phone);
         if ($customer) {
+            if ($name !== '') {
+                $customer->name = $name;
+                $customer->syncOriginal();
+            }
+
             return $customer;
         }
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
-        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
         $groupId = \App\CustomerGroup::query()->value('id');
         $payload = [
             'customer_group_id' => $groupId ? $groupId : 1,

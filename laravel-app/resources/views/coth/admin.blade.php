@@ -234,6 +234,7 @@
                         </select>
                     </div>
                     <button class="btn btn-primary" type="button" onclick="window.print()">Print</button>
+                    <a class="btn btn-primary" id="cothx-pdf" href="{{ route('coth.admin.list.pdf') }}">Export PDF</a>
                     <button class="btn btn-primary" type="submit">Save notes</button>
                 </div>
                 <table class="cothx-table">
@@ -548,6 +549,8 @@ if (listSec) {
             if (show && sec !== 'all') title = row.getAttribute('data-name') || title;
         });
         document.getElementById('cothx-list-title').textContent = title;
+        var pdf = document.getElementById('cothx-pdf');
+        if (pdf) pdf.href = @json(route('coth.admin.list.pdf')) + '?section=' + encodeURIComponent(sec);
     });
 }
 document.querySelectorAll('#cothx-secs .cothx-chip').forEach(function (chip) {

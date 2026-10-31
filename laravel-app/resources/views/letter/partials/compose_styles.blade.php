@@ -34,6 +34,48 @@
         border-radius: 10px !important;
         border-color: #d7e4fb !important;
     }
+    .letter-editor-compact {
+        padding: 8px 10px;
+        margin-bottom: 10px;
+    }
+    .letter-editor-compact .section-label { margin-bottom: 6px; }
+    .letter-editor-compact .tox-tinymce {
+        height: 64px !important;
+        min-height: 64px !important;
+    }
+    .letter-create .card {
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 10px 28px rgba(12, 24, 48, .08);
+    }
+    .letter-create .card-header {
+        background: #0c1830;
+        color: #fff;
+        border: 0;
+    }
+    .letter-create .card-header h4 { color: #fff; margin: 0; }
+    .letter-create .card-body { background: #f3f6fb; }
+    .letter-create .form-control,
+    .letter-create .bootstrap-select > .dropdown-toggle {
+        min-height: 42px;
+        border-radius: 10px;
+        border-color: #d7deea;
+    }
+    .letter-create label { color: #3d4d66; font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+    .letter-create #submit-btn {
+        min-height: 46px;
+        padding: 0 22px;
+        border: 0;
+        border-radius: 12px;
+        background: #e1b368;
+        color: #0c1830;
+        font-weight: 700;
+    }
+    .letter-create .letter-compose-section {
+        border-color: #e4eaf3;
+        box-shadow: none;
+    }
     .letter-recipient-panel {
         background: #f8fbff;
         border: 1px dashed #0b3f90;

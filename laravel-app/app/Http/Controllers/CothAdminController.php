@@ -113,6 +113,27 @@ class CothAdminController extends Controller
         return $response;
     }
 
+    public function listPdf(Request $request)
+    {
+        $this->authorizeStaff();
+        $tables = CothTable::with('section')->orderBy('code')->get();
+        $code = trim((string) $request->query('section', 'all'));
+        $sectionName = 'All sections';
+        if ($code !== '' && $code !== 'all') {
+            $tables = $tables->filter(function ($table) use ($code) {
+                return (string) optional($table->section)->code === $code;
+            })->values();
+            $sectionName = optional(optional($tables->first())->section)->name ?: $code;
+        }
+        $pdf = \PDF::loadView('pdf.coth_table_list', [
+            'tables' => $tables,
+            'sectionName' => $sectionName,
+            'printedAt' => now()->format('d M Y H:i'),
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('table-list.pdf');
+    }
+
     public function updateSettings(Request $request)
     {
         $this->authorizeStaff();

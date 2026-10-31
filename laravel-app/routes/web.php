@@ -516,6 +516,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/guest-reviews', 'GuestReviewAdminController@index')->name('guest-reviews.index');
     Route::get('/admin/coth', 'CothAdminController@index')->name('coth.admin');
     Route::get('/admin/coth/export', 'CothAdminController@export')->name('coth.admin.export');
+    Route::get('/admin/coth/list.pdf', 'CothAdminController@listPdf')->name('coth.admin.list.pdf');
     Route::get('/admin/coth/seating', 'CothAdminController@seating')->name('coth.admin.seating');
     Route::post('/admin/coth/settings', 'CothAdminController@updateSettings')->name('coth.admin.settings');
     Route::post('/admin/coth/tables/{id}', 'CothAdminController@updateTable')->name('coth.admin.table');

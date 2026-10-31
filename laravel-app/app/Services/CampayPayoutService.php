@@ -248,10 +248,10 @@ class CampayPayoutService
         }
         $row->phone = $phone;
         $row->operator = $this->operatorName($phone);
-        $wallet = $this->spendableBalance();
+        $wallet = $this->spendableBalance($row->operator);
         if ($wallet !== null && $wallet + 0.001 < (int) $row->amount) {
             $row->status = 'failed';
-            $row->error = 'Campay balance is '.number_format($wallet, 0, '.', ' ').' XAF, which is less than this payout.';
+            $row->error = 'Neither the Campay balance nor the '.$row->operator.' wallet has '.number_format((int) $row->amount, 0, '.', ' ').' XAF. Available: '.number_format($wallet, 0, '.', ' ').' XAF.';
             $row->save();
 
             return;
@@ -293,14 +293,28 @@ class CampayPayoutService
         }
     }
 
-    public function spendableBalance()
+    public function spendableBalance($operator = null)
     {
         $body = $this->call('GET', 'balance/', []);
-        if (! is_array($body) || ! isset($body['total_balance']) || ! is_numeric($body['total_balance'])) {
+        if (! is_array($body)) {
+            return null;
+        }
+        $amounts = [];
+        if (isset($body['total_balance']) && is_numeric($body['total_balance'])) {
+            $amounts[] = (float) $body['total_balance'];
+        }
+        $operator = strtoupper((string) $operator);
+        $keys = $operator === 'MTN' ? ['mtn_balance'] : ($operator === 'ORANGE' ? ['orange_balance'] : ['mtn_balance', 'orange_balance']);
+        foreach ($keys as $key) {
+            if (isset($body[$key]) && is_numeric($body[$key])) {
+                $amounts[] = (float) $body[$key];
+            }
+        }
+        if (! $amounts) {
             return null;
         }
 
-        return (float) $body['total_balance'];
+        return max($amounts);
     }
 
     public function awaitWithdraw(CampayPayout $row, $seconds = 12)

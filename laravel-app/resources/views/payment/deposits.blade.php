@@ -253,6 +253,34 @@
             return;
         }
         timer = setTimeout(function () {
+            var digits = q.replace(/\D/g, '');
+            var local = digits.indexOf('237') === 0 && digits.length > 9 ? digits.slice(3) : digits;
+            if (local.length >= 9 && local.charAt(0) === '6') {
+                hits.innerHTML = '<div class="list-group-item text-muted">Looking up the Mobile Money name…</div>';
+                fetch(phoneUrl + '?phone=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
+                    .then(function (response) { return response.json(); })
+                    .then(function (info) {
+                        if (search.value.trim() !== q) return;
+                        hits.innerHTML = '';
+                        if (!info || !info.ok || !info.name) {
+                            hits.innerHTML = '<div class="list-group-item text-muted">' + ((info && info.error) ? info.error : 'Campay has no name for that number.') + '</div>';
+                            return;
+                        }
+                        var button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'list-group-item list-group-item-action';
+                        button.textContent = info.name + (info.operator ? ' · ' + info.operator : '');
+                        button.addEventListener('click', function () {
+                            customerId.value = '';
+                            phoneInput.value = info.phone || q;
+                            chosen.textContent = info.name + ' · ' + (info.phone || q);
+                            hits.innerHTML = '';
+                            search.value = info.name;
+                        });
+                        hits.appendChild(button);
+                    });
+                return;
+            }
             fetch(searchUrl + '?q=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
                 .then(function (response) { return response.json(); })
                 .then(function (data) {
@@ -266,16 +294,6 @@
                         button.addEventListener('click', function () { selectPerson(person); });
                         hits.appendChild(button);
                     });
-                    var digits = q.replace(/\D/g, '');
-                    if (digits.length >= 9) {
-                        var matched = people.filter(function (person) {
-                            return (person.phone || '').replace(/\D/g, '').indexOf(digits) !== -1;
-                        });
-                        if (matched.length === 1) {
-                            selectPerson(matched[0]);
-                            return;
-                        }
-                    }
                     if (!hits.children.length) {
                         var none = document.createElement('div');
                         none.className = 'list-group-item text-muted';

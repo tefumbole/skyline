@@ -273,6 +273,82 @@
                 color: #ff8e8e !important;
             }
 
+            .account-dock {
+                position: fixed;
+                left: 10px;
+                bottom: 10px;
+                z-index: 1042;
+            }
+            .account-dock-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-height: 48px;
+                max-width: min(240px, calc(100vw - 24px));
+                padding: 6px 14px 6px 6px;
+                border: 0;
+                border-radius: 999px;
+                background: #0c1830;
+                color: #fff;
+                box-shadow: 0 10px 28px rgba(12, 24, 48, 0.28);
+                cursor: pointer;
+            }
+            .account-dock-avatar {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background: #e1b368;
+                color: #0c1830;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                flex-shrink: 0;
+            }
+            .account-dock-name {
+                font-weight: 700;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .account-dock-menu {
+                position: absolute;
+                left: 0;
+                bottom: 56px;
+                width: 230px;
+                background: #fff;
+                border: 1px solid #e3e9f4;
+                border-radius: 16px;
+                box-shadow: 0 16px 40px rgba(12, 24, 48, 0.2);
+                padding: 8px;
+            }
+            .account-dock-menu a,
+            .account-dock-menu button {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                min-height: 44px;
+                padding: 10px 12px;
+                border: 0;
+                border-radius: 10px;
+                background: transparent;
+                color: #0c1830;
+                font-weight: 700;
+                text-align: left;
+                text-decoration: none;
+            }
+            .account-dock-menu a:hover,
+            .account-dock-menu button:hover {
+                background: #f3f6fb;
+            }
+            .account-dock-menu .is-logout {
+                color: #9b1c1c;
+            }
+            @media (min-width: 1200px) {
+                .account-dock { display: none; }
+            }
+            body.sidebar-open .account-dock { display: none; }
+
             .side-navbar .side-menu li a {
                 color: #eef3ff;
                 border-radius: 10px;
@@ -1274,6 +1350,7 @@
                     margin-left: 0 !important;
                     width: 100% !important;
                     max-width: 100%;
+                    padding-bottom: 76px;
                 }
                 header.header {
                     position: sticky;
@@ -3296,8 +3373,11 @@
                     <a href="{{ url('/') }}" class="sidebar-user-link">
                         <i class="dripicons-home"></i> Home
                     </a>
-                    <a href="{{route('user.profile', ['id' => Auth::id()])}}" class="sidebar-user-link">
+                    <a href="{{ route('user.profile', ['id' => Auth::id()]) }}" class="sidebar-user-link">
                         <i class="dripicons-user"></i> My Profile
+                    </a>
+                    <a href="{{ route('user.profile', ['id' => Auth::id()]) }}#change-password" class="sidebar-user-link">
+                        <i class="dripicons-lock"></i> Change password
                     </a>
                     <form action="{{ route('logout') }}" method="POST">
                         @csrf
@@ -3309,6 +3389,39 @@
             </div>
           </nav>
           <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+          <div class="account-dock" id="account-dock">
+              <div class="account-dock-menu" id="account-dock-menu" hidden>
+                  <a href="{{ route('user.profile', ['id' => Auth::id()]) }}">Profile</a>
+                  <a href="{{ route('user.profile', ['id' => Auth::id()]) }}#change-password">Change password</a>
+                  <form action="{{ route('logout') }}" method="POST">
+                      @csrf
+                      <button type="submit" class="is-logout">Log out</button>
+                  </form>
+              </div>
+              <button type="button" class="account-dock-btn" id="account-dock-btn" aria-expanded="false" aria-controls="account-dock-menu">
+                  <span class="account-dock-avatar">{{ $userInitial }}</span>
+                  <span class="account-dock-name">{{ Auth::user()->name }}</span>
+              </button>
+          </div>
+          <script>
+              (function () {
+                  var btn = document.getElementById('account-dock-btn');
+                  var menu = document.getElementById('account-dock-menu');
+                  if (!btn || !menu) return;
+                  btn.addEventListener('click', function (e) {
+                      e.stopPropagation();
+                      var open = menu.hasAttribute('hidden');
+                      if (open) menu.removeAttribute('hidden');
+                      else menu.setAttribute('hidden', 'hidden');
+                      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                  });
+                  document.addEventListener('click', function (e) {
+                      if (!e.target.closest || e.target.closest('#account-dock')) return;
+                      menu.setAttribute('hidden', 'hidden');
+                      btn.setAttribute('aria-expanded', 'false');
+                  });
+              })();
+          </script>
         <!-- End Side Navbar -->
           <header class="header">
             <nav class="navbar">

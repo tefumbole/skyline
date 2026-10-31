@@ -560,6 +560,9 @@ class UserController extends Controller
 
     public function profile($id)
     {
+        if ((int) $id !== (int) Auth::id() && ! Auth::user()->hasFullAdminAccess()) {
+            return redirect()->route('user.profile', ['id' => Auth::id()]);
+        }
         $lims_user_data = User::find($id);
         return view('user.profile', compact('lims_user_data'));
     }
@@ -570,7 +573,10 @@ class UserController extends Controller
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
 
-        $input = $request->all();
+        if ((int) $id !== (int) Auth::id() && ! Auth::user()->hasFullAdminAccess()) {
+            return redirect()->route('user.profile', ['id' => Auth::id()])->with('not_permitted', 'You can only update your own profile.');
+        }
+        $input = $request->only(['name', 'email', 'phone', 'company_name']);
         if(Auth::user()->role_id == 12) {
             $sign = $request->sign;
             if ($sign) {
@@ -653,20 +659,23 @@ class UserController extends Controller
         if(!true)
             return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
 
+        if ((int) $id !== (int) Auth::id()) {
+            return redirect()->route('user.profile', ['id' => Auth::id()])->with('not_permitted', 'You can only change your own password.');
+        }
         $input = $request->all();
         $lims_user_data = User::find($id);
         if($input['new_pass'] != $input['confirm_pass'])
-            return redirect("user/" .  "profile/" . $id )->with('message2', "Please Confirm your new password");
+            return redirect()->route('user.profile', ['id' => Auth::id()])->with('message2', "Please Confirm your new password");
 
         if (Hash::check($input['current_pass'], $lims_user_data->password)) {
             $lims_user_data->password = bcrypt($input['new_pass']);
             $lims_user_data->save();
         }
         else {
-            return redirect("user/" .  "profile/" . $id )->with('message1', "Current Password doesn't match");
+            return redirect()->route('user.profile', ['id' => Auth::id()])->with('message1', "Current Password doesn't match");
         }
         auth()->logout();
-        return redirect('/');
+        return redirect('/login')->with('message', 'Password updated. Sign in with your new password.');
     }
 
     public function deleteBySelection(Request $request)

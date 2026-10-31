@@ -87,7 +87,7 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="col-md-6" id="change-password">
                 <div class="card">
                     <div class="card-header d-flex align-items-center">
                         <h4>{{trans('file.Change Password')}}</h4>

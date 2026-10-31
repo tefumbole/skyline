@@ -1697,7 +1697,7 @@
                                                 $laneTab = \App\Services\Restaurant\RestaurantAccess::seeStatus(auth()->user(), 'awaiting') ? 'awaiting' : 'ready';
                                                 $laneTotal = (int) ($orderCounts[$laneKey][$laneTab] ?? 0);
                                             @endphp
-                                            <li>
+                                            <li id="order-lane-{{ $laneKey }}">
                                                 <a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => $laneTab]) }}">{{ $laneLabel }}@if($laneTotal)<span class="badge">{{ $laneTotal }}</span>@endif</a>
                                                 @if($onOrders && $openLane === $laneKey)
                                                     <ul>
@@ -4053,23 +4053,48 @@
                   'jobs-apps-menu': 'dripicons-user-group',
                   'jobs-awaiting-menu': 'dripicons-clock',
                   'jobs-selected-menu': 'dripicons-checkmark',
-                  'jobs-rejected-menu': 'dripicons-wrong'
+                  'jobs-rejected-menu': 'dripicons-wrong',
+                  'order-lane-restaurant': 'fa fa-cutlery',
+                  'order-lane-bar': 'fa fa-glass',
+                  'order-lane-online': 'fa fa-globe',
+                  'restaurant-tables-menu': 'fa fa-th-large',
+                  'payment-index-menu': 'fa fa-clock-o',
+                  'payout-index-menu': 'fa fa-paper-plane',
+                  'payout-request-menu': 'fa fa-mobile',
+                  'desposit-index-menu': 'fa fa-university'
               };
 
-              function resolveTabIcon($link, $parentLink) {
+              var tabLabelIcons = {
+                  'restaurant': 'fa fa-cutlery',
+                  'bar': 'fa fa-glass',
+                  'online orders': 'fa fa-globe',
+                  'tables': 'fa fa-th-large',
+                  'awaiting payment': 'fa fa-clock-o',
+                  'payout request': 'fa fa-paper-plane',
+                  'deposit': 'fa fa-mobile',
+                  'deposits': 'fa fa-university'
+              };
+
+              function resolveTabIcon($link, $parentLink, label) {
                   var liId = $link.closest('li').attr('id');
                   if (liId && tabIconMap[liId]) {
                       return tabIconMap[liId];
                   }
 
-                  var parentIcon = $parentLink.find('i').first().attr('class');
-                  if (parentIcon) {
-                      var classes = parentIcon.split(' ').filter(function (cls) {
-                          return cls.indexOf('dripicons-') === 0 || cls.indexOf('fa-') === 0;
-                      });
-                      if (classes.length) {
-                          return classes[0];
-                      }
+                  var named = tabLabelIcons[$.trim(label || '').toLowerCase()];
+                  if (named) {
+                      return named;
+                  }
+
+                  var parentIcon = $parentLink.find('i').first().attr('class') || '';
+                  var parts = parentIcon.split(' ');
+                  var drip = parts.filter(function (cls) { return cls.indexOf('dripicons-') === 0; });
+                  if (drip.length) {
+                      return drip[0];
+                  }
+                  var fa = parts.filter(function (cls) { return cls.indexOf('fa-') === 0; });
+                  if (fa.length) {
+                      return 'fa ' + fa[0];
                   }
 
                   return 'dripicons-link';
@@ -4135,7 +4160,7 @@
                       var tones = ['tone-blue', 'tone-gold', 'tone-purple', 'tone-pink', 'tone-green', 'tone-orange', 'tone-teal', 'tone-red'];
                       var toneClass = tones[index % tones.length];
                       var isActive = $link.closest('li').hasClass('active');
-                      var iconClass = resolveTabIcon($link, $parentLink);
+                      var iconClass = resolveTabIcon($link, $parentLink, label);
                       var tabHref = href && href !== '#' ? href : '#';
                       var $tab = $('<a>', {
                           'class': 'beyond-module-tab ' + toneClass + (isActive ? ' is-active' : ''),

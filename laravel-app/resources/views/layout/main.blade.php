@@ -561,7 +561,7 @@
             #beyond-module-tabs .beyond-module-tab,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"] {
                 background: transparent;
-                border-color: transparent;
+                border: 2px solid #C5A059;
                 color: #C5A059 !important;
                 letter-spacing: 0.04em;
                 text-transform: uppercase;
@@ -572,7 +572,7 @@
             }
             #beyond-module-tabs .beyond-module-tab:hover {
                 background: rgba(197, 160, 89, 0.14);
-                border-color: rgba(197, 160, 89, 0.5);
+                border-color: #fff6df;
                 color: #fff6df !important;
             }
             #beyond-module-tabs .beyond-module-tab:hover i {
@@ -581,7 +581,7 @@
             #beyond-module-tabs .beyond-module-tab.is-active,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"].is-active {
                 background: #f6f1e6 !important;
-                border-color: #f6f1e6 !important;
+                border: 2px solid #C5A059 !important;
                 color: #0A0A0A !important;
             }
             #beyond-module-tabs .beyond-module-tab.is-active i,

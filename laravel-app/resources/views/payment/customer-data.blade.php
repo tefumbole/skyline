@@ -120,27 +120,27 @@
         }
     @endphp
     <style>
-        #add-payment .modal-dialog { max-width: 460px; margin: 28px auto; }
-        #add-payment .modal-content { border: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(12, 24, 48, .28); }
-        #add-payment .pay-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 18px 16px; background: #0c1830; color: #fff; }
+        #add-payment .modal-dialog { max-width: 460px; margin: 16px auto; }
+        #add-payment .modal-content { display: flex; flex-direction: column; max-height: calc(100vh - 32px); border: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(12, 24, 48, .28); }
+        #add-payment .pay-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px 12px; background: #0c1830; color: #fff; }
         #add-payment .pay-kicker { color: #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
         #add-payment .pay-title { margin: 4px 0 0; font-size: 20px; font-weight: 700; }
         #add-payment .pay-ref { margin-top: 2px; color: rgba(255,255,255,.72); font-size: 13px; }
         #add-payment .pay-x { width: 36px; height: 36px; border: 0; border-radius: 18px; background: rgba(255,255,255,.1); color: #fff; font-size: 22px; line-height: 1; }
-        #add-payment .pay-body { padding: 16px 18px 18px; background: #f3f6fb; }
-        #add-payment .pay-due { margin-bottom: 12px; padding: 14px 16px; border-radius: 14px; background: #fff; }
-        #add-payment .pay-due strong { display: block; margin-top: 2px; color: #0c1830; font-size: 28px; letter-spacing: -.03em; }
-        #add-payment .pay-phone { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px 14px; border-radius: 14px; background: #fff; }
+        #add-payment .pay-body { padding: 12px 16px 14px; background: #f3f6fb; overflow: auto; }
+        #add-payment .pay-due { margin-bottom: 8px; padding: 10px 14px; border-radius: 14px; background: #fff; }
+        #add-payment .pay-due strong { display: block; margin-top: 2px; color: #0c1830; font-size: 24px; letter-spacing: -.03em; }
+        #add-payment .pay-phone { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 14px; border-radius: 14px; background: #fff; }
         #add-payment .pay-phone span, #add-payment label { color: #5c6b82; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
         #add-payment .pay-phone strong { color: #0c1830; font-size: 16px; }
         #add-payment label { display: block; margin: 0 0 6px; }
         #add-payment .form-control { min-height: 46px; border: 1px solid #d7deea; border-radius: 12px; background: #fff; font-size: 16px; }
-        #add-payment .pay-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-        #add-payment .pay-choice button { min-height: 52px; border: 1px solid #d7deea; border-radius: 14px; background: #fff; color: #0c1830; font-weight: 700; }
+        #add-payment .pay-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+        #add-payment .pay-choice button { min-height: 46px; border: 1px solid #d7deea; border-radius: 14px; background: #fff; color: #0c1830; font-weight: 700; }
         #add-payment .pay-choice button small { display: block; color: #5c6b82; font-weight: 600; }
         #add-payment .pay-choice button.is-on { border-color: #0c1830; background: #0c1830; color: #fff; }
         #add-payment .pay-choice button.is-on small { color: #e1b368; }
-        #add-payment .pay-amount { margin-bottom: 12px; }
+        #add-payment .pay-amount { margin-bottom: 8px; }
         #add-payment .pay-left { margin-top: 6px; color: #5c6b82; font-size: 13px; }
         #add-payment .pay-error { display: none; margin-bottom: 10px; color: #9b1c1c; font-size: 13px; font-weight: 700; }
         #add-payment .pay-send { width: 100%; min-height: 48px; border: 0; border-radius: 14px; background: #e1b368; color: #0c1830; font-weight: 700; }

@@ -365,14 +365,20 @@ window.AN_PRESELECT = @json([
         return filterUsersLocal(query, roleFilter);
     }
 
-    function renderList(el, users, selected, onToggle) {
+    function renderList(el, users, selected, onToggle, emptyText) {
+        if (!users.length && !emptyText) {
+            el.style.display = 'none';
+            el.innerHTML = '';
+            return;
+        }
+        el.style.display = '';
         el.innerHTML = users.map(function (u) {
             var sel = selected.indexOf(u.id) !== -1 ? ' selected' : '';
             return '<button type="button" class="an-user-item'+sel+'" data-id="'+esc(u.id)+'">'
                 + '<div class="font-weight-bold">'+esc(u.name||'Untitled')+'</div>'
                 + '<div class="meta">'+esc(u.email||'')+' · '+esc(u.phone||'')+'</div>'
                 + '</button>';
-        }).join('') || '<div class="p-3 text-muted small text-center">No people found.</div>';
+        }).join('') || '<div class="p-3 text-muted small text-center">'+esc(emptyText)+'</div>';
         el.querySelectorAll('.an-user-item').forEach(function (item) {
             item.addEventListener('click', function () { onToggle(item.getAttribute('data-id')); });
         });
@@ -402,35 +408,45 @@ window.AN_PRESELECT = @json([
     }
 
     function refreshRecipients() {
-        var q = document.querySelector('.an-rsearch').value;
-        searchUsers(q, rRole, function (users) {
+        var q = document.querySelector('.an-rsearch').value.trim();
+        function paint(users, emptyText) {
             renderList(document.querySelector('.an-rlist'), users, recipients, function (id) {
                 var i = recipients.indexOf(id);
                 if (i === -1) recipients.push(id); else recipients.splice(i, 1);
                 refreshRecipients();
-            });
+            }, emptyText);
             renderChips(document.querySelector('.an-rchips'), recipients, function (id) {
                 recipients = recipients.filter(function (x) { return x !== id; });
                 refreshRecipients();
             });
             syncHiddens(document.querySelector('.an-rhiddens'), recipients, 'recipient_ids');
-        });
+        }
+        if (!q) {
+            paint([], '');
+            return;
+        }
+        searchUsers(q, rRole, function (users) { paint(users, 'No people found.'); });
     }
 
     function refreshCc() {
-        var q = document.querySelector('.an-csearch').value;
-        searchUsers(q, cRole, function (users) {
+        var q = document.querySelector('.an-csearch').value.trim();
+        function paint(users, emptyText) {
             renderList(document.querySelector('.an-clist'), users, ccs, function (id) {
                 var i = ccs.indexOf(id);
                 if (i === -1) ccs.push(id); else ccs.splice(i, 1);
                 refreshCc();
-            });
+            }, emptyText);
             renderChips(document.querySelector('.an-cchips'), ccs, function (id) {
                 ccs = ccs.filter(function (x) { return x !== id; });
                 refreshCc();
             }, 'CC:');
             syncHiddens(document.querySelector('.an-chiddens'), ccs, 'cc_ids');
-        });
+        }
+        if (!q) {
+            paint([], '');
+            return;
+        }
+        searchUsers(q, cRole, function (users) { paint(users, 'No people found.'); });
     }
 
     document.querySelector('.an-rsearch').addEventListener('input', function () {
@@ -458,7 +474,9 @@ window.AN_PRESELECT = @json([
         });
     });
     document.querySelector('.an-rselect-all').addEventListener('click', function () {
-        filterUsers(document.querySelector('.an-rsearch').value, rRole).forEach(function (u) {
+        var q = document.querySelector('.an-rsearch').value.trim();
+        if (!q) return;
+        filterUsers(q, rRole).forEach(function (u) {
             if (recipients.indexOf(u.id) === -1) recipients.push(u.id);
         });
         refreshRecipients();

@@ -221,9 +221,9 @@ class NotificationRouter
 
             if ($sid !== '') {
                 $vars = $this->statusVariablesFrom($message, [
-                    'title' => 'Verification code',
+                    'title' => 'Authentication',
                     'name' => 'Client',
-                    'message' => 'Your code is '.$otp.'. It expires in '.$minutes.' minutes. Do not share it.',
+                    'message' => "Authentication\n\n".$otp."\n\nIt expires in ".$minutes." minutes. Do not share it.",
                     'reference' => $serial,
                     'details' => 'Expires in '.$minutes.' minutes',
                 ]);

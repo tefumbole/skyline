@@ -584,7 +584,7 @@ class WhatsAppMessage
     {
         $minutes = max(1, (int) $expiresMinutes);
 
-        return "Your code is *{$otp}*.\nIt expires in {$minutes} minutes. Do not share it.";
+        return "*Authentication*\n\n*{$otp}*\n\nIt expires in {$minutes} minutes. Do not share it.";
     }
 
     public static function accountCreated($name, $phone, $password, $loginUrl = null, $note = null)

@@ -247,12 +247,23 @@ class CampayPayoutService
             return;
         }
         $row->phone = $phone;
+        $operator = $this->operatorName($phone);
+        $row->operator = $operator;
+        $wallet = $this->operatorBalance($operator);
+        if ($wallet !== null && $wallet + 0.001 < (int) $row->amount) {
+            $row->status = 'failed';
+            $row->error = $operator.' balance is '.number_format($wallet, 0, '.', ' ').' XAF. Campay pays this number from the '.$operator.' wallet. The total balance is not used while that wallet is empty.';
+            $row->save();
+
+            return;
+        }
         $description = trim((string) ($row->note ?: 'Payout'));
         if ($description === '') {
             $description = 'Payout';
         }
         $body = $this->call('POST', 'withdraw/', [
             'amount' => (string) (int) $row->amount,
+            'currency' => 'XAF',
             'to' => $phone,
             'description' => substr($description, 0, 120),
             'external_reference' => (string) $row->external_reference,
@@ -278,6 +289,51 @@ class CampayPayoutService
             $row->error = is_array($body) ? $this->errorText($body, $status) : 'Campay did not accept this payment.';
         }
         $row->save();
+        if ($row->status === 'pending' && $row->campay_reference) {
+            $this->awaitWithdraw($row, 12);
+        }
+    }
+
+    public function operatorBalance($operator)
+    {
+        $body = $this->call('GET', 'balance/', []);
+        if (! is_array($body)) {
+            return null;
+        }
+        $key = strtoupper((string) $operator) === 'MTN' ? 'mtn_balance' : 'orange_balance';
+
+        return isset($body[$key]) && is_numeric($body[$key]) ? (float) $body[$key] : null;
+    }
+
+    public function awaitWithdraw(CampayPayout $row, $seconds = 12)
+    {
+        $deadline = time() + max(1, (int) $seconds);
+        do {
+            $body = $this->transaction($row->campay_reference);
+            $status = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+            if ($status === 'SUCCESSFUL') {
+                $row->status = 'paid';
+                $row->error = null;
+                if (is_array($body) && ! empty($body['operator'])) {
+                    $row->operator = (string) $body['operator'];
+                }
+                $row->save();
+
+                return;
+            }
+            if (in_array($status, ['FAILED', 'CANCELLED', 'CANCELED', 'REJECTED', 'EXPIRED'], true)) {
+                $reason = is_array($body) && ! empty($body['reason']) ? (string) $body['reason'] : 'Campay status: '.$status;
+                $row->status = 'failed';
+                $row->error = substr($reason, 0, 250);
+                $row->save();
+
+                return;
+            }
+            if (time() >= $deadline) {
+                return;
+            }
+            sleep(3);
+        } while (time() < $deadline);
     }
 
     public function massPay(array $rows)

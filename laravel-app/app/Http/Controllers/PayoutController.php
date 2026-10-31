@@ -397,7 +397,7 @@ class PayoutController extends Controller
         if (count($ids) < 1 || count($ids) > 40) {
             return redirect()->route('payout.index', ['request' => $open->id])->with('not_permitted', 'Select the people to pay.');
         }
-        $rows = CampayPayout::where('request_id', $open->id)->whereIn('id', $ids)->where('status', 'pending')->get();
+        $rows = CampayPayout::where('request_id', $open->id)->whereIn('id', $ids)->whereIn('status', ['pending', 'failed'])->get();
         if ($rows->count() !== count($ids)) {
             return redirect()->route('payout.index', ['request' => $open->id])->with('not_permitted', 'One of those payments is no longer waiting.');
         }
@@ -458,10 +458,10 @@ class PayoutController extends Controller
                 continue;
             }
             $line->phone = $phone;
+            $line->campay_reference = null;
             $line->external_reference = 'po-'.date('YmdHis').'-'.$line->id.'-'.substr(md5(uniqid('', true)), 0, 8);
             $line->status = 'pending';
             $line->error = null;
-            $line->campay_reference = null;
             $line->save();
             $ready[] = $line;
         }
@@ -621,8 +621,33 @@ class PayoutController extends Controller
 
             return 'pending';
         }
+        if (in_array($status, ['FAILED', 'CANCELLED', 'CANCELED', 'REJECTED', 'EXPIRED'], true)) {
+            $row->status = 'failed';
+            $row->error = $this->campayFailure($body, $status);
+            $row->save();
+
+            return 'failed';
+        }
 
         return false;
+    }
+
+    protected function campayFailure($body, $status)
+    {
+        $reason = is_array($body) && isset($body['reason']) ? trim((string) $body['reason']) : '';
+        if ($reason === '' && is_array($body)) {
+            foreach (['message', 'detail', 'error'] as $key) {
+                if (! empty($body[$key]) && is_string($body[$key])) {
+                    $reason = trim($body[$key]);
+                    break;
+                }
+            }
+        }
+        if ($reason === '') {
+            $reason = 'Campay status: '.$status;
+        }
+
+        return substr($reason, 0, 250);
     }
 
     protected function collectLines(Request $request)

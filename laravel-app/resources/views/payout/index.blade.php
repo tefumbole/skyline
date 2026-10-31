@@ -115,7 +115,7 @@
                                     @endif
                                     <tr>
                                         <td>
-                                            @if($line->status === 'pending')
+                                            @if(in_array($line->status, ['pending', 'failed'], true))
                                                 <input type="checkbox" class="payout-line" name="lines[]" value="{{ $line->id }}" checked>
                                             @endif
                                         </td>
@@ -123,7 +123,7 @@
                                         <td>{{ $line->phone }} @if($line->network)<span class="pay-net">{{ $line->network }}</span>@endif</td>
                                         <td>{{ $line->momo_name !== '' && $line->momo_name !== null ? $line->momo_name : ((int) $line->momo_checked === 1 ? 'Not found on MoMo' : 'Looking up…') }}</td>
                                         <td>
-                                            @if($line->status === 'pending')
+                                            @if(in_array($line->status, ['pending', 'failed'], true))
                                                 <input type="number" class="form-control form-control-sm payout-amount" name="amounts[{{ $line->id }}]" min="100" max="1000000" step="1" value="{{ $line->amount }}" style="max-width:140px">
                                             @else
                                                 {{ number_format($line->amount, 0, '.', ' ') }}

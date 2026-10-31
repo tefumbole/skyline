@@ -6,6 +6,7 @@
     @php
         // In-flow letterhead so Ref/To/Dear never overlap the branded header image.
         $letterhead_flow = true;
+        $use_system_letterhead = true;
     @endphp
     @include('pdf.partials._letter_branded_styles')
 </head>

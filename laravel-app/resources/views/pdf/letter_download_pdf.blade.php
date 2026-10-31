@@ -6,6 +6,7 @@
     <title>{{ $general_setting->site_title }}</title>
     @php
         $letterhead_flow = true;
+        $use_system_letterhead = true;
     @endphp
     @include('pdf.partials._letter_branded_styles')
     <style type="text/css">

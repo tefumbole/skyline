@@ -250,8 +250,6 @@
                         </label>
                         <button type="button" class="an-pill mt-3" id="an-personalize-btn">Personalize each message</button>
                         <input type="checkbox" name="personalized" id="an-personalized" value="1" class="d-none">
-                        <div class="an-info" id="an-personalize-help">Turn this on to greet each person by name. Add a title in the preview, for example Pastor John or Dr. Bolla. A selected group then sends a separate message to each member.</div>
-                        <div class="an-info">Messages go out one person every 5 seconds so WhatsApp does not block the account.</div>
                         <button type="button" class="an-btn-outline mt-2" id="an-preview-btn" style="display:none;">Preview messages</button>
                         <div class="mt-3">
                             <div class="an-send-opt active" data-mode="now">✈ Send immediately</div>
@@ -564,8 +562,14 @@ window.AN_PRESELECT = @json([
     document.querySelectorAll('.an-ph').forEach(function (ph) {
         ph.addEventListener('click', function () {
             var ta = document.getElementById('an-body');
-            ta.value = (ta.value || '') + ph.getAttribute('data-token');
+            var token = ph.getAttribute('data-token') || '';
+            var value = ta.value || '';
+            var start = typeof ta.selectionStart === 'number' ? ta.selectionStart : value.length;
+            var end = typeof ta.selectionEnd === 'number' ? ta.selectionEnd : value.length;
+            ta.value = value.slice(0, start) + token + value.slice(end);
+            var pos = start + token.length;
             ta.focus();
+            ta.selectionStart = ta.selectionEnd = pos;
         });
     });
 

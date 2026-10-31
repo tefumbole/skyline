@@ -32,6 +32,10 @@
         @endforeach
     </nav>
     <div class="sky-actions">
-        <a class="sky-login" href="{{ url('/login') }}">Admin login</a>
+        @auth
+            <a class="sky-login" href="{{ url('/admin') }}">Admin Panel</a>
+        @else
+            <a class="sky-login" href="{{ url('/login') }}">Admin login</a>
+        @endauth
     </div>
 </header>

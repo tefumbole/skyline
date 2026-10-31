@@ -578,26 +578,13 @@ class WhatsAppMessage
     }
 
     /**
-     * Standard OTP / authentication WhatsApp template.
-     * Heading is always "Authentication".
+     * Short login code for WhatsApp.
      */
     public static function otpMessage($otp, $purpose = 'login', $expiresMinutes = 10)
     {
-        $company = self::companyName();
-        $purposeLabel = self::otpPurposeLabel($purpose);
         $minutes = max(1, (int) $expiresMinutes);
 
-        $msg = self::statusBlock('🔐', 'Authentication');
-        $msg .= "Welcome to *{$company}*.\n\n";
-        $msg .= "Your one-time passcode (OTP) is:\n\n";
-        $msg .= "👉 *{$otp}*\n\n";
-        $msg .= "━━━━━━━━━━━━━━━━\n";
-        $msg .= self::bullet('Purpose', $purposeLabel);
-        $msg .= self::bullet('Expires in', "{$minutes} minutes");
-        $msg .= "\n⚠️ *Security notice:* Never share this code with anyone. Our team will never ask for your OTP.";
-        $msg .= self::footer();
-
-        return $msg;
+        return "Your code is *{$otp}*.\nIt expires in {$minutes} minutes. Do not share it.";
     }
 
     public static function accountCreated($name, $phone, $password, $loginUrl = null, $note = null)

@@ -212,7 +212,6 @@ class NotificationRouter
         }
 
         $message = WhatsAppMessage::otpMessage($otp, $purpose, $expiresMinutes);
-        $message = LetterReference::applyToMessage($message, 'whatsapp');
         $serial = LetterReference::extractFromText($message) ?: WhatsAppMessage::otpPurposeLabel($purpose);
         $purposeLabel = WhatsAppMessage::otpPurposeLabel($purpose);
         $minutes = max(1, (int) $expiresMinutes);
@@ -224,7 +223,7 @@ class NotificationRouter
                 $vars = $this->statusVariablesFrom($message, [
                     'title' => 'Verification code',
                     'name' => 'Client',
-                    'message' => 'Your one-time passcode (OTP) is '.$otp.'. It expires in '.$minutes.' minutes. Do not share this code.',
+                    'message' => 'Your code is '.$otp.'. It expires in '.$minutes.' minutes. Do not share it.',
                     'reference' => $serial,
                     'details' => 'Expires in '.$minutes.' minutes',
                 ]);

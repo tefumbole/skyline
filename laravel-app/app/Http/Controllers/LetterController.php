@@ -221,13 +221,14 @@ class LetterController extends Controller
         $clonePeopleType = 'directory';
         $cloneDirectoryToIds = [];
         $cloneDirectoryCcIds = [];
-        $directoryPeople = app(PeopleDirectoryService::class)->eligibleForTasks('all', '');
+        $directoryPeople = [];
+        $directoryGroups = $this->letterGroupOptions();
         $directorySearchUrl = route('letter.people.search');
 
         return view('letter.create', compact(
             'category', 'template', 'user', 'customer', 'customerGroups', 'departments',
             'clone', 'cloneToIds', 'cloneCcIds', 'clonePeopleType',
-            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl'
+            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl', 'directoryGroups'
         ));
     }
 
@@ -246,13 +247,17 @@ class LetterController extends Controller
         $cloneCcIds = $resolved['ccIds'];
         $cloneDirectoryToIds = $resolved['directoryToIds'] ?? [];
         $cloneDirectoryCcIds = $resolved['directoryCcIds'] ?? [];
-        $directoryPeople = app(PeopleDirectoryService::class)->eligibleForTasks('all', '');
+        $directoryPeople = array_merge(
+            LetterRecipients::decodePeopleJson($clone->recipients_json),
+            LetterRecipients::decodePeopleJson($clone->cc_json)
+        );
+        $directoryGroups = $this->letterGroupOptions();
         $directorySearchUrl = route('letter.people.search');
 
         return view('letter.create', compact(
             'category', 'template', 'user', 'customer', 'customerGroups', 'departments',
             'clone', 'cloneToIds', 'cloneCcIds', 'clonePeopleType',
-            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl'
+            'cloneDirectoryToIds', 'cloneDirectoryCcIds', 'directoryPeople', 'directorySearchUrl', 'directoryGroups'
         ));
     }
 
@@ -264,6 +269,61 @@ class LetterController extends Controller
         return response()->json(
             app(PeopleDirectoryService::class)->eligibleForTasks($filter, $q)
         );
+    }
+
+    public function addPersonByPhone(Request $request)
+    {
+        @set_time_limit(40);
+        $raw = (string) $request->input('phone', '');
+        $lookup = app(PeopleDirectoryService::class)->lookupPhoneForForm($raw);
+        if (empty($lookup['ok'])) {
+            return response()->json(['message' => 'Enter a valid phone number.'], 422);
+        }
+        $name = trim((string) ($lookup['original_name'] ?? ''));
+        if ($name === '') {
+            return response()->json(['message' => 'Campay has no name for this number.'], 422);
+        }
+
+        try {
+            $result = app(PeopleDirectoryService::class)->findOrCreateCustomerQuick([
+                'name' => $name,
+                'phone' => $raw,
+                'address' => $lookup['address'] ?? '',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Could not add that number.'], 422);
+        }
+
+        $customer = $result['customer'];
+        if ($customer && strcasecmp(trim((string) $customer->name), $name) !== 0) {
+            $customer->name = $name;
+            $customer->save();
+        }
+        $person = $result['person'];
+        $person['name'] = $name;
+
+        return response()->json(['person' => $person]);
+    }
+
+    protected function letterGroupOptions()
+    {
+        $groups = [];
+        try {
+            foreach (app(\App\Services\WhatsApp\GroupContactExportService::class)->announcementGroups() as $group) {
+                $jid = isset($group['jid']) ? (string) $group['jid'] : '';
+                if (substr($jid, -5) !== '@g.us') {
+                    continue;
+                }
+                $groups[] = [
+                    'name' => ! empty($group['name']) ? (string) $group['name'] : 'WhatsApp group',
+                    'jid' => $jid,
+                ];
+            }
+        } catch (\Throwable $e) {
+            $groups = [];
+        }
+
+        return $groups;
     }
 
     /**
@@ -353,7 +413,11 @@ class LetterController extends Controller
                 $data['attachment'] = $imageName;
             }
 
-            $is_template = false;
+            if (isset($data['category_id']) && $data['category_id'] === '') {
+                $data['category_id'] = null;
+            }
+
+            $is_template = $request->boolean('is_template');
             $data['created_by'] = Auth::user()->id;
             $data['is_edit'] = 0;
             $data['is_approve'] = 0;
@@ -367,10 +431,6 @@ class LetterController extends Controller
             $data['sent_by'] = null;
 
             $data['reference'] = \App\Support\LetterReference::next();
-
-            if(isset($data['is_template'])) {
-                $is_template = true;
-            }
 
             $forwardTo = (string) $request->input('forward_letter', 'editor');
             $creator = Auth::user();
@@ -407,21 +467,26 @@ class LetterController extends Controller
                 }
             });
 
-            if ($is_template == true) {
-                // letter_templates only has a small column set — do not pass letter workflow fields.
+            if ($is_template) {
                 try {
+                    $templateName = trim((string) ($data['name'] ?? ''));
+                    if ($templateName === '') {
+                        $templateName = trim((string) ($data['subject'] ?? 'Template'));
+                    }
                     LetterTemplate::create([
                         'category_id' => $data['category_id'] ?? null,
-                        'name' => $data['name'],
+                        'name' => mb_substr($templateName, 0, 191),
                         'header' => $data['header'] ?? null,
-                        'subject' => $data['subject'],
+                        'subject' => $data['subject'] ?? $templateName,
                         'body' => $data['body'] ?? null,
-                        'footer' => $data['footer'] ?? ($data['name'] ?? null),
-                        'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
-                        'created_by' => $data['created_by'],
+                        'footer' => $data['footer'] ?? null,
+                        'is_active' => 1,
+                        'created_by' => (int) ($data['created_by'] ?? Auth::id() ?: 1),
                     ]);
                 } catch (\Throwable $templateError) {
                     \Log::warning('Letter saved but template copy failed: '.$templateError->getMessage());
+
+                    return $this->letterStoreResponse($request, false, 'The letter was saved, but the template was not. Please try Save as template again.', 500);
                 }
             }
 
@@ -1090,6 +1155,34 @@ class LetterController extends Controller
         return \App\Support\LetterPlaceholders::replace($text, $recipient);
     }
 
+    protected function sendLetterFilesToGroup($letter, $pdfPath, $attachmentPath, $groupJid, $groupName)
+    {
+        $wasender = app(\App\Services\BeyondWasenderService::class);
+        $caption = 'Letter for '.$groupName;
+        $sent = $wasender->sendGroupDocument($groupJid, $pdfPath, 'letter.pdf', $caption);
+        if (empty($sent['success'])) {
+            throw new \Exception(isset($sent['error']) ? $sent['error'] : 'Could not send the letter to the WhatsApp group.');
+        }
+        $files = [];
+        if (! empty($letter->attachment)) {
+            $files[] = $attachmentPath.$letter->attachment;
+        }
+        if (isset($letter->attachmentlib[0])) {
+            foreach ($letter->attachmentlib as $key => $attachment) {
+                if ($key === 0) {
+                    continue;
+                }
+                $files[] = $attachmentPath.$attachment->attachment;
+            }
+        }
+        foreach ($files as $file) {
+            if (! is_file($file)) {
+                continue;
+            }
+            $wasender->sendGroupDocument($groupJid, $file, basename($file), $caption);
+        }
+    }
+
     public function sendPDF($letter, $lims_customer_data, $to) {
         $lims_customer_data = \App\Support\LetterPlaceholders::enrich($lims_customer_data);
 
@@ -1118,6 +1211,12 @@ class LetterController extends Controller
         $path = storage_path('app/public/letter/letter.pdf');
         $attachment_path = public_path('letter/attachment/');
         $message = 'Letter notification sent successfully';
+        $groupJid = trim((string) ($lims_customer_data->group_jid ?? ''));
+        if ($groupJid !== '' && substr($groupJid, -5) === '@g.us') {
+            $this->sendLetterFilesToGroup($letter, $path, $attachment_path, $groupJid, $lims_customer_data->name ?? 'WhatsApp group');
+
+            return $message;
+        }
         try{
             if ($this->isInternshipAcceptanceLetter($letter)
                 && $this->recipientNeedsAcceptanceSignature($lims_customer_data)) {
@@ -1486,6 +1585,12 @@ class LetterController extends Controller
         $path = storage_path('app/public/letter/letter.pdf');
         $attachment_path = public_path('letter/attachment/');
         $message = 'Letter notification sent successfully';
+        $groupJid = trim((string) ($ccRecipient->group_jid ?? ''));
+        if ($groupJid !== '' && substr($groupJid, -5) === '@g.us') {
+            $this->sendLetterFilesToGroup($letter, $path, $attachment_path, $groupJid, $ccRecipient->name ?? 'WhatsApp group');
+
+            return $message;
+        }
 
         $ccName = trim((string) ($ccRecipient->name ?? 'Colleague'));
         $caption = \App\Support\WhatsAppMessage::statusBlock('📄', 'CC Copy')

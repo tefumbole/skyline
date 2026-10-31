@@ -131,7 +131,11 @@ class LetterRecipients
             }
         }
 
-        return LetterPlaceholders::enrich($r);
+        $enriched = LetterPlaceholders::enrich($r);
+        $enriched->group_jid = $person['group_jid'] ?? '';
+        $enriched->kind = $person['kind'] ?? '';
+
+        return $enriched;
     }
 
     public static function recipientModel(string $peopleType): string

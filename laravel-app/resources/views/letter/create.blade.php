@@ -14,15 +14,6 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-md-12">
-                    @if(in_array("donor-index", $all_permission))
-                        <a href="{{route('letter.index')}}" class="btn btn-info"><i class="dripicons-list"></i> {{trans('file.Letters List')}} </a>
-                    @endif
-                    @if(in_array("customers-add", $all_permission))
-                        <button type="button" class="btn btn-default " data-toggle="modal" data-target="#addCustomer"><i class="dripicons-plus"></i> Add Customer</button>
-                    @endif
-                    @if(in_array("employees-add", $all_permission))
-                        <button type="button" class="btn btn-default " data-toggle="modal" data-target="#addEmployee"><i class="dripicons-plus"></i> Add Employee</button>
-                    @endif
                     <div class="card">
                         <div class="card-header d-flex align-items-center">
                             <h4>@if(!empty($clone)) Clone Letter @else {{trans('file.Add Letter')}} @endif</h4>
@@ -132,8 +123,9 @@
                                     {{--                            </div>--}}
                                     <div class="col-md-12">
                                         <div class="form-group">
-                                            <label>Attachments </label> <i class="dripicons-question" data-toggle="tooltip" title="{{trans('file.You can upload multiple attachments. Only .jpeg, .jpg, .png, .gif file can be uploaded.')}}"></i>
-                                            <div id="imageUpload" class="dropzone"></div>
+                                            <label>Attachments </label> <i class="dripicons-question" data-toggle="tooltip" title="Drop a file, click to choose one, or click the box and paste."></i>
+                                            <div id="imageUpload" class="dropzone" tabindex="0"></div>
+                                            <small class="text-muted">Click this box, then paste an image or PDF.</small>
                                             @if($errors->has('attachments'))
                                                 <span>
                                        <strong>{{ $errors->first('attachments') }}</strong>
@@ -165,8 +157,8 @@
                                     </div>
                                     <div class="col-md-12">
                                         <div class="form-group">
-                                            <input type="checkbox" name="is_template"> &nbsp;
-                                            <label><b>{{trans('file.Is Template')}}</b> </label>
+                                            <input type="checkbox" name="is_template" id="is_template" value="1"> &nbsp;
+                                            <label for="is_template"><b>Save as template</b></label>
                                         </div>
                                     </div>
                                     <div class="col-md-12"><hr></div>
@@ -364,22 +356,24 @@
 
             var letterEditorDefaults = {
                 plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table wordcount',
-                toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat',
+                toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright | bullist numlist | removeformat',
                 branding: false,
                 menubar: false,
-                statusbar: true,
+                statusbar: false,
                 resize: true,
                 content_style: 'body { font-family: Nunito, sans-serif; font-size: 15px; color: #1f2a44; }'
             };
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#header',
-                height: 160
+                height: 72
             }));
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#body',
-                height: 360,
+                height: 280,
+                statusbar: true,
+                toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat',
                 paste_data_images: true,
                 automatic_uploads: true,
                 images_upload_handler: function (blobInfo, success, failure) {
@@ -409,7 +403,7 @@
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#footer',
-                height: 160
+                height: 72
             }));
         }
 
@@ -446,22 +440,8 @@
             }
         });
 
-        // Intercept paste events on the document
-        $(document).on('paste', function(e) {
-            var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (var index in items) {
-                var item = items[index];
-                if (item.kind === 'file') {
-                    var blob = item.getAsFile();
-                    if (blob.type.indexOf('image') !== -1) {
-                        var pasteFile = new File([blob], 'pasted-image.png', { type: blob.type });
-                        myDropzone.addFile(pasteFile);
-                    }
-                }
-            }
-        });
-
         myDropzone = new Dropzone('div#imageUpload', {
+            dictDefaultMessage: 'Drop files here, click to choose, or click and paste',
             addRemoveLinks: true,
             autoProcessQueue: false,
             uploadMultiple: true,
@@ -749,5 +729,45 @@
                 this.removeAllFiles(true);
             }
         });
+
+        var dropNode = document.getElementById('imageUpload');
+        if (dropNode) {
+            dropNode.addEventListener('paste', function (e) {
+                var cd = e.clipboardData;
+                if (!cd || !myDropzone) {
+                    return;
+                }
+                var added = false;
+                var items = cd.items;
+                if (items && items.length) {
+                    for (var i = 0; i < items.length; i++) {
+                        if (!items[i] || items[i].kind !== 'file') {
+                            continue;
+                        }
+                        var blob = items[i].getAsFile();
+                        if (!blob) {
+                            continue;
+                        }
+                        var ext = 'png';
+                        if (blob.type === 'application/pdf') ext = 'pdf';
+                        else if (blob.type === 'image/jpeg') ext = 'jpg';
+                        else if (blob.type === 'image/gif') ext = 'gif';
+                        else if (blob.type === 'image/webp') ext = 'webp';
+                        var name = (blob.name && blob.name !== 'image.png') ? blob.name : ('pasted-' + Date.now() + '.' + ext);
+                        myDropzone.addFile(new File([blob], name, { type: blob.type || 'image/png' }));
+                        added = true;
+                    }
+                }
+                if (!added && cd.files && cd.files.length) {
+                    for (var f = 0; f < cd.files.length; f++) {
+                        myDropzone.addFile(cd.files[f]);
+                        added = true;
+                    }
+                }
+                if (added) {
+                    e.preventDefault();
+                }
+            });
+        }
     </script>
 @endsection

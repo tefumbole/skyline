@@ -345,7 +345,37 @@ class PeopleDirectoryService
         }
 
         $out = [];
+        $groupNames = null;
         foreach ($ids as $id) {
+            if (Str::startsWith($id, 'group:')) {
+                $jid = substr($id, 6);
+                if (substr($jid, -5) !== '@g.us') {
+                    continue;
+                }
+                if ($groupNames === null) {
+                    $groupNames = [];
+                    try {
+                        foreach (app(\App\Services\WhatsApp\GroupContactExportService::class)->announcementGroups() as $group) {
+                            if (! empty($group['jid'])) {
+                                $groupNames[(string) $group['jid']] = isset($group['name']) ? (string) $group['name'] : '';
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        $groupNames = [];
+                    }
+                }
+                $out[] = [
+                    'id' => $id,
+                    'name' => ! empty($groupNames[$jid]) ? $groupNames[$jid] : 'WhatsApp group',
+                    'email' => '',
+                    'phone' => '',
+                    'group_jid' => $jid,
+                    'kind' => 'group',
+                    'role' => 'WhatsApp group',
+                    'source' => 'Group',
+                ];
+                continue;
+            }
             if (isset($map[$id])) {
                 $out[] = $map[$id];
                 continue;

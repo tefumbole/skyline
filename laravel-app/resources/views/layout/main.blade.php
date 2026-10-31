@@ -95,13 +95,13 @@
         <link rel="stylesheet" href="<?php echo asset('public/css/custom-'.$general_setting->theme) ?>" type="text/css" id="custom-style">
         <style>
             :root {
-                --beyond-primary: #0c1830;
-                --beyond-primary-dark: #07111c;
-                --beyond-accent: #e1b368;
-                --beyond-bg: #f3f6fb;
+                --beyond-primary: #0A0A0A;
+                --beyond-primary-dark: #000000;
+                --beyond-accent: #C5A059;
+                --beyond-bg: #f7f4ee;
                 --beyond-card: #ffffff;
-                --beyond-text: #1f2a44;
-                --beyond-muted: #6f7b91;
+                --beyond-text: #1a1208;
+                --beyond-muted: #8a7560;
             }
 
             body {
@@ -111,7 +111,7 @@
 
             .side-navbar {
                 background: var(--beyond-primary);
-                box-shadow: 2px 0 14px rgba(5, 28, 64, 0.25);
+                box-shadow: 2px 0 14px rgba(0, 0, 0, 0.35);
                 position: fixed;
                 top: 0 !important;
                 left: 0;
@@ -190,7 +190,7 @@
 
             .sidebar-user-panel {
                 flex-shrink: 0;
-                background: #07111c;
+                background: #0A0A0A;
                 border-top: 1px solid rgba(255, 255, 255, 0.12);
                 padding: 16px 14px;
             }
@@ -241,7 +241,7 @@
                 gap: 10px;
                 padding: 10px 8px;
                 border-radius: 8px;
-                color: #dce7ff;
+                color: #C5A059;
                 text-decoration: none !important;
                 font-size: 14px;
                 font-weight: 600;
@@ -274,7 +274,7 @@
             }
 
             .side-navbar .side-menu li a {
-                color: #eef3ff;
+                color: #C5A059;
                 border-radius: 10px;
                 margin: 4px 10px;
                 padding: 13px 14px;
@@ -295,15 +295,15 @@
 
             .side-navbar .side-menu > li > a:hover,
             .side-navbar .side-menu > li > a:focus {
-                background: rgba(225, 179, 104, 0.18);
+                background: rgba(197, 160, 89, 0.14);
                 color: #fff6df;
             }
 
             .side-navbar .side-menu > li > a.menu-parent-active,
             .side-navbar .side-menu > li > a[aria-expanded="true"],
             .side-navbar .side-menu > li.active > a {
-                background: var(--beyond-accent) !important;
-                color: var(--beyond-primary-dark) !important;
+                background: #f6f1e6 !important;
+                color: #0A0A0A !important;
                 font-weight: 700;
             }
 
@@ -431,9 +431,9 @@
                 padding: 0 5px;
                 margin-left: 6px;
                 border-radius: 999px;
-                background: #0c1830;
-                border: 2px solid #e1b368;
-                color: #e1b368;
+                background: #0A0A0A;
+                border: 2px solid #C5A059;
+                color: #C5A059;
                 font-size: 11px;
                 font-weight: 800;
                 line-height: 1;
@@ -522,7 +522,7 @@
             .beyond-module-tab.tone-red i { color: #ef4444 !important; }
 
             .beyond-module-tabs {
-                background: #0c1830;
+                background: #0A0A0A;
                 border-bottom-color: #C5A059;
             }
             .beyond-module-tabs-label {
@@ -561,35 +561,38 @@
             #beyond-module-tabs .beyond-module-tab,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"] {
                 background: transparent;
-                border-color: #C5A059;
-                color: #fff6df !important;
+                border-color: transparent;
+                color: #C5A059 !important;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
             }
             #beyond-module-tabs .beyond-module-tab i,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"] i {
                 color: #C5A059 !important;
             }
             #beyond-module-tabs .beyond-module-tab:hover {
-                background: rgba(197, 160, 89, 0.22);
-                color: #fff !important;
+                background: rgba(197, 160, 89, 0.14);
+                border-color: rgba(197, 160, 89, 0.5);
+                color: #fff6df !important;
             }
             #beyond-module-tabs .beyond-module-tab:hover i {
                 color: #fff6df !important;
             }
             #beyond-module-tabs .beyond-module-tab.is-active,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"].is-active {
-                background: #C5A059 !important;
-                border-color: #C5A059 !important;
-                color: #1a1208 !important;
+                background: #f6f1e6 !important;
+                border-color: #f6f1e6 !important;
+                color: #0A0A0A !important;
             }
             #beyond-module-tabs .beyond-module-tab.is-active i,
             #beyond-module-tabs .beyond-module-tab[class*="tone-"].is-active i {
-                color: #1a1208 !important;
+                color: #0A0A0A !important;
             }
 
             .header .navbar {
                 background: var(--beyond-primary) !important;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                box-shadow: 0 2px 12px rgba(5, 28, 64, 0.18);
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
                 min-height: 63px;
                 padding-top: 0;
                 padding-bottom: 0;
@@ -636,7 +639,7 @@
             .header .btn-pos {
                 background: var(--beyond-accent) !important;
                 border-color: var(--beyond-accent) !important;
-                color: #10213d !important;
+                color: #0A0A0A !important;
                 border-radius: 8px;
             }
 
@@ -653,7 +656,7 @@
 
             .header .btn-pos i,
             .header .btn-pos i:before {
-                color: #10213d !important;
+                color: #0A0A0A !important;
             }
 
             .header .badge-danger {
@@ -689,7 +692,7 @@
             .badge-warning {
                 background: var(--beyond-accent) !important;
                 border-color: var(--beyond-accent) !important;
-                color: #10213d !important;
+                color: #0A0A0A !important;
             }
 
             .badge-primary {
@@ -4348,13 +4351,13 @@
         @endif
       @if(auth()->check() && \App\Services\Restaurant\RestaurantAccess::installed() && \App\Services\Restaurant\RestaurantAccess::canSeeOrders(auth()->user()))
         <style>
-            #sky-order-pop { position:fixed; right:18px; bottom:18px; z-index:11000; width:min(400px, calc(100vw - 24px)); background:#0c1830; color:#fff8ea; border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.28); padding:16px 16px 14px; }
-            #sky-order-pop h2 { margin:0 0 8px; font-size:18px; color:#e1b368; }
+            #sky-order-pop { position:fixed; right:18px; bottom:18px; z-index:11000; width:min(400px, calc(100vw - 24px)); background:#0A0A0A; color:#f6f1e6; border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.28); padding:16px 16px 14px; }
+            #sky-order-pop h2 { margin:0 0 8px; font-size:18px; color:#C5A059; }
             #sky-order-pop p { margin:0 0 6px; }
             #sky-order-pop .sky-order-row { border-top:1px solid rgba(225,179,104,.28); padding:10px 0 4px; }
             #sky-order-pop a, #sky-order-pop button { display:inline-block; margin:6px 8px 0 0; border-radius:999px; padding:8px 14px; font-weight:700; text-decoration:none; border:0; cursor:pointer; }
-            #sky-order-pop .go { background:#e1b368; color:#0c1830; }
-            #sky-order-pop .stay { background:transparent; color:#fff8ea; border:1px solid #e1b368; }
+            #sky-order-pop .go { background:#C5A059; color:#0A0A0A; }
+            #sky-order-pop .stay { background:transparent; color:#f6f1e6; border:1px solid #C5A059; }
         </style>
         <div id="sky-order-pop" hidden>
             <h2 id="sky-order-pop-title">Order waiting</h2>

@@ -105,6 +105,9 @@ class RestaurantPayController extends Controller
 
             return response('ok', 200);
         }
+        if ($this->settleIncomingCollect($reference, $external)) {
+            return response('ok', 200);
+        }
         $pending = null;
         $sale = null;
         if (strpos($external, 'sale-momo-') === 0) {
@@ -131,5 +134,26 @@ class RestaurantPayController extends Controller
         }
 
         return response('ok', 200);
+    }
+
+    protected function settleIncomingCollect($reference, $external)
+    {
+        $donation = \App\PublicDonation::where('campay_reference', $reference)->first();
+        if (! $donation && preg_match('/^(don|dep)-\d+-(\d+)$/', $external, $match)) {
+            $donation = \App\PublicDonation::find((int) $match[2]);
+        }
+        if ($donation && $donation->status !== 'paid') {
+            app(\App\Http\Controllers\PublicDonateController::class)->applyGateway($donation);
+
+            return true;
+        }
+        $deposit = \App\Deposit::where('campay_reference', $reference)->where('status', 0)->first();
+        if ($deposit) {
+            app(\App\Http\Controllers\PaymentController::class)->settleFromGateway($deposit);
+
+            return true;
+        }
+
+        return false;
     }
 }

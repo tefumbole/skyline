@@ -37,7 +37,7 @@
                                 $tone = $row->status === 'paid' ? 'ok' : ($row->status === 'failed' ? 'no' : 'wait');
                                 $statusLabel = $row->status === 'paid' ? 'Paid' : ($row->status === 'failed' ? 'Not paid' : 'Pending');
                             @endphp
-                            <tr>
+                            <tr data-deposit="{{ $row->id }}">
                                 <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
                                 <td>{{ $row->person_name }}</td>
                                 <td>{{ $row->phone }}</td>
@@ -51,6 +51,31 @@
                 </table>
             </div>
         </div>
+        <script>
+            (function () {
+                var waiting = document.querySelector('[data-deposit] .pay-pill-wait');
+                if (!waiting) return;
+                function tick() {
+                    fetch(@json(route('deposit.live')), {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+                        .then(function (response) { return response.json(); })
+                        .then(function (data) {
+                            var strong = document.querySelector('.momo-wallet-corner strong');
+                            if (strong && data.balance) strong.textContent = data.balance;
+                            var total = document.querySelector('.pay-balance .pay-total');
+                            if (total && data.balance) total.textContent = data.balance;
+                            (data.rows || []).forEach(function (row) {
+                                var line = document.querySelector('[data-deposit="' + row.id + '"] .pay-pill');
+                                if (!line) return;
+                                line.className = 'pay-pill pay-pill-' + row.tone;
+                                line.textContent = row.status;
+                            });
+                            if (data.pending) setTimeout(tick, 5000);
+                        })
+                        .catch(function () { setTimeout(tick, 8000); });
+                }
+                setTimeout(tick, 5000);
+            })();
+        </script>
     @endif
 
     <div class="pay-toolbar">

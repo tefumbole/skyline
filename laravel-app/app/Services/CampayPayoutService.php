@@ -88,6 +88,7 @@ class CampayPayoutService
             'from' => (string) $phone,
             'description' => (string) $description,
             'external_reference' => (string) $reference,
+            'webhook' => url('/pay/campay/webhook'),
         ]);
     }
 

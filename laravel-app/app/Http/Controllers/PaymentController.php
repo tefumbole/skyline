@@ -70,6 +70,7 @@ class PaymentController extends Controller
         $deposits = Deposit::with(['customer', 'customerGroup', 'user', 'depositor', 'account'])->orderByDesc('id')->get();
         $accounts = Account::where('is_active', true)->orderBy('name')->get();
         $making = request()->get('new') === '1';
+        $this->refreshFrontDeposits();
         $campayBalance = null;
         try {
             $campayBalance = app(CampayPayoutService::class)->balance();
@@ -306,6 +307,57 @@ class PaymentController extends Controller
         return redirect()->route('deposit.index')->with('message', $channel === 'none'
             ? 'The card link was created, but the client could not be notified.'
             : 'A card link was sent to '.$customer->name.'.');
+    }
+
+    public function depositLive()
+    {
+        $this->settleWaitingDeposits();
+        $this->refreshFrontDeposits();
+        $balance = '';
+        try {
+            $balance = app(CampayPayoutService::class)->balance();
+        } catch (\Throwable $e) {
+            $balance = '';
+        }
+        $rows = [];
+        if (SchemaFacade::hasTable('public_donations')) {
+            foreach (PublicDonation::orderByDesc('id')->limit(100)->get(['id', 'status']) as $row) {
+                $rows[] = [
+                    'id' => (int) $row->id,
+                    'status' => $row->status === 'paid' ? 'Paid' : ($row->status === 'failed' ? 'Not paid' : 'Pending'),
+                    'tone' => $row->status === 'paid' ? 'ok' : ($row->status === 'failed' ? 'no' : 'wait'),
+                ];
+            }
+        }
+
+        return response()->json([
+            'balance' => $balance === '' ? '' : $balance.' XAF',
+            'pending' => collect($rows)->contains(function ($row) {
+                return $row['status'] === 'Pending';
+            }),
+            'rows' => $rows,
+        ]);
+    }
+
+    public function settleFromGateway(Deposit $deposit)
+    {
+        $this->settleOne($deposit);
+    }
+
+    protected function refreshFrontDeposits()
+    {
+        if (! SchemaFacade::hasTable('public_donations')) {
+            return;
+        }
+        $pending = PublicDonation::whereIn('status', ['pending', 'waiting'])->orderByDesc('id')->limit(30)->get();
+        $gateway = app(PublicDonateController::class);
+        foreach ($pending as $donation) {
+            try {
+                $gateway->applyGateway($donation);
+            } catch (\Throwable $e) {
+                \Log::warning('Front deposit status check failed', ['id' => $donation->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     protected function settleWaitingDeposits()

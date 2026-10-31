@@ -316,11 +316,11 @@ class PublicDonateController extends Controller
 
             return;
         }
-        if ($donation->created_at && $donation->created_at->lt(now()->subMinutes(10))) {
-            $donation->status = 'failed';
-            $donation->error = 'Timed out. The person did not approve in time.';
-            $donation->save();
-        }
+    }
+
+    public function applyGateway(PublicDonation $donation)
+    {
+        $this->refresh($donation);
     }
 
     public function desk()

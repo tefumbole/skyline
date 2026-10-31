@@ -38,6 +38,11 @@
         @media (max-width:900px) { .sky-ticket { grid-template-columns:1fr; } }
         @media (max-width:640px) {
             .sky-head h1 { font-size:22px; }
+            .sky-ticket { padding:14px 12px; gap:12px; }
+            .sky-accept { flex-wrap:wrap; }
+            .sky-actions .btn-primary,
+            .sky-actions .btn-success,
+            .sky-actions .btn-default { width:100%; }
             .sky-tabs { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
             .sky-tabs a { min-height:44px; display:inline-flex; align-items:center; flex:0 0 auto; }
             .sky-actions .btn, .sky-actions form { width:100%; }

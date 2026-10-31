@@ -549,8 +549,15 @@ class RestaurantOrderService
             if ($appendTrack && strpos($message, (string) $order->trackUrl()) === false) {
                 $message .= "\n\n*TRACK ORDER*\n".$order->trackUrl();
             }
-            app(\App\Services\Messaging\NotificationRouter::class)
-                ->sendWhatsAppTextWithLink($customer->phone_number, $message);
+            $phone = (string) $customer->phone_number;
+            app()->terminating(function () use ($phone, $message) {
+                try {
+                    app(\App\Services\Messaging\NotificationRouter::class)
+                        ->sendWhatsAppTextWithLink($phone, $message);
+                } catch (\Throwable $e) {
+                    \Log::warning('restaurant notify: '.$e->getMessage());
+                }
+            });
         } catch (\Throwable $e) {
             \Log::warning('restaurant notify: '.$e->getMessage());
         }

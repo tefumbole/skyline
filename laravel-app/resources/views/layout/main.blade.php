@@ -260,17 +260,21 @@
 
             .sidebar-user-link.logout-link,
             button.sidebar-user-link.logout-link {
-                color: #ffb4b4;
+                color: #fff;
                 width: 100%;
-                background: none;
+                min-height: 48px;
+                margin-top: 6px;
+                background: #9b1c1c;
                 border: 0;
+                border-radius: 12px;
                 cursor: pointer;
                 text-align: left;
                 font-family: inherit;
+                justify-content: center;
             }
 
             .sidebar-user-link.logout-link i {
-                color: #ff8e8e !important;
+                color: #fff !important;
             }
 
             .account-dock {
@@ -284,7 +288,7 @@
                 align-items: center;
                 gap: 8px;
                 min-height: 48px;
-                max-width: min(240px, calc(100vw - 24px));
+                max-width: calc(100vw - 148px);
                 padding: 6px 14px 6px 6px;
                 border: 0;
                 border-radius: 999px;
@@ -341,13 +345,29 @@
             .account-dock-menu button:hover {
                 background: #f3f6fb;
             }
-            .account-dock-menu .is-logout {
-                color: #9b1c1c;
+            .account-dock-menu .is-logout,
+            .account-dock-logout {
+                color: #fff;
+                background: #9b1c1c;
+                border-radius: 999px;
+                min-height: 48px;
+                padding: 0 16px;
+                font-weight: 700;
+                border: 0;
+                cursor: pointer;
+            }
+            .account-dock-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
             @media (min-width: 1200px) {
                 .account-dock { display: none; }
             }
             body.sidebar-open .account-dock { display: none; }
+            @media (max-width: 1199.98px) {
+                .account-dock { bottom: calc(10px + env(safe-area-inset-bottom)); }
+            }
 
             .side-navbar .side-menu li a {
                 color: #eef3ff;
@@ -1381,6 +1401,13 @@
                     transform: translateX(0);
                     visibility: visible;
                     pointer-events: auto;
+                }
+                nav.side-navbar .side-navbar-wrapper {
+                    height: 100% !important;
+                    max-height: 100% !important;
+                }
+                .sidebar-user-panel {
+                    padding-bottom: calc(10px + env(safe-area-inset-bottom));
                 }
                 .sidebar-backdrop {
                     display: none;
@@ -3370,21 +3397,18 @@
                             <span class="sidebar-user-role">{{ ucfirst($role->name ?? 'User') }}</span>
                         </div>
                     </div>
-                    <a href="{{ url('/') }}" class="sidebar-user-link">
-                        <i class="dripicons-home"></i> Home
-                    </a>
+                    <form action="{{ route('logout') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="sidebar-user-link logout-link">
+                            <i class="dripicons-power"></i> Log out
+                        </button>
+                    </form>
                     <a href="{{ route('user.profile', ['id' => Auth::id()]) }}" class="sidebar-user-link">
                         <i class="dripicons-user"></i> My Profile
                     </a>
                     <a href="{{ route('user.profile', ['id' => Auth::id()]) }}#change-password" class="sidebar-user-link">
                         <i class="dripicons-lock"></i> Change password
                     </a>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="sidebar-user-link logout-link">
-                            <i class="dripicons-power"></i> Sign Out
-                        </button>
-                    </form>
                 </div>
             </div>
           </nav>
@@ -3393,15 +3417,17 @@
               <div class="account-dock-menu" id="account-dock-menu" hidden>
                   <a href="{{ route('user.profile', ['id' => Auth::id()]) }}">Profile</a>
                   <a href="{{ route('user.profile', ['id' => Auth::id()]) }}#change-password">Change password</a>
+              </div>
+              <div class="account-dock-row">
+                  <button type="button" class="account-dock-btn" id="account-dock-btn" aria-expanded="false" aria-controls="account-dock-menu">
+                      <span class="account-dock-avatar">{{ $userInitial }}</span>
+                      <span class="account-dock-name">{{ Auth::user()->name }}</span>
+                  </button>
                   <form action="{{ route('logout') }}" method="POST">
                       @csrf
-                      <button type="submit" class="is-logout">Log out</button>
+                      <button type="submit" class="account-dock-logout">Log out</button>
                   </form>
               </div>
-              <button type="button" class="account-dock-btn" id="account-dock-btn" aria-expanded="false" aria-controls="account-dock-menu">
-                  <span class="account-dock-avatar">{{ $userInitial }}</span>
-                  <span class="account-dock-name">{{ Auth::user()->name }}</span>
-              </button>
           </div>
           <script>
               (function () {

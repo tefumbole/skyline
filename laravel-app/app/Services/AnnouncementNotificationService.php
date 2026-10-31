@@ -227,7 +227,7 @@ class AnnouncementNotificationService extends Controller
                 $announcement->save();
                 \App\Jobs\SendWaAnnouncementBatchJob::dispatch($announcement->id)
                     ->onConnection('database')
-                    ->onQueue('whatsapp');
+                    ->onQueue('announcements');
 
                 return ['sent' => $sent, 'cc' => 0, 'whatsapp_status' => 'sending'];
             }

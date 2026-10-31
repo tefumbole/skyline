@@ -295,6 +295,28 @@ class AnnouncementManagerController extends Controller
         return back()->with('message', 'Reminder deleted.');
     }
 
+    public function resend($id)
+    {
+        $this->authorizeAnnouncements('announcements.create');
+        $row = WaAnnouncement::findOrFail($id);
+        if ($row->status === 'deleted') {
+            return back()->with('not_permitted', 'This announcement was deleted.');
+        }
+        if ($row->status === 'sending' && $row->updated_at && $row->updated_at->gt(now()->subMinutes(3))) {
+            return back()->with('message', 'This announcement is already being sent.');
+        }
+        $row->sent_count = 0;
+        $row->cc_sent_count = 0;
+        $row->send_results_json = null;
+        $row->is_scheduled = false;
+        $row->status = 'sending';
+        $row->whatsapp_status = 'sending';
+        $row->save();
+        $this->announcements->startDelivery($row->fresh());
+
+        return back()->with('message', 'Sending '.$row->reference.' again.');
+    }
+
     public function destroy($id)
     {
         $this->authorizeAnnouncements('announcements.delete');

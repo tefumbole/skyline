@@ -239,7 +239,7 @@ class AnnouncementService
             $announcement->save();
             \App\Jobs\SendWaAnnouncementBatchJob::dispatch($announcement->id)
                 ->onConnection('database')
-                ->onQueue('whatsapp');
+                ->onQueue('announcements');
 
             return;
         }

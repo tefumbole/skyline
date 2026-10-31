@@ -683,6 +683,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/announcements/scheduled', 'AnnouncementManagerController@scheduled')->name('announcements.scheduled');
     Route::get('/admin/announcements/reminders', 'AnnouncementManagerController@reminders')->name('announcements.reminders');
     Route::post('/admin/announcements/reminders/{id}/delete', 'AnnouncementManagerController@deleteReminder')->name('announcements.reminders.delete');
+    Route::post('/admin/announcements/{id}/resend', 'AnnouncementManagerController@resend')->name('announcements.resend');
     Route::post('/admin/announcements/{id}/delete', 'AnnouncementManagerController@destroy')->name('announcements.destroy');
     Route::get('/admin/announcements/templates', 'AnnouncementManagerController@templates')->name('announcements.templates');
     Route::post('/admin/announcements/templates', 'AnnouncementManagerController@storeTemplate')->name('announcements.templates.store');

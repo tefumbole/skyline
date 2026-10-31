@@ -40,7 +40,7 @@ class SendWaAnnouncementBatchJob implements ShouldQueue
             }
             $remaining = $notify->deliverContactBatch($announcement->fresh(), 5);
             if ($remaining > 0) {
-                static::dispatch($this->announcementId)->onConnection('database')->onQueue('whatsapp');
+                static::dispatch($this->announcementId)->onConnection('database')->onQueue('announcements');
 
                 return;
             }

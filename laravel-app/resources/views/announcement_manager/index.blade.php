@@ -8,7 +8,7 @@
         <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap" style="gap:12px;">
             <div>
                 <h1 class="an-title"><i class="fa fa-bullhorn"></i> All Announcements</h1>
-                <p class="an-subtitle">View and manage sent or draft announcements. Clone to resend with different recipients.</p>
+                <p class="an-subtitle">View and manage sent or draft announcements. Resend sends the same message again. Clone starts a new copy.</p>
             </div>
             <a href="{{ route('announcements.compose') }}" class="an-btn-primary"><i class="dripicons-plus"></i> Compose</a>
         </div>
@@ -24,7 +24,7 @@
             <input type="text" name="q" value="{{ request('q') }}" class="form-control mr-2 mb-2" placeholder="Search subject or reference…">
             <select name="status" class="form-control mr-2 mb-2">
                 <option value="all">All statuses</option>
-                @foreach(['sent','scheduled','draft'] as $s)
+                @foreach(['sent','sending','scheduled','draft'] as $s)
                     <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
                 @endforeach
             </select>
@@ -53,6 +53,10 @@
                                 <td><span class="an-badge {{ $item->whatsapp_status }}">{{ $item->whatsapp_status }}</span></td>
                                 <td>{{ count($item->recipients()) }} / {{ count($item->ccRecipients()) }}</td>
                                 <td class="text-right text-nowrap">
+                                    <form method="POST" action="{{ route('announcements.resend', $item->id) }}" class="d-inline" onsubmit="return confirm('Send this announcement again to the same people?');">
+                                        @csrf
+                                        <button class="an-btn-outline" type="submit">Resend</button>
+                                    </form>
                                     <a href="{{ route('announcements.compose', ['clone' => $item->id]) }}" class="an-btn-outline" title="Clone & resend">Clone</a>
                                     <form method="POST" action="{{ route('announcements.destroy', $item->id) }}" class="d-inline" onsubmit="return confirm('Delete this announcement?');">
                                         @csrf

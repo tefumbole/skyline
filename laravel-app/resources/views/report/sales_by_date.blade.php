@@ -118,8 +118,9 @@
         border-radius: 8px; background: #0c1830; color: #fff; text-decoration: none; font-size: 13px; font-weight: 700;
     }
     .sky-sale-table-wrap { overflow-x: auto; }
-    .sky-sale-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .sky-sale-table { width: auto; max-width: 100%; border-collapse: collapse; background: #fff; }
     .sky-sale-table th, .sky-sale-table td { padding: 6px 8px; font-size: 14px; color: #1a1a1a; }
+    .sky-sale-table th:first-child, .sky-sale-table td:first-child { padding-right: 16px; }
     .sky-sale-table th { font-weight: 800; background: #fff; }
     .sky-sale-table .num { text-align: right; white-space: nowrap; }
     .sky-sale-table tbody tr:nth-child(odd) { background: #fff; }

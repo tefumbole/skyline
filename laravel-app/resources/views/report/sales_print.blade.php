@@ -18,12 +18,16 @@
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; color: #1a1a1a; font-family: Helvetica, Arial, sans-serif; background: #fff; }
-        .toolbar { padding: 10px 12px; }
-        .toolbar button {
-            min-height: 40px; padding: 8px 16px; border: 0; border-radius: 8px;
-            background: #0c1830; color: #fff; font-weight: 700; cursor: pointer;
+        .toolbar { display: flex; gap: 8px; padding: 10px 12px; }
+        .toolbar a, .toolbar button {
+            display: inline-flex; align-items: center; min-height: 40px; padding: 8px 16px; border: 0; border-radius: 8px;
+            background: #0c1830; color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 14px;
         }
-        table.lines { width: 100%; border-collapse: collapse; }
+        .toolbar a { background: #fff; color: #0c1830; border: 1px solid #0c1830; }
+        table.lines { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.lines th:first-child, table.lines td:first-child { width: 58%; padding-right: 3mm; word-wrap: break-word; }
+        table.lines th:nth-child(2), table.lines td:nth-child(2) { width: 26%; }
+        table.lines th:nth-child(3), table.lines td:nth-child(3) { width: 16%; }
         table.lines th, table.lines td { text-align: left; }
         .num { text-align: right; white-space: nowrap; }
         @if ($letter)
@@ -55,6 +59,7 @@
 </head>
 <body>
     <div class="toolbar">
+        <a href="{{ route('report.sales', ['range' => $range, 'start_date' => $start_date, 'end_date' => $end_date]) }}">Back</a>
         <button type="button" onclick="window.print()">Print</button>
     </div>
     <div class="sheet">

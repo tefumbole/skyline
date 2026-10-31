@@ -9,6 +9,8 @@
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
+    @include('payout.tabs', ['tab' => 'request'])
+
     <div class="pay-card">
         <div class="pay-card-head"><h2>Request for Payment</h2></div>
         <div class="pay-card-body">
@@ -424,6 +426,32 @@
                         hits.appendChild(button);
                     });
                     if (!hits.children.length) {
+                        var digits = q.replace(/\D/g, '');
+                        if (digits.length >= 8) {
+                            fetch(lookupUrl + '?phone=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
+                                .then(function (response) { return response.json(); })
+                                .then(function (info) {
+                                    hits.innerHTML = '';
+                                    if (!info || !info.ok || !info.name) {
+                                        var none = document.createElement('div');
+                                        none.className = 'list-group-item text-muted';
+                                        none.textContent = 'No matching name or number';
+                                        hits.appendChild(none);
+                                        return;
+                                    }
+                                    var button = document.createElement('button');
+                                    button.type = 'button';
+                                    button.className = 'list-group-item list-group-item-action';
+                                    button.textContent = info.name + (info.operator ? ' · ' + info.operator : '');
+                                    button.addEventListener('click', function () {
+                                        addPerson('phone:' + info.phone, info.name, info.phone, [{name: 'extra_phone[]', value: info.phone}]);
+                                        hits.innerHTML = '';
+                                        search.value = '';
+                                    });
+                                    hits.appendChild(button);
+                                });
+                            return;
+                        }
                         var none = document.createElement('div');
                         none.className = 'list-group-item text-muted';
                         none.textContent = 'No matching name or number';

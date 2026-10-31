@@ -4,7 +4,7 @@
 <section class="container-fluid pay-app">
     <script>
         $("ul#payments").addClass("show").siblings("a").attr("aria-expanded", "true");
-        $("ul#payments #payout-request-menu").addClass("active");
+        $("ul#payments #deposit-desk-menu").addClass("active");
     </script>
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif

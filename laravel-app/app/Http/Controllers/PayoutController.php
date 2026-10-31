@@ -230,7 +230,61 @@ class PayoutController extends Controller
 
     public function requestLink(Request $request)
     {
-        return redirect()->route('deposit.desk');
+        $this->guard();
+        $this->settleRecorded();
+        $tenantId = $this->tenantId();
+        $query = CampayPayoutLink::query();
+        if ($tenantId) {
+            $query->where('cloud_tenant_id', $tenantId);
+        } else {
+            $query->whereNull('cloud_tenant_id');
+        }
+        $link = $query->first();
+        if (! $link) {
+            $link = new CampayPayoutLink();
+            $link->token = bin2hex(random_bytes(20));
+            $link->cloud_tenant_id = $tenantId;
+            $link->save();
+        }
+        $url = route('payout.request.form', ['token' => $link->token]);
+        $invites = CampayPaymentInvite::query()
+            ->when($tenantId, function ($query) use ($tenantId) {
+                $query->where('cloud_tenant_id', $tenantId);
+            }, function ($query) {
+                $query->whereNull('cloud_tenant_id');
+            })
+            ->orderByDesc('id')
+            ->limit(40)
+            ->get();
+        $submitted = $this->requests($tenantId)
+            ->with('lines')
+            ->where(function ($query) {
+                $query->where('status', 'pending')
+                    ->orWhereIn('id', CampayPayout::query()->whereIn('status', ['pending', 'failed'])->distinct()->pluck('request_id')->filter()->all());
+            })
+            ->orderByDesc('id')
+            ->limit(40)
+            ->get()
+            ->filter(function ($batch) {
+                $lines = $batch->lines;
+                if ($lines->isEmpty()) {
+                    return true;
+                }
+
+                return $lines->whereIn('status', ['pending', 'failed'])->count() > 0;
+            })
+            ->values();
+        $review = null;
+        $reviewLines = collect();
+        $reviewId = (int) $request->get('review');
+        if ($reviewId) {
+            $review = $this->requests($tenantId)->where('id', $reviewId)->first();
+            if ($review) {
+                $reviewLines = CampayPayout::where('request_id', $review->id)->orderBy('id')->get();
+            }
+        }
+
+        return view('payout.request', compact('url', 'invites', 'submitted', 'review', 'reviewLines'));
     }
 
     public function revise(Request $request)

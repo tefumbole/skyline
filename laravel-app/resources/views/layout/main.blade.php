@@ -2072,7 +2072,8 @@
                                 <ul id="payments" class="collapse list-unstyled ">
                                     <li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>
                                     <li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout Request</a></li>
-                                    <li id="payout-request-menu"><a href="{{route('deposit.desk')}}">Deposit</a></li>
+                                    <li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>
+                                    <li id="deposit-desk-menu"><a href="{{route('deposit.desk')}}">Deposit</a></li>
                                     <li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Deposits</a></li>
                                 </ul>
                             </li>

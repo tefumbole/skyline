@@ -3720,8 +3720,14 @@ class SaleController extends Controller
     public function deleteBySelection(Request $request)
     {
         $sale_id = $request['saleIdArray'];
+        if (! is_array($sale_id) || ! count($sale_id)) {
+            return 'No payment is selected!';
+        }
         foreach ($sale_id as $id) {
             $lims_sale_data = Sale::find($id);
+            if (! $lims_sale_data) {
+                continue;
+            }
             $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
             $lims_delivery_data = Delivery::where('sale_id',$id)->first();
             if($lims_sale_data->sale_status == 3)

@@ -14,7 +14,10 @@
     $totalBalance = isset($balanceParts['Total']) ? $balanceParts['Total'] : null;
 @endphp
 <section class="container-fluid pay-app">
-    @include('payout.tabs', ['tab' => 'payout'])
+    <script>
+        $("ul#payments").addClass("show").siblings("a").attr("aria-expanded", "true");
+        $("ul#payments #payout-index-menu").addClass("active");
+    </script>
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 

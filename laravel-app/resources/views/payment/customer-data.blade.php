@@ -16,7 +16,6 @@
 
     <section>
         @include('payout.partials.style')
-        @include('payout.tabs', ['tab' => 'payment'])
 
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">
@@ -402,31 +401,31 @@
                     text: '<i title="delete" class="dripicons-cross"></i>',
                     className: 'buttons-delete',
                     action: function ( e, dt, node, config ) {
-                        if(true) {
-                            brand_id.length = 0;
-                            $(':checkbox:checked').each(function(i){
-                                if(i){
-                                    brand_id[i-1] = $(this).closest('tr').data('id');
-                                }
-                            });
-                            if(brand_id.length && confirm("Are you sure want to delete?")) {
-                                $.ajax({
-                                    type:'POST',
-                                    url:'brand/deletebyselection',
-                                    data:{
-                                        brandIdArray: brand_id
-                                    },
-                                    success:function(data){
-                                        alert(data);
-                                    }
-                                });
-                                dt.rows({ page: 'current', selected: true }).remove().draw(false);
+                        var saleIds = [];
+                        dt.rows({ selected: true }).every(function () {
+                            var id = $(this.node()).data('id');
+                            if (id) {
+                                saleIds.push(id);
                             }
-                            else if(!brand_id.length)
-                                alert('No brand is selected!');
+                        });
+                        if (!saleIds.length) {
+                            alert('Select at least one payment.');
+                            return;
                         }
-                        else
-                            alert('This feature is disable for demo!');
+                        if (!confirm('Delete the selected payments?')) {
+                            return;
+                        }
+                        $.ajax({
+                            type: 'POST',
+                            url: '{{ url('sales/deletebyselection') }}',
+                            data: { saleIdArray: saleIds },
+                            success: function () {
+                                window.location.reload();
+                            },
+                            error: function () {
+                                alert('Could not delete the selected payments.');
+                            }
+                        });
                     }
                 },
                 {

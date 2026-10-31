@@ -22,20 +22,6 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-    <div class="pay-balance">
-        <div>
-            <div class="pay-kicker">Mobile Money balance</div>
-            <div class="pay-total">{{ isset($campayBalance) && $campayBalance !== null ? $campayBalance.' XAF' : '— XAF' }}</div>
-            <div class="pay-sub">
-                @if(!isset($campayBalance) || $campayBalance === null)
-                    Campay did not answer. Try again in a moment.
-                @else
-                    Live balance from Campay.
-                @endif
-            </div>
-        </div>
-    </div>
-
     @if(isset($frontDeposits) && count($frontDeposits))
         <div class="pay-card" style="margin-bottom:16px">
             <div class="pay-card-head"><h2>Front-end payments</h2></div>

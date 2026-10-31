@@ -369,6 +369,45 @@
                 display: block;
             }
 
+            .beyond-module-tabs-row {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+
+            .beyond-module-tabs-main { flex: 1; min-width: 0; }
+
+            .momo-wallet-corner {
+                flex: 0 0 auto;
+                max-width: 340px;
+                margin: 12px 16px 10px auto;
+                padding: 8px 12px;
+                border: 1px solid rgba(225, 179, 104, .45);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, .06);
+                color: #fff6df;
+                text-align: right;
+            }
+
+            .momo-wallet-corner span {
+                display: block;
+                color: #e1b368;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: .08em;
+                text-transform: uppercase;
+            }
+
+            .momo-wallet-corner strong {
+                display: block;
+                margin-top: 2px;
+                font-size: 15px;
+                font-weight: 700;
+                line-height: 1.3;
+            }
+
             .beyond-module-tabs-label {
                 font-size: 11px;
                 font-weight: 700;
@@ -3748,8 +3787,29 @@
           <div id="content" class="animate-bottom">
               <div class="container-fluid">
                   <div id="beyond-module-tabs" class="beyond-module-tabs">
-                      <div id="beyond-module-tabs-label" class="beyond-module-tabs-label"></div>
-                      <div id="beyond-module-tabs-nav" class="beyond-module-tabs-nav"></div>
+                      <div class="beyond-module-tabs-row">
+                          <div class="beyond-module-tabs-main">
+                              <div id="beyond-module-tabs-label" class="beyond-module-tabs-label"></div>
+                              <div id="beyond-module-tabs-nav" class="beyond-module-tabs-nav"></div>
+                          </div>
+                          @php
+                              $momoWalletText = null;
+                              $momoWalletRoutes = ['payment.index', 'payout.index', 'payout.request', 'deposit.index', 'deposit.desk', 'momo.payments'];
+                              if (in_array(optional(request()->route())->getName(), $momoWalletRoutes, true)) {
+                                  try {
+                                      $momoWalletText = app(\App\Services\CampayPayoutService::class)->balance();
+                                  } catch (\Throwable $e) {
+                                      $momoWalletText = null;
+                                  }
+                              }
+                          @endphp
+                          @if($momoWalletText !== null)
+                              <div class="momo-wallet-corner">
+                                  <span>Mobile Money wallet</span>
+                                  <strong>{{ $momoWalletText }} XAF</strong>
+                              </div>
+                          @endif
+                      </div>
                       <div id="beyond-module-tabs-sub" class="beyond-module-tabs-sub"></div>
                   </div>
               </div>

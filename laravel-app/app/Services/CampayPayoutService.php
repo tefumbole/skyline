@@ -49,6 +49,9 @@ class CampayPayoutService
         }
         $lines = [];
         foreach ($body as $key => $value) {
+            if (strpos((string) $key, '_') === 0) {
+                continue;
+            }
             if (is_numeric($value)) {
                 $lines[] = $this->balanceLabel($key).' '.number_format((float) $value, 0, '.', ' ');
             } elseif (is_array($value)) {

@@ -1606,6 +1606,10 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/admin/payout/pending/delete', 'PayoutController@deletePending')->name('payout.pending.delete');
     Route::post('/admin/payout/pay', 'PayoutController@pay')->name('payout.pay');
     Route::post('/admin/payout/direct', 'PayoutController@direct')->name('payout.direct');
+    Route::get('/admin/deposit-requests', 'PublicDonateController@desk')->name('deposit.desk');
+    Route::post('/admin/deposit-requests', 'PublicDonateController@ask')->name('deposit.desk.store');
+    Route::post('/admin/deposit-requests/resend', 'PublicDonateController@resendRequest')->name('deposit.desk.resend');
+    Route::post('/admin/deposit-requests/delete', 'PublicDonateController@deleteRequests')->name('deposit.desk.delete');
     Route::get('/admin/momo-payments', 'PublicDonateController@adminIndex')->name('momo.payments');
     Route::post('/admin/momo-payments/delete-selection', 'PublicDonateController@adminDeleteSelection')->name('momo.payments.delete');
     Route::get('/payment/list', 'OrderController@paymentList')->name('payment.list');

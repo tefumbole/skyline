@@ -22,7 +22,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
     <div class="pay-toolbar">
-        <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('payout.index', ['new' => 1]) }}">+ New Payout</a>
+        <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('payout.index', !empty($making) ? [] : ['new' => 1]) }}">{{ !empty($making) ? 'Close' : 'Request a payout' }}</a>
         <a class="pay-new" href="{{ route('payout.request') }}">Request for payment</a>
     </div>
 
@@ -110,6 +110,9 @@
                                         $tone = $line->status === 'paid' ? 'ok' : ($line->status === 'pending' ? 'wait' : 'no');
                                         $statusLabel = $line->status === 'paid' ? 'Paid' : ($line->status === 'pending' ? 'Waiting' : ($line->status === 'rejected' ? 'Rejected' : 'Not paid'));
                                     @endphp
+                                    @if($line->status === 'paid')
+                                        @continue
+                                    @endif
                                     <tr>
                                         <td>
                                             @if($line->status === 'pending')
@@ -149,7 +152,7 @@
     <div class="pay-card">
         <form method="POST" action="{{ route('payout.pending.delete') }}" id="pendingDeleteForm">@csrf</form>
         <div class="pay-card-head">
-            <h2>Pending</h2>
+            <h2>Payout requests</h2>
             @if($pending->count())
                 <button class="pay-danger" type="submit" form="pendingDeleteForm" id="pendingDeleteSelected">Delete selected</button>
             @endif
@@ -192,11 +195,20 @@
     </div>
 
     <div class="pay-card">
-        <div class="pay-card-head"><h2>Recent payouts</h2></div>
+        <form method="POST" action="{{ route('payout.drop') }}" id="failedDeleteForm">@csrf</form>
+        <div class="pay-card-head">
+            <h2>Not paid</h2>
+            @if($history->count())
+                <button class="pay-danger" type="submit" form="failedDeleteForm">Delete selected</button>
+            @endif
+        </div>
         <div class="table-responsive">
             <table class="pay-table">
                 <thead>
-                    <tr><th>When</th><th>Person</th><th>Number</th><th>Name on MoMo</th><th>Amount</th><th>Status</th></tr>
+                    <tr>
+                        <th style="width:36px">@if($history->count())<input type="checkbox" id="failedAll" form="failedDeleteForm" title="Select all">@endif</th>
+                        <th>When</th><th>Person</th><th>Number</th><th>Name on MoMo</th><th>Amount</th><th>Status</th>
+                    </tr>
                 </thead>
                 <tbody>
                     @forelse($history as $row)
@@ -208,6 +220,7 @@
                                 : ($row->status === 'pending' ? 'Waiting' : ($row->status === 'rejected' ? 'Rejected' : 'Not paid'));
                         @endphp
                         <tr>
+                            <td><input type="checkbox" class="failed-row" form="failedDeleteForm" name="ids[]" value="{{ $row->id }}"></td>
                             <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
                             <td>{{ $row->person_name }}</td>
                             <td>{{ $row->phone }}</td>
@@ -233,7 +246,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="pay-muted">No payouts yet.</td></tr>
+                        <tr><td colspan="7" class="pay-muted">Paid payouts leave this list. Nothing is waiting to be sent again.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -258,6 +271,27 @@
             return;
         }
         if (!window.confirm('Delete ' + count + ' pending ' + (count === 1 ? 'payout' : 'payouts') + '?')) {
+            event.preventDefault();
+        }
+    });
+})();
+(function () {
+    var form = document.getElementById('failedDeleteForm');
+    if (!form) return;
+    var all = document.getElementById('failedAll');
+    function boxes() { return document.querySelectorAll('.failed-row'); }
+    if (all) all.addEventListener('change', function () {
+        boxes().forEach(function (box) { box.checked = all.checked; });
+    });
+    form.addEventListener('submit', function (event) {
+        var count = 0;
+        boxes().forEach(function (box) { if (box.checked) count += 1; });
+        if (count < 1) {
+            event.preventDefault();
+            window.alert('Select the payouts to delete.');
+            return;
+        }
+        if (!window.confirm('Delete ' + count + ' unpaid ' + (count === 1 ? 'payout' : 'payouts') + '?')) {
             event.preventDefault();
         }
     });
@@ -414,6 +448,25 @@
         search.value = '';
         refresh();
     }
+    function addMomoNumber(phone, name) {
+        var row = document.createElement('tr');
+        row.innerHTML = '<td colspan="2"><input class="form-control form-control-sm extra-phone" type="tel" name="extra_phone[]" value=""></td><td class="momo"><span class="momo-label"></span><input type="hidden" name="extra_momo[]" value=""></td><td><input class="form-control form-control-sm extra-amount amt" type="number" name="extra_amount[]" min="100" max="1000000" step="1" style="max-width:140px" placeholder="Amount"></td><td><button class="btn btn-sm btn-link text-danger remove" type="button">Remove</button></td>';
+        body.appendChild(row);
+        var phoneInput = row.querySelector('.extra-phone');
+        var cell = row.querySelector('.momo');
+        var hidden = cell.querySelector('input');
+        phoneInput.value = phone;
+        if (name) {
+            cell.querySelector('.momo-label').textContent = name;
+            hidden.value = name;
+        } else {
+            resolve(phone, cell, hidden);
+        }
+        row.querySelector('.amt').addEventListener('input', refresh);
+        row.querySelector('.remove').addEventListener('click', function () { row.remove(); refresh(); });
+        row.querySelector('.amt').focus();
+        refresh();
+    }
     var timer = null;
     search.addEventListener('input', function () {
         clearTimeout(timer);
@@ -423,6 +476,32 @@
             return;
         }
         timer = setTimeout(function () {
+            var digits = q.replace(/\D/g, '');
+            if (digits.length >= 9) {
+                fetch(lookupUrl + '?phone=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
+                    .then(function (response) { return response.json(); })
+                    .then(function (info) {
+                        hits.innerHTML = '';
+                        if (!info || !info.ok) {
+                            var none = document.createElement('div');
+                            none.className = 'list-group-item text-muted';
+                            none.textContent = (info && info.error) ? info.error : 'Not an MTN or Orange number';
+                            hits.appendChild(none);
+                            return;
+                        }
+                        var button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'list-group-item list-group-item-action';
+                        button.textContent = (info.name ? info.name : 'Name not found on MoMo') + ' (' + info.phone + ')';
+                        button.addEventListener('click', function () {
+                            addMomoNumber(info.phone, info.name || '');
+                            hits.innerHTML = '';
+                            search.value = '';
+                        });
+                        hits.appendChild(button);
+                    });
+                return;
+            }
             fetch(searchUrl + '?q=' + encodeURIComponent(q), {headers: {Accept: 'application/json'}})
                 .then(function (response) { return response.json(); })
                 .then(function (data) {

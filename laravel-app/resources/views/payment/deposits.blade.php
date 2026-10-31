@@ -3,8 +3,8 @@
 @include('payout.partials.style')
 <style>
     .pay-methods { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-    .pay-method { min-height: 40px; padding: 0 16px; border: 1px solid #d5deee; border-radius: 999px; background: #fff; color: #1f2a44; font-weight: 700; }
-    .pay-method.is-on { background: #0b3f90; border-color: #0b3f90; color: #fff; }
+    .pay-method { min-height: 40px; padding: 0 16px; border: 1px solid #C5A059; border-radius: 999px; background: #fffaf3; color: #3f2a12; font-weight: 700; }
+    .pay-method.is-on { background: #C5A059; border-color: #8a6230; color: #1a1208; }
     .pay-chosen { margin-top: 8px; font-weight: 700; }
 </style>
 <section class="container-fluid pay-app">

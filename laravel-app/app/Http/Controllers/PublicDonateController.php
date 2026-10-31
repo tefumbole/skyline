@@ -291,13 +291,178 @@ class PublicDonateController extends Controller
         }
         $body = app(CampayPayoutService::class)->transaction($donation->campay_reference);
         $status = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+        $reason = '';
+        if (is_array($body)) {
+            foreach (['reason', 'message', 'detail'] as $key) {
+                if (! empty($body[$key]) && is_string($body[$key])) {
+                    $reason = $body[$key];
+                    break;
+                }
+            }
+        }
         if ($status === 'SUCCESSFUL') {
             $this->markPaid($donation);
-        } elseif ($status === 'FAILED') {
+
+            return;
+        }
+        $upper = strtoupper($reason);
+        $timedOut = strpos($upper, 'TIMEOUT') !== false || strpos($upper, 'TIME OUT') !== false || strpos($upper, 'EXPIRED') !== false;
+        if (in_array($status, ['FAILED', 'CANCELLED', 'CANCELED'], true)) {
             $donation->status = 'failed';
-            $donation->error = 'The deposit was not approved.';
+            $donation->error = $timedOut
+                ? 'Timed out. The person did not approve in time.'
+                : 'Rejected.';
+            $donation->save();
+
+            return;
+        }
+        if ($donation->created_at && $donation->created_at->lt(now()->subMinutes(10))) {
+            $donation->status = 'failed';
+            $donation->error = 'Timed out. The person did not approve in time.';
             $donation->save();
         }
+    }
+
+    public function desk()
+    {
+        if (! $this->paymentsAllowed()) {
+            abort(403);
+        }
+        $this->refreshOpenDeposits();
+        $rows = $this->openDepositQuery()->get();
+
+        return view('payment.deposit-desk', ['rows' => $rows]);
+    }
+
+    public function ask(Request $request)
+    {
+        if (! $this->paymentsAllowed()) {
+            abort(403);
+        }
+        $service = app(CampayPayoutService::class);
+        $phone = $service->momoNumber($request->input('phone'));
+        $amount = (int) $request->input('amount');
+        if (! $phone) {
+            return back()->withInput()->with('not_permitted', 'Enter an MTN or Orange Cameroon number.');
+        }
+        if ($amount < 100 || $amount > 1000000) {
+            return back()->withInput()->with('not_permitted', 'Enter an amount from 100 to 1,000,000 XAF.');
+        }
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
+        $donation = new PublicDonation();
+        $donation->token = bin2hex(random_bytes(16));
+        $donation->person_name = substr($name, 0, 191);
+        $donation->phone = $phone;
+        $donation->amount = $amount;
+        $donation->note = 'Deposit';
+        $donation->method = 'momo';
+        $donation->status = 'pending';
+        $donation->save();
+        if (! $this->sendCollect($donation)) {
+            return redirect()->route('deposit.desk')->with('not_permitted', 'Campay could not ask for the Mobile Money approval.');
+        }
+
+        return redirect()->route('deposit.desk')->with('message', 'The request was sent. '.$donation->person_name.' can approve it on MoMo.');
+    }
+
+    public function resendRequest(Request $request)
+    {
+        if (! $this->paymentsAllowed()) {
+            abort(403);
+        }
+        $donation = PublicDonation::where('method', 'momo')->where('id', (int) $request->input('id'))->first();
+        if (! $donation || strpos((string) $donation->error, 'Timed out') !== 0) {
+            return redirect()->route('deposit.desk')->with('not_permitted', 'Only a timed out request can be sent again.');
+        }
+        if (! $this->sendCollect($donation)) {
+            return redirect()->route('deposit.desk')->with('not_permitted', 'Campay could not send that request again.');
+        }
+
+        return redirect()->route('deposit.desk')->with('message', 'The request was sent again to '.$donation->person_name.'.');
+    }
+
+    public function deleteRequests(Request $request)
+    {
+        if (! $this->paymentsAllowed()) {
+            abort(403);
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])))));
+        if (count($ids) < 1) {
+            return redirect()->route('deposit.desk')->with('not_permitted', 'Select the requests to delete.');
+        }
+        $deleted = PublicDonation::whereIn('id', $ids)->where('status', '!=', 'paid')->delete();
+
+        return redirect()->route('deposit.desk')->with('message', $deleted.' '.($deleted === 1 ? 'request was' : 'requests were').' deleted.');
+    }
+
+    protected function paymentsAllowed()
+    {
+        $user = Auth::user();
+        $allowed = $user && ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true));
+        if (! $allowed && $user) {
+            try {
+                $role = \Spatie\Permission\Models\Role::find($user->role_id);
+                $allowed = $role && $role->hasPermissionTo('payments-index');
+            } catch (\Throwable $e) {
+                $allowed = false;
+            }
+        }
+
+        return (bool) $allowed;
+    }
+
+    protected function openDepositQuery()
+    {
+        return PublicDonation::query()
+            ->where('method', 'momo')
+            ->where(function ($query) {
+                $query->whereIn('status', ['pending', 'waiting'])
+                    ->orWhere(function ($query) {
+                        $query->where('status', 'failed')->where('error', 'like', 'Timed out%');
+                    });
+            })
+            ->orderByDesc('id')
+            ->limit(50);
+    }
+
+    protected function refreshOpenDeposits()
+    {
+        foreach ($this->openDepositQuery()->get() as $donation) {
+            try {
+                $this->refresh($donation);
+            } catch (\Throwable $e) {
+                \Log::warning('Deposit request status check failed', ['id' => $donation->id, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    protected function sendCollect(PublicDonation $donation)
+    {
+        $reference = 'dep-'.date('YmdHis').'-'.$donation->id;
+        $body = app(CampayPayoutService::class)->collect($donation->phone, (int) $donation->amount, $reference, 'Deposit');
+        $status = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+        if (! is_array($body) || empty($body['reference']) || $status === 'FAILED') {
+            $donation->status = 'failed';
+            $donation->error = 'Campay could not ask for the Mobile Money approval.';
+            $donation->save();
+
+            return false;
+        }
+        $donation->status = 'pending';
+        $donation->error = null;
+        $donation->campay_reference = (string) $body['reference'];
+        $ussd = '';
+        foreach (['ussd_code', 'ussd'] as $key) {
+            if (! empty($body[$key]) && is_string($body[$key]) && preg_match('/^[#*]/', $body[$key])) {
+                $ussd = $body[$key];
+                break;
+            }
+        }
+        $donation->payment_link = $ussd !== '' ? $ussd : null;
+        $donation->save();
+
+        return true;
     }
 
     protected function markPaid(PublicDonation $donation)

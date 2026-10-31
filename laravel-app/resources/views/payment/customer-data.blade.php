@@ -398,7 +398,7 @@
                     },
                 },
                 {
-                    text: '<i title="delete" class="dripicons-cross"></i>',
+                    text: '<i title="delete" class="dripicons-cross"></i> Delete selected',
                     className: 'buttons-delete',
                     action: function ( e, dt, node, config ) {
                         var saleIds = [];

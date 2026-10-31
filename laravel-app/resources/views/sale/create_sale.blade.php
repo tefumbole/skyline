@@ -542,14 +542,10 @@
               </li>
               @endif
               @if($sale_report_active)
-              <li id="sale-report-menu">
-                {!! Form::open(['route' => 'report.sale', 'method' => 'post', 'id' => 'sale-report-form']) !!}
-                <input type="hidden" name="start_date" value="1988-04-18" />
-                <input type="hidden" name="end_date" value="{{date('Y-m-d')}}" />
-                <input type="hidden" name="warehouse_id" value="0" />
-                <a id="sale-report-link" href="{{ route('report.sales') }}">{{trans('file.Sale Report')}}</a>
-                {!! Form::close() !!}
-              </li>
+              <li id="sale-report-today"><a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a></li>
+              <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
+              <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
+              <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
               @endif
               @if($payment_report_active)
               <li id="payment-report-menu">

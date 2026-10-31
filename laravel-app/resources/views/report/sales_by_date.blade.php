@@ -1,168 +1,133 @@
 @extends('layout.main')
 @section('content')
 @php
-    $pdfQuery = ['start_date' => $start_date, 'end_date' => $end_date, 'warehouse_id' => $warehouse_id, 'export' => 'pdf'];
+    $ranges = [
+        'today' => "Today's Sales",
+        'week' => 'This Week',
+        'month' => 'This Month',
+        'custom' => 'Custom',
+    ];
+    $money = number_format((float) $total, 0, '.', ',');
 @endphp
-<section class="forms">
-    <div class="container-fluid">
-        <div class="card">
-            <div class="card-header mt-2">
-                <h4 class="text-center">{{ trans('file.Sale Report') }}</h4>
-            </div>
-            <form method="get" action="{{ route('report.sales') }}">
-                <div class="col-md-8 offset-md-2 mt-4 mb-3">
-                    <div class="form-group row">
-                        <label class="d-tc mt-2"><strong>{{ trans('file.Choose Your Date') }}</strong> &nbsp;</label>
-                        <div class="d-tc">
-                            <div class="input-group">
-                                <input type="text" class="daterangepicker-field form-control" value="{{ $start_date }} To {{ $end_date }}" required />
-                                <input type="hidden" name="start_date" value="{{ $start_date }}" />
-                                <input type="hidden" name="end_date" value="{{ $end_date }}" />
-                                <select name="warehouse_id" class="form-control" style="max-width:180px;">
-                                    <option value="0">{{ trans('file.All Warehouse') }}</option>
-                                    @foreach($lims_warehouse_list as $warehouse)
-                                        <option value="{{ $warehouse->id }}" @if((int) $warehouse_id === (int) $warehouse->id) selected @endif>{{ $warehouse->name }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="input-group-append">
-                                    <button class="btn btn-primary" type="submit">{{ trans('file.submit') }}</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </form>
+<section class="sky-sales">
+    <nav class="sky-sale-ranges" aria-label="Sales report">
+        @foreach ($ranges as $key => $label)
+            <a class="{{ $range === $key ? 'on' : '' }}" href="{{ route('report.sales', ['range' => $key]) }}">{{ $label }}</a>
+        @endforeach
+    </nav>
+
+    @if ($range === 'custom')
+        <form class="sky-sale-custom" method="get" action="{{ route('report.sales') }}">
+            <input type="hidden" name="range" value="custom">
+            <label>From
+                <input type="date" name="start_date" value="{{ $picked ? $start_date : '' }}" required>
+            </label>
+            <label>To
+                <input type="date" name="end_date" value="{{ $picked ? $end_date : '' }}" required>
+            </label>
+            <button type="submit">Show</button>
+        </form>
+    @endif
+
+    <div class="sky-sale-cards">
+        <div class="sky-sale-card">
+            <span>Total Amount</span>
+            <strong>{{ $money }}</strong>
+        </div>
+        <div class="sky-sale-card">
+            <span>Total Sales</span>
+            <strong>{{ $money }}</strong>
         </div>
     </div>
-    <div class="table-responsive mb-4">
-        <table id="report-table" class="table table-hover" data-pdf="{{ route('report.sales', $pdfQuery) }}">
-            <thead>
-                <tr>
-                    <th class="not-exported"></th>
-                    <th>{{ trans('file.Date') }}</th>
-                    <th>{{ trans('file.reference') }}</th>
-                    <th>{{ trans('file.product') }}</th>
-                    <th>{{ trans('file.Qty') }}</th>
-                    <th>{{ trans('file.Price') }}</th>
-                    <th>{{ trans('file.Warehouse') }}</th>
-                    <th>{{ trans('file.Total') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($lines as $key => $line)
+
+    @if ($picked)
+        <input id="sky-sale-filter" type="search" placeholder="Filter Product Name" autocomplete="off" aria-label="Filter Product Name">
+        <div class="sky-sale-table-wrap">
+            <table class="sky-sale-table">
+                <thead>
                     <tr>
-                        <td>{{ $key }}</td>
-                        <td>{{ $line['date'] }}</td>
-                        <td>{{ $line['reference'] }}</td>
-                        <td>{{ $line['product'] }}</td>
-                        <td>{{ number_format((float) $line['qty'], 0, '.', '') }}</td>
-                        <td>{{ number_format((float) $line['price'], 2, '.', '') }}</td>
-                        <td>{{ $line['warehouse'] }}</td>
-                        <td>{{ number_format((float) $line['total'], 2, '.', '') }}</td>
+                        <th>Product Name</th>
+                        <th class="num">Sales Total (F)</th>
+                        <th class="num">Quantity</th>
                     </tr>
-                @endforeach
-            </tbody>
-            <tfoot class="tfoot active">
-                <th></th>
-                <th>{{ trans('file.Total') }}:</th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th>0.00</th>
-            </tfoot>
-        </table>
-    </div>
+                </thead>
+                <tbody id="sky-sale-rows">
+                    @forelse ($products as $row)
+                        @php
+                            $qty = (float) $row['qty'];
+                            $qtyText = abs($qty - round($qty)) < 0.001 ? (string) (int) round($qty) : number_format($qty, 2, '.', ',');
+                        @endphp
+                        <tr data-name="{{ strtolower($row['name']) }}">
+                            <td>{{ $row['name'] }}</td>
+                            <td class="num">{{ number_format((float) $row['total'], 0, '.', '') }}</td>
+                            <td class="num">{{ $qtyText }}</td>
+                        </tr>
+                    @empty
+                        <tr class="sky-sale-empty">
+                            <td colspan="3">No sales in this period.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <p id="sky-sale-none" class="sky-sale-none" hidden>No products match that name.</p>
+    @else
+        <p class="sky-sale-none">Select a start and end date.</p>
+    @endif
 </section>
-<script type="text/javascript">
-    $("ul#report").siblings('a').attr('aria-expanded','true');
-    $("ul#report").addClass("show");
-    $("ul#report #sale-report-menu").addClass("active");
-
-    var salesPdf = $('#report-table').data('pdf');
-
-    $('#report-table').DataTable({
-        order: [],
-        language: {
-            lengthMenu: '_MENU_ {{ trans("file.records per page") }}',
-            info: '<small>{{ trans("file.Showing") }} _START_ - _END_ (_TOTAL_)</small>',
-            search: '{{ trans("file.Search") }}',
-            paginate: {
-                previous: '<i class="dripicons-chevron-left"></i>',
-                next: '<i class="dripicons-chevron-right"></i>'
-            }
-        },
-        columnDefs: [
-            {
-                orderable: false,
-                targets: 0
-            },
-            {
-                render: function (data, type) {
-                    if (type === 'display') {
-                        data = '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>';
-                    }
-                    return data;
-                },
-                checkboxes: {
-                    selectRow: true,
-                    selectAllRender: '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>'
-                },
-                targets: [0]
-            }
-        ],
-        select: { style: 'multi', selector: 'td:first-child' },
-        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
-        dom: '<"row"lfB>rtip',
-        buttons: [
-            {
-                text: '<i title="export to pdf" class="fa fa-file-pdf-o"></i>',
-                action: function () {
-                    window.location = salesPdf;
-                }
-            },
-            {
-                extend: 'csv',
-                text: '<i title="export to csv" class="fa fa-file-text-o"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible'
-                },
-                footer: true
-            },
-            {
-                extend: 'print',
-                text: '<i title="print" class="fa fa-print"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible'
-                },
-                footer: true
-            },
-            {
-                extend: 'colvis',
-                text: '<i title="column visibility" class="fa fa-eye"></i>',
-                columns: ':gt(0)'
-            }
-        ],
-        drawCallback: function () {
-            datatable_sum(this.api(), false);
-        }
-    });
-
-    function datatable_sum(dt_selector) {
-        $(dt_selector.column(7).footer()).html(dt_selector.column(7, { page: 'current' }).data().sum().toFixed(2));
+<style>
+    .sky-sales { background: #f4f6f8; margin: -8px -12px 0; padding: 16px 14px 32px; min-height: 70vh; }
+    .sky-sale-ranges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .sky-sale-ranges a {
+        display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px;
+        border-radius: 999px; border: 1px solid #d5dbe3; background: #fff; color: #1a1a1a;
+        text-decoration: none; font-weight: 700; font-size: 14px;
     }
-
-    $(".daterangepicker-field").daterangepicker({
-        callback: function (startDate, endDate) {
-            var start_date = startDate.format('YYYY-MM-DD');
-            var end_date = endDate.format('YYYY-MM-DD');
-            $(this).val(start_date + ' To ' + end_date);
-            $('input[name="start_date"]').val(start_date);
-            $('input[name="end_date"]').val(end_date);
-        }
-    });
+    .sky-sale-ranges a.on { background: #0c1830; border-color: #0c1830; color: #fff; }
+    .sky-sale-custom { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 0 0 16px; }
+    .sky-sale-custom label { display: flex; flex-direction: column; gap: 4px; color: #5c6570; font-size: 13px; font-weight: 700; margin: 0; }
+    .sky-sale-custom input { min-height: 42px; border: 1px solid #d5dbe3; border-radius: 10px; padding: 8px 10px; background: #fff; }
+    .sky-sale-custom button { min-height: 42px; border: 0; border-radius: 10px; padding: 8px 16px; background: #0c1830; color: #fff; font-weight: 700; }
+    .sky-sale-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 760px; margin: 0 auto 8px; }
+    .sky-sale-card { background: #fff; border-radius: 18px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); text-align: center; padding: 22px 10px 18px; }
+    .sky-sale-card span { display: block; color: #8b93a7; font-size: 15px; }
+    .sky-sale-card strong { display: block; margin-top: 8px; font-size: 32px; line-height: 1.1; color: #1a1a1a; font-weight: 800; letter-spacing: -0.03em; }
+    #sky-sale-filter {
+        display: block; width: 100%; border: 0; background: transparent; color: #1a1a1a;
+        font-size: 16px; padding: 16px 4px 12px; outline: none;
+    }
+    #sky-sale-filter::placeholder { color: #b0b6c0; }
+    .sky-sale-table-wrap { overflow-x: auto; }
+    .sky-sale-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .sky-sale-table th, .sky-sale-table td { padding: 16px 12px; font-size: 16px; color: #1a1a1a; }
+    .sky-sale-table th { font-weight: 800; background: #fff; }
+    .sky-sale-table .num { text-align: right; white-space: nowrap; }
+    .sky-sale-table tbody tr:nth-child(odd) { background: #fff; }
+    .sky-sale-table tbody tr:nth-child(even) { background: #eceff3; }
+    .sky-sale-empty td, .sky-sale-none { color: #6b7280; padding: 12px 4px; }
+    @media (max-width: 640px) {
+        .sky-sale-card strong { font-size: 26px; }
+        .sky-sale-table th, .sky-sale-table td { padding: 14px 8px; font-size: 15px; }
+    }
+</style>
+<script>
+    $("ul#report").siblings('a').attr('aria-expanded', 'true');
+    $("ul#report").addClass("show");
+    $("#sale-report-{{ $range }}").addClass("active");
+    var filter = document.getElementById('sky-sale-filter');
+    if (filter) {
+        filter.addEventListener('input', function () {
+            var q = filter.value.trim().toLowerCase();
+            var shown = 0;
+            document.querySelectorAll('#sky-sale-rows tr').forEach(function (row) {
+                if (row.classList.contains('sky-sale-empty')) return;
+                var match = q === '' || (row.getAttribute('data-name') || '').indexOf(q) !== -1;
+                row.style.display = match ? '' : 'none';
+                if (match) shown++;
+            });
+            var none = document.getElementById('sky-sale-none');
+            if (none) none.hidden = q === '' || shown > 0;
+        });
+    }
 </script>
 @endsection

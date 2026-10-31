@@ -1675,47 +1675,71 @@ class ReportController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
 
-        $start_date = $this->reportDate($request->input('start_date'), date('Y-m-d'));
-        $end_date = $this->reportDate($request->input('end_date'), $start_date);
-        if ($end_date < $start_date) {
-            $swap = $start_date;
-            $start_date = $end_date;
-            $end_date = $swap;
+        $range = (string) $request->input('range', 'today');
+        if (! in_array($range, ['today', 'week', 'month', 'custom'], true)) {
+            $range = 'today';
         }
-        $warehouse_id = (int) $request->input('warehouse_id', 0);
-        $lims_warehouse_list = Warehouse::where('is_active', true)->get();
-        $warehouse_name = 'All warehouses';
-        if ($warehouse_id) {
-            $selected = $lims_warehouse_list->firstWhere('id', $warehouse_id);
-            $warehouse_name = $selected ? $selected->name : 'Warehouse';
+        $now = \Carbon\Carbon::now('Africa/Douala');
+        $picked = true;
+        if ($range === 'week') {
+            $startAt = $now->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+            $endAt = $now->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        } elseif ($range === 'month') {
+            $startAt = $now->copy()->startOfMonth()->startOfDay();
+            $endAt = $now->copy()->endOfMonth()->endOfDay();
+        } elseif ($range === 'custom') {
+            $start_date = $this->reportDate($request->input('start_date'), '');
+            $end_date = $this->reportDate($request->input('end_date'), '');
+            if ($start_date === '' || $end_date === '') {
+                $picked = false;
+                $startAt = $now->copy()->startOfDay();
+                $endAt = $now->copy()->endOfDay();
+            } else {
+                if ($end_date < $start_date) {
+                    $swap = $start_date;
+                    $start_date = $end_date;
+                    $end_date = $swap;
+                }
+                $startAt = \Carbon\Carbon::parse($start_date, 'Africa/Douala')->startOfDay();
+                $endAt = \Carbon\Carbon::parse($end_date, 'Africa/Douala')->endOfDay();
+            }
+        } else {
+            $range = 'today';
+            $startAt = $now->copy()->startOfDay();
+            $endAt = $now->copy()->endOfDay();
         }
-        $query = Sale::with(['customer', 'warehouse', 'user', 'products.product'])
-            ->whereDate('created_at', '>=', $start_date)
-            ->whereDate('created_at', '<=', $end_date)
-            ->orderBy('created_at');
-        if ($warehouse_id) {
-            $query->where('warehouse_id', $warehouse_id);
-        }
-        $sales = $query->get();
-        $lines = $this->saleReportLines($sales, $this->saleVariantNames($sales));
+        $start_date = $startAt->toDateString();
+        $end_date = $endAt->toDateString();
+        $zone = config('app.timezone') ?: 'UTC';
+        $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $to = $endAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $products = [];
         $total = 0;
-        foreach ($lines as $line) {
-            $total += $line['total'];
-        }
-
-        if ($request->input('export') === 'csv') {
-            return $this->downloadSalesCsv($lines, $start_date, $end_date);
-        }
-        if ($request->input('export') === 'pdf') {
-            $pdf = \PDF::loadView('pdf.sales_report', compact(
-                'lines', 'start_date', 'end_date', 'warehouse_name', 'total'
-            ))->setPaper('a4', 'portrait');
-
-            return $pdf->download('sales-'.$start_date.'-to-'.$end_date.'.pdf');
+        if ($picked) {
+            $sales = Sale::with(['products.product'])
+                ->where('created_at', '>=', $from)
+                ->where('created_at', '<=', $to)
+                ->orderBy('created_at')
+                ->get();
+            foreach ($this->saleReportLines($sales, $this->saleVariantNames($sales)) as $line) {
+                $name = trim((string) $line['product']);
+                if ($name === '') {
+                    $name = 'Sale';
+                }
+                if (! isset($products[$name])) {
+                    $products[$name] = ['name' => $name, 'qty' => 0.0, 'total' => 0.0];
+                }
+                $products[$name]['qty'] += (float) $line['qty'];
+                $products[$name]['total'] += (float) $line['total'];
+                $total += (float) $line['total'];
+            }
+            uasort($products, function ($a, $b) {
+                return strcasecmp($a['name'], $b['name']);
+            });
         }
 
         return view('report.sales_by_date', compact(
-            'lines', 'start_date', 'end_date', 'warehouse_id', 'warehouse_name', 'lims_warehouse_list', 'total'
+            'products', 'total', 'start_date', 'end_date', 'range', 'picked'
         ));
     }
 

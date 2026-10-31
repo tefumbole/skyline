@@ -82,7 +82,7 @@ class AuthIntended
                 return url('/orders?lane=bar&tab=awaiting');
             }
             if (! $fullOrders && $access::can($user, 'waiter-orders')) {
-                return url('/orders?lane=restaurant&tab=ready');
+                return url('/orders/ready');
             }
         }
 

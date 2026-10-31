@@ -170,17 +170,14 @@
                         <div class="pay-kicker" style="color:#8a6230">Still due</div>
                         <strong id="payDueLabel">0 XAF</strong>
                     </div>
-                    <div class="pay-phone">
-                        <span>Client number</span>
-                        <strong id="payClientPhone">—</strong>
-                    </div>
                     <div style="margin-bottom:12px">
-                        <label for="payOtherPhone">Different number</label>
-                        <input type="text" id="payOtherPhone" name="momo_phone" class="form-control" placeholder="Leave blank to use the client number" autocomplete="off">
+                        <label for="payPhone">Phone number</label>
+                        <input type="text" id="payPhone" name="momo_phone" class="form-control" autocomplete="off" inputmode="tel">
+                        <p id="payHolder" class="pay-hint" style="text-align:left;min-height:18px;"></p>
                     </div>
                     <div class="pay-choice" id="payMethods">
-                        <button type="button" class="pay-method is-on" data-id="1">Cash<small>Ask the client to confirm</small></button>
-                        <button type="button" class="pay-method" data-id="8">MoMo / OM<small>Prompt on the phone</small></button>
+                        <button type="button" class="pay-method is-on" data-id="1">Cash<small>Submit</small></button>
+                        <button type="button" class="pay-method" data-id="8">MoMo / OM<small>Ask the client to confirm</small></button>
                     </div>
                     <div class="pay-choice" id="payModes">
                         <button type="button" class="pay-mode is-on" data-mode="full">Full amount<small>Pay everything due</small></button>
@@ -192,8 +189,8 @@
                         <div class="pay-left">Left after this payment: <span id="payLeft">0 XAF</span></div>
                     </div>
                     <div class="pay-error" id="payError"></div>
-                    <button type="submit" class="pay-send">Ask the client to confirm</button>
-                    <p class="pay-hint">The bill stays unpaid until the client confirms.</p>
+                    <button type="submit" class="pay-send">Submit</button>
+                    <p class="pay-hint" id="payHint">This records the cash payment.</p>
                     {{ Form::close() }}
                 </div>
             </div>
@@ -227,10 +224,36 @@
             var left = Math.max(0, payDue - amount);
             $('#payLeft').text(payMoney(left));
         }
+        var payLookupTimer = null;
         function setPayMethod(id) {
             $('#add-payment input[name="paid_by_id"]').val(id);
             $('#add-payment .pay-method').removeClass('is-on');
             $('#add-payment .pay-method[data-id="' + id + '"]').addClass('is-on');
+            var momo = String(id) === '8';
+            $('#add-payment .pay-send').text(momo ? 'Ask the client to confirm' : 'Submit');
+            $('#payHint').text(momo ? 'The bill stays unpaid until the client confirms.' : 'This records the cash payment.');
+        }
+        function lookupPayPhone() {
+            var phone = $.trim($('#payPhone').val());
+            var box = $('#payHolder');
+            if (phone.replace(/\D/g, '').length < 9) {
+                box.text('');
+                return;
+            }
+            box.text('Checking the Mobile Money name…');
+            $.get(@json(route('deposit.phone')), {phone: phone}).done(function (data) {
+                if (data && data.ok && data.name) {
+                    box.text(data.name + (data.operator ? ' · ' + data.operator : ''));
+                    $('#addPaymentTitle').text(data.name);
+                    if (data.phone) {
+                        $('#payPhone').val(data.phone);
+                    }
+                } else {
+                    box.text(data && data.error ? data.error : '');
+                }
+            }).fail(function () {
+                box.text('');
+            });
         }
         function setPayMode(mode) {
             $('#add-payment .pay-mode').removeClass('is-on');
@@ -262,10 +285,14 @@
             }
             syncPayAmount();
         });
+        $('#payPhone').on('input', function () {
+            clearTimeout(payLookupTimer);
+            payLookupTimer = setTimeout(lookupPayPhone, 450);
+        });
         $('#add-payment form.payment-form').on('submit', function (event) {
             var amount = parseFloat($('#add-payment input[name="amount"]').val());
-            var other = $.trim($('#add-payment input[name="momo_phone"]').val());
-            var client = $.trim($('#payClientPhone').attr('data-phone') || '');
+            var phone = $.trim($('#payPhone').val());
+            var momo = String($('#add-payment input[name="paid_by_id"]').val()) === '8';
             var error = $('#payError');
             error.hide().text('');
             if (!(amount > 0) || amount > payDue + 0.009) {
@@ -273,9 +300,9 @@
                 error.text('Enter an amount up to the amount still due.').show();
                 return;
             }
-            if (!other && !client) {
+            if (momo && phone.replace(/\D/g, '').length < 9) {
                 event.preventDefault();
-                error.text('Add a phone number so the client can confirm.').show();
+                error.text('Add the Mobile Money number so the client can confirm.').show();
             }
         });
 
@@ -294,14 +321,17 @@
             payDue = parseFloat(button.attr('data-due')) || 0;
             $('#addPaymentTitle').text(button.attr('data-name') || 'Client');
             $('#payRef').text(button.attr('data-ref') || '');
-            $('#payClientPhone').text(phone || 'No number on file').attr('data-phone', phone);
-            $('#add-payment input[name="momo_phone"]').val('');
+            $('#payPhone').val(phone);
+            $('#payHolder').text('');
             $('#add-payment input[name="balance"]').val(payDue);
             $('#add-payment input[name="sale_id"]').val(button.data('id'));
             $('#payDueLabel').text(payMoney(payDue));
             $('#payError').hide().text('');
             setPayMethod(1);
             setPayMode('full');
+            if (phone) {
+                lookupPayPhone();
+            }
         });
 
         $(document).on("click", "table.sale-list tbody .get-payment", function(event) {

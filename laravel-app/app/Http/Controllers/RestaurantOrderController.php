@@ -35,6 +35,10 @@ class RestaurantOrderController extends Controller
             }
         }
         if (! $lanes) {
+            if (RestaurantAccess::canReadyDesk($user)) {
+                return redirect()->route('restaurant.ready');
+            }
+
             return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         reset($lanes);
@@ -104,9 +108,25 @@ class RestaurantOrderController extends Controller
 
     public function ready(Request $request)
     {
-        return redirect()->route('restaurant.orders', [
-            'lane' => 'bar',
+        $user = $request->user();
+        if (! RestaurantAccess::canReadyDesk($user)) {
+            return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $items = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.waitress', 'order.placedBy', 'acceptedBy', 'productSale'])
+            ->where('status', 'ready')
+            ->orderBy('id')
+            ->limit(80)
+            ->get();
+
+        return view('restaurant.queue', [
+            'lanes' => [],
+            'lane' => 'ready',
+            'tabs' => [],
             'tab' => 'ready',
+            'items' => $items,
+            'counts' => RestaurantAccess::queueCounts(),
+            'canReject' => false,
+            'readyDesk' => true,
         ]);
     }
 
@@ -234,7 +254,7 @@ class RestaurantOrderController extends Controller
         }
         $items = [];
         $summary = [];
-        if (RestaurantAccess::installed() && RestaurantAccess::canSeeOrders($user) && RestaurantAccess::can($user, 'waiter-orders') && RestaurantAccess::seeStatus($user, 'ready')) {
+        if (RestaurantAccess::installed() && RestaurantAccess::canReadyAlerts($user)) {
             $readyRows = RestaurantOrderItem::with(['order.sale', 'order.diningTable'])
                 ->where('status', 'ready')
                 ->orderBy('id', 'desc')
@@ -242,10 +262,7 @@ class RestaurantOrderController extends Controller
                 ->get();
             foreach ($readyRows as $row) {
                 $sale = $row->order ? $row->order->sale : null;
-                $lane = $row->lane ?: ($row->department === 'drinks' ? 'bar' : 'restaurant');
-                if ($lane === 'coffee') {
-                    $lane = 'bar';
-                }
+                $lane = RestaurantAccess::itemStation($row);
                 $items[] = [
                     'id' => 'ready-'.(int) $row->id,
                     'name' => $row->product_name,
@@ -255,7 +272,7 @@ class RestaurantOrderController extends Controller
                     'lane_label' => RestaurantAccess::lanes()[$lane] ?? $lane,
                     'ref' => $sale ? $sale->reference_no : '',
                     'placed_by' => optional(optional($row->order)->diningTable)->name ?: '',
-                    'href' => route('restaurant.orders', ['lane' => $lane, 'tab' => 'ready']),
+                    'href' => route('restaurant.ready'),
                 ];
             }
         }
@@ -283,14 +300,12 @@ class RestaurantOrderController extends Controller
                     ->limit(20)
                     ->get();
                 foreach ($rows as $row) {
+                    $station = RestaurantAccess::itemStation($row);
+                    if (! RestaurantAccess::seesStation($user, $station)) {
+                        continue;
+                    }
                     $sale = $row->order ? $row->order->sale : null;
-                    $lane = $row->lane ?: ($row->department === 'drinks' ? 'bar' : 'restaurant');
-                    if ($lane === 'coffee') {
-                        $lane = 'bar';
-                    }
-                    if ($lane === 'online') {
-                        $lane = $row->department === 'drinks' ? 'bar' : 'restaurant';
-                    }
+                    $lane = $station;
                     $placer = optional(optional($row->order)->placedBy)->name
                         ?: optional(optional($row->order)->waitress)->name;
                     $items[] = [

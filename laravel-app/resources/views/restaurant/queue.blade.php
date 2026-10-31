@@ -20,6 +20,7 @@
         .sky-guest { margin:4px 0 0; color:#243044; }
         .sky-meta { margin:8px 0 0; color:#5c6b80; font-size:13px; }
         .sky-item { margin:0; font-size:20px; line-height:1.25; color:#0c1830; }
+        .sky-price { margin-left:10px; font-weight:800; color:#0c1830; white-space:nowrap; }
         .sky-pill {
             display:inline-block; margin-top:8px; padding:4px 10px; border-radius:999px;
             background:#f6f0e4; color:#6a5420; font-size:12px; font-weight:700;
@@ -51,8 +52,13 @@
         @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
         <header class="sky-head">
             <p class="sky-kicker">Orders</p>
-            <h1>{{ $lanes[$lane] ?? 'Orders' }} · {{ $tabs[$tab] ?? '' }}</h1>
+            @if(!empty($readyDesk))
+                <h1>Ready for Delivery</h1>
+            @else
+                <h1>{{ $lanes[$lane] ?? 'Orders' }} · {{ $tabs[$tab] ?? '' }}</h1>
+            @endif
         </header>
+        @if(empty($readyDesk))
         <nav class="sky-tabs">
             @foreach($tabs as $tabKey => $tabLabel)
                 @php $tabCount = (int) ($counts[$lane][$tabKey] ?? 0); @endphp
@@ -64,6 +70,7 @@
                 <a href="{{ route('restaurant.logs', ['lane' => $lane]) }}">Log</a>
             @endif
         </nav>
+        @endif
         <div class="sky-board">
             @forelse($items as $item)
                 @php
@@ -93,7 +100,7 @@
                         @endif
                     </div>
                     <div>
-                        <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span></p>
+                        <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span>@if($item->productSale)<span class="sky-price">{{ number_format((float) $item->productSale->total, 0) }}</span>@endif</p>
                         <span class="sky-pill {{ $late ? 'late' : '' }}">
                             {{ \App\Services\Restaurant\RestaurantDepartment::label($item->lane ?: $item->department) }}
                             · {{ $statusLabels[$item->status] ?? $item->status }}
@@ -115,9 +122,6 @@
                         </p>
                     </div>
                     <div class="sky-actions">
-                        @if($item->productSale)
-                            <p class="sky-meta">{{ number_format((float) $item->productSale->total, 0) }}</p>
-                        @endif
                         @if($item->status === 'awaiting' && ($canAdd || $canDelete))
                             <div style="margin-bottom:8px;">
                                 @if($canAdd)

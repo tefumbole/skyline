@@ -291,13 +291,38 @@ class RestaurantOrderService
         $item->save();
         $order = $item->order()->with('items', 'sale.customer')->first();
         $this->event($order, $item, 'delivered', $user->id, null);
-        $word = $order->service_type === 'take_away' ? 'handed over' : 'served';
-        $this->notify($order, $this->orderNotice($order, 'Order '.$word, $item->product_name.' has been '.$word.'.'));
-        if ($order->isFulfilled()) {
-            $this->sendReviewLink($order);
+        if ($order && $order->isFulfilled()) {
+            $this->sendDeliveredNotice($order);
         }
 
         return $item;
+    }
+
+    /**
+     * Tell the guest the meal is delivered. No confirmation step.
+     * Unpaid bills include the payment link, and every notice includes the rating link.
+     */
+    public function sendDeliveredNotice(RestaurantOrder $order)
+    {
+        if ($order->review_sent_at) {
+            return;
+        }
+        $order->review_sent_at = now();
+        $order->save();
+        $sale = $order->sale ?: Sale::find($order->sale_id);
+        $lines = [
+            '*Your meal has been delivered*',
+            'Thank you. We appreciate you choosing us.',
+        ];
+        if ($sale && (int) $sale->payment_status !== 4) {
+            $lines[] = '';
+            $lines[] = '*PAY*';
+            $lines[] = \App\Support\SalePayQr::payUrl($sale);
+        }
+        $lines[] = '';
+        $lines[] = '*RATE YOUR VISIT*';
+        $lines[] = $order->reviewUrl();
+        $this->notify($order, implode("\n", $lines), false);
     }
 
     public function reject(RestaurantOrderItem $item, User $user, $qty, $reason, $resolution)
@@ -509,7 +534,7 @@ class RestaurantOrderService
         return 'In progress';
     }
 
-    protected function notify(RestaurantOrder $order, $body)
+    protected function notify(RestaurantOrder $order, $body, $appendTrack = true)
     {
         try {
             $sale = $order->relationLoaded('sale') ? $order->sale : Sale::find($order->sale_id);
@@ -521,7 +546,7 @@ class RestaurantOrderService
                 return;
             }
             $message = (string) $body;
-            if (strpos($message, (string) $order->trackUrl()) === false) {
+            if ($appendTrack && strpos($message, (string) $order->trackUrl()) === false) {
                 $message .= "\n\n*TRACK ORDER*\n".$order->trackUrl();
             }
             app(\App\Services\Messaging\NotificationRouter::class)

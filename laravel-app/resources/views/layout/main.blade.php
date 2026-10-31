@@ -1747,6 +1747,17 @@
                                 </ul>
                             </li>
                         @endif
+                        @if(\App\Services\Restaurant\RestaurantAccess::installed() && \App\Services\Restaurant\RestaurantAccess::canReadyDesk(auth()->user()))
+                            @php
+                                $readyDeliveryCount = 0;
+                                try {
+                                    $readyDeliveryCount = \App\RestaurantOrderItem::where('status', 'ready')->count();
+                                } catch (\Throwable $e) {
+                                    $readyDeliveryCount = 0;
+                                }
+                            @endphp
+                            <li id="ready-delivery-menu"><a href="{{ route('restaurant.ready') }}" data-nav-key="ready-delivery"><i class="fa fa-check"></i><span>Ready for Delivery</span>@if($readyDeliveryCount)<span class="badge">{{ $readyDeliveryCount }}</span>@endif</a></li>
+                        @endif
                         <?php
                         $index_permission_booking = DB::table('permissions')->where('name', 'booking_module')->first();
                         $index_permission_booking_active = DB::table('role_has_permissions')->where([
@@ -3202,6 +3213,10 @@
                             map['coth'].insertAdjacentElement('afterend', map['help']);
                             used['help'] = true;
                         }
+                        if (map['ready-delivery'] && map['orders']) {
+                            map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);
+                            used['ready-delivery'] = true;
+                        }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).
                         kids.forEach(function (li) {
                             var k = keyOf(li);
@@ -3865,9 +3880,17 @@
               $('#sidebar-backdrop').removeClass('is-visible');
               $('body').removeClass('sidebar-open');
           } else {
-              $('nav.side-navbar').removeClass('is-open');
-              $('#sidebar-backdrop').removeClass('is-visible');
-              $('body').removeClass('sidebar-open');
+              var homePath = (window.location.pathname || '').replace(/\/+$/, '') || '/';
+              if (homePath === '/admin' || homePath === '/dashboard') {
+                  $('nav.side-navbar').addClass('is-open').removeClass('shrink');
+                  $('#sidebar-backdrop').addClass('is-visible');
+                  $('body').addClass('sidebar-open');
+                  $('#toggle-btn').attr('aria-expanded', 'true');
+              } else {
+                  $('nav.side-navbar').removeClass('is-open');
+                  $('#sidebar-backdrop').removeClass('is-visible');
+                  $('body').removeClass('sidebar-open');
+              }
           }
           function myFunction() {
               setTimeout(showPage, 150);
@@ -4390,6 +4413,11 @@
                   if (path.indexOf('/admin/coth') === 0) {
                       $('#side-main-menu li.active').removeClass('active');
                       $('#coth-reservations-menu').addClass('active');
+                      return;
+                  }
+                  if (path === '/orders/ready') {
+                      $('#side-main-menu li.active').removeClass('active');
+                      $('#ready-delivery-menu').addClass('active');
                       return;
                   }
                   if (path === '/admin') {

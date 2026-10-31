@@ -3321,8 +3321,14 @@ class SaleController extends Controller
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
         $paidBy = (int) ($data['paid_by_id'] ?? 0);
-        if ($paidBy === 1 || $paidBy === 8) {
+        if ($paidBy === 8) {
             return $this->askClientToConfirmPayment($lims_sale_data, $lims_customer_data, $data, $paidBy);
+        }
+        if (! isset($data['payment_note'])) {
+            $data['payment_note'] = '';
+        }
+        if (! isset($data['paying_amount']) || $data['paying_amount'] === '') {
+            $data['paying_amount'] = $data['amount'];
         }
         $lims_sale_data->paid_amount += $data['amount'];
         $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;

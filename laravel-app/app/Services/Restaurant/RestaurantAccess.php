@@ -181,16 +181,54 @@ class RestaurantAccess
             return true;
         }
         if ($lane === 'restaurant') {
-            return self::can($user, 'kitchen-orders') || self::can($user, 'waiter-orders');
-        }
-        if ($lane === 'online') {
-            return self::can($user, 'kitchen-orders') || self::can($user, 'bar-orders') || self::can($user, 'waiter-orders');
+            return self::can($user, 'kitchen-orders');
         }
         if ($lane === 'bar') {
-            return self::can($user, 'bar-orders') || self::can($user, 'waiter-orders');
+            return self::can($user, 'bar-orders');
         }
 
         return false;
+    }
+
+    /** Waiters deliver food and drinks once they are ready. Bar and kitchen do not. */
+    public static function canReadyDesk($user)
+    {
+        return self::can($user, 'waiter-orders')
+            || self::can($user, 'orders-ready-index')
+            || self::can($user, 'orders-ready-edit')
+            || self::can($user, 'orders-index');
+    }
+
+    /** Ready-for-delivery popups go to waiters, not to the bar or the kitchen. */
+    public static function canReadyAlerts($user)
+    {
+        return self::can($user, 'waiter-orders') || self::can($user, 'orders-ready-index');
+    }
+
+    /** Bar or restaurant. Online drinks belong to the bar; online food belongs to the restaurant. */
+    public static function itemStation($item)
+    {
+        $lane = $item && $item->lane ? (string) $item->lane : '';
+        $department = $item ? (string) $item->department : '';
+        if ($lane === 'bar' || $lane === 'coffee' || $department === 'drinks') {
+            return 'bar';
+        }
+
+        return 'restaurant';
+    }
+
+    public static function seesStation($user, $station)
+    {
+        if (self::can($user, 'orders-index') || self::can($user, 'order-logs')) {
+            return true;
+        }
+        if ($station === 'bar') {
+            return self::can($user, 'bar-orders')
+                || self::can($user, 'orders-bar-index')
+                || self::can($user, 'orders-coffee-index');
+        }
+
+        return self::can($user, 'kitchen-orders') || self::can($user, 'orders-restaurant-index');
     }
 
     public static function seeStatus($user, $status)

@@ -758,13 +758,61 @@
   </div>
 </div>
 @else
-<section class="forms">
-    <div class="container-fluid" style="max-width:720px;padding-top:24px;">
-        <div class="alert alert-info">
-            <h4 style="margin-top:0;">Welcome, {{ Auth::user()->name }}</h4>
-            <p class="mb-3">This account does not use the sales dashboard. Open your timesheet tools from the menu.</p>
-            <a class="btn btn-outline-secondary" href="{{ route('timesheet.fill') }}">Fill time sheet</a>
-        </div>
+@php
+    $homeCan = function ($name) {
+        return \App\Services\Restaurant\RestaurantAccess::can(Auth::user(), $name);
+    };
+    $homeLinks = [];
+    if ($homeCan('sales-add')) {
+        $homeLinks[] = ['POS', route('sale.pos')];
+    }
+    if ($homeCan('sales-index')) {
+        $homeLinks[] = ['Sales', route('sales.index')];
+    }
+    if ($homeCan('orders-index') || $homeCan('kitchen-orders')) {
+        $homeLinks[] = ['Restaurant orders', route('restaurant.orders', ['lane' => 'restaurant', 'tab' => 'awaiting'])];
+    }
+    if ($homeCan('orders-index') || $homeCan('bar-orders')) {
+        $homeLinks[] = ['Bar orders', route('restaurant.orders', ['lane' => 'bar', 'tab' => 'awaiting'])];
+    }
+    if (\App\Services\Restaurant\RestaurantAccess::canReadyDesk(Auth::user())) {
+        $homeLinks[] = ['Ready for Delivery', route('restaurant.ready')];
+    }
+    if ($homeCan('payments-index')) {
+        $homeLinks[] = ['Payments', route('payment.index')];
+        $homeLinks[] = ['Deposits', route('deposit.index')];
+    }
+    if ($homeCan('quotes-index')) {
+        $homeLinks[] = ['Quotations', route('quotations.index')];
+    }
+    if ($homeCan('products-index')) {
+        $homeLinks[] = ['Products', route('products.index')];
+    }
+    if ($homeCan('announcements_module')) {
+        $homeLinks[] = ['Announcements', route('announcements.index')];
+    }
+    if ($homeCan('letter_index') || $homeCan('letter_module')) {
+        $homeLinks[] = ['Letters', route('letter.index')];
+    }
+    if ($homeCan('tasks_module')) {
+        $homeLinks[] = ['Task Manager', route('tasks.dashboard')];
+    }
+    if ($homeCan('timesheets.employee')) {
+        $homeLinks[] = ['Timesheet', route('timesheet.fill')];
+    }
+    if ($homeCan('timesheets.admin') || $homeCan('timesheets.manage')) {
+        $homeLinks[] = ['Timesheets Admin', route('timesheet.admin.report')];
+    }
+@endphp
+<section class="container-fluid" style="max-width:860px;padding-top:28px;">
+    <h1 style="margin:0 0 8px;color:#0c1830;font-size:28px;">Welcome, {{ Auth::user()->name }}</h1>
+    <p style="color:#5c6b82;margin:0 0 18px;">Your menu is open. These are the places this account can work.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        @forelse($homeLinks as $link)
+            <a href="{{ $link[1] }}" style="display:inline-flex;align-items:center;min-height:48px;padding:10px 16px;border-radius:999px;background:#0c1830;color:#e1b368;font-weight:700;text-decoration:none;">{{ $link[0] }}</a>
+        @empty
+            <p style="color:#5c6b82;">Ask an administrator to assign a menu to this account.</p>
+        @endforelse
     </div>
 </section>
 @endif

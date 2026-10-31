@@ -531,21 +531,15 @@
                 <a href="{{url('report/monthly_sale/'.date('Y'))}}">{{trans('file.Monthly Sale')}}</a>
               </li>
               @endif
-              @if($daily_purchase_active)
-              <li id="daily-purchase-report-menu">
-                <a href="{{url('report/daily_purchase/'.date('Y').'/'.date('m'))}}">{{trans('file.Daily Purchase')}}</a>
-              </li>
-              @endif
-              @if($monthly_purchase_active)
-              <li id="monthly-purchase-report-menu">
-                <a href="{{url('report/monthly_purchase/'.date('Y'))}}">{{trans('file.Monthly Purchase')}}</a>
-              </li>
-              @endif
               @if($sale_report_active)
-              <li id="sale-report-today"><a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a></li>
-              <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
-              <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
-              <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
+              <li id="sale-report-today">
+                <a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a>
+                <ul class="report-sub">
+                  <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
+                  <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
+                  <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
+                </ul>
+              </li>
               @endif
               @if($payment_report_active)
               <li id="payment-report-menu">

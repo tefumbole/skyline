@@ -2961,10 +2961,14 @@
                             <li><a href="#report" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-document-remove"></i><span>{{trans('file.Reports')}}</span></a>
                                 <ul id="report" class="collapse list-unstyled ">
                                     @if($sale_report_active)
-                                        <li id="sale-report-today"><a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a></li>
-                                        <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
-                                        <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
-                                        <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
+                                        <li id="sale-report-today">
+                                            <a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a>
+                                            <ul class="report-sub">
+                                                <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
+                                                <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
+                                                <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
+                                            </ul>
+                                        </li>
                                     @endif
                                     @if($daily_sale_active)
                                         <li id="daily-sale-report-menu">
@@ -3008,21 +3012,6 @@
                                     @if($average_sale_active)
                                         <li id="average_sale_active-menu">
                                             <a href="{{url('report/average_sale')}}">{{trans('file.AMC Report')}}</a>
-                                        </li>
-                                    @endif
-                                    @if($JE_active)
-                                        <li id="JE-menu">
-                                            <a href="{{url('report/JE')}}">{{trans('file.JE Report')}}</a>
-                                        </li>
-                                    @endif
-                                    @if($daily_purchase_active)
-                                        <li id="daily-purchase-report-menu">
-                                            <a href="{{url('report/daily_purchase/'.date('Y').'/'.date('m'))}}">{{trans('file.Daily Purchase')}}</a>
-                                        </li>
-                                    @endif
-                                    @if($monthly_purchase_active)
-                                        <li id="monthly-purchase-report-menu">
-                                            <a href="{{url('report/monthly_purchase/'.date('Y'))}}">{{trans('file.Monthly Purchase')}}</a>
                                         </li>
                                     @endif
                                     @if($payment_report_active)
@@ -4414,6 +4403,50 @@
 
                       $nav.append($tab);
                   });
+
+                  var $reportItem = $('#report > li.active').first();
+                  if ($reportItem.length) {
+                      function rangeOf(search) {
+                          var pairs = String(search || '').replace(/^\?/, '').split('&');
+                          for (var i = 0; i < pairs.length; i++) {
+                              var pair = pairs[i].split('=');
+                              if (decodeURIComponent((pair[0] || '').replace(/\+/g, ' ')) === 'range') {
+                                  return decodeURIComponent((pair[1] || '').replace(/\+/g, ' '));
+                              }
+                          }
+                          return '';
+                      }
+                      var hereRange = rangeOf(window.location.search) || 'today';
+                      $reportItem.find('.report-sub > li > a').each(function () {
+                          var $link = $(this);
+                          var href = $link.attr('href');
+                          if (!href || href === '#') {
+                              return;
+                          }
+                          var label = $.trim($link.text());
+                          if (!label) {
+                              return;
+                          }
+                          var linkSearch = '';
+                          try {
+                              var linkNode = document.createElement('a');
+                              linkNode.href = href;
+                              linkSearch = linkNode.search || '';
+                          } catch (e) {}
+                          var linkRange = rangeOf(linkSearch);
+                          var isActive = linkRange === hereRange;
+                          var $tab = $('<a>', {
+                              'class': 'beyond-module-tab tone-gold' + (isActive ? ' is-active' : ''),
+                              'href': href
+                          });
+                          $tab.append($('<i>', { 'class': 'dripicons-calendar' }));
+                          $tab.append($('<span>').text(label));
+                          $sub.append($tab);
+                      });
+                      if ($sub.children().length) {
+                          $sub.addClass('is-visible');
+                      }
+                  }
 
                   var $peopleItem = $('#people > li.active').first();
                   if ($peopleItem.length) {

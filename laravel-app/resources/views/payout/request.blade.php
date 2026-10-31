@@ -10,7 +10,9 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
     <div class="pay-toolbar">
+        @if(Auth::user()->canSendPayout())
         <a class="pay-new" href="{{ route('payout.index', ['new' => 1]) }}">Request a payout</a>
+        @endif
         <button class="pay-new" type="button" id="openDepositRequest">Request for payment</button>
     </div>
 
@@ -100,7 +102,7 @@
             <div class="pay-card-head">
                 <h2>{{ $review->requester_name }} @if($review->note)<span class="pay-muted">· {{ $review->note }}</span>@endif</h2>
                 <span>
-                    @if($review->status !== 'pending' && $reviewLines->whereIn('status', ['pending', 'failed'])->count() > 0)
+                    @if(Auth::user()->canSendPayout() && $review->status !== 'pending' && $reviewLines->whereIn('status', ['pending', 'failed'])->count() > 0)
                         <form method="POST" action="{{ route('payout.mass', $review->id) }}" style="display:inline">
                             @csrf
                             <button class="pay-open" type="submit" style="border:0;cursor:pointer" onclick="return confirm('Pay everyone still waiting? People already paid are left out.')">Pay</button>
@@ -162,7 +164,9 @@
                         </div>
                         <div class="pay-actions">
                             <button class="pay-go" type="submit" name="action" value="delete" formnovalidate style="background:#fdecec;color:#9b1c1c" id="reviewDelete">Delete</button>
+                            @if(Auth::user()->canSendPayout())
                             <button class="pay-go" type="submit" name="action" value="pay">Approve and Pay</button>
+                            @endif
                             <button class="pay-go" type="button" id="rejectOpen" style="background:#fff;color:#9b1c1c;border:1px solid #f3c7c7">Reject</button>
                             <button class="pay-go" type="submit" name="action" value="reject" id="rejectSend" formnovalidate style="display:none;background:#9b1c1c;color:#fff;border:0">Reject and notify</button>
                         </div>
@@ -369,7 +373,9 @@
                                     <form method="POST" action="{{ route('payout.request.revise') }}">
                                         @csrf
                                         <input type="hidden" name="id" value="{{ $row->id }}">
+                                        @if(Auth::user()->canSendPayout())
                                         <button class="pay-open" type="submit" name="action" value="approve" style="border:0;cursor:pointer" onclick="return confirm('Approve and pay everyone still waiting on this request?')">Approve and Pay</button>
+                                        @endif
                                     </form>
                                     <a class="pay-open" href="{{ route('payout.request', ['review' => $row->id]) }}" style="background:#e7eef8;color:#0b3f90 !important">Edit</a>
                                     <form method="POST" action="{{ route('payout.pending.delete') }}">
@@ -380,7 +386,9 @@
                                 @elseif($item['kind'] === 'submitted' && ($linePending + $lineFailed) > 0)
                                     <form method="POST" action="{{ route('payout.mass', $row->id) }}">
                                         @csrf
+                                        @if(Auth::user()->canSendPayout())
                                         <button class="pay-open" type="submit" style="border:0;cursor:pointer" onclick="return confirm('Pay everyone still waiting? People already paid are left out.')">Pay</button>
+                                        @endif
                                     </form>
                                     <a class="pay-open" href="{{ route('payout.request', ['review' => $row->id]) }}" style="background:#fdecec;color:#9b1c1c !important">Delete failed</a>
                                 @endif

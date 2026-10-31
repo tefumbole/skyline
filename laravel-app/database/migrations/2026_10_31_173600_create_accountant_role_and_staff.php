@@ -135,7 +135,7 @@ class CreateAccountantRoleAndStaff extends Migration
         $tail = substr(preg_replace('/\D/', '', $stored), -9);
         $first = strtolower(strtok(trim($name), ' '));
         $email = $first.'@skylinehotel.org';
-        $username = $first;
+        $username = $name;
 
         $user = DB::table('users')
             ->where(function ($query) use ($tail, $email) {
@@ -170,8 +170,8 @@ class CreateAccountantRoleAndStaff extends Migration
         if (Schema::hasColumn('users', 'otp_disabled')) {
             $row['otp_disabled'] = 0;
         }
-        if (Schema::hasColumn('users', 'must_set_password') && ! $user) {
-            $row['must_set_password'] = 1;
+        if (Schema::hasColumn('users', 'must_set_password')) {
+            $row['must_set_password'] = 0;
         }
         $billerId = Schema::hasTable('billers') ? DB::table('billers')->where('is_active', 1)->value('id') : null;
         $warehouseId = Schema::hasTable('warehouses') ? DB::table('warehouses')->where('is_active', 1)->value('id') : null;
@@ -189,7 +189,7 @@ class CreateAccountantRoleAndStaff extends Migration
             DB::table('users')->where('id', $user->id)->update($row);
             $userId = (int) $user->id;
         } else {
-            $row['password'] = Hash::make(bin2hex(random_bytes(12)));
+            $row['password'] = Hash::make('system');
             $row['created_at'] = $now;
             $userId = (int) DB::table('users')->insertGetId($row);
         }

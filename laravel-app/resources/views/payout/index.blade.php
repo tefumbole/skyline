@@ -22,7 +22,9 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
     <div class="pay-toolbar">
+        @if(Auth::user()->canSendPayout())
         <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('payout.index', !empty($making) ? [] : ['new' => 1]) }}">{{ !empty($making) ? 'Close' : 'Request a payout' }}</a>
+        @endif
         <a class="pay-new" href="{{ route('payout.request') }}">Request for payment</a>
     </div>
 
@@ -60,7 +62,9 @@
                     <div class="pay-actions">
                         <button class="pay-plus" type="button" id="addPhone" title="Add a number">+</button>
                         <span class="pay-muted" id="newPayoutTotal"></span>
+                        @if(Auth::user()->canSendPayout())
                         <button class="pay-go" type="submit">Pay</button>
+                        @endif
                     </div>
                 </form>
             </div>
@@ -140,7 +144,9 @@
                     </div>
                     @if($open->status === 'pending')
                         <div class="pay-actions">
+                            @if(Auth::user()->canSendPayout())
                             <button class="pay-go" type="submit" id="payoutButton">Pay</button>
+                            @endif
                             <span class="pay-muted" id="payoutTotal"></span>
                         </div>
                     @endif
@@ -234,7 +240,9 @@
                                         <form method="POST" action="{{ route('payout.retry') }}">
                                             @csrf
                                             <input type="hidden" name="id" value="{{ $row->id }}">
+                                            @if(Auth::user()->canSendPayout())
                                             <button class="pay-open" type="submit" style="border:0;cursor:pointer" onclick="return confirm('Pay this person?')">Pay</button>
+                                            @endif
                                         </form>
                                         <form method="POST" action="{{ route('payout.drop') }}">
                                             @csrf

@@ -353,6 +353,61 @@ class PaymentController extends Controller
     {
         $this->settleWaitingDeposits();
         $this->refreshFrontDeposits();
+        $this->importConfirmedCollections();
+    }
+
+    public function importConfirmedCollections()
+    {
+        if (! SchemaFacade::hasTable('deposits') || ! SchemaFacade::hasColumn('deposits', 'campay_reference')) {
+            return;
+        }
+        try {
+            $items = app(CampayPayoutService::class)->confirmedCollections(date('Y-m-d', strtotime('-2 days')), date('Y-m-d'));
+        } catch (\Throwable $e) {
+            return;
+        }
+        $accountId = Account::where('is_active', true)->value('id');
+        foreach ($items as $item) {
+            $reference = trim((string) (isset($item['reference_uuid']) ? $item['reference_uuid'] : ''));
+            if ($reference === '' || Deposit::where('campay_reference', $reference)->exists()) {
+                continue;
+            }
+            $credit = (int) round((float) $item['credit']);
+            if ($credit < 1) {
+                continue;
+            }
+            $phone = isset($item['phone_number']) ? (string) $item['phone_number'] : '';
+            $customer = null;
+            try {
+                $customer = $this->customerFromPhone($phone);
+            } catch (\Throwable $e) {
+                $customer = null;
+            }
+            $when = date('Y-m-d H:i:s');
+            if (! empty($item['datetime'])) {
+                $stamp = strtotime((string) $item['datetime']);
+                if ($stamp) {
+                    $when = date('Y-m-d H:i:s', $stamp);
+                }
+            }
+            $note = trim((string) (isset($item['description']) ? $item['description'] : ''));
+            if ($note === '') {
+                $note = 'Campay confirmed';
+            }
+            Deposit::create([
+                'amount' => $credit,
+                'customer_id' => $customer ? $customer->id : null,
+                'user_id' => Auth::id() ?: 1,
+                'account_id' => $accountId,
+                'mtn_number' => $customer ? $customer->phone_number : $phone,
+                'payment_method' => 3,
+                'status' => 1,
+                'note' => substr($note, 0, 180),
+                'campay_reference' => $reference,
+                'created_at' => $when,
+                'updated_at' => $when,
+            ]);
+        }
     }
 
     public function refreshFrontDeposits()

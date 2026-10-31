@@ -84,6 +84,21 @@ class User extends Authenticatable
         return (int) $this->role_id === 1 || $this->isSuperAdmin();
     }
 
+    /** Sending money out. Viewing deposits and payouts is separate. */
+    public function canSendPayout()
+    {
+        if ($this->hasFullAdminAccess()) {
+            return true;
+        }
+        try {
+            $role = \Spatie\Permission\Models\Role::find($this->role_id);
+
+            return $role && $role->hasPermissionTo('payments-payout');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** Settings stays with administrators. Station roles use My Profile instead. */
     public function canManageHotelSettings()
     {

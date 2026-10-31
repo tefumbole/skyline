@@ -139,6 +139,30 @@ class CampayPayoutService
         ]);
     }
 
+    public function confirmedCollections($startDate, $endDate)
+    {
+        $body = $this->call('POST', 'history/', [
+            'start_date' => (string) $startDate,
+            'end_date' => (string) $endDate,
+        ]);
+        $items = is_array($body) && isset($body['data']) && is_array($body['data']) ? $body['data'] : [];
+        $rows = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $status = strtoupper(trim((string) (isset($item['status']) ? $item['status'] : '')));
+            $credit = isset($item['credit']) ? (float) $item['credit'] : 0;
+            $debit = isset($item['debit']) ? (float) $item['debit'] : 0;
+            if ($status !== 'SUCCESSFUL' || $credit <= 0 || $debit > 0) {
+                continue;
+            }
+            $rows[] = $item;
+        }
+
+        return $rows;
+    }
+
     public function transaction($reference)
     {
         $reference = trim((string) $reference);

@@ -54,7 +54,7 @@ class PayoutController extends Controller
         $history = $this->history($tenantId)->where('status', 'failed')->orderByDesc('id')->limit(30)->get();
         app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
         $balance = app(CampayPayoutService::class)->balance();
-        $making = $request->get('new') === '1';
+        $making = $request->get('new') === '1' && Auth::user() && Auth::user()->canSendPayout();
         $q = '';
         $people = collect();
 
@@ -530,6 +530,9 @@ class PayoutController extends Controller
 
     protected function sendRows(CampayPayoutRequest $open, $rows, $returnTo = null)
     {
+        if (! Auth::user() || ! Auth::user()->canSendPayout()) {
+            return redirect()->to($returnTo ?: route('payout.index'))->with('not_permitted', 'You can see payouts, but you cannot send one.');
+        }
         $result = $this->payLines($rows);
         $this->closeBatch($open);
 

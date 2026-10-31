@@ -9,8 +9,6 @@
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
-    @include('payout.tabs', ['tab' => 'request'])
-
     <div class="pay-card">
         <div class="pay-card-head"><h2>Request for Payment</h2></div>
         <div class="pay-card-body">

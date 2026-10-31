@@ -18,6 +18,7 @@ use App\Services\StripeCheckoutService;
 use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class PaymentController extends Controller
@@ -67,7 +68,8 @@ class PaymentController extends Controller
     public function Desposit()
     {
         $this->settleWaitingDeposits();
-        $deposits = Deposit::with(['customer', 'customerGroup', 'user', 'depositor', 'account'])->orderByDesc('id')->get();
+        $deposits = Deposit::with(['customer', 'customerGroup', 'user', 'depositor', 'account'])->orderByDesc('created_at')->orderByDesc('id')->get();
+        $paidAmounts = $this->paymentPaidAmounts($deposits);
         $accounts = Account::where('is_active', true)->orderBy('name')->get();
         $making = request()->get('new') === '1';
         $this->refreshFrontDeposits();
@@ -77,11 +79,99 @@ class PaymentController extends Controller
         } catch (\Throwable $e) {
             $campayBalance = null;
         }
-        $frontDeposits = SchemaFacade::hasTable('public_donations')
-            ? PublicDonation::orderByDesc('id')->limit(100)->get()
-            : collect();
+        return view('payment.deposits', compact('deposits', 'accounts', 'making', 'campayBalance', 'paidAmounts'));
+    }
 
-        return view('payment.deposits', compact('deposits', 'accounts', 'making', 'campayBalance', 'frontDeposits'));
+    /**
+     * Gross amount the client paid. A front-end request wins, then the Campay collect amount.
+     *
+     * @param  \Illuminate\Support\Collection  $deposits
+     * @return array<int, float>
+     */
+    protected function paymentPaidAmounts($deposits)
+    {
+        $byRef = [];
+        try {
+            $items = Cache::remember('skyline.campay.collects', 120, function () {
+                return app(CampayPayoutService::class)->confirmedCollections(
+                    date('Y-m-d', strtotime('-14 days')),
+                    date('Y-m-d')
+                );
+            });
+            foreach ($items as $item) {
+                $ref = trim((string) (isset($item['reference_uuid']) ? $item['reference_uuid'] : ''));
+                if ($ref === '') {
+                    continue;
+                }
+                $credit = (float) (isset($item['credit']) ? $item['credit'] : 0);
+                $charge = (float) (isset($item['charge']) ? $item['charge'] : 0);
+                $amount = (float) (isset($item['amount']) ? $item['amount'] : 0);
+                $gross = $credit + max(0, $charge);
+                if ($amount > $gross) {
+                    $gross = $amount;
+                }
+                $byRef[$ref] = $gross;
+            }
+        } catch (\Throwable $e) {
+            $byRef = [];
+        }
+
+        $donations = SchemaFacade::hasTable('public_donations')
+            ? PublicDonation::where('status', 'paid')->orderByDesc('id')->limit(200)->get()
+            : collect();
+        $used = [];
+        $paid = [];
+        foreach ($deposits as $deposit) {
+            $received = (float) $deposit->amount;
+            $gross = $received;
+            $ref = trim((string) $deposit->campay_reference);
+            $donation = null;
+            if ($ref !== '') {
+                foreach ($donations as $row) {
+                    if (isset($used[$row->id])) {
+                        continue;
+                    }
+                    if (trim((string) $row->campay_reference) === $ref) {
+                        $donation = $row;
+                        break;
+                    }
+                }
+            }
+            if (! $donation) {
+                $phone = preg_replace('/\D/', '', (string) ($deposit->mtn_number ?: optional($deposit->customer)->phone_number));
+                $phone = strlen($phone) > 9 ? substr($phone, -9) : $phone;
+                $best = null;
+                $bestGap = 1201;
+                $stamp = $deposit->created_at ? $deposit->created_at->getTimestamp() : 0;
+                foreach ($donations as $row) {
+                    if (isset($used[$row->id]) || (float) $row->amount + 0.5 < $received) {
+                        continue;
+                    }
+                    $other = preg_replace('/\D/', '', (string) $row->phone);
+                    $other = strlen($other) > 9 ? substr($other, -9) : $other;
+                    if ($phone === '' || $other === '' || $phone !== $other) {
+                        continue;
+                    }
+                    $gap = abs($stamp - ($row->created_at ? $row->created_at->getTimestamp() : 0));
+                    if ($gap < $bestGap) {
+                        $bestGap = $gap;
+                        $best = $row;
+                    }
+                }
+                if ($best && $bestGap <= 1200) {
+                    $donation = $best;
+                }
+            }
+            if ($donation) {
+                $used[$donation->id] = true;
+                $gross = (float) $donation->amount;
+            } elseif ($ref !== '' && isset($byRef[$ref]) && $byRef[$ref] + 0.5 >= $received) {
+                $gross = (float) $byRef[$ref];
+            }
+            $paid[(int) $deposit->id] = $gross;
+        }
+
+        return $paid;
     }
 
     public function depositDeleteSelection(Request $request)

@@ -22,36 +22,70 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-    @if(isset($frontDeposits) && count($frontDeposits))
-        <div class="pay-card" style="margin-bottom:16px">
-            <div class="pay-card-head"><h2>Front-end payments</h2></div>
+    <div class="pay-card" style="margin-bottom:16px">
+        <div class="pay-card-head"><h2>Payments</h2></div>
+        <form method="POST" action="{{ route('deposit.delete_selection') }}" id="depositsListForm">
+            @csrf
             <div class="table-responsive">
                 <table class="pay-table">
                     <thead>
-                        <tr><th>When</th><th>Name</th><th>Phone</th><th>Amount</th><th>Method</th><th>Status</th><th>Note</th></tr>
+                        <tr>
+                            <th style="width:36px"><input type="checkbox" id="depositsAll" title="Select all"></th>
+                            <th>Time</th>
+                            <th>Client</th>
+                            <th>Amount paid</th>
+                            <th>Amount received</th>
+                            <th>Charges</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Note</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        @foreach($frontDeposits as $row)
+                        @forelse($deposits as $deposit)
                             @php
-                                $methodLabel = $row->method === 'visa' ? 'VISA' : ($row->method === 'crypto' ? 'Crypto' : 'Momo/OM');
-                                $tone = $row->status === 'paid' ? 'ok' : ($row->status === 'failed' ? 'no' : 'wait');
-                                $statusLabel = $row->status === 'paid' ? 'Paid' : ($row->status === 'failed' ? 'Not paid' : 'Pending');
+                                $methodLabel = 'Unknown';
+                                if ((int) $deposit->payment_method === 1) $methodLabel = 'Cash';
+                                elseif ((int) $deposit->payment_method === 2) $methodLabel = 'JE Method';
+                                elseif ((int) $deposit->payment_method === 3) $methodLabel = 'Momo/Orange';
+                                elseif ((int) $deposit->payment_method === 4) $methodLabel = 'VISA';
+                                elseif ((int) $deposit->payment_method === 5) $methodLabel = 'Bitcoin';
+                                $tone = (int) $deposit->status === 1 ? 'ok' : ((int) $deposit->status === 0 ? 'wait' : 'no');
+                                $statusLabel = (int) $deposit->status === 1 ? 'Paid' : ((int) $deposit->status === 0 ? 'Waiting' : 'Not paid');
+                                $received = (float) $deposit->amount;
+                                $paid = isset($paidAmounts[$deposit->id]) ? (float) $paidAmounts[$deposit->id] : $received;
+                                if ($paid < $received) $paid = $received;
+                                $charges = max(0, $paid - $received);
                             @endphp
-                            <tr data-deposit="{{ $row->id }}">
-                                <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
-                                <td>{{ $row->person_name }}</td>
-                                <td>{{ $row->phone }}</td>
-                                <td>{{ number_format($row->amount, 0, '.', ' ') }} XAF</td>
+                            <tr>
+                                <td><input type="checkbox" class="deposits-line" name="ids[]" value="{{ $deposit->id }}"></td>
+                                <td>{{ $deposit->created_at ? $deposit->created_at->format('M j H:i') : '' }}</td>
+                                <td>{{ optional($deposit->customer)->name ?: '—' }}</td>
+                                <td>{{ number_format($paid, 0, '.', ' ') }} XAF</td>
+                                <td>{{ number_format($received, 0, '.', ' ') }} XAF</td>
+                                <td>{{ number_format($charges, 0, '.', ' ') }} XAF</td>
                                 <td>{{ $methodLabel }}</td>
-                                <td><span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span></td>
-                                <td>{{ $row->note }}</td>
+                                <td>
+                                    <span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span>
+                                    @if($deposit->failure_reason)
+                                        <div class="pay-note">{{ strpos(strtoupper($deposit->failure_reason), 'LOW_BALANCE') !== false ? 'Not enough money on the phone' : (strpos(strtoupper($deposit->failure_reason), 'CANCEL') !== false || strpos(strtoupper($deposit->failure_reason), 'APPROV') !== false ? 'Not approved' : 'Payment was not completed') }}</div>
+                                    @endif
+                                </td>
+                                <td>{{ $deposit->note }}</td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="9" class="pay-muted">No payments yet.</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
-    @endif
+            @if(count($deposits))
+                <div class="pay-actions">
+                    <button class="pay-go" type="submit" id="depositsDelete" style="background:#fdecec;color:#9b1c1c">Delete selected</button>
+                </div>
+            @endif
+        </form>
+    </div>
 
     <div class="pay-toolbar">
         <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('deposit.index', ['new' => 1]) }}">+ Add Deposit</a>
@@ -108,64 +142,6 @@
         </div>
     @endif
 
-    <div class="pay-card">
-        <div class="pay-card-head"><h2>Deposits</h2></div>
-        <form method="POST" action="{{ route('deposit.delete_selection') }}" id="depositsListForm">
-            @csrf
-            <div class="table-responsive">
-                <table class="pay-table">
-                    <thead>
-                        <tr>
-                            <th style="width:36px"><input type="checkbox" id="depositsAll" title="Select all"></th>
-                            <th>When</th>
-                            <th>Client</th>
-                            <th>Account</th>
-                            <th>Amount</th>
-                            <th>Method</th>
-                            <th>Status</th>
-                            <th>Note</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($deposits as $deposit)
-                            @php
-                                $methodLabel = 'Unknown';
-                                if ((int) $deposit->payment_method === 1) $methodLabel = 'Cash';
-                                elseif ((int) $deposit->payment_method === 2) $methodLabel = 'JE Method';
-                                elseif ((int) $deposit->payment_method === 3) $methodLabel = 'Momo/Orange';
-                                elseif ((int) $deposit->payment_method === 4) $methodLabel = 'VISA';
-                                elseif ((int) $deposit->payment_method === 5) $methodLabel = 'Bitcoin';
-                                $tone = (int) $deposit->status === 1 ? 'ok' : ((int) $deposit->status === 0 ? 'wait' : 'no');
-                                $statusLabel = (int) $deposit->status === 1 ? 'Paid' : ((int) $deposit->status === 0 ? 'Waiting' : 'Not paid');
-                            @endphp
-                            <tr>
-                                <td><input type="checkbox" class="deposits-line" name="ids[]" value="{{ $deposit->id }}"></td>
-                                <td>{{ $deposit->created_at ? $deposit->created_at->format('M j H:i') : '' }}</td>
-                                <td>{{ optional($deposit->customer)->name ?: '—' }}</td>
-                                <td>{{ $deposit->account ? $deposit->account->name : '—' }}</td>
-                                <td>{{ number_format((float) $deposit->amount, 0, '.', ' ') }} XAF</td>
-                                <td>{{ $methodLabel }}</td>
-                                <td>
-                                    <span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span>
-                                    @if($deposit->failure_reason)
-                                        <div class="pay-note">{{ strpos(strtoupper($deposit->failure_reason), 'LOW_BALANCE') !== false ? 'Not enough money on the phone' : (strpos(strtoupper($deposit->failure_reason), 'CANCEL') !== false || strpos(strtoupper($deposit->failure_reason), 'APPROV') !== false ? 'Not approved' : 'Payment was not completed') }}</div>
-                                    @endif
-                                </td>
-                                <td>{{ $deposit->note }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="8" class="pay-muted">No deposits yet.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if(count($deposits))
-                <div class="pay-actions">
-                    <button class="pay-go" type="submit" id="depositsDelete" style="background:#fdecec;color:#9b1c1c">Delete selected</button>
-                </div>
-            @endif
-        </form>
-    </div>
     <script>
     (function () {
         var form = document.getElementById('depositsListForm');

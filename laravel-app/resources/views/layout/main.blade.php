@@ -3393,18 +3393,18 @@
                             <span class="sidebar-user-role">{{ ucfirst($role->name ?? 'User') }}</span>
                         </div>
                     </div>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="sidebar-user-link logout-link">
-                            <i class="dripicons-power"></i> Log out
-                        </button>
-                    </form>
                     <a href="{{ route('user.profile', ['id' => Auth::id()]) }}" class="sidebar-user-link">
                         <i class="dripicons-user"></i> My Profile
                     </a>
                     <a href="{{ route('user.profile', ['id' => Auth::id()]) }}#change-password" class="sidebar-user-link">
                         <i class="dripicons-lock"></i> Change password
                     </a>
+                    <form action="{{ route('logout') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="sidebar-user-link logout-link">
+                            <i class="dripicons-power"></i> Log out
+                        </button>
+                    </form>
                 </div>
             </div>
           </nav>

@@ -1737,9 +1737,30 @@ class ReportController extends Controller
                 return strcasecmp($a['name'], $b['name']);
             });
         }
+        $qty_total = 0;
+        foreach ($products as $row) {
+            $qty_total += (float) $row['qty'];
+        }
+        $headings = [
+            'today' => "Today's Sales",
+            'week' => 'This Week',
+            'month' => 'This Month',
+            'custom' => 'Custom',
+        ];
+        $heading = $headings[$range];
+        $period = date('j M Y', strtotime($start_date));
+        if ($start_date !== $end_date) {
+            $period .= ' – '.date('j M Y', strtotime($end_date));
+        }
+        $print = (string) $request->input('print');
+        if ($picked && in_array($print, ['letter', 'thermal'], true)) {
+            return view('report.sales_print', compact(
+                'products', 'total', 'qty_total', 'start_date', 'end_date', 'range', 'heading', 'period', 'print'
+            ));
+        }
 
         return view('report.sales_by_date', compact(
-            'products', 'total', 'start_date', 'end_date', 'range', 'picked'
+            'products', 'total', 'qty_total', 'start_date', 'end_date', 'range', 'picked', 'heading', 'period'
         ));
     }
 

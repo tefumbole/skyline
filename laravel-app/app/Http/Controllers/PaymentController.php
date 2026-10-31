@@ -130,12 +130,16 @@ class PaymentController extends Controller
         if (! $phone) {
             return response()->json(['ok' => false, 'error' => 'Not an MTN or Orange Cameroon number.']);
         }
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return response()->json(['ok' => false, 'error' => 'Campay has no MTN or Orange name for this number.']);
+        }
 
         return response()->json([
             'ok' => true,
             'phone' => $phone,
-            'name' => ($hit && ! empty($hit['name'])) ? $hit['name'] : '',
+            'name' => $name,
             'operator' => $campay->operatorName($phone),
             'source' => ($hit && ! empty($hit['source'])) ? $hit['source'] : null,
         ]);
@@ -149,7 +153,7 @@ class PaymentController extends Controller
         }
         $campay = app(CampayPayoutService::class);
         $phone = $campay->momoNumber($customer->phone_number);
-        $lookup = $phone ? app(MobileMoneyHolderService::class)->lookup($phone) : null;
+        $lookup = $phone ? app(MobileMoneyHolderService::class)->lookup($phone, true) : null;
         $momoName = is_array($lookup) && ! empty($lookup['name']) ? (string) $lookup['name'] : '';
         $last = $phone
             ? Deposit::where('mtn_number', $phone)->where('status', 2)->orderByDesc('id')->first()
@@ -344,7 +348,13 @@ class PaymentController extends Controller
         $this->settleOne($deposit);
     }
 
-    protected function refreshFrontDeposits()
+    public function settleConfirmedMoney()
+    {
+        $this->settleWaitingDeposits();
+        $this->refreshFrontDeposits();
+    }
+
+    public function refreshFrontDeposits()
     {
         if (! SchemaFacade::hasTable('public_donations')) {
             return;
@@ -450,8 +460,8 @@ class PaymentController extends Controller
         $customer = Customer::where(function ($query) use ($phone, $tail) {
             $query->where('phone_number', $phone)->orWhere('phone_number', 'like', '%'.$tail);
         })->first();
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
-        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : ($customer ? (string) $customer->name : $phone);
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
         if ($customer) {
             if ($name !== '') {
                 $customer->name = $name;

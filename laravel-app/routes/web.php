@@ -1607,6 +1607,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/admin/payout/search', 'PayoutController@search')->name('payout.search');
     Route::get('/admin/payout/request', 'PayoutController@requestLink')->name('payout.request');
     Route::post('/admin/payout/request/invite', 'PayoutController@invite')->name('payout.request.invite');
+    Route::post('/admin/payout/request/deposit', 'PayoutController@requestDeposit')->name('payout.request.deposit');
     Route::post('/admin/payout/request/resend', 'PayoutController@resend')->name('payout.request.resend');
     Route::post('/admin/payout/request/revise', 'PayoutController@revise')->name('payout.request.revise');
     Route::post('/admin/payout/request/{id}/mass-payout', 'PayoutController@massPayout')->where('id', '[0-9]+')->name('payout.mass');

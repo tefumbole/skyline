@@ -7,6 +7,7 @@ use App\CampayPayout;
 use App\CampayPayoutLink;
 use App\CampayPayoutRequest;
 use App\Customer;
+use App\PublicDonation;
 use App\Services\CampayPayoutService;
 use App\Services\Cloud\CloudTenantContext;
 use App\Services\MobileMoneyHolderService;
@@ -51,6 +52,7 @@ class PayoutController extends Controller
             }
         }
         $history = $this->history($tenantId)->where('status', 'failed')->orderByDesc('id')->limit(30)->get();
+        app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
         $balance = app(CampayPayoutService::class)->balance();
         $making = $request->get('new') === '1';
         $q = '';
@@ -81,6 +83,10 @@ class PayoutController extends Controller
         if ($q === '') {
             return response()->json(['people' => []]);
         }
+        $digits = preg_replace('/\D/', '', $q);
+        if (strlen($digits) >= 9) {
+            return response()->json(['people' => []]);
+        }
 
         return response()->json(['people' => $this->directory($q)]);
     }
@@ -94,11 +100,15 @@ class PayoutController extends Controller
             return response()->json(['ok' => false, 'error' => 'Not an MTN or Orange Cameroon number.']);
         }
         $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return response()->json(['ok' => false, 'error' => 'Campay has no MTN or Orange name for this number.']);
+        }
 
         return response()->json([
             'ok' => true,
             'phone' => $phone,
-            'name' => ($hit && ! empty($hit['name'])) ? $hit['name'] : '',
+            'name' => $name,
             'operator' => $service->operatorName($phone),
             'source' => ($hit && ! empty($hit['source'])) ? $hit['source'] : null,
         ]);
@@ -117,19 +127,17 @@ class PayoutController extends Controller
         }
         $lookup = app(MobileMoneyHolderService::class);
         @set_time_limit(90);
-        $checked = 0;
         foreach ($lines['lines'] as $index => $line) {
-            if ($line['momo_name'] !== '' || $checked >= 20) {
-                continue;
+            $name = $line['momo_name'];
+            if ($name === '') {
+                $hit = $lookup->lookup($line['phone'], true);
+                $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
             }
-            $checked++;
-            $hit = $lookup->lookup($line['phone'], true);
-            if ($hit && ! empty($hit['name'])) {
-                $lines['lines'][$index]['momo_name'] = $hit['name'];
-                if ($line['person_name'] === $line['phone']) {
-                    $lines['lines'][$index]['person_name'] = $hit['name'];
-                }
+            if ($name === '') {
+                return redirect()->route('payout.index', ['new' => 1])->with('not_permitted', 'Campay has no MTN or Orange name for one of these numbers.');
             }
+            $lines['lines'][$index]['momo_name'] = $name;
+            $lines['lines'][$index]['person_name'] = $name;
         }
         $batch = new CampayPayoutRequest();
         $batch->cloud_tenant_id = $this->tenantId();
@@ -232,6 +240,7 @@ class PayoutController extends Controller
     {
         $this->guard();
         $this->settleRecorded();
+        app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
         $tenantId = $this->tenantId();
         $query = CampayPayoutLink::query();
         if ($tenantId) {
@@ -284,7 +293,54 @@ class PayoutController extends Controller
             }
         }
 
-        return view('payout.request', compact('url', 'invites', 'submitted', 'review', 'reviewLines'));
+        $depositRequests = PublicDonation::query()->orderByDesc('id')->limit(20)->get();
+
+        return view('payout.request', compact('url', 'invites', 'submitted', 'review', 'reviewLines', 'depositRequests'));
+    }
+
+    public function requestDeposit(Request $request)
+    {
+        $this->guard();
+        $service = app(CampayPayoutService::class);
+        $phone = $service->momoNumber($request->input('phone'));
+        if (! $phone) {
+            return back()->withInput()->with('not_permitted', 'Enter an MTN or Orange Cameroon number.');
+        }
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return back()->withInput()->with('not_permitted', 'Campay has no MTN or Orange name for that number.');
+        }
+        $amount = (int) $request->input('amount');
+        if ($amount < 100 || $amount > 1000000) {
+            return back()->withInput()->with('not_permitted', 'Enter an amount from 100 to 1,000,000 XAF.');
+        }
+        $note = trim((string) $request->input('note'));
+        $donation = new PublicDonation();
+        $donation->token = bin2hex(random_bytes(16));
+        $donation->person_name = substr($name, 0, 191);
+        $donation->phone = $phone;
+        $donation->amount = $amount;
+        $donation->note = $note !== '' ? substr($note, 0, 191) : 'Deposit request';
+        $donation->method = 'momo';
+        $donation->status = 'pending';
+        $donation->save();
+        $reference = 'don-'.date('YmdHis').'-'.$donation->id;
+        $body = $service->collect($phone, $amount, $reference, $note !== '' ? substr($note, 0, 80) : 'Deposit');
+        $status = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+        if (! is_array($body) || empty($body['reference']) || $status === 'FAILED') {
+            $donation->status = 'failed';
+            $donation->error = 'Campay could not ask for the Mobile Money approval.';
+            $donation->save();
+
+            return back()->with('not_permitted', 'Campay could not send the deposit request.');
+        }
+        $donation->campay_reference = (string) $body['reference'];
+        $donation->status = 'pending';
+        $donation->error = null;
+        $donation->save();
+
+        return redirect()->route('payout.request')->with('message', 'Deposit request sent. The wallet updates when Campay confirms it.');
     }
 
     public function revise(Request $request)
@@ -847,6 +903,10 @@ class PayoutController extends Controller
         if (strlen($q) < 2) {
             return response()->json(['people' => []]);
         }
+        $digits = preg_replace('/\D/', '', $q);
+        if (strlen($digits) >= 9) {
+            return response()->json(['people' => []]);
+        }
 
         return response()->json(['people' => $this->searchPeople($link, $q)]);
     }
@@ -859,12 +919,16 @@ class PayoutController extends Controller
         if (! $phone) {
             return response()->json(['ok' => false, 'error' => 'Not an MTN or Orange Cameroon number.']);
         }
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return response()->json(['ok' => false, 'error' => 'Campay has no MTN or Orange name for this number.']);
+        }
 
         return response()->json([
             'ok' => true,
             'phone' => $phone,
-            'name' => ($hit && ! empty($hit['name'])) ? $hit['name'] : '',
+            'name' => $name,
             'operator' => $service->operatorName($phone),
         ]);
     }
@@ -1093,6 +1157,14 @@ class PayoutController extends Controller
         }
         if (count($lines) > 40) {
             return ['error' => 'Choose up to 40 people.'];
+        }
+        $lookup = app(MobileMoneyHolderService::class);
+        foreach ($lines as $index => $line) {
+            $hit = $lookup->lookup($line['phone'], true);
+            if (! $hit || empty($hit['name'])) {
+                return ['error' => 'Campay has no MTN or Orange name for one of these numbers.'];
+            }
+            $lines[$index]['name'] = $hit['name'];
         }
 
         return ['lines' => $lines];

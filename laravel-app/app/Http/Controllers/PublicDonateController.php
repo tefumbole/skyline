@@ -100,12 +100,16 @@ class PublicDonateController extends Controller
                 'operator' => '',
             ]);
         }
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return response()->json(['ok' => false, 'error' => 'Campay has no MTN or Orange name for this number.']);
+        }
 
         return response()->json([
             'ok' => true,
             'phone' => $phone,
-            'name' => ($hit && ! empty($hit['name'])) ? $hit['name'] : '',
+            'name' => $name,
             'operator' => $service->operatorName($phone),
         ]);
     }
@@ -348,8 +352,11 @@ class PublicDonateController extends Controller
         if ($amount < 100 || $amount > 1000000) {
             return back()->withInput()->with('not_permitted', 'Enter an amount from 100 to 1,000,000 XAF.');
         }
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone);
-        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : '';
+        if ($name === '') {
+            return back()->withInput()->with('not_permitted', 'Campay has no MTN or Orange name for that number.');
+        }
         $donation = new PublicDonation();
         $donation->token = bin2hex(random_bytes(16));
         $donation->person_name = substr($name, 0, 191);

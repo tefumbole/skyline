@@ -14,7 +14,7 @@ class MobileMoneyHolderService
     /**
      * @return array{name:?string,source:?string}
      */
-    public function lookup($phone)
+    public function lookup($phone, $campayOnly = false)
     {
         $digits = preg_replace('/\D/', '', (string) $phone);
         if (strlen($digits) < 8) {
@@ -24,6 +24,9 @@ class MobileMoneyHolderService
         $hit = $this->campay($digits);
         if ($hit) {
             return $hit;
+        }
+        if ($campayOnly) {
+            return ['name' => null, 'address' => null, 'source' => null];
         }
 
         return $this->pawapay($digits) ?: ['name' => null, 'address' => null, 'source' => null];

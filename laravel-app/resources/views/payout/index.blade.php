@@ -380,13 +380,19 @@
         label.textContent = text;
         if (hidden) hidden.value = data.name || '';
     }
-    function resolve(phone, cell, hidden) {
+    function resolve(phone, cell, hidden, done) {
         if (!phone) return;
         cell.querySelector('.momo-label').textContent = 'Looking up…';
         fetch(lookupUrl + '?phone=' + encodeURIComponent(phone), {headers: {Accept: 'application/json'}})
             .then(function (response) { return response.json(); })
-            .then(function (data) { showName(cell, hidden, data); })
-            .catch(function () { cell.querySelector('.momo-label').textContent = 'Could not look up that number'; });
+            .then(function (data) {
+                showName(cell, hidden, data);
+                if (done) done(data);
+            })
+            .catch(function () {
+                cell.querySelector('.momo-label').textContent = 'Could not look up that number';
+                if (done) done(null);
+            });
     }
     function addPerson(person) {
         var key = person.kind + ':' + person.id;
@@ -443,7 +449,20 @@
             row.remove();
             refresh();
         });
-        resolve(person.phone, row.querySelector('.momo'), row.querySelector('.momo input'));
+        resolve(person.phone, row.querySelector('.momo'), row.querySelector('.momo input'), function (data) {
+            if (!data || !data.ok || !data.name) {
+                delete added[key];
+                row.remove();
+                refresh();
+                var none = document.createElement('div');
+                none.className = 'list-group-item text-muted';
+                none.textContent = (data && data.error) ? data.error : 'Campay has no MTN or Orange name for this number';
+                hits.appendChild(none);
+                return;
+            }
+            nameCell.textContent = data.name;
+            nameCell.appendChild(idInput);
+        });
         hits.innerHTML = '';
         search.value = '';
         refresh();

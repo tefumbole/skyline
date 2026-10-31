@@ -9,10 +9,68 @@
     @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
 
+    <style>
+        .pay-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #ead9b4; border-radius: 16px; background: #fffaf3; margin-bottom: 12px; }
+        .pay-choice h3 { margin: 0 0 4px; font-size: 16px; color: #1a1208; }
+        .pay-choice .pay-help { margin: 0; }
+    </style>
     <div class="pay-card">
         <div class="pay-card-head"><h2>Request for Payment</h2></div>
         <div class="pay-card-body">
-            <p class="pay-help">Choose people from the system, or add a number. They receive a WhatsApp, in the name saved here, asking them to submit payment information. You can also copy the link.</p>
+            <div class="pay-choice">
+                <div>
+                    <h3>Deposit Request</h3>
+                    <p class="pay-help">Ask an MTN or Orange number to pay into the wallet. The name comes from Campay.</p>
+                </div>
+                <button class="pay-plus" type="button" id="openDepositRequest" title="Request a deposit">+</button>
+            </div>
+            <form method="POST" action="{{ route('payout.request.deposit') }}" id="depositRequestForm" style="display:none;margin-bottom:18px">
+                @csrf
+                <div class="form-group" style="max-width:420px">
+                    <label>MTN or Orange number</label>
+                    <input type="tel" name="phone" id="depositRequestPhone" class="form-control" placeholder="6xxxxxxxx" autocomplete="off" required>
+                    <div id="depositRequestName" class="pay-help" style="margin-top:6px"></div>
+                </div>
+                <div class="form-group" style="max-width:220px">
+                    <label>Amount (XAF)</label>
+                    <input type="number" name="amount" class="form-control" min="100" max="1000000" step="1" required>
+                </div>
+                <div class="form-group" style="max-width:520px">
+                    <label>Note</label>
+                    <input type="text" name="note" class="form-control" maxlength="180" placeholder="What this deposit is for">
+                </div>
+                <button class="pay-go" type="submit">Send deposit request</button>
+            </form>
+            @if(isset($depositRequests) && count($depositRequests))
+                <div class="table-responsive" style="margin-bottom:18px">
+                    <table class="pay-table">
+                        <thead><tr><th>When</th><th>Name</th><th>Amount</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach($depositRequests as $row)
+                                @php
+                                    $tone = $row->status === 'paid' ? 'ok' : ($row->status === 'failed' ? 'no' : 'wait');
+                                    $statusLabel = $row->status === 'paid' ? 'Paid' : ($row->status === 'failed' ? 'Not paid' : 'Pending');
+                                @endphp
+                                <tr>
+                                    <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
+                                    <td>{{ $row->person_name }}</td>
+                                    <td>{{ number_format($row->amount, 0, '.', ' ') }} XAF</td>
+                                    <td><span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            <div class="pay-choice">
+                <div>
+                    <h3>Payout Request</h3>
+                    <p class="pay-help">Ask people to send the MTN or Orange number you should pay. Campay supplies the name.</p>
+                </div>
+                <button class="pay-plus" type="button" id="openPayoutRequest" title="Request a payout">+</button>
+            </div>
+            <div id="payoutRequestBox" style="display:none">
             <form method="POST" action="{{ route('payout.request.invite') }}" id="inviteForm">
                 @csrf
                 <div class="pay-search">
@@ -43,6 +101,7 @@
             <div class="pay-linkbox" style="margin-top:18px">
                 <input type="text" id="requestUrl" class="form-control" readonly value="{{ $url }}">
                 <button class="pay-go" type="button" id="copyLink">Copy link</button>
+            </div>
             </div>
         </div>
     </div>
@@ -351,6 +410,56 @@
 </section>
 <script>
 (function () {
+    var depositOpen = document.getElementById('openDepositRequest');
+    var depositForm = document.getElementById('depositRequestForm');
+    var payoutOpen = document.getElementById('openPayoutRequest');
+    var payoutBox = document.getElementById('payoutRequestBox');
+    if (depositOpen && depositForm) {
+        depositOpen.addEventListener('click', function () {
+            depositForm.style.display = depositForm.style.display === 'none' ? 'block' : 'none';
+            if (depositForm.style.display !== 'none') {
+                document.getElementById('depositRequestPhone').focus();
+            }
+        });
+    }
+    if (payoutOpen && payoutBox) {
+        payoutOpen.addEventListener('click', function () {
+            payoutBox.style.display = payoutBox.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    var depositPhone = document.getElementById('depositRequestPhone');
+    var depositName = document.getElementById('depositRequestName');
+    var lookupUrl = @json(route('payout.lookup'));
+    if (depositPhone && depositName) {
+        var depositWait = null;
+        depositPhone.addEventListener('input', function () {
+            clearTimeout(depositWait);
+            var raw = depositPhone.value.trim();
+            if (raw.replace(/\D/g, '').length < 9) {
+                depositName.textContent = '';
+                return;
+            }
+            depositName.textContent = 'Looking up…';
+            depositWait = setTimeout(function () {
+                fetch(lookupUrl + '?phone=' + encodeURIComponent(raw), {headers: {Accept: 'application/json'}})
+                    .then(function (response) { return response.json(); })
+                    .then(function (info) {
+                        if (!info || !info.ok || !info.name) {
+                            depositName.textContent = (info && info.error) ? info.error : 'Campay has no MTN or Orange name for this number.';
+                            return;
+                        }
+                        depositName.textContent = info.name + (info.operator ? ' · ' + info.operator : '');
+                    });
+            }, 350);
+        });
+        depositForm.addEventListener('submit', function (event) {
+            if (depositName.textContent.indexOf('·') === -1 && depositName.textContent.indexOf('Looking') !== -1) {
+                event.preventDefault();
+            }
+        });
+    }
+})();
+(function () {
     var form = document.getElementById('inviteForm');
     var body = document.getElementById('inviteBody');
     var empty = document.getElementById('inviteEmpty');
@@ -417,9 +526,20 @@
                         button.textContent = person.name + ' (' + person.phone + ')';
                         button.addEventListener('click', function () {
                             var idName = person.kind === 'user' ? 'user_id[]' : 'customer_id[]';
-                            addPerson(person.kind + ':' + person.id, person.name, person.phone, [{name: idName, value: person.id}]);
-                            hits.innerHTML = '';
-                            search.value = '';
+                            fetch(lookupUrl + '?phone=' + encodeURIComponent(person.phone), {headers: {Accept: 'application/json'}})
+                                .then(function (response) { return response.json(); })
+                                .then(function (info) {
+                                    hits.innerHTML = '';
+                                    if (!info || !info.ok || !info.name) {
+                                        var none = document.createElement('div');
+                                        none.className = 'list-group-item text-muted';
+                                        none.textContent = (info && info.error) ? info.error : 'Campay has no MTN or Orange name for this number';
+                                        hits.appendChild(none);
+                                        return;
+                                    }
+                                    addPerson(person.kind + ':' + person.id, info.name, info.phone, [{name: idName, value: person.id}]);
+                                    search.value = '';
+                                });
                         });
                         hits.appendChild(button);
                     });

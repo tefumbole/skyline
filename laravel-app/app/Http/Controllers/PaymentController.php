@@ -317,11 +317,11 @@ class PaymentController extends Controller
     {
         $this->settleWaitingDeposits();
         $this->refreshFrontDeposits();
-        $balance = '';
+        $total = '';
         try {
-            $balance = app(CampayPayoutService::class)->balance();
+            $total = (string) app(CampayPayoutService::class)->appBalance();
         } catch (\Throwable $e) {
-            $balance = '';
+            $total = '';
         }
         $rows = [];
         if (SchemaFacade::hasTable('public_donations')) {
@@ -335,7 +335,8 @@ class PaymentController extends Controller
         }
 
         return response()->json([
-            'balance' => $balance === '' ? '' : $balance.' XAF',
+            'total' => $total,
+            'balance' => $total,
             'pending' => collect($rows)->contains(function ($row) {
                 return $row['status'] === 'Pending';
             }),

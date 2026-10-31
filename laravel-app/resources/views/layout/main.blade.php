@@ -381,9 +381,8 @@
 
             .momo-wallet-corner {
                 flex: 0 0 auto;
-                max-width: 340px;
                 margin: 12px 16px 10px auto;
-                padding: 8px 12px;
+                padding: 8px 14px;
                 border: 1px solid rgba(225, 179, 104, .45);
                 border-radius: 12px;
                 background: rgba(255, 255, 255, .06);
@@ -391,21 +390,12 @@
                 text-align: right;
             }
 
-            .momo-wallet-corner span {
-                display: block;
-                color: #e1b368;
-                font-size: 10px;
-                font-weight: 700;
-                letter-spacing: .08em;
-                text-transform: uppercase;
-            }
-
             .momo-wallet-corner strong {
                 display: block;
-                margin-top: 2px;
-                font-size: 15px;
+                font-size: 18px;
                 font-weight: 700;
-                line-height: 1.3;
+                line-height: 1.2;
+                white-space: nowrap;
             }
 
             .beyond-module-tabs-label {
@@ -3798,7 +3788,7 @@
                               if (in_array(optional(request()->route())->getName(), $momoWalletRoutes, true)) {
                                   try {
                                       app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
-                                      $momoWalletText = app(\App\Services\CampayPayoutService::class)->balance();
+                                      $momoWalletText = app(\App\Services\CampayPayoutService::class)->appBalance();
                                   } catch (\Throwable $e) {
                                       $momoWalletText = null;
                                   }
@@ -3806,9 +3796,31 @@
                           @endphp
                           @if($momoWalletText !== null)
                               <div class="momo-wallet-corner">
-                                  <span>Mobile Money wallet</span>
-                                  <strong>{{ $momoWalletText }} XAF</strong>
+                                  <strong id="momo-wallet-total">{{ $momoWalletText }}</strong>
                               </div>
+                              <script>
+                                  (function () {
+                                      var strong = document.getElementById('momo-wallet-total');
+                                      if (!strong) return;
+                                      var url = @json(route('deposit.live'));
+                                      function tick() {
+                                          fetch(url, {headers: {Accept: 'application/json'}, credentials: 'same-origin'})
+                                              .then(function (response) { return response.json(); })
+                                              .then(function (data) {
+                                                  if (data.total) strong.textContent = data.total;
+                                                  (data.rows || []).forEach(function (row) {
+                                                      var line = document.querySelector('[data-deposit="' + row.id + '"] .pay-pill');
+                                                      if (!line) return;
+                                                      line.className = 'pay-pill pay-pill-' + row.tone;
+                                                      line.textContent = row.status;
+                                                  });
+                                                  setTimeout(tick, data.pending ? 4000 : 8000);
+                                              })
+                                              .catch(function () { setTimeout(tick, 10000); });
+                                      }
+                                      setTimeout(tick, 4000);
+                                  })();
+                              </script>
                           @endif
                       </div>
                       <div id="beyond-module-tabs-sub" class="beyond-module-tabs-sub"></div>

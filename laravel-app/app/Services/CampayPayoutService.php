@@ -41,6 +41,33 @@ class CampayPayoutService
         return $mtn ? 'MTN' : 'Orange';
     }
 
+    public function appBalance()
+    {
+        $total = $this->totalBalance($this->call('GET', 'balance/', []));
+        if ($total === null) {
+            return null;
+        }
+
+        return number_format($total, 0, '.', ' ').' XAF';
+    }
+
+    protected function totalBalance($body)
+    {
+        if (! is_array($body)) {
+            return null;
+        }
+        if (isset($body['total_balance']) && is_numeric($body['total_balance'])) {
+            return (float) $body['total_balance'];
+        }
+        foreach ($body as $value) {
+            if (is_array($value) && isset($value['total_balance']) && is_numeric($value['total_balance'])) {
+                return (float) $value['total_balance'];
+            }
+        }
+
+        return null;
+    }
+
     public function balance()
     {
         $body = $this->call('GET', 'balance/', []);

@@ -148,6 +148,10 @@
                                 <option value="12">VISA</option>
                             </select>
                         </div>
+                        <div class="col-md-12 mt-1 momo-phone-field" style="display:none;">
+                            <label>Momo phone number</label>
+                            <input type="text" name="momo_phone" class="form-control" placeholder="Leave blank to use the client's number, or enter another">
+                        </div>
                     </div>
                     <div class="form-group mt-2">
                         <div class="card-element" class="form-control">
@@ -212,6 +216,7 @@
         $('select[name="paid_by_id"]').on("change", function() {
             var id = $(this).val();
             $(".debit").hide();
+            $(".momo-phone-field").toggle(String(id) === '8');
             if(id == 3){
                 $(".debit").show(300);
             }
@@ -228,6 +233,7 @@
 
         $(document).on("click", "table.sale-list tbody .add-payment", function() {
             $('select[name="paid_by_id"]').val(1);
+            $('.momo-phone-field').hide();
             $('.selectpicker').selectpicker('refresh');
             rowindex = $(this).closest('tr').index();
             var sale_id = $(this).data('id').toString();

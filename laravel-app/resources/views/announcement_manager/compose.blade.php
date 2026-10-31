@@ -201,13 +201,13 @@
                             </div>
                         </div>
                         <div class="mb-2">
-                            <button type="button" class="an-pill active an-rf" data-role="customers">Customers</button>
+                            <button type="button" class="an-pill an-rf" data-role="customers">Customers</button>
                             <button type="button" class="an-pill an-rf" data-role="staff">System Users</button>
                             <button type="button" class="an-pill an-rf" data-role="applicants">Applicants</button>
-                            <button type="button" class="an-pill an-rf" data-role="all">All</button>
+                            <button type="button" class="an-pill active an-rf" data-role="all">All</button>
                         </div>
                         <div class="d-flex mb-2" style="gap:8px;">
-                            <input type="search" class="an-field an-rsearch" placeholder="Search name, email, phone…">
+                            <input type="search" class="an-field an-rsearch" placeholder="Search name, email, phone…" style="flex:1;min-width:180px;">
                             <button type="button" class="an-btn-outline an-rselect-all" style="white-space:nowrap;">Select all</button>
                         </div>
                         <div class="an-user-list an-rlist"></div>
@@ -305,7 +305,7 @@ window.AN_PRESELECT = @json([
 (function () {
     var recipients = (window.AN_PRESELECT.recipients || []).slice();
     var ccs = (window.AN_PRESELECT.cc || []).slice();
-    var rRole = 'customers', cRole = 'all';
+    var rRole = 'all', cRole = 'all';
     var searchTimers = {};
     var csrf = document.querySelector('meta[name="csrf-token"]')
         ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
@@ -353,7 +353,7 @@ window.AN_PRESELECT = @json([
             credentials: 'same-origin'
         }).then(function (r) { return r.json(); }).then(function (rows) {
             mergeUsers(rows);
-            done(filterUsersLocal(query, roleFilter));
+            done(rows || []);
         }).catch(function () {
             done(filterUsersLocal(query, roleFilter));
         });

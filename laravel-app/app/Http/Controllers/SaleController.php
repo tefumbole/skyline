@@ -468,7 +468,7 @@ class SaleController extends Controller
             ]);
         }
         //return dd($data);
-        $data['user_id'] = Auth::id();
+        $data['user_id'] = Auth::id() ?: (isset($data['user_id']) ? $data['user_id'] : null);
         $cash_register_data = CashRegister::where([
             ['user_id', $data['user_id']],
             ['warehouse_id', $data['warehouse_id']],
@@ -797,7 +797,7 @@ class SaleController extends Controller
             $message = 'Sale successfully added to draft';
         else
             $message = ' Sale created successfully';
-        if($mail_data['email'] && $data['sale_status'] == 1 && empty($data['momo_verified'])) {
+        if($mail_data['email'] && $data['sale_status'] == 1 && empty($data['momo_verified']) && empty($data['pos'])) {
             try {
                 Mail::send( 'mail.sale_details', $mail_data, function( $message ) use ($mail_data)
                 {
@@ -1024,6 +1024,21 @@ class SaleController extends Controller
         if (! empty($data['momo_verified'])) {
             $this->finishVerifiedPosMomo($lims_sale_data, $request, $lims_customer_data, $mail_data, $biller, $net_unit_price, $data);
             $message = ' Sale created successfully';
+        } elseif (! empty($data['pos'])) {
+            $message = 'Sale created successfully';
+            $customerForNotice = $lims_customer_data;
+            $saleForNotice = $lims_sale_data;
+            $mailForNotice = $mail_data;
+            $billerForNotice = $biller;
+            $methodForNotice = $paying_method;
+            $pricesForNotice = $net_unit_price;
+            app()->terminating(function () use ($customerForNotice, $saleForNotice, $mailForNotice, $billerForNotice, $methodForNotice, $pricesForNotice) {
+                try {
+                    $this->sendWhatsappMsg($customerForNotice, $saleForNotice, $mailForNotice, $billerForNotice, $methodForNotice, $pricesForNotice);
+                } catch (\Throwable $e) {
+                    \Log::warning('POS sale notice failed: '.$e->getMessage());
+                }
+            });
         } else {
             $message = $this->sendWhatsappMsg($lims_customer_data, $lims_sale_data, $mail_data, $biller, $paying_method, $net_unit_price);
         }
@@ -1051,6 +1066,9 @@ class SaleController extends Controller
         }
 
         if($data['pos'] == 1) {
+            if ((int) $data['paid_by_id'] === 9) {
+                return redirect()->route('sale.pos')->with('message', 'Order sent.');
+            }
             if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {
                 return redirect()->route('payment.index')->with('message', 'Momo received. The remaining balance is in Payments.');
             }
@@ -1215,15 +1233,19 @@ class SaleController extends Controller
         $payload['paid_by_id'] = 8;
         $payload['pos'] = 1;
         $payload['momo_token'] = $pendingToken;
+        $payload['user_id'] = Auth::id();
         \Cache::put('pos:momo:'.$pendingToken, [
             'payload' => $payload,
             'reference' => (string) $body['reference'],
             'phone' => $phone,
             'amount' => $amount,
             'external' => $pendingToken,
+            'user_id' => Auth::id(),
         ], now()->addMinutes(30));
 
-        return redirect()->route('pos.momo.wait', ['token' => $pendingToken]);
+        return redirect()->route('sale.pos')
+            ->with('message', 'A Mobile Money prompt was sent. The order is placed when the client approves it on their phone.')
+            ->with('momo_watch', $pendingToken);
     }
 
     public function posMomoWait($token)
@@ -1283,38 +1305,14 @@ class SaleController extends Controller
         $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
         $outcome = $campay->collectionOutcome($pending['reference'], $pending['amount'], $pending['phone'], $pattern);
         if ($outcome['state'] === 'paid' && ! empty($outcome['confirmed'])) {
-            if (! \Cache::add('pos_momo_lock:'.$token, 1, now()->addSeconds(60))) {
-                return response()->json(['status' => 'pending']);
-            }
-            $again = $this->posMomoPending($token);
-            if ($again && ! empty($again['sale_id'])) {
-                return response()->json(['status' => 'pending']);
-            }
-            $payload = $pending['payload'];
-            $payload['paid_amount'] = (int) $pending['amount'];
-            $payload['paying_amount'] = (int) $pending['amount'];
-            $payload['paid_by_id'] = 8;
-            $payload['momo_verified'] = 1;
-            $payload['campay_reference'] = $pending['reference'];
-            $payload['momo_token'] = $token;
-            $payload['pos'] = 1;
-            $request = Request::create('/', 'POST', $payload);
-            $request->setUserResolver(function () {
-                return Auth::user();
-            });
-            $this->store($request);
-            $done = $this->posMomoPending($token);
-            $sale = ($done && ! empty($done['sale_id'])) ? Sale::find($done['sale_id']) : null;
-            $paid = $sale && Payment::where('sale_id', $sale->id)->where('payment_note', $note)->exists();
-            if (! $paid) {
-                \Cache::forget('pos_momo_lock:'.$token);
-
+            $sale = $this->completePosMomo($token);
+            if (! $sale) {
                 return response()->json(['status' => 'pending']);
             }
 
             return response()->json([
                 'status' => 'paid',
-                'url' => $this->posMomoDoneUrl($sale),
+                'url' => route('sale.pos'),
             ]);
         }
         if ($outcome['state'] === 'failed') {
@@ -1327,6 +1325,65 @@ class SaleController extends Controller
         }
 
         return response()->json(['status' => 'pending']);
+    }
+
+    public function completePosMomo($token)
+    {
+        $pending = $this->posMomoPending($token);
+        if (! $pending) {
+            return null;
+        }
+        $note = 'Campay '.$pending['reference'];
+        if (! empty($pending['sale_id'])) {
+            $sale = Sale::find($pending['sale_id']);
+            if ($sale && Payment::where('sale_id', $sale->id)->where('payment_note', $note)->exists()) {
+                return $sale;
+            }
+        }
+        $existing = Payment::where('payment_note', $note)->first();
+        if ($existing && $existing->sale_id) {
+            return Sale::find($existing->sale_id);
+        }
+        $campay = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
+        $outcome = $campay->collectionOutcome($pending['reference'], $pending['amount'], $pending['phone'], $pattern);
+        if ($outcome['state'] !== 'paid' || empty($outcome['confirmed'])) {
+            return null;
+        }
+        if (! \Cache::add('pos_momo_lock:'.$token, 1, now()->addSeconds(60))) {
+            return null;
+        }
+        $userId = isset($pending['user_id']) ? $pending['user_id'] : (isset($pending['payload']['user_id']) ? $pending['payload']['user_id'] : null);
+        $user = $userId ? User::find($userId) : Auth::user();
+        if ($user) {
+            Auth::setUser($user);
+        }
+        $payload = $pending['payload'];
+        $payload['paid_amount'] = (int) $pending['amount'];
+        $payload['paying_amount'] = (int) $pending['amount'];
+        $payload['paid_by_id'] = 8;
+        $payload['momo_verified'] = 1;
+        $payload['campay_reference'] = $pending['reference'];
+        $payload['momo_token'] = $token;
+        $payload['pos'] = 1;
+        if ($user) {
+            $payload['user_id'] = $user->id;
+        }
+        $request = Request::create('/', 'POST', $payload);
+        $request->setUserResolver(function () use ($user) {
+            return $user;
+        });
+        $this->store($request);
+        $done = $this->posMomoPending($token);
+        $sale = ($done && ! empty($done['sale_id'])) ? Sale::find($done['sale_id']) : null;
+        $paid = $sale && Payment::where('sale_id', $sale->id)->where('payment_note', $note)->exists();
+        if (! $paid) {
+            \Cache::forget('pos_momo_lock:'.$token);
+
+            return null;
+        }
+
+        return $sale;
     }
 
     /**
@@ -3209,7 +3266,10 @@ class SaleController extends Controller
         if ($amount <= 0 || $amount > $due + 0.009) {
             return redirect()->back()->with('not_permitted', 'Enter an amount that is still due. The bill was not marked paid.');
         }
-        $phone = $customer ? (string) ($customer->phone_number ?: '') : '';
+        $phone = trim((string) (isset($data['momo_phone']) ? $data['momo_phone'] : ''));
+        if ($phone === '' && $customer) {
+            $phone = (string) ($customer->phone_number ?: '');
+        }
         if ($phone === '') {
             return redirect()->back()->with('not_permitted', 'This client has no phone number, so they cannot confirm. The bill was not marked paid.');
         }

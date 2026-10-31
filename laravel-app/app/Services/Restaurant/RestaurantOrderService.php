@@ -88,7 +88,13 @@ class RestaurantOrderService
         }
 
         $this->event($order, null, 'placed', $order->placed_by_user_id, 'Order '.$sale->reference_no.' from '.$order->source);
-        $this->notifyReceived($order);
+        $orderId = $order->id;
+        app()->terminating(function () use ($orderId) {
+            $fresh = RestaurantOrder::find($orderId);
+            if ($fresh) {
+                app(self::class)->notifyReceived($fresh);
+            }
+        });
 
         return $order;
     }

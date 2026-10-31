@@ -17,6 +17,29 @@
     @if(session()->has('not_permitted'))
         <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
     @endif
+    @if(session('momo_watch'))
+        <script>
+            (function () {
+                var url = @json(route('pos.momo.status', ['token' => session('momo_watch')]));
+                var tries = 0;
+                var timer = setInterval(function () {
+                    tries += 1;
+                    if (tries > 40) { clearInterval(timer); return; }
+                    fetch(url, {headers: {Accept: 'application/json'}, credentials: 'same-origin'})
+                        .then(function (response) { return response.json(); })
+                        .then(function (data) {
+                            if (!data || data.status === 'pending') return;
+                            clearInterval(timer);
+                            if (data.status === 'paid') {
+                                alert('The client approved the Mobile Money payment. The order is placed.');
+                                return;
+                            }
+                            if (data.message) alert(data.message);
+                        });
+                }, 4000);
+            })();
+        </script>
+    @endif
     <style>
         input.product_price_change.form-control {
             padding: 5px 0px;
@@ -1739,6 +1762,9 @@
                                             </div>
                                             <div class="column-5">
                                                 <button style="background-color: #da7828" type="button" class="btn btn-custom" id="momo-btn"><i class="fa fa-money"></i> Momo</button>
+                                            </div>
+                                            <div class="column-5" style="min-width:180px;">
+                                                <input type="text" id="pos-other-momo" class="form-control" placeholder="Other Momo number" inputmode="tel" autocomplete="off" style="height:42px;">
                                             </div>
                                             {{--                            <div class="column-5">--}}
                                             {{--                                <button style="background-color: #5f27cd" type="button" class="btn btn-custom payment-btn" data-toggle="modal" data-target="#add-payment" id="gift-card-btn"><i class="fa fa-credit-card-alt"></i> GiftCard</button>--}}
@@ -3861,13 +3887,20 @@
                 alert("Every item needs a price before it can be paid.");
                 return;
             }
-            $('#momo-collect-phone').val(customerPhone());
-            $('input[name="momo_pay_mode"][value="full"]').prop('checked', true);
-            $('#momo-partial-wrap').hide();
-            $('#momo-partial-amount').val('');
-            $('#momo-holder-name').text('');
-            $('#momo-collect').modal('show');
-            lookupMomoHolder($('#momo-collect-phone').val());
+            var other = ($('#pos-other-momo').val() || '').trim();
+            var phone = other !== '' ? other : customerPhone();
+            if (phone.replace(/\D/g, '').length < 9) {
+                alert('Enter the Momo number.');
+                $('#pos-other-momo').focus();
+                return;
+            }
+            var total = moneyNumber($('#grand-total').text());
+            if (!(total >= 100)) {
+                alert('Mobile Money needs a whole amount of at least 100 XAF.');
+                return;
+            }
+            $('input[name="momo_phone"]').val(phone);
+            submitPosSale(8, Math.round(total));
         });
         $('#momo-collect-phone').on('input', function () {
             var value = this.value;

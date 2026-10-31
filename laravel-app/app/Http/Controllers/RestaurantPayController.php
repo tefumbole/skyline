@@ -100,6 +100,11 @@ class RestaurantPayController extends Controller
         if ($reference === '') {
             return response('ok', 200);
         }
+        if (preg_match('/^[a-f0-9]{20}$/', $external)) {
+            app(\App\Http\Controllers\SaleController::class)->completePosMomo($external);
+
+            return response('ok', 200);
+        }
         $pending = null;
         $sale = null;
         if (strpos($external, 'sale-momo-') === 0) {

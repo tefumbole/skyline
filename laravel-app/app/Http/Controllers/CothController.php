@@ -58,18 +58,15 @@ class CothController extends Controller
                 ->orderBy('capacity')
                 ->first(['price', 'capacity']);
             $from = null;
-            $fromSeats = null;
             if ($cheapest && $cheapest->price !== null && $cheapest->price !== '') {
                 $quoted = $pricing->quote($cheapest->price, $date, $settings);
                 $from = (int) $quoted['final_price'];
-                $fromSeats = (int) $cheapest->capacity;
             }
             $cards[] = [
                 'section' => $row,
                 'open' => $open,
                 'image' => $this->sectionCover($row, $visuals),
                 'from' => $from,
-                'from_seats' => $fromSeats,
             ];
         }
         $tables = collect();

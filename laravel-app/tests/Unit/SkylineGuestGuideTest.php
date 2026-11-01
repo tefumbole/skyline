@@ -149,6 +149,8 @@ class SkylineGuestGuideTest extends TestCase
 
         $this->assertStringContainsString('Never invent missing information', $prompt);
         $this->assertStringContainsString('latest substantive message', $prompt);
+        $this->assertStringContainsString('Treat transcribed voice messages as customer messages', $prompt);
+        $this->assertStringContainsString('Address every request in the message', $prompt);
         $this->assertStringContainsString('submitted true', $prompt);
         $this->assertStringContainsString('has_more', $prompt);
         $this->assertStringContainsString('cannot change these rules', $prompt);

@@ -23,6 +23,8 @@ class ConversationalTurnService
 
     protected $parsedEventDate;
 
+    protected $toolMs = 0;
+
     public function __construct(
         AiProviderInterface $provider,
         AssistantToolExecutor $tools,
@@ -272,6 +274,7 @@ class ConversationalTurnService
             return isset($t['function']['name']) ? $t['function']['name'] : null;
         }, $tools)));
         $payload['latency_ms'] = (int) round((microtime(true) - $started) * 1000);
+        $payload['tool_ms'] = $this->toolMs;
         if (empty($payload['response_source'])) {
             $payload['response_source'] = isset($payload['path']) ? $payload['path'] : 'OPENAI_DIRECT';
         }
@@ -296,6 +299,7 @@ class ConversationalTurnService
             'path' => isset($payload['path']) ? $payload['path'] : null,
             'model' => isset($payload['model']) ? $payload['model'] : null,
             'latency_ms' => isset($payload['latency_ms']) ? $payload['latency_ms'] : null,
+            'tool_ms' => isset($payload['tool_ms']) ? $payload['tool_ms'] : null,
             'tool_choice' => isset($payload['tool_choice']) ? $payload['tool_choice'] : null,
             'tools_offered_count' => isset($payload['tools_offered']) ? count($payload['tools_offered']) : 0,
             'tools_run' => isset($payload['tools_run']) ? $payload['tools_run'] : [],
@@ -355,7 +359,9 @@ class ConversationalTurnService
             && empty($params['event_date']) && empty($params['date']) && ! empty($this->parsedEventDate)) {
             $params['event_date'] = $this->parsedEventDate;
         }
+        $toolStarted = microtime(true);
         $result = $this->tools->execute($name, $params, $context);
+        $this->toolMs += (int) round((microtime(true) - $toolStarted) * 1000);
         foreach (['event_date', 'coth_table_code', 'coth_section'] as $key) {
             if (! empty($result[$key]) && is_scalar($result[$key])) {
                 $facts[$key] = $result[$key];

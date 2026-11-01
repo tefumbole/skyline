@@ -120,11 +120,29 @@ class BeyondAssistantService
 
         $context = $this->context->build($conversation);
         $mem = $this->memory->forConversation($conversation->id);
+        $remembered = $mem->parameters();
+        $media = app(\App\Services\WhatsApp\WhatsAppAudioTranscriber::class)->forAssistant($message->media());
+        $spoken = isset($media['spoken_language']) ? (string) $media['spoken_language'] : '';
+        $previousLanguage = isset($remembered['reply_language']) ? $remembered['reply_language'] : null;
+        $languages = app(\App\Services\Assistant\CustomerLanguage::class);
+        $replyLanguage = $spoken !== ''
+            ? $spoken
+            : $languages->resolve((string) $message->body, $previousLanguage);
+        if ($replyLanguage) {
+            $remembered['reply_language'] = $replyLanguage;
+        } elseif ($spoken === '' && ! $languages->isNeutral((string) $message->body)) {
+            unset($remembered['reply_language']);
+        }
+        $mem->setParameters($remembered);
+        $mem->save();
         $slots = $this->extractSlots((string) $message->body, $mem->parameters());
         $slots['text'] = (string) $message->body;
-        $media = $message->media();
+        $slots['reply_language'] = $replyLanguage;
         if ($media) {
             $slots['media'] = $media;
+            if (! empty($media['transcript'])) {
+                $slots['voice_note'] = true;
+            }
             $slots['provider_message_id'] = $message->provider_message_id;
             if (isset($media['latitude'])) {
                 $slots['latitude'] = $media['latitude'];

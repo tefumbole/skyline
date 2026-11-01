@@ -353,13 +353,22 @@ class WaSenderEventParser
             if (! empty($inner[$key]) && is_array($inner[$key])) {
                 $block = $inner[$key];
 
-                return [
+                $meta = [
                     'type' => $type,
                     'mimetype' => isset($block['mimetype']) ? $block['mimetype'] : null,
                     'file_name' => isset($block['fileName']) ? $block['fileName'] : null,
                     'file_length' => isset($block['fileLength']) ? $block['fileLength'] : null,
                     'url' => isset($block['url']) ? $block['url'] : null,
                 ];
+                if ($type === 'AUDIO') {
+                    $meta['ptt'] = ! empty($block['ptt']);
+                    $meta['seconds'] = isset($block['seconds']) ? (int) $block['seconds'] : null;
+                    $meta['media_key'] = isset($block['mediaKey']) ? $block['mediaKey'] : null;
+                    $meta['file_sha256'] = isset($block['fileSha256']) ? $block['fileSha256'] : null;
+                    $meta['file_enc_sha256'] = isset($block['fileEncSha256']) ? $block['fileEncSha256'] : null;
+                }
+
+                return $meta;
             }
         }
         if (! empty($inner['locationMessage']) && is_array($inner['locationMessage'])) {

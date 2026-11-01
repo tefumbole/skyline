@@ -49,13 +49,27 @@ class CothController extends Controller
         $visuals = app(CothVisualLibrary::class);
         $cards = [];
         foreach ($sections as $row) {
+            $tableIds = CothTable::where('coth_section_id', $row->id)->where('is_active', 1)->pluck('id');
             $open = CothSlot::where('event_date', $date)->where('status', 'open')->where('is_enabled', 1)
-                ->whereIn('coth_table_id', CothTable::where('coth_section_id', $row->id)->where('is_active', 1)->pluck('id'))
+                ->whereIn('coth_table_id', $tableIds)
                 ->count();
+            $cheapest = CothTable::where('coth_section_id', $row->id)->where('is_active', 1)
+                ->orderBy('price')
+                ->orderBy('capacity')
+                ->first(['price', 'capacity']);
+            $from = null;
+            $fromSeats = null;
+            if ($cheapest && $cheapest->price !== null && $cheapest->price !== '') {
+                $quoted = $pricing->quote($cheapest->price, $date, $settings);
+                $from = (int) $quoted['final_price'];
+                $fromSeats = (int) $cheapest->capacity;
+            }
             $cards[] = [
                 'section' => $row,
                 'open' => $open,
                 'image' => $this->sectionCover($row, $visuals),
+                'from' => $from,
+                'from_seats' => $fromSeats,
             ];
         }
         $tables = collect();

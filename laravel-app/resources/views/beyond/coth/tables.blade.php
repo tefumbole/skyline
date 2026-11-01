@@ -51,6 +51,9 @@
     .coth-wrap.is-fit .coth-exp-body { flex: 0 0 auto; padding: 8px 12px 10px; }
     .coth-exp-body h3 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; margin: 0; }
     .coth-wrap.is-fit .coth-exp-body h3 { font-size: 18px; }
+    .coth-exp-from { margin-top: 8px; color: #E8C878; font-size: 16px; font-weight: 600; letter-spacing: .01em; }
+    .coth-exp-from-seats { margin-top: 2px; color: rgba(246,239,228,.62); font-size: 12px; }
+    .coth-wrap.is-fit .coth-exp-from { margin-top: 4px; font-size: 14px; }
     .coth-exp-count {
         margin-top: 10px; border-radius: 999px; background: rgba(255,255,255,.08); color: rgba(246,239,228,.8);
         font-size: 13px; padding: 4px 12px;
@@ -215,6 +218,12 @@
                         </a>
                         <span class="coth-exp-body">
                             <h3>{{ $card['section']->code === 'yard' ? 'Premium — Garden' : $card['section']->name }}</h3>
+                            @if ($card['from'] !== null)
+                                <span class="coth-exp-from">From {{ number_format($card['from']) }} FCFA</span>
+                                @if (! empty($card['from_seats']))
+                                    <span class="coth-exp-from-seats">table of {{ $card['from_seats'] }}</span>
+                                @endif
+                            @endif
                             <span class="coth-exp-count">{{ $card['open'] }} available</span>
                             <span class="coth-exp-pin" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>

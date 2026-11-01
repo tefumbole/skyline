@@ -43,10 +43,10 @@
     }
     .coth-wrap.is-fit .coth-exp-card { height: 100%; min-height: 0; }
     .coth-exp-card:hover { border-color: #E8C878; }
-    .coth-exp-photo { height: 210px; background: #24160F; display: flex; align-items: center; justify-content: center; padding: 8px; }
-    .coth-wrap.is-fit .coth-exp-photo { flex: 1 1 auto; height: auto; min-height: 0; padding: 4px; }
+    .coth-exp-photo { height: 280px; background: #24160F; display: flex; align-items: center; justify-content: center; padding: 0; overflow: hidden; }
+    .coth-wrap.is-fit .coth-exp-photo { flex: 1 1 auto; height: auto; min-height: 220px; padding: 0; }
     .coth-exp-card.is-collapsed .coth-exp-photo { display: none; }
-    .coth-exp-photo img { width: 100%; height: 100%; object-fit: contain; }
+    .coth-exp-photo img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.32); }
     .coth-exp-body { padding: 16px 16px 18px; display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; }
     .coth-wrap.is-fit .coth-exp-body { flex: 0 0 auto; padding: 8px 12px 10px; }
     .coth-exp-body h3 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; margin: 0; }
@@ -83,7 +83,7 @@
         .coth-exp-head, .coth-flow { display: block; min-width: 0; }
         .coth-flow { display: flex; margin-top: 16px; }
         .coth-exp-grid { grid-template-columns: 1fr 1fr; }
-        .coth-wrap.is-fit .coth-exp-photo { height: 160px; flex: none; }
+        .coth-wrap.is-fit .coth-exp-photo { height: 240px; min-height: 240px; flex: none; }
     }
     @media (max-width: 640px) {
         .coth-exp-grid { grid-template-columns: 1fr; }
@@ -119,7 +119,7 @@
     details.coth-card > summary:hover { filter: brightness(1.04); }
     .coth-variants { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; padding: 0 16px 18px; }
     .coth-variant { border: 1px solid rgba(198,161,91,.4); border-radius: 18px; background: #24160F; overflow: hidden; display: flex; flex-direction: column; }
-    .coth-variant img { width: 100%; height: 280px; object-fit: contain; background: #24160F; display: block; }
+    .coth-variant img { width: 100%; height: 340px; object-fit: contain; background: #24160F; display: block; }
     .coth-variant-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
     .coth-unit { border-top: 1px solid rgba(198,161,91,.22); }
     .coth-card.is-selected, a.coth-card:focus-visible {
@@ -292,7 +292,7 @@
                             </button>
                             <summary class="block">
                                 <div class="coth-art relative px-4 pt-5 pb-3 flex items-center justify-center">
-                                    <img src="{{ $artFor($sample) }}" alt="{{ $groupLabel }} {{ $sample->capacity }} separate seats" class="w-full max-w-[300px] h-44 object-contain" loading="lazy">
+                                    <img src="{{ $artFor($sample) }}" alt="{{ $groupLabel }} {{ $sample->capacity }} separate seats" class="w-full max-w-[420px] h-64 object-contain" loading="lazy">
                                     <span class="coth-pill absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-semibold uppercase rounded-full px-4 py-1">
                                         {{ $chip === 'City View · High Table' ? 'City View · High Table' : $sample->capacity.' Seats' }}
                                     </span>

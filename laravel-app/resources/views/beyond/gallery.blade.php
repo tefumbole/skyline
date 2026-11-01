@@ -22,10 +22,10 @@
     }
 @endphp
 
-<section class="py-8 sm:py-10 bg-white">
+<section class="pt-3 pb-6 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         @if (count($slides))
-            <div class="flex justify-center mb-8">
+            <div class="flex justify-center mb-3">
                 <button type="button" id="gallery-slideshow-open" class="gallery-show-open">
                     <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.16-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z"/></svg>
                     Slideshow
@@ -106,11 +106,15 @@
         max-width: none;
         object-fit: contain;
         opacity: 0;
-        transform: scale(1.035);
-        transition: opacity .8s ease, transform 1.15s ease;
+        transition: opacity 2.6s ease, transform 2.6s ease;
         pointer-events: none;
     }
-    .gallery-show-photo.is-on { opacity: 1; transform: scale(1); }
+    .gallery-show-photo[data-motion="fade"] { transform: scale(1.08); }
+    .gallery-show-photo[data-motion="right"] { transform: translate3d(12%, 0, 0) scale(1.02); }
+    .gallery-show-photo[data-motion="left"] { transform: translate3d(-12%, 0, 0) scale(1.02); }
+    .gallery-show-photo[data-motion="rise"] { transform: translate3d(0, 10%, 0); }
+    .gallery-show-photo[data-motion="zoom"] { transform: scale(0.86); }
+    .gallery-show-photo.is-on { opacity: 1; transform: none; }
     .gallery-show-close,
     .gallery-show-nav,
     .gallery-show-bar button {
@@ -196,38 +200,46 @@ function closeGalleryLightbox(e) {
     var photoB = document.getElementById('gallery-show-b');
     var count = document.getElementById('gallery-show-count');
     var playBtn = document.getElementById('gallery-show-play');
+    var motions = ['fade', 'right', 'left', 'rise', 'zoom'];
     var index = 0;
     var useA = true;
     var playing = true;
     var timer = null;
 
+    function reveal(incoming, outgoing) {
+        incoming.classList.remove('is-on');
+        void incoming.offsetWidth;
+        incoming.classList.add('is-on');
+        outgoing.classList.remove('is-on');
+    }
     function show(next) {
         index = (next + slides.length) % slides.length;
         var incoming = useA ? photoB : photoA;
         var outgoing = useA ? photoA : photoB;
-        incoming.onload = function () {
-            incoming.classList.add('is-on');
-            outgoing.classList.remove('is-on');
-        };
-        if (incoming.getAttribute('src') === slides[index].src) {
-            incoming.classList.add('is-on');
-            outgoing.classList.remove('is-on');
+        var motion = motions[index % motions.length];
+        incoming.setAttribute('data-motion', motion);
+        incoming.alt = slides[index].alt;
+        incoming.classList.remove('is-on');
+        function go() { reveal(incoming, outgoing); }
+        if (incoming.getAttribute('src') === slides[index].src && incoming.complete) {
+            go();
         } else {
+            incoming.onload = go;
             incoming.src = slides[index].src;
         }
-        incoming.alt = slides[index].alt;
         useA = !useA;
         count.textContent = (index + 1) + ' / ' + slides.length;
     }
     function arm() {
         clearTimeout(timer);
         if (!playing || slides.length < 2) return;
-        timer = setTimeout(function () { show(index + 1); arm(); }, 4500);
+        timer = setTimeout(function () { show(index + 1); arm(); }, 8000);
     }
     function openShow() {
         root.hidden = false;
         document.body.style.overflow = 'hidden';
         useA = true;
+        photoA.setAttribute('data-motion', 'fade');
         photoA.classList.add('is-on');
         photoB.classList.remove('is-on');
         photoA.src = slides[0].src;

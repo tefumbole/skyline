@@ -64,6 +64,12 @@
                     <input type="checkbox" name="assistant_collect_name" value="1" {{ !empty($collectName) ? 'checked' : '' }}>
                     Ask an unknown contact for their name once
                 </label>
+                <label>AI escalation WhatsApp number</label>
+                <input type="text" name="AI_ESCALATION_WHATSAPP_NUMBER" class="form-control mb-2" style="max-width:320px" value="{{ $escalationNumber }}" placeholder="Staff number, not the public hotel line">
+                <p class="small text-muted">Mbole AI sends handover summaries here. Leave this empty to keep them in the support queue without a WhatsApp alert. This is not the public hotel number.</p>
+                @if(!empty($policyConflicts))
+                    <div class="alert alert-warning">Chill on the Hill rule to confirm: {{ implode(' ', $policyConflicts) }}</div>
+                @endif
                 <label>Default handover agent</label>
                 <select name="default_handover_user_id" class="form-control mb-3" style="max-width:320px">
                     <option value="0">None</option>

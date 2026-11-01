@@ -143,6 +143,7 @@ class CothAdminController extends Controller
             'discount_percent' => 'required|integer|min:0|max:100',
             'hold_minutes' => 'required|integer|min:5|max:120',
             'discount_dates' => 'nullable|string',
+            'deposit_refund_policy' => 'nullable|in:non_refundable,refundable',
             'event_end_at' => 'nullable|date',
         ]);
         $dates = array_values(array_filter(array_map('trim', preg_split('/[\s,]+/', (string) $data['discount_dates']))));
@@ -151,6 +152,10 @@ class CothAdminController extends Controller
         $settings->hold_minutes = $data['hold_minutes'];
         $settings->discount_dates = json_encode($dates);
         $settings->discount_includes_addons = $request->has('discount_includes_addons') ? 1 : 0;
+        if (Schema::hasColumn('coth_settings', 'deposit_refund_policy')) {
+            $policy = (string) $request->input('deposit_refund_policy', '');
+            $settings->deposit_refund_policy = in_array($policy, ['non_refundable', 'refundable'], true) ? $policy : null;
+        }
         $settings->save();
         if (! empty($data['event_end_at']) && $settings->event_id) {
             $event = Event::find($settings->event_id);

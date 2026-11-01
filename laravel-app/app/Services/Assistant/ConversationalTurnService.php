@@ -233,11 +233,15 @@ class ConversationalTurnService
         }
 
         // Empty model output — NEVER convert into a rental/internship business menu.
+        $lookupFailed = count($toolsRun) > 0;
+
         return $this->finish([
-            'reply' => 'Sorry — I had trouble forming a reply just now. Could you say that again in another way?',
-            'handover' => false,
+            'reply' => $lookupFailed
+                ? 'I could not confirm that just now. The hotel team can continue this chat.'
+                : 'Sorry — I had trouble forming a reply just now. Could you say that again in another way?',
+            'handover' => $lookupFailed,
             'call_request' => false,
-            'reason' => null,
+            'reason' => $lookupFailed ? 'TOOL_FAILURE' : null,
             'memory' => $facts,
             'tool' => null,
             'tool_result' => $lastToolResult,
@@ -361,11 +365,14 @@ class ConversationalTurnService
             $facts['_links'] = $result['links'];
         }
         if ($name === 'request_human_handover' && ! empty($result['handed_over'])) {
+            $text = isset($slots['text']) ? (string) $slots['text'] : '';
+            $french = preg_match('/\b(bonjour|bonsoir|je |vous |prix|merci|voudrais|table)\b/iu', $text) === 1;
+
             return [
                 'result' => $result,
                 'facts' => ['handover_state' => 'HUMAN', 'handover_reason' => isset($result['reason_category']) ? $result['reason_category'] : 'USER_REQUESTED_HUMAN'],
                 'handover' => true,
-                'reply' => 'I am connecting you with a team member who can help further.',
+                'reply' => $this->handoverCustomerLine($result, $french),
                 'reason' => isset($result['reason_category']) ? $result['reason_category'] : 'USER_REQUESTED_HUMAN',
             ];
         }
@@ -379,15 +386,33 @@ class ConversationalTurnService
         ];
     }
 
+    protected function handoverCustomerLine(array $result, $french)
+    {
+        if (! empty($result['delivered'])) {
+            return $french
+                ? 'L’équipe de l’hôtel a reçu votre demande.'
+                : 'The hotel team has received your request.';
+        }
+        if (! empty($result['submitted'])) {
+            return $french
+                ? 'Votre demande a été envoyée à l’équipe de l’hôtel. Cela ne confirme pas encore qu’elle a été lue.'
+                : 'Your request has been sent to the hotel team. That does not confirm it has been read.';
+        }
+
+        return $french
+            ? 'Votre demande est dans la file de l’hôtel. Je ne peux pas confirmer qu’une alerte a été envoyée.'
+            : 'Your request is in the hotel queue. I cannot confirm that an alert was sent.';
+    }
+
     protected function providerFailure($reason, $model = null, array $tools = [], $toolChoice = 'auto', $started = null)
     {
         $started = $started ?: microtime(true);
 
         return $this->finish([
-            'reply' => "I'm having trouble reaching my AI service right now. Please try again in a moment, or ask for a human if you need urgent help.",
-            'handover' => false,
+            'reply' => 'I could not reach the assistant service just now. The hotel team can continue this chat.',
+            'handover' => true,
             'call_request' => false,
-            'reason' => null,
+            'reason' => 'TOOL_FAILURE',
             'memory' => [],
             'tool' => null,
             'tool_result' => null,

@@ -31,36 +31,79 @@ class SkylineGuestGuide
             return ['success' => false, 'error' => 'catalogue_unavailable'];
         }
         $term = trim((string) (isset($params['query']) ? $params['query'] : ''));
+        $cursor = max(0, (int) (isset($params['cursor']) ? $params['cursor'] : 0));
+        $limit = 6;
         $query = Product::query()->where('is_active', true);
         if ($term !== '') {
             $query->where(function ($inner) use ($term) {
                 $inner->where('name', 'like', '%'.$term.'%')->orWhere('code', 'like', '%'.$term.'%');
             });
         }
-        $rows = $query->orderBy('name')->limit(8)->get(['id', 'name', 'code', 'price', 'qty', 'category_id', 'product_details']);
+        $total = (clone $query)->count();
+        if ($cursor > 0) {
+            $query->where('id', '>', $cursor);
+        }
+        $rows = (clone $query)->orderBy('id')->limit($limit)->get(['id', 'name', 'code', 'price', 'qty', 'is_variant', 'category_id', 'product_details']);
         $categories = $this->categoryNames($rows->pluck('category_id')->all());
         $products = [];
         foreach ($rows as $row) {
-            $products[] = [
-                'name' => $row->name,
-                'code' => $row->code,
-                'price_fcfa' => (int) $row->price,
-                'currency' => 'XAF',
-                'in_stock' => (float) $row->qty > 0,
-                'category' => isset($categories[$row->category_id]) ? $categories[$row->category_id] : null,
-                'summary' => $this->plain($row->product_details, 180),
-            ];
+            $products = array_merge($products, $this->productChoices($row, $categories));
         }
+        $lastId = $rows->count() ? (int) $rows->last()->id : $cursor;
+        $hasMore = $lastId > 0 && (clone $query)->where('id', '>', $lastId)->exists();
 
         return [
             'success' => true,
             'products' => $products,
             'currency' => 'XAF',
+            'partial' => $hasMore,
+            'has_more' => $hasMore,
+            'next_cursor' => $hasMore ? $lastId : null,
+            'match_count' => $total,
             'links' => $this->safeLinks([
                 $this->link('Order Food', 'restaurant.menu'),
             ]),
-            'note' => 'Prices are the current catalogue price per item. This is not an order.',
+            'note' => $hasMore
+                ? 'This is not the complete menu. Say so. Offer the menu link or the next page. Pass next_cursor to continue without repeating these products.'
+                : 'Each variant has its own price. Inventory quantity is not a public sold-out flag: an active item can still be ordered when quantity is zero. This is not an order.',
         ];
+    }
+
+    protected function productChoices(Product $row, array $categories)
+    {
+        $choice = [
+            'name' => $row->name,
+            'code' => $row->code,
+            'currency' => 'XAF',
+            'category' => isset($categories[$row->category_id]) ? $categories[$row->category_id] : null,
+            'summary' => $this->plain($row->product_details, 180),
+        ];
+        $stockNote = 'inventory_on_hand_not_a_sold_out_flag';
+        if ($row->is_variant && Schema::hasTable('product_variants')) {
+            $variants = \App\ProductVariant::where('product_id', $row->id)->get();
+            $choices = [];
+            foreach ($variants as $variant) {
+                $label = \App\Variant::where('id', $variant->variant_id)->value('name');
+                $choices[] = $choice + [
+                    'variant' => $label,
+                    'price_fcfa' => (int) $row->price + (int) $variant->additional_price,
+                    'availability' => 'listed',
+                    'inventory_qty' => (float) $variant->qty,
+                    'inventory_meaning' => $stockNote,
+                ];
+            }
+            if ($choices) {
+                return $choices;
+            }
+        }
+
+        return [$choice + [
+            'variant' => null,
+            'price_fcfa' => (int) $row->price,
+            'availability' => 'listed',
+            'inventory_qty' => (float) $row->qty,
+            'inventory_meaning' => $stockNote,
+        ]];
     }
 
     public function product(array $params)
@@ -78,7 +121,7 @@ class SkylineGuestGuide
     {
         $settings = $this->settings();
         $stamp = $settings && $settings->updated_at ? $settings->updated_at->timestamp : 0;
-        $payload = Cache::remember('skyline-guest-event-'.$stamp, 600, function () use ($settings) {
+        $payload = Cache::remember('skyline-guest-event-v3-'.$stamp, 600, function () use ($settings) {
             return $this->eventPayload($settings);
         });
 
@@ -268,13 +311,80 @@ class SkylineGuestGuide
         return ['ok' => true, 'date' => $date];
     }
 
+    public function policyConflicts()
+    {
+        $approved = app(CothCatalog::class)->discountDates();
+        $have = $approved;
+        $settings = $this->settings();
+        if ($settings && method_exists($settings, 'discountDateList')) {
+            $stored = $settings->discountDateList();
+            $have = is_array($stored) ? $stored : [];
+        }
+        $percent = $settings ? (int) $settings->discount_percent : 0;
+        $approvedSorted = $approved;
+        $haveSorted = $have;
+        sort($approvedSorted);
+        sort($haveSorted);
+        $conflicts = [];
+        if ($percent !== 20 || $haveSorted !== $approvedSorted) {
+            $conflicts[] = 'Checkout discount is '.$percent.'% on '.($have ? implode(', ', $have) : 'no dates').'. The approved discount is 20% on the open nights '.implode(', ', $approved).'. 28 and 29 December stay closed. Do not invent a discount the quote tool does not return.';
+        }
+        $deposit = $settings ? (int) $settings->deposit_percent : 0;
+        if ($settings && $deposit < 20) {
+            $conflicts[] = 'The stored deposit is '.$deposit.'%. The minimum deposit is 20%.';
+        }
+
+        return $conflicts;
+    }
+
+    public function depositBrief()
+    {
+        $settings = $this->settings();
+        $percent = $settings ? (int) $settings->deposit_percent : null;
+        $percentLine = $percent === null ? 'Read the deposit percent from the quote tool.' : 'Deposit percent from settings is '.$percent.'.';
+
+        return $percentLine.' '.$this->depositRefundWording($settings);
+    }
+
+    public function depositRefundWording(CothSetting $settings = null)
+    {
+        $policy = null;
+        if ($settings && Schema::hasColumn('coth_settings', 'deposit_refund_policy')) {
+            $policy = $settings->deposit_refund_policy;
+        }
+        if ($policy === 'non_refundable') {
+            return 'The configured deposit policy is non-refundable.';
+        }
+        if ($policy === 'refundable') {
+            return 'The configured deposit policy is refundable.';
+        }
+        $text = '';
+        if (Schema::hasTable('event_publications') && Schema::hasTable('btw_events')) {
+            $event = Event::where('slug', 'chill-on-the-hill')->first();
+            if ($event) {
+                $publication = EventPublication::where('event_id', $event->id)->first();
+                $text = $publication ? trim((string) $publication->public_description) : '';
+            }
+        }
+        if ($text !== '' && stripos($text, 'refund') !== false) {
+            return 'Published event text: '.$this->plain($text, 240);
+        }
+
+        return 'Deposit refund terms are not configured. Do not say whether the deposit is refundable.';
+    }
+
     public function promptFacts()
     {
         $dates = $this->spokenDates(app(CothCatalog::class)->eventDates());
         $lines = [];
         $lines[] = 'Chill on the Hill brief. Use it for dates, tables, and prices.';
-        $lines[] = 'Open nights: '.$dates.'. Closed inside that span: 28 December 2026 and 29 December 2026. One booking is one night.';
-        $lines[] = 'Deposit is 20 percent of the night price and is not refundable. Apply a discount only when the quote tool returns one.';
+        $lines[] = 'Event period: 24 December 2026 to 2 January 2027. Bookable nights: '.$dates.'. Closed and not bookable: 28 December 2026 and 29 December 2026. A discount does not make a closed night bookable. One booking is one night.';
+        $lines[] = 'Apply a discount only when the quote tool returns one. Extra-chair discount follows the stored discount_includes_addons flag.';
+        $lines[] = $this->depositBrief();
+        $conflicts = $this->policyConflicts();
+        if ($conflicts) {
+            $lines[] = 'Administrator conflicts. Do not apply these as prices: '.implode(' ', $conflicts);
+        }
         foreach ($this->resolvedSections() as $section) {
             $bits = [];
             foreach ($section['options'] as $option) {
@@ -377,6 +487,8 @@ class SkylineGuestGuide
             'venue' => 'Skyline Hotel, Bamenda',
             'timezone' => $settings && $settings->timezone ? $settings->timezone : 'Africa/Douala',
             'currency' => 'XAF',
+            'event_period' => ['start' => '2026-12-24', 'end' => '2027-01-02'],
+            'bookable_nights' => $dates,
             'event_dates' => $dates,
             'closed_dates_inside_span' => ['2026-12-28', '2026-12-29'],
             'reservation_span' => 'One selected event date. The booking does not create a second night on the next calendar date.',
@@ -390,9 +502,11 @@ class SkylineGuestGuide
             'message' => 'Chill on the Hill tables are published. Ask which night the guest wants if they have not chosen one.',
             'instruction' => 'If the guest asks which tables are available and has not named a night, list the sections, seat counts, and prices. Do not say the tables are unavailable.',
             'deposit_percent' => $settings ? (int) $settings->deposit_percent : 0,
-            'deposit_refundable' => false,
+            'deposit_refund_policy' => ($settings && isset($settings->deposit_refund_policy)) ? $settings->deposit_refund_policy : null,
+            'deposit_refund_wording' => $this->depositRefundWording($settings),
+            'discount_includes_addons' => $settings ? (int) ($settings->discount_includes_addons ?? 0) === 1 : null,
             'published_summary' => $publication ? $this->plain($publication->public_summary, 400) : null,
-            'conflicts' => $conflicts,
+            'conflicts' => array_values(array_unique(array_merge($conflicts, $this->policyConflicts()))),
             'links' => $this->safeLinks([$this->link('View Tables', 'coth.index')]),
         ];
     }

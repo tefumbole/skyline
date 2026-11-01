@@ -70,6 +70,10 @@ class BeyondAssistantService
         $fingerprint = $this->fingerprint($message);
         $existing = $this->existingActivity($fingerprint);
         if ($existing && in_array($existing->status, [AssistantActivity::COMPLETED, AssistantActivity::HANDED_OVER], true)) {
+            \Illuminate\Support\Facades\Log::info('[beyond-assistant] duplicate reply skipped', [
+                'message_id' => $message->id,
+            ]);
+
             return ['skipped' => true, 'reason' => 'duplicate'];
         }
         if ($existing && $existing->status === AssistantActivity::SKIPPED && ! in_array((string) $existing->error, ['human_mode', 'assistant_disabled', 'not_ai_mode'], true)) {
@@ -85,6 +89,19 @@ class BeyondAssistantService
             return ['skipped' => true, 'reason' => $reason];
         }
         if ($this->rateLimited($conversation)) {
+            $already = AssistantActivity::where('conversation_id', $conversation->id)
+                ->where('error', 'rate_limited')
+                ->where('created_at', '>=', now()->subHour())
+                ->where('id', '!=', $activity->id)
+                ->exists();
+            if (! $already && $conversation->mode === \App\WhatsApp\WhatsAppConversation::MODE_AI) {
+                $this->conversations->assistantReply($conversation, 'You have reached the automatic replies for this hour. The hotel team can continue this chat.');
+                $this->handover->notifyStaff($conversation, [
+                    'reason' => 'hourly_reply_limit',
+                    'question' => (string) $message->body,
+                    'language' => '',
+                ]);
+            }
             $activity->status = AssistantActivity::SKIPPED;
             $activity->error = 'rate_limited';
             $activity->save();
@@ -612,11 +629,19 @@ class BeyondAssistantService
                     'reason' => $decision['reason'] ?: 'intern_request',
                 ]);
             } else {
-                $this->handover->toHuman($conversation, $decision['reason'] ?: 'handover');
+                $this->handover->notifyStaff($conversation, [
+                    'reason' => $decision['reason'] ?: 'handover',
+                    'question' => (string) $message->body,
+                    'language' => '',
+                ]);
             }
         }
         if ($decision['intent'] === IntentCatalog::DISCOUNT_REQUEST) {
-            $this->handover->toHuman($conversation, 'discount_request');
+            $this->handover->notifyStaff($conversation, [
+                'reason' => 'discount_request',
+                'question' => (string) $message->body,
+                'language' => '',
+            ]);
             $activity->handover_reason = 'discount_request';
             $activity->status = AssistantActivity::HANDED_OVER;
         }

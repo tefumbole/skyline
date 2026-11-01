@@ -481,6 +481,12 @@
                     <label style="margin-top:12px;">Discount dates</label>
                     <textarea class="form-control" name="discount_dates" rows="3">{{ implode("\n", $settings->discountDateList()) }}</textarea>
                     <label class="cothx-checks"><input type="checkbox" name="discount_includes_addons" value="1" @if($settings->discount_includes_addons) checked @endif> Apply the date discount to extra chairs too</label>
+                    <label style="margin-top:12px;">Deposit refund policy</label>
+                    <select class="form-control" name="deposit_refund_policy" style="max-width:280px">
+                        <option value="" {{ empty($settings->deposit_refund_policy) ? 'selected' : '' }}>Not set — use the published event text</option>
+                        <option value="non_refundable" {{ ($settings->deposit_refund_policy ?? '') === 'non_refundable' ? 'selected' : '' }}>Non-refundable</option>
+                        <option value="refundable" {{ ($settings->deposit_refund_policy ?? '') === 'refundable' ? 'selected' : '' }}>Refundable</option>
+                    </select>
                     <button class="btn btn-primary" style="margin-top:12px;" type="submit">Save rules</button>
                 </form>
             @endif

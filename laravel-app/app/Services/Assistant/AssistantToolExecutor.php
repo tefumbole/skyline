@@ -864,13 +864,26 @@ class AssistantToolExecutor
         }
         $summary = trim((string) (isset($params['summary']) ? $params['summary'] : (isset($params['reason']) ? $params['reason'] : $category)));
         $conversation = isset($context['conversation']) ? $context['conversation'] : null;
+        $notice = ['handed_over' => false, 'notified' => false, 'queued' => false];
         if ($conversation) {
-            $this->handover->toHuman($conversation, $category.($summary !== '' ? ': '.$summary : ''));
+            $notice = $this->handover->notifyStaff($conversation, [
+                'reason' => $category.($summary !== '' ? ': '.$summary : ''),
+                'question' => isset($params['question']) ? $params['question'] : $summary,
+                'language' => isset($params['language']) ? $params['language'] : '',
+            ]);
         }
 
         return [
             'success' => true,
-            'handed_over' => true,
+            'handed_over' => ! empty($notice['handed_over']),
+            'submitted' => ! empty($notice['submitted']),
+            'delivered' => ! empty($notice['delivered']),
+            'notified' => ! empty($notice['notified']),
+            'queued' => ! empty($notice['queued']),
+            'duplicate' => ! empty($notice['duplicate']),
+            'retrying' => ! empty($notice['retrying']),
+            'delivery_error' => isset($notice['error']) ? $notice['error'] : null,
+            'customer_instruction' => (isset($notice['customer_instruction']) ? $notice['customer_instruction'] : 'Do not say the request was forwarded.').' Do not keep answering as the assistant.',
             'reason_category' => $category,
             'summary' => $summary,
             'urgency' => isset($params['urgency']) ? $params['urgency'] : 'normal',

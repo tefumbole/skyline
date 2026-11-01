@@ -15,6 +15,8 @@ return [
     'confidence_low' => (float) env('AI_CONFIDENCE_LOW', 0.40),
     'identify' => filter_var(env('WHATSAPP_ASSISTANT_IDENTIFY', true), FILTER_VALIDATE_BOOLEAN),
     'display_name' => env('WHATSAPP_ASSISTANT_NAME', 'Mbole AI'),
+
+    'escalation_whatsapp_number' => env('AI_ESCALATION_WHATSAPP_NUMBER', ''),
     'max_replies_per_contact_hour' => max(1, (int) env('AI_MAX_REPLIES_PER_CONTACT_HOUR', 20)),
     'memory_ttl_hours' => max(1, (int) env('AI_MEMORY_TTL_HOURS', 12)),
     'history_limit' => max(2, (int) env('AI_HISTORY_LIMIT', 8)),

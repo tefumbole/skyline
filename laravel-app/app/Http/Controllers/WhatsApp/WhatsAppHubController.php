@@ -406,6 +406,8 @@ class WhatsAppHubController extends Controller
         $collectName = \App\Services\Assistant\AssistantRuntimeSettings::collectUnknownName();
         $greetByName = \App\Services\Assistant\AssistantRuntimeSettings::greetByName();
         $handoverUserId = \App\Services\Assistant\AssistantRuntimeSettings::handoverUserId();
+        $escalationNumber = app(\App\Services\Assistant\AssistantHandoverService::class)->escalationNumber();
+        $policyConflicts = app(\App\Services\Assistant\SkylineGuestGuide::class)->policyConflicts();
         $historyLimit = \App\Services\Assistant\AssistantRuntimeSettings::historyLimit();
         $clarificationLimit = \App\Services\Assistant\AssistantRuntimeSettings::maxClarifications();
         $switchPreview = app(\App\Services\WhatsApp\ConversationAiSwitchService::class)->preview();
@@ -430,7 +432,7 @@ class WhatsAppHubController extends Controller
         return view('whatsapp_hub.settings', compact(
             'businessLine',
             'session', 'mode', 'webhookUrl', 'sla', 'assistantEnabled', 'assistantEnv', 'assistantConfigured',
-            'aiFirst', 'manualTakeover', 'collectName', 'greetByName', 'handoverUserId', 'historyLimit',
+            'aiFirst', 'manualTakeover', 'collectName', 'greetByName', 'handoverUserId', 'escalationNumber', 'policyConflicts', 'historyLimit',
             'clarificationLimit', 'switchPreview', 'staff',
             'websiteAiEnabled', 'websiteAutoGreeting', 'websiteHandover', 'websiteContinueWa',
             'websiteAiName', 'websiteGreetingDelay', 'websiteMetrics'
@@ -461,6 +463,8 @@ class WhatsAppHubController extends Controller
             WhatsAppSetting::putValue('assistant_greet_by_name', $request->input('assistant_greet_by_name') ? '1' : '0');
             $agent = (int) $request->input('default_handover_user_id', 0);
             WhatsAppSetting::putValue('default_handover_user_id', $agent > 0 ? (string) $agent : '0');
+            $escalation = preg_replace('/[^\d+]/', '', (string) $request->input('AI_ESCALATION_WHATSAPP_NUMBER', ''));
+            WhatsAppSetting::putValue('AI_ESCALATION_WHATSAPP_NUMBER', mb_substr($escalation, 0, 20));
             $history = (int) $request->input('assistant_history_limit', 8);
             if ($history >= 2 && $history <= 20) {
                 WhatsAppSetting::putValue('assistant_history_limit', (string) $history);

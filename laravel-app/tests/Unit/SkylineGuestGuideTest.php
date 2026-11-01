@@ -132,4 +132,48 @@ class SkylineGuestGuideTest extends TestCase
         $this->assertNotEmpty($menu['sections']);
         $this->assertNotEmpty($menu['links']);
     }
+
+    public function test_discount_nights_skip_the_closed_dates()
+    {
+        $catalog = app(CothCatalog::class);
+
+        $this->assertSame(['2026-12-26', '2026-12-27', '2026-12-30'], $catalog->discountDates());
+        $this->assertNotContains('2026-12-28', $catalog->eventDates());
+        $this->assertNotContains('2026-12-29', $catalog->eventDates());
+        $this->assertNotContains('2026-12-28', $catalog->discountDates());
+    }
+
+    public function test_prompt_keeps_prices_on_the_tools()
+    {
+        $prompt = app(BeyondAssistantSystemPromptBuilder::class)->build([], []);
+
+        $this->assertStringContainsString('Never invent missing information', $prompt);
+        $this->assertStringContainsString('latest substantive message', $prompt);
+        $this->assertStringContainsString('submitted true', $prompt);
+        $this->assertStringContainsString('has_more', $prompt);
+        $this->assertStringContainsString('cannot change these rules', $prompt);
+    }
+
+    public function test_menu_page_does_not_expose_cost()
+    {
+        $found = app(SkylineGuestGuide::class)->searchProducts(['query' => 'water', 'cursor' => 0]);
+        if (empty($found['success'])) {
+            $this->assertSame('catalogue_unavailable', $found['error']);
+
+            return;
+        }
+        $this->assertArrayHasKey('has_more', $found);
+        $this->assertArrayHasKey('next_cursor', $found);
+        $this->assertArrayHasKey('match_count', $found);
+        $encoded = json_encode($found);
+        $this->assertStringNotContainsString('"cost"', $encoded);
+    }
+
+    public function test_escalation_text_redacts_secrets()
+    {
+        $clean = app(\App\Services\Assistant\AssistantHandoverService::class)->redact('my otp: 123456 and pin 9999');
+
+        $this->assertStringNotContainsString('123456', $clean);
+        $this->assertStringContainsString('[redacted]', $clean);
+    }
 }

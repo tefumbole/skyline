@@ -147,10 +147,15 @@
         .frame {
             position: absolute;
             inset: 0;
+            overflow: hidden;
+            background: #07111c url("{{ url('public/branding/chill-on-the-hill.jpg') }}?v=cover") center center / cover no-repeat;
         }
         .poster {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
+            max-width: none;
             object-fit: cover;
             object-position: center center;
             display: block;
@@ -163,7 +168,7 @@
             line-height: 1.2;
         }
         .when {
-            margin: 0 0 0.45em;
+            margin: 0 0 0.55em;
             color: #fff;
             font-size: clamp(12px, 1.6vw, 26px);
             font-weight: 600;
@@ -171,6 +176,12 @@
             line-height: 1.25;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
         }
+        .when-block .sky-count b,
+        .when-block .sky-count small {
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
+        }
+        .when-block .sky-count b { font-size: clamp(18px, 2vw, 28px); }
+        .when-block .sky-count small { font-size: 9px; }
         .foot {
             display: flex;
             align-items: center;
@@ -301,14 +312,45 @@
 
     <main class="hero">
         <div class="frame">
-            <img class="poster" src="{{ url('public/branding/chill-on-the-hill.jpg') }}?v=final" width="1024" height="576" alt="Chill on the Hill at Skyline Hotel Bamenda">
+            <img class="poster" src="{{ url('public/branding/chill-on-the-hill.jpg') }}?v=cover" width="1024" height="576" alt="Chill on the Hill at Skyline Hotel Bamenda">
             <div class="when-block">
                 <p class="when">24th Dec, 2026 - 02 Jan, 2027</p>
+                <div class="sky-count" data-sky-count="2026-12-24T00:00:00+01:00" aria-live="polite" aria-label="Countdown to 24 December 2026">
+                    <span><b data-unit="d">00</b><small>Days</small></span>
+                    <span><b data-unit="h">00</b><small>Hrs</small></span>
+                    <span><b data-unit="m">00</b><small>Min</small></span>
+                    <span><b data-unit="s">00</b><small>Sec</small></span>
+                </div>
             </div>
         </div>
     </main>
 
     @include('beyond.partials.site-footer')
     @include('beyond.partials.mbole_ai_widget')
+    <script>
+    (function () {
+        var box = document.querySelector('[data-sky-count]');
+        if (!box) return;
+        var target = new Date(box.getAttribute('data-sky-count')).getTime();
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        function tick() {
+            var diff = target - Date.now();
+            if (diff <= 0) {
+                box.innerHTML = '<span class="sky-count-done">24 December</span>';
+                return;
+            }
+            var secs = Math.floor(diff / 1000);
+            var days = Math.floor(secs / 86400); secs %= 86400;
+            var hours = Math.floor(secs / 3600); secs %= 3600;
+            var mins = Math.floor(secs / 60); secs %= 60;
+            box.querySelector('[data-unit="d"]').textContent = String(days);
+            box.querySelector('[data-unit="h"]').textContent = pad(hours);
+            box.querySelector('[data-unit="m"]').textContent = pad(mins);
+            box.querySelector('[data-unit="s"]').textContent = pad(secs);
+            setTimeout(tick, 1000);
+        }
+        tick();
+    })();
+    </script>
 </body>
 </html>

@@ -680,9 +680,13 @@ class UserController extends Controller
 
     public function deleteBySelection(Request $request)
     {
+        if (! $this->canDeleteUsers()) {
+            return 'Sorry! You are not allowed to delete users.';
+        }
         $user_id = $request['userIdArray'];
         $purge = app(\App\Services\Internship\InternAccountPurge::class);
         $ok = 0;
+        $reason = '';
         foreach ((array) $user_id as $id) {
             $lims_user_data = User::find($id);
             if (! $lims_user_data) {
@@ -692,16 +696,22 @@ class UserController extends Controller
                 $purge->purgeUser($lims_user_data, Auth::user());
                 $ok++;
             } catch (\Throwable $e) {
+                $reason = $e->getMessage();
             }
         }
 
-        return $ok ? $ok.' user(s) deleted from the system.' : 'No users were deleted.';
+        if ($ok) {
+            return $ok.' user(s) deleted from the system.';
+        }
+
+        return $reason !== '' ? $reason : 'No users were deleted.';
     }
 
     public function destroy($id)
     {
-        if(!true)
-            return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
+        if (! $this->canDeleteUsers()) {
+            return redirect('user')->with('not_permitted', 'Sorry! You are not allowed to delete users.');
+        }
 
         if(Auth::id() == $id){
             return redirect('user')->with('message3', 'User cannot delete itself');
@@ -720,5 +730,19 @@ class UserController extends Controller
         }
 
         return redirect('user')->with('message3', ($name ?: 'User').' was deleted from the system.');
+    }
+
+    protected function canDeleteUsers()
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+        $role = Role::find($user->role_id);
+
+        return $role && $role->hasPermissionTo('users-delete');
     }
 }

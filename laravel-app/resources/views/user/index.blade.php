@@ -12,6 +12,9 @@
   <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
 @endif
 
+@php
+    $canDeleteUsers = in_array('users-delete', $all_permission ?? []) || (auth()->check() && auth()->user()->isSuperAdmin());
+@endphp
 <section>
     <div class="table-responsive">
         <table id="user-table" class="table">
@@ -85,7 +88,7 @@
                                     </a>
                                 </li>
                                 @endif
-                                @if(in_array("users-delete", $all_permission))
+                                @if($canDeleteUsers && (int) $user->id !== (int) auth()->id())
                                 <li class="divider"></li>
                                 {{ Form::open(['route' => ['user.destroy', $user->id], 'method' => 'DELETE'] ) }}
                                 <li>
@@ -257,7 +260,8 @@
         ],
     } );
 
-    if(all_permission.indexOf("users-delete") == -1)
+    var canDeleteUsers = @json($canDeleteUsers);
+    if (!canDeleteUsers)
         $('.buttons-delete').addClass('d-none');
 
     $(document).on('click', '.edit-basics', function (event) {

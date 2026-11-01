@@ -58,8 +58,11 @@ class InternAccountPurge
         if ((int) $user->id === (int) $actor->id) {
             throw new RuntimeException('You cannot delete your own account from this screen.');
         }
-        if ((int) $user->role_id <= 2) {
-            throw new RuntimeException('Administrator accounts cannot be deleted here.');
+        if ($user->isSuperAdmin() && ! $actor->isSuperAdmin()) {
+            throw new RuntimeException('Only a Super Admin can delete a Super Admin account.');
+        }
+        if ((int) $user->role_id <= 2 && ! $actor->isSuperAdmin()) {
+            throw new RuntimeException('Administrator accounts can only be deleted by a Super Admin.');
         }
 
         $name = $user->name;

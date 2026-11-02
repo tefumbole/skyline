@@ -339,6 +339,12 @@ class PayoutController extends Controller
         $donation->status = 'pending';
         $donation->error = null;
         $donation->save();
+        $user = Auth::user();
+        if ($user) {
+            $this->notifyRequester($user->whatsappPhone(), (string) $user->name, [
+                ['person_name' => $name, 'amount' => $amount],
+            ], $note);
+        }
 
         return redirect()->route('payout.request')->with('message', 'Deposit request sent. The wallet updates when Campay confirms it.');
     }
@@ -452,6 +458,10 @@ class PayoutController extends Controller
             }
             $row->sent_at = now();
             $row->save();
+            $user = Auth::user();
+            if ($user) {
+                $this->notifyRequester($user->whatsappPhone(), (string) $user->name, (array) $row->people, (string) $row->reason);
+            }
 
             return redirect()->route('payout.request')->with('message', 'Resent to '.$count.' '.($count === 1 ? 'person' : 'people').'.');
         }
@@ -460,13 +470,17 @@ class PayoutController extends Controller
             if (! $batch) {
                 abort(404);
             }
-            $count = 0;
+            $lines = [];
             foreach ($batch->lines as $line) {
-                $this->sendSubmitted($line->phone, $this->systemName($line), $line->amount, $batch->note, $this->reviewUrl($batch->id), (string) $batch->requester_name);
-                $count++;
+                $lines[] = [
+                    'person_name' => $this->systemName($line),
+                    'amount' => (int) $line->amount,
+                ];
             }
+            $this->notifyRequester($this->requesterPhone($batch), (string) $batch->requester_name, $lines, (string) $batch->note);
+            $this->notifySubmission((string) $batch->requester_name, (string) $batch->note, $lines, $this->reviewUrl($batch->id));
 
-            return redirect()->route('payout.request')->with('message', 'Resent to '.$count.' '.($count === 1 ? 'person' : 'people').'.');
+            return redirect()->route('payout.request')->with('message', 'The person who requested this payment was notified again.');
         }
 
         return redirect()->route('payout.request')->with('not_permitted', 'That request could not be sent again.');
@@ -491,6 +505,10 @@ class PayoutController extends Controller
         foreach ($people['lines'] as $line) {
             $this->sendInvite($line['phone'], $line['name'], $reason, $url);
             $sent++;
+        }
+        $user = Auth::user();
+        if ($user) {
+            $this->notifyRequester($user->whatsappPhone(), (string) $user->name, $people['lines'], $reason);
         }
 
         return redirect()->route('payout.request')->with('message', 'Sent to '.$sent.' '.($sent === 1 ? 'person' : 'people').'.');
@@ -1075,9 +1093,7 @@ class PayoutController extends Controller
         }
 
         $reviewUrl = $this->reviewUrl($batch->id);
-        foreach ($lines as $line) {
-            $this->sendSubmitted($line['phone'], $line['person_name'], $line['amount'], $batch->note, $reviewUrl, $requester);
-        }
+        $this->notifyRequester($requesterPhone, $requester, $lines, $batch->note);
         $this->notifySubmission($requester, $batch->note, $lines, $reviewUrl);
 
         return redirect()->route('payout.request.form', ['token' => $token])->with('message', 'Sent. The payment is waiting for approval.');
@@ -1197,11 +1213,46 @@ class PayoutController extends Controller
         app(\App\Services\ClientNoticeService::class)->send($phone, $this->inviteText($name, $reason, $url));
     }
 
-    protected function sendSubmitted($phone, $name, $amount, $reason, $url, $requester = '')
+    protected function notifyRequester($phone, $name, array $lines, $reason = '')
     {
+        $phone = trim((string) $phone);
+        $name = trim((string) $name);
+        if ($phone === '' || $name === '') {
+            return 'none';
+        }
+
+        return app(\App\Services\ClientNoticeService::class)->send($phone, $this->requestedText($name, $lines, $reason));
+    }
+
+    protected function requestedText($name, array $lines, $reason = '')
+    {
+        $msg = \App\Support\WhatsAppMessage::statusBlock('📋', 'Payment Requested');
+        $msg .= 'Dear *'.$name.'*,'."\n\n";
+        $msg .= "You have requested payment for:\n";
+        $count = 0;
+        foreach ($lines as $line) {
+            $who = trim((string) ($line['person_name'] ?? $line['name'] ?? ''));
+            if ($who === '') {
+                continue;
+            }
+            $count++;
+            $amount = isset($line['amount']) ? (int) $line['amount'] : 0;
+            $msg .= '• *'.$who.'*';
+            if ($amount > 0) {
+                $msg .= ' — '.$this->moneyText($amount).' XAF';
+            }
+            $msg .= "\n";
+        }
+        if ($count < 1) {
+            $msg .= "• No names were listed.\n";
+        }
         $reason = trim((string) $reason);
-        $requester = trim((string) $requester);
-        app(\App\Services\ClientNoticeService::class)->send($phone, $this->submittedText($name, $amount, $reason, $url, null, $requester));
+        if ($reason !== '' && strcasecmp($reason, 'Payout') !== 0 && strcasecmp($reason, 'Deposit request') !== 0) {
+            $msg .= "\n".\App\Support\WhatsAppMessage::bullet('Reason', $reason);
+        }
+        $msg .= \App\Support\WhatsAppMessage::footer();
+
+        return $msg;
     }
 
     protected function sendPaid($phone, $name, $amount, $reason, $requester = '')

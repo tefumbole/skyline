@@ -285,6 +285,12 @@
                             $codeKey = explode('|', $groupKey)[0];
                             $parts = explode('-', $codeKey, 2);
                             $groupLabel = ucfirst(strtolower($parts[0])).'-'.($parts[1] ?? '');
+                            $prices = [];
+                            foreach ($rows as $row) {
+                                $prices[] = (int) $row['quote']['final_price'];
+                            }
+                            $minPrice = min($prices);
+                            $maxPrice = max($prices);
                         @endphp
                         <details class="coth-card rounded-3xl overflow-hidden">
                             <button type="button" class="coth-fold" aria-expanded="false" aria-label="Collapse {{ $groupLabel }}">
@@ -306,7 +312,8 @@
                                         {{ ($section->code === 'yard' ? 'Premium — Garden' : $section->name) }} · {{ $sample->capacity }} seats
                                         @if ($chip)· <span class="text-brand-gold">{{ $chip }}</span>@endif
                                     </p>
-                                    <div class="text-sm font-semibold">
+                                    <div class="text-sm font-semibold flex items-center justify-between gap-3">
+                                        <span class="text-brand-gold">{{ $minPrice !== $maxPrice ? 'From ' : '' }}{{ number_format($minPrice) }} FCFA</span>
                                         <span class="text-emerald-300">{{ $remaining }} remaining</span>
                                     </div>
                                     <span class="mt-4 block text-center border border-brand-gold/50 text-brand-gold uppercase tracking-[0.12em] text-xs rounded-full px-5 py-2.5">See each table</span>

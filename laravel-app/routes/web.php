@@ -62,10 +62,10 @@ Route::get('/payments/deposit/{token}/status', 'PublicDonateController@status')-
 Route::post('/payments/deposit/{token}/cancel', 'PublicDonateController@cancel')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.cancel');
 Route::get('/payments/deposit/{token}', 'PublicDonateController@waiting')->where('token', '[A-Za-z0-9]+')->name('payments.deposit.status');
 Route::get('/request-payment', 'PayoutController@publicOpen')->name('payout.request.open');
-Route::get('/payout/request/{token}/search', 'PayoutController@publicSearch')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('payout.request.search');
-Route::get('/payout/request/{token}/lookup', 'PayoutController@publicLookup')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:20,1')->name('payout.request.lookup');
+Route::get('/payout/request/{token}/search', 'PayoutController@publicSearch')->where('token', '[A-Za-z0-9]{32,64}')->name('payout.request.search');
+Route::get('/payout/request/{token}/lookup', 'PayoutController@publicLookup')->where('token', '[A-Za-z0-9]{32,64}')->name('payout.request.lookup');
 Route::get('/payout/request/{token}', 'PayoutController@publicForm')->where('token', '[A-Za-z0-9]{32,64}')->name('payout.request.form');
-Route::post('/payout/request/{token}', 'PayoutController@publicStore')->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:8,1')->name('payout.request.store');
+Route::post('/payout/request/{token}', 'PayoutController@publicStore')->where('token', '[A-Za-z0-9]{32,64}')->name('payout.request.store');
 
 Route::get('/', 'BeyondController@home')->name('beyond.home');
 Route::get('/menu', 'RestaurantMenuController@show')->name('restaurant.menu');

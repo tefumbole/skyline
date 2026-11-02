@@ -17,7 +17,7 @@ class CothCatalog
     {
         return [
             ['code' => 'yard', 'name' => 'Premium — Garden', 'prefix' => 'YARD', 'rows' => [
-                ['capacity' => 4, 'count' => 4, 'price' => 500000, 'style' => 'high_table', 'city' => 1],
+                ['capacity' => 4, 'count' => 4, 'price' => 400000, 'style' => 'high_table', 'city' => 1],
                 ['capacity' => 6, 'count' => 1, 'price' => 600000, 'style' => 'couch'],
                 ['capacity' => 6, 'count' => 5, 'price' => 600000, 'style' => 'high_table', 'city' => 1],
                 ['capacity' => 8, 'count' => 2, 'price' => 800000, 'style' => 'couch'],

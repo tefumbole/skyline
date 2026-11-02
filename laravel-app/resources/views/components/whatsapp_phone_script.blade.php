@@ -92,6 +92,7 @@
         if (el.type === 'hidden' || el.type === 'password' || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') return false;
         if (el.getAttribute('data-wa-phone') === 'off') return false;
         if (el.classList.contains('wa-phone-off')) return false;
+        if (el.closest && el.closest('#mbole-ai-root, #mbole-phone-gate')) return false;
 
         var name = el.getAttribute('name') || '';
         var id = el.getAttribute('id') || '';

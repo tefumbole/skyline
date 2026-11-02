@@ -158,7 +158,7 @@
             <div class="mbole-cc-list" id="mbole-cc-list"></div>
           </div>
         </div>
-        <input type="tel" id="mbole-phone-local" inputmode="numeric" autocomplete="tel-national" placeholder="National number" maxlength="15" aria-label="Phone number">
+        <input type="tel" id="mbole-phone-local" data-wa-phone="off" class="wa-phone-off" inputmode="numeric" autocomplete="tel-national" placeholder="National number" maxlength="16" aria-label="Phone number">
       </div>
       <p class="mbole-gate-hint">Do not type a country code in this box.</p>
       <p class="mbole-gate-err" id="mbole-phone-err"></p>
@@ -324,10 +324,36 @@
     return code;
   }
 
+  function dialDigits(code) {
+    return digitsOnly(code);
+  }
+
+  function knownDialCodes() {
+    return countries.map(function (c) { return dialDigits(c.code); }).filter(Boolean).sort(function (a, b) {
+      return b.length - a.length;
+    });
+  }
+
+  function matchDial(digits) {
+    var codes = knownDialCodes();
+    for (var i = 0; i < codes.length; i++) {
+      if (digits.indexOf(codes[i]) !== 0) continue;
+      var rest = digits.slice(codes[i].length);
+      if (rest.length >= 6 && rest.length <= 12) return { code: codes[i], local: rest };
+    }
+    return null;
+  }
+
   function setCountry(code) {
     countryCode = code || '+237';
     countryEl.value = countryCode;
     ccLabel.textContent = countryLabel(countryCode);
+    if (!phoneLocal || dialDigits(countryCode) === '237') return;
+    var digits = digitsOnly(phoneLocal.value);
+    if (digits.indexOf('237') === 0) {
+      var rest = digits.slice(3);
+      if (rest.length >= 6 && rest.length <= 12) phoneLocal.value = rest;
+    }
   }
 
   function closeCc() {
@@ -432,11 +458,26 @@
   }
 
   function combinePhone(code, local) {
-    var codeDigits = digitsOnly(code);
-    var localDigits = digitsOnly(local);
+    var codeDigits = dialDigits(code) || '237';
+    var raw = String(local || '').trim();
+    var localDigits = digitsOnly(raw);
     if (localDigits.charAt(0) === '0') localDigits = localDigits.replace(/^0+/, '');
-    if (codeDigits && localDigits.indexOf(codeDigits) === 0 && localDigits.length - codeDigits.length >= 7) {
-      localDigits = localDigits.slice(codeDigits.length);
+    if (codeDigits !== '237' && localDigits.indexOf('237') === 0) {
+      var withoutCameroon = localDigits.slice(3);
+      if (withoutCameroon.length >= 6 && withoutCameroon.length <= 12) {
+        return '+' + codeDigits + withoutCameroon;
+      }
+    }
+    if (raw.charAt(0) === '+' || raw.indexOf('00') === 0) {
+      var typed = matchDial(localDigits);
+      if (typed) {
+        if (typed.code !== codeDigits) setCountry('+' + typed.code);
+        return '+' + typed.code + typed.local;
+      }
+    }
+    if (localDigits.indexOf(codeDigits) === 0) {
+      var same = localDigits.slice(codeDigits.length);
+      if (same.length >= 6) localDigits = same;
     }
     return '+' + codeDigits + localDigits;
   }

@@ -83,7 +83,6 @@ Route::get('/pay/cash/{sale}/{token}', 'SaleController@confirmCash')->name('sale
 Route::post('/pay/cash/{sale}/{token}', 'SaleController@storeCashConfirm')->name('sale.cash.confirm.store');
 Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
-Route::get('/services/qr.png', 'BeyondController@servicesQr')->name('beyond.services.qr');
 Route::get('/chill-on-the-hill', 'CothController@index')->name('coth.index');
 Route::get('/chill-on-the-hill/tables', 'CothController@tables')->name('coth.tables');
 Route::get('/chill-on-the-hill/book', 'CothController@book')->name('coth.book');

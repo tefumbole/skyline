@@ -11,15 +11,6 @@
         <h1 class="font-serif text-3xl md:text-4xl text-white mt-2">Services</h1>
         <p class="text-white/70 text-sm mt-2 max-w-2xl">Browse every counter. Food, coffee, and drinks still go on one bill.</p>
 
-        <div class="mt-6 flex flex-col sm:flex-row items-center gap-5 rounded-2xl bg-white text-[#0A0A0A] p-4 sm:p-5 max-w-xl">
-            <img src="{{ route('beyond.services.qr') }}" width="168" height="168" alt="QR code that opens Skyline Hotel services" class="bg-white">
-            <div>
-                <h2 class="text-lg font-bold m-0">Scan for Services</h2>
-                <p class="text-sm text-black/70 mt-1 mb-3">A phone camera opens this page: every service, with its menu.</p>
-                <a href="{{ route('beyond.services.qr') }}" download="skyline-services-qr.png" class="inline-flex text-xs font-bold tracking-[0.12em] uppercase bg-[#0A0A0A] text-brand-gold rounded-full px-4 py-2">Download QR</a>
-            </div>
-        </div>
-
         <div class="mt-8 grid gap-5 sm:grid-cols-3">
             @foreach ($catalog as $key => $svc)
                 @php

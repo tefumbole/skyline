@@ -28,17 +28,6 @@ class BeyondController extends Controller
         ]);
     }
 
-    public function servicesQr()
-    {
-        $png = \App\Support\QrPng::make(url('/services'));
-
-        return response($png, 200, [
-            'Content-Type' => 'image/png',
-            'Content-Disposition' => 'inline; filename="skyline-services-qr.png"',
-            'Cache-Control' => 'public, max-age=86400',
-        ]);
-    }
-
     public function serviceShow($service, $category = null)
     {
         if (! \App\Support\ServiceCatalog::exists($service)) {

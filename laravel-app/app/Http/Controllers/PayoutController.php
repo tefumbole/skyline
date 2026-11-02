@@ -19,8 +19,6 @@ class PayoutController extends Controller
     public function index(Request $request)
     {
         $this->guard();
-        $this->settleRecorded();
-        $this->refreshPendingStatuses();
         $tenantId = $this->tenantId();
         $unpaidIds = CampayPayout::query()->whereIn('status', ['pending', 'failed'])->distinct()->pluck('request_id')->filter()->all();
         $pending = $this->requests($tenantId)
@@ -52,8 +50,12 @@ class PayoutController extends Controller
             }
         }
         $history = $this->history($tenantId)->where('status', 'failed')->orderByDesc('id')->limit(30)->get();
-        app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
-        $balance = app(CampayPayoutService::class)->balance();
+        app()->terminating(function () {
+            $this->settleRecorded();
+            $this->refreshPendingStatuses();
+            app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
+        });
+        $balance = \Illuminate\Support\Facades\Cache::get('skyline.campay.balance_lines');
         $making = $request->get('new') === '1' && Auth::user() && Auth::user()->canSendPayout();
         $q = '';
         $people = collect();
@@ -239,8 +241,10 @@ class PayoutController extends Controller
     public function requestLink(Request $request)
     {
         $this->guard();
-        $this->settleRecorded();
-        app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
+        app()->terminating(function () {
+            $this->settleRecorded();
+            app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
+        });
         $tenantId = $this->tenantId();
         $query = CampayPayoutLink::query();
         if ($tenantId) {

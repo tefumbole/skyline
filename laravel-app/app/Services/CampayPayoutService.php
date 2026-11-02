@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\CampayPayout;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class CampayPayoutService
@@ -43,12 +44,13 @@ class CampayPayoutService
 
     public function appBalance()
     {
-        $total = $this->totalBalance($this->call('GET', 'balance/', []));
-        if ($total === null) {
-            return null;
+        $cached = Cache::get('skyline.campay.app_balance');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
         }
+        $label = $this->rememberBalances();
 
-        return number_format($total, 0, '.', ' ').' XAF';
+        return $label !== '' ? $label : null;
     }
 
     protected function totalBalance($body)
@@ -70,10 +72,37 @@ class CampayPayoutService
 
     public function balance()
     {
+        $cached = Cache::get('skyline.campay.balance_lines');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+        $this->rememberBalances();
+        $cached = Cache::get('skyline.campay.balance_lines');
+
+        return is_string($cached) && $cached !== '' ? $cached : null;
+    }
+
+    protected function rememberBalances()
+    {
         $body = $this->call('GET', 'balance/', []);
         if (! is_array($body)) {
-            return null;
+            return '';
         }
+        $total = $this->totalBalance($body);
+        $label = $total === null ? '' : number_format($total, 0, '.', ' ').' XAF';
+        if ($label !== '') {
+            Cache::put('skyline.campay.app_balance', $label, 90);
+        }
+        $lines = $this->balanceLines($body);
+        if ($lines !== '') {
+            Cache::put('skyline.campay.balance_lines', $lines, 90);
+        }
+
+        return $label;
+    }
+
+    protected function balanceLines(array $body)
+    {
         $lines = [];
         foreach ($body as $key => $value) {
             if (strpos((string) $key, '_') === 0) {
@@ -90,7 +119,7 @@ class CampayPayoutService
             }
         }
 
-        return $lines ? implode(' · ', $lines) : null;
+        return $lines ? implode(' · ', $lines) : '';
     }
 
     protected function balanceLabel($key)
@@ -597,6 +626,9 @@ class CampayPayoutService
             return null;
         }
         $decoded['_http'] = $http;
+        if ($http === 401) {
+            Cache::forget('skyline.campay.token');
+        }
         if ($http >= 400 && ! isset($decoded['status'])) {
             $decoded['status'] = 'FAILED';
         }
@@ -606,6 +638,10 @@ class CampayPayoutService
 
     protected function token()
     {
+        $cached = Cache::get('skyline.campay.token');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
         $username = config('services.campay.username');
         $password = config('services.campay.password');
         if ($username && $password) {
@@ -623,6 +659,8 @@ class CampayPayoutService
             curl_close($ch);
             $decoded = json_decode((string) $raw, true);
             if (is_array($decoded) && ! empty($decoded['token'])) {
+                Cache::put('skyline.campay.token', (string) $decoded['token'], 600);
+
                 return (string) $decoded['token'];
             }
         }

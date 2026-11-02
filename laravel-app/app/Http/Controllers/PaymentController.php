@@ -67,18 +67,13 @@ class PaymentController extends Controller
 
     public function Desposit()
     {
-        $this->settleWaitingDeposits();
-        $deposits = Deposit::with(['customer', 'customerGroup', 'user', 'depositor', 'account'])->orderByDesc('created_at')->orderByDesc('id')->get();
+        $deposits = Deposit::with(['customer'])->orderByDesc('id')->get();
         $paidAmounts = $this->paymentPaidAmounts($deposits);
         $accounts = Account::where('is_active', true)->orderBy('name')->get();
         $making = request()->get('new') === '1';
-        $this->refreshFrontDeposits();
         $campayBalance = null;
-        try {
-            $campayBalance = app(CampayPayoutService::class)->balance();
-        } catch (\Throwable $e) {
-            $campayBalance = null;
-        }
+        $this->syncAfterResponse();
+
         return view('payment.deposits', compact('deposits', 'accounts', 'making', 'campayBalance', 'paidAmounts'));
     }
 
@@ -92,12 +87,10 @@ class PaymentController extends Controller
     {
         $byRef = [];
         try {
-            $items = Cache::remember('skyline.campay.collects', 120, function () {
-                return app(CampayPayoutService::class)->confirmedCollections(
-                    date('Y-m-d', strtotime('-14 days')),
-                    date('Y-m-d')
-                );
-            });
+            $items = Cache::get('skyline.campay.collects', []);
+            if (! is_array($items)) {
+                $items = [];
+            }
             foreach ($items as $item) {
                 $ref = trim((string) (isset($item['reference_uuid']) ? $item['reference_uuid'] : ''));
                 if ($ref === '') {
@@ -405,11 +398,11 @@ class PaymentController extends Controller
 
     public function depositLive()
     {
-        $this->settleWaitingDeposits();
-        $this->refreshFrontDeposits();
+        $this->settleConfirmedMoney();
         $total = '';
         try {
-            $total = (string) app(CampayPayoutService::class)->appBalance();
+            $cached = Cache::get('skyline.campay.app_balance');
+            $total = is_string($cached) ? $cached : '';
         } catch (\Throwable $e) {
             $total = '';
         }
@@ -441,9 +434,28 @@ class PaymentController extends Controller
 
     public function settleConfirmedMoney()
     {
-        $this->settleWaitingDeposits();
-        $this->refreshFrontDeposits();
-        $this->importConfirmedCollections();
+        if (! Cache::add('skyline.payments.sync', 1, 45)) {
+            return;
+        }
+        try {
+            $this->settleWaitingDeposits();
+            $this->refreshFrontDeposits();
+            $this->importConfirmedCollections();
+            $items = app(CampayPayoutService::class)->confirmedCollections(
+                date('Y-m-d', strtotime('-14 days')),
+                date('Y-m-d')
+            );
+            Cache::put('skyline.campay.collects', $items, 300);
+            app(CampayPayoutService::class)->balance();
+        } catch (\Throwable $e) {
+        }
+    }
+
+    protected function syncAfterResponse()
+    {
+        app()->terminating(function () {
+            $this->settleConfirmedMoney();
+        });
     }
 
     public function importConfirmedCollections()
@@ -505,7 +517,7 @@ class PaymentController extends Controller
         if (! SchemaFacade::hasTable('public_donations')) {
             return;
         }
-        $pending = PublicDonation::whereIn('status', ['pending', 'waiting'])->orderByDesc('id')->limit(30)->get();
+        $pending = PublicDonation::whereIn('status', ['pending', 'waiting'])->orderByDesc('id')->limit(5)->get();
         $gateway = app(PublicDonateController::class);
         foreach ($pending as $donation) {
             try {

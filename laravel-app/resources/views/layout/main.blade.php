@@ -3925,16 +3925,13 @@
                           @php
                               $momoWalletText = null;
                               $momoWalletRoutes = ['payment.index', 'payout.index', 'payout.request', 'deposit.index', 'deposit.desk', 'momo.payments'];
-                              if (in_array(optional(request()->route())->getName(), $momoWalletRoutes, true)) {
-                                  try {
-                                      app(\App\Http\Controllers\PaymentController::class)->settleConfirmedMoney();
-                                      $momoWalletText = app(\App\Services\CampayPayoutService::class)->appBalance();
-                                  } catch (\Throwable $e) {
-                                      $momoWalletText = null;
-                                  }
+                              $showMomoWallet = in_array(optional(request()->route())->getName(), $momoWalletRoutes, true);
+                              if ($showMomoWallet) {
+                                  $cachedWallet = \Illuminate\Support\Facades\Cache::get('skyline.campay.app_balance');
+                                  $momoWalletText = is_string($cachedWallet) ? $cachedWallet : '';
                               }
                           @endphp
-                          @if($momoWalletText !== null)
+                          @if(!empty($showMomoWallet))
                               <div class="momo-wallet-corner">
                                   <strong id="momo-wallet-total">{{ $momoWalletText }}</strong>
                               </div>

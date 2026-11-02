@@ -30,13 +30,17 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('products-index')){
-            $permissions = Role::findByName($role->name)->permissions;
-            foreach ($permissions as $permission)
-                $all_permission[] = $permission->name;
-            if(empty($all_permission))
+        if ($this->roleAllows('products-index')) {
+            $role = Role::find(Auth::user()->role_id);
+            $all_permission = [];
+            if ($role) {
+                foreach ($role->permissions as $permission) {
+                    $all_permission[] = $permission->name;
+                }
+            }
+            if (empty($all_permission)) {
                 $all_permission[] = 'dummy text';
+            }
             $brands = Brand::where('is_active', true)->orderBy('title')->get(['id', 'title']);
             $inlineCategories = Category::where('is_active', true)->orderBy('name')->get(['id', 'name']);
             $inlineUnits = Unit::where('is_active', true)->whereNull('base_unit')->orderBy('unit_name')->get(['id', 'unit_name']);
@@ -241,18 +245,12 @@ class ProductController extends Controller
                 $nestedData['name'] = $product->name;
                 $nestedData['code'] = $product->code;
                 $nestedData['brand_id'] = $product->brand_id ? (int) $product->brand_id : '';
-                if($product->brand_id)
-                    $nestedData['brand'] = $product->brand->title;
-                else
-                    $nestedData['brand'] = "N/A";
+                $nestedData['brand'] = ($product->brand_id && $product->brand) ? $product->brand->title : 'N/A';
                 $nestedData['category_id'] = $product->category_id ? (int) $product->category_id : '';
-                $nestedData['category'] = $product->category->name;
+                $nestedData['category'] = $product->category ? $product->category->name : 'N/A';
                 $nestedData['qty'] = $product->qty;
                 $nestedData['unit_id'] = $product->unit_id ? (int) $product->unit_id : '';
-                if($product->unit_id)
-                    $nestedData['unit'] = $product->unit->unit_name;
-                else
-                    $nestedData['unit'] = 'N/A';
+                $nestedData['unit'] = ($product->unit_id && $product->unit) ? $product->unit->unit_name : 'N/A';
 
                 $nestedData['price'] = $product->price;
                 $nestedData['cost'] = $product->cost;
@@ -284,10 +282,12 @@ class ProductController extends Controller
                         </ul>
                     </div>';
                 // data for product details by one click
-                if($product->tax_id)
-                    $tax = Tax::find($product->tax_id)->name ?? 'NAN';
-                else
-                    $tax = "N/A";
+                if ($product->tax_id) {
+                    $taxRow = Tax::find($product->tax_id);
+                    $tax = $taxRow ? $taxRow->name : 'N/A';
+                } else {
+                    $tax = 'N/A';
+                }
 
                 if($product->tax_method == 1)
                     $tax_method = trans('file.Exclusive');
@@ -638,18 +638,12 @@ class ProductController extends Controller
                 $nestedData['name'] = $product->name;
                 $nestedData['code'] = $product->code;
                 $nestedData['brand_id'] = $product->brand_id ? (int) $product->brand_id : '';
-                if($product->brand_id)
-                    $nestedData['brand'] = $product->brand->title;
-                else
-                    $nestedData['brand'] = "N/A";
+                $nestedData['brand'] = ($product->brand_id && $product->brand) ? $product->brand->title : 'N/A';
                 $nestedData['category_id'] = $product->category_id ? (int) $product->category_id : '';
-                $nestedData['category'] = $product->category->name;
+                $nestedData['category'] = $product->category ? $product->category->name : 'N/A';
                 $nestedData['qty'] = $product->qty;
                 $nestedData['unit_id'] = $product->unit_id ? (int) $product->unit_id : '';
-                if($product->unit_id)
-                    $nestedData['unit'] = $product->unit->unit_name;
-                else
-                    $nestedData['unit'] = 'N/A';
+                $nestedData['unit'] = ($product->unit_id && $product->unit) ? $product->unit->unit_name : 'N/A';
 
                 $nestedData['price'] = $product->price;
                 $nestedData['cost'] = $product->cost;
@@ -681,10 +675,12 @@ class ProductController extends Controller
                         </ul>
                     </div>';
                 // data for product details by one click
-                if($product->tax_id)
-                    $tax = Tax::find($product->tax_id)->name ?? 'NAN';
-                else
-                    $tax = "N/A";
+                if ($product->tax_id) {
+                    $taxRow = Tax::find($product->tax_id);
+                    $tax = $taxRow ? $taxRow->name : 'N/A';
+                } else {
+                    $tax = 'N/A';
+                }
 
                 if($product->tax_method == 1)
                     $tax_method = trans('file.Exclusive');
@@ -709,8 +705,8 @@ class ProductController extends Controller
 
     public function create()
     {
-        $role = Role::firstOrCreate(['id' => Auth::user()->role_id]);
-        if ($role->hasPermissionTo('products-add')){
+        $role = Role::find(Auth::user()->role_id);
+        if ($this->roleAllows('products-add')) {
             $lims_product_list = Product::where([ ['is_active', true], ['type', 'standard'] ])->get();
             $lims_brand_list = Brand::where('is_active', true)->get();
             $lims_category_list = Category::where('is_active', true)->get();
@@ -865,8 +861,8 @@ class ProductController extends Controller
 
     public function edit($id)
     {
-        $role = Role::firstOrCreate(['id' => Auth::user()->role_id]);
-        if ($role->hasPermissionTo('products-edit')) {
+        $role = Role::find(Auth::user()->role_id);
+        if ($this->roleAllows('products-edit')) {
             $lims_product_list = Product::where([ ['is_active', true], ['type', 'standard'] ])->get();
             $lims_brand_list = Brand::where('is_active', true)->get();
             $lims_category_list = Category::where('is_active', true)->get();
@@ -1604,15 +1600,35 @@ class ProductController extends Controller
 
     protected function canEditProducts()
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role) {
+        $user = Auth::user();
+        if (! $user) {
             return false;
         }
-        if (Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2) {
+        if ($user->hasFullAdminAccess() || (int) $user->role_id === 2) {
             return true;
         }
 
-        return $role->hasPermissionTo('products-edit') || $role->hasPermissionTo('products-index');
+        return $this->roleAllows('products-edit') || $this->roleAllows('products-index');
+    }
+
+    protected function roleAllows($permission)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->hasFullAdminAccess()) {
+            return true;
+        }
+        $role = Role::find($user->role_id);
+        if (! $role) {
+            return false;
+        }
+        try {
+            return $role->hasPermissionTo($permission);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     protected function categoryTreeIds($id)

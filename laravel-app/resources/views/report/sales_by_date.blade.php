@@ -5,6 +5,7 @@
         'today' => "Today's Sales",
         'week' => 'This Week',
         'month' => 'This Month',
+        'year' => 'This Year',
         'custom' => 'Custom',
     ];
     $money = number_format((float) $total, 0, '.', ',');

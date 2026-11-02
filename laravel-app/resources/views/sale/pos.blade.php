@@ -1208,6 +1208,7 @@
                                         <ul class="report-sub">
                                             <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
                                             <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
+                                            <li id="sale-report-year"><a href="{{ route('report.sales', ['range' => 'year']) }}">This Year</a></li>
                                             <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
                                         </ul>
                                     </li>

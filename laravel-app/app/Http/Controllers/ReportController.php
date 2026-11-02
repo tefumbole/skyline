@@ -1676,7 +1676,7 @@ class ReportController extends Controller
         }
 
         $range = (string) $request->input('range', 'today');
-        if (! in_array($range, ['today', 'week', 'month', 'custom'], true)) {
+        if (! in_array($range, ['today', 'week', 'month', 'year', 'custom'], true)) {
             $range = 'today';
         }
         $now = \Carbon\Carbon::now('Africa/Douala');
@@ -1687,6 +1687,9 @@ class ReportController extends Controller
         } elseif ($range === 'month') {
             $startAt = $now->copy()->startOfMonth()->startOfDay();
             $endAt = $now->copy()->endOfMonth()->endOfDay();
+        } elseif ($range === 'year') {
+            $startAt = $now->copy()->startOfYear()->startOfDay();
+            $endAt = $now->copy()->endOfYear()->endOfDay();
         } elseif ($range === 'custom') {
             $start_date = $this->reportDate($request->input('start_date'), '');
             $end_date = $this->reportDate($request->input('end_date'), '');
@@ -1745,6 +1748,7 @@ class ReportController extends Controller
             'today' => "Today's Sales",
             'week' => 'This Week',
             'month' => 'This Month',
+            'year' => 'This Year',
             'custom' => 'Custom',
         ];
         $heading = $headings[$range];

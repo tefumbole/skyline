@@ -24,7 +24,7 @@ class CothCatalog
                 ['capacity' => 10, 'count' => 2, 'price' => 1000000, 'style' => 'couch'],
             ]],
             ['code' => 'outer', 'name' => 'Premium — Outer Restaurant', 'prefix' => 'OUTER', 'rows' => [
-                ['capacity' => 4, 'count' => 4, 'price' => 500000, 'style' => 'standard'],
+                ['capacity' => 4, 'count' => 4, 'price' => 400000, 'style' => 'standard'],
                 ['capacity' => 6, 'count' => 1, 'price' => 600000, 'style' => 'couch'],
                 ['capacity' => 8, 'count' => 2, 'price' => 800000, 'style' => 'couch'],
                 ['capacity' => 10, 'count' => 1, 'price' => 1000000, 'style' => 'couch'],

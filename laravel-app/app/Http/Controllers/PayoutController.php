@@ -1706,7 +1706,9 @@ class PayoutController extends Controller
     {
         $query = CampayPayoutRequest::query();
         if ($tenantId) {
-            $query->where('cloud_tenant_id', $tenantId);
+            $query->where(function ($rows) use ($tenantId) {
+                $rows->where('cloud_tenant_id', $tenantId)->orWhereNull('cloud_tenant_id');
+            });
         }
 
         return $query;

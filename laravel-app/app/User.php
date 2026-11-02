@@ -76,12 +76,14 @@ class User extends Authenticatable
     }
 
     /**
-     * Hotel administrator (role 1) or Super Admin. Owner tools such as
-     * WhatsApp Hub stay on Super Admin only.
+     * Hotel administrator, the Admin role, or Super Admin.
+     * Owner-only tools that call isSuperAdmin() stay with Super Admin.
      */
     public function hasFullAdminAccess()
     {
-        return (int) $this->role_id === 1 || $this->isSuperAdmin();
+        return (int) $this->role_id === 1
+            || $this->isSuperAdmin()
+            || strcasecmp($this->roleName(), 'Admin') === 0;
     }
 
     /** Sending money out. Viewing deposits and payouts is separate. */

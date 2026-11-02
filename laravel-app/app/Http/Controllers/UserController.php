@@ -27,13 +27,28 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
+        if (! $this->canViewUsers()) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
         $role = Role::find(Auth::user()->role_id);
-        if($role && $role->hasPermissionTo('users-index')){
-            $all_permission = $role->permissions->pluck('name')->all();
-            $category = $request->get('category', 'all');
-            if ($category === 'applicants') {
-                return $this->applicantsIndex($request, $all_permission);
+        $all_permission = [];
+        if ($role) {
+            try {
+                $all_permission = $role->permissions->pluck('name')->all();
+            } catch (\Throwable $e) {
+                $all_permission = [];
             }
+        }
+        if (Auth::user()->hasFullAdminAccess()) {
+            $all_permission = array_values(array_unique(array_merge(
+                $all_permission,
+                ['users-index', 'users-add', 'users-edit', 'users-delete']
+            )));
+        }
+        $category = $request->get('category', 'all');
+        if ($category === 'applicants') {
+            return $this->applicantsIndex($request, $all_permission);
+        }
             // Lean query + role map (avoids N+1 and loading unused columns).
             $lims_user_list = User::query()
                 ->select([
@@ -53,9 +68,6 @@ class UserController extends Controller
             $roleChoices = DB::table('roles')->orderBy('name')->get(['id', 'name']);
 
             return view('user.index', compact('lims_user_list', 'all_permission', 'category', 'rolesById', 'roleChoices'));
-        }
-        else
-            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
     /**
@@ -101,8 +113,7 @@ class UserController extends Controller
      */
     public function editApplicant($applicationId)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || (! $role->hasPermissionTo('users-edit') && ! $role->hasPermissionTo('users-add'))) {
+        if (! $this->canEditUsers() && ! $this->allowsUserPermission('users-add')) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to edit interns.');
         }
 
@@ -155,8 +166,7 @@ class UserController extends Controller
 
     public function updateApplicant(Request $request, $applicationId)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || (! $role->hasPermissionTo('users-edit') && ! $role->hasPermissionTo('users-add'))) {
+        if (! $this->canEditUsers() && ! $this->allowsUserPermission('users-add')) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to edit interns.');
         }
 
@@ -284,8 +294,7 @@ class UserController extends Controller
      */
     public function deleteApplicants(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role || (! $role->hasPermissionTo('users-delete') && ! $role->hasPermissionTo('users-index'))) {
+        if (! $this->canDeleteUsers() && ! $this->canViewUsers()) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to delete interns.');
         }
 
@@ -318,8 +327,7 @@ class UserController extends Controller
 
     public function create()
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('users-add')){
+        if ($this->allowsUserPermission('users-add')) {
             $lims_role_list = Roles::where('is_active', true)->get();
             $lims_biller_list = Biller::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
@@ -433,18 +441,24 @@ class UserController extends Controller
         return redirect('user')->with('message1', $message);
     }
 
+    public function show($id)
+    {
+        return $this->edit($id);
+    }
+
     public function edit($id)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('users-edit')){
-            $lims_user_data = User::find($id);
-            $lims_role_list = Roles::where('is_active', true)->get();
-            $lims_biller_list = Biller::where('is_active', true)->get();
-            $lims_warehouse_list = Warehouse::where('is_active', true)->get();
-            return view('user.edit', compact('lims_user_data', 'lims_role_list', 'lims_biller_list', 'lims_warehouse_list'));
-        }
-        else
+        if (! $this->canEditUsers()) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $lims_user_data = User::find($id);
+        if (! $lims_user_data) {
+            return redirect('user')->with('not_permitted', 'User not found.');
+        }
+        $lims_role_list = Roles::where('is_active', true)->get();
+        $lims_biller_list = Biller::where('is_active', true)->get();
+        $lims_warehouse_list = Warehouse::where('is_active', true)->get();
+        return view('user.edit', compact('lims_user_data', 'lims_role_list', 'lims_biller_list', 'lims_warehouse_list'));
     }
 
     public function update(Request $request, $id)
@@ -538,7 +552,7 @@ class UserController extends Controller
     public function updateBasics(Request $request, $id)
     {
         $role = Role::find(Auth::user()->role_id);
-        if (! $role || ! $role->hasPermissionTo('users-edit')) {
+        if (! $this->canEditUsers()) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $user = User::findOrFail($id);
@@ -742,7 +756,40 @@ class UserController extends Controller
             return true;
         }
         $role = Role::find($user->role_id);
+        try {
+            return $role && $role->hasPermissionTo('users-delete');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
 
-        return $role && $role->hasPermissionTo('users-delete');
+    protected function canViewUsers()
+    {
+        return $this->allowsUserPermission('users-index');
+    }
+
+    protected function canEditUsers()
+    {
+        return $this->allowsUserPermission('users-edit');
+    }
+
+    protected function allowsUserPermission($permission)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->hasFullAdminAccess()) {
+            return true;
+        }
+        $role = Role::find($user->role_id);
+        if (! $role) {
+            return false;
+        }
+        try {
+            return $role->hasPermissionTo($permission);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

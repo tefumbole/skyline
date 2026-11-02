@@ -14,6 +14,7 @@
 
 @php
     $canDeleteUsers = in_array('users-delete', $all_permission ?? []) || (auth()->check() && auth()->user()->isSuperAdmin());
+    $canManageUsers = in_array('users-edit', $all_permission ?? []) || (auth()->check() && auth()->user()->isSuperAdmin());
 @endphp
 <section>
     <div class="table-responsive">
@@ -33,7 +34,7 @@
             </thead>
             <tbody>
                 @foreach($lims_user_list as $key=>$user)
-                <tr data-id="{{$user->id}}" @if(in_array("users-edit", $all_permission)) data-edit-url="{{ route('user.edit', $user->id) }}" style="cursor:pointer;" @endif>
+                <tr data-id="{{$user->id}}" @if($canManageUsers) data-edit-url="{{ route('user.edit', $user->id) }}" style="cursor:pointer;" @endif>
                     <td>{{$key}}</td>
                     <td>{{ $user->name }}</td>
                     <td>{{ $user->phone}}</td>
@@ -53,7 +54,7 @@
                                 <span class="sr-only">Toggle Dropdown</span>
                             </button>
                             <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
-                                @if(in_array("users-edit", $all_permission))
+                                @if($canManageUsers)
                                 <li>
                             <a href="{{ route('user.edit', $user->id) }}" class="btn btn-link"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</a>
                             <button type="button" class="btn btn-link edit-basics"
@@ -68,15 +69,7 @@
                                        data-url="{{ route('user.signature.request', $user->id) }}"
                                        data-type="approve"
                                        data-name="{{ $user->name }}">
-                                        <i class="dripicons-user"></i> Request Approver
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="javascript:void(0)" class="btn btn-link btn-request-sig"
-                                       data-url="{{ route('user.signature.request', $user->id) }}"
-                                       data-type="stemp"
-                                       data-name="{{ $user->name }}">
-                                        <i class="dripicons-message"></i> Request Comment
+                                        <i class="dripicons-checkmark"></i> Send for signature — OK
                                     </a>
                                 </li>
                                 <li>
@@ -84,7 +77,15 @@
                                        data-url="{{ route('user.signature.request', $user->id) }}"
                                        data-type="sign"
                                        data-name="{{ $user->name }}">
-                                        <i class="dripicons-pencil"></i> Request Signature
+                                        <i class="dripicons-pencil"></i> Send for signature — Sign
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="javascript:void(0)" class="btn btn-link btn-request-sig"
+                                       data-url="{{ route('user.signature.request', $user->id) }}"
+                                       data-type="stemp"
+                                       data-name="{{ $user->name }}">
+                                        <i class="dripicons-message"></i> Send for signature — Comment
                                     </a>
                                 </li>
                                 @endif
@@ -285,7 +286,7 @@
         }
     });
 
-    var requestLabels = { approve: 'Approver', stemp: 'Comment', sign: 'Signature' };
+    var requestLabels = { approve: 'OK', stemp: 'comment', sign: 'signature' };
     $(document).on('click', '.btn-request-sig', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -293,7 +294,7 @@
         var type = $btn.data('type');
         var label = requestLabels[type] || type;
         var name = $btn.data('name') || 'this user';
-        if (!confirm('Send a WhatsApp link so ' + name + ' can draw their ' + label + '?')) {
+        if (!confirm('Send a WhatsApp link so ' + name + ' can add their ' + label + '?')) {
             return;
         }
         $btn.addClass('disabled').css('opacity', 0.6);

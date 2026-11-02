@@ -39,9 +39,15 @@
         margin-bottom: 10px;
     }
     .letter-editor-compact .section-label { margin-bottom: 6px; }
-    .letter-editor-compact .tox-tinymce {
+    .letter-editor-compact .tox-tinymce,
+    .letter-editor-compact .mce-tinymce {
         height: 64px !important;
         min-height: 64px !important;
+    }
+    .letter-editor-footer .tox-tinymce,
+    .letter-editor-footer .mce-tinymce {
+        height: 128px !important;
+        min-height: 128px !important;
     }
     .letter-create .card {
         border: 0;

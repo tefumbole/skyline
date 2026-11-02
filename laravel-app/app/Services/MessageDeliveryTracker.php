@@ -298,7 +298,7 @@ class MessageDeliveryTracker
                     fclose($file);
                 }
             } elseif ($letter->people_type === 'directory') {
-                LetterRecipients::eachDirectoryRecipient($letter->recipients_json, function ($recipient, $ref) use ($push) {
+                LetterRecipients::eachSendable($letter, $letter->recipients_json, function ($recipient, $ref) use ($push) {
                     $push($recipient, $ref, 'to');
                 });
                 LetterRecipients::eachDirectoryRecipient($letter->cc_json, function ($recipient, $ref) use ($push) {

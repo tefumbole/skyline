@@ -150,7 +150,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-12">
-                                        <div class="letter-compose-section letter-editor-wrap letter-editor-compact">
+                                        <div class="letter-compose-section letter-editor-wrap letter-editor-footer">
                                             <span class="section-label footer">{{trans('file.Footer')}}</span>
                                             <textarea name="footer" class="form-control" id="footer">@if(!empty($clone)){!! $clone->footer !!}@endif</textarea>
                                         </div>
@@ -354,13 +354,39 @@
                 return;
             }
 
+            function letterImageUpload(blobInfo, success, failure) {
+                var formData = new FormData();
+                formData.append('image', blobInfo.blob(), blobInfo.filename());
+                fetch('/letters/upload/image', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    body: formData
+                })
+                    .then(function (response) { return response.json(); })
+                    .then(function (data) {
+                        if (data.location) {
+                            success(data.location);
+                        } else {
+                            failure('Image upload failed');
+                        }
+                    })
+                    .catch(function () {
+                        failure('Image upload failed');
+                    });
+            }
+
             var letterEditorDefaults = {
-                plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table wordcount',
-                toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright | bullist numlist | removeformat',
+                plugins: 'advlist autolink lists link image charmap preview anchor paste searchreplace visualblocks code fullscreen insertdatetime media table wordcount',
+                toolbar: 'undo redo | bold italic underline | alignleft aligncenter alignright | bullist numlist | image | removeformat',
                 branding: false,
                 menubar: false,
                 statusbar: false,
                 resize: true,
+                paste_data_images: true,
+                automatic_uploads: true,
+                images_upload_handler: letterImageUpload,
                 content_style: 'body { font-family: Nunito, sans-serif; font-size: 15px; color: #1f2a44; }'
             };
 
@@ -375,39 +401,14 @@
                 selector: '#body',
                 height: 280,
                 statusbar: true,
-                toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat',
-                paste_data_images: true,
-                automatic_uploads: true,
-                images_upload_handler: function (blobInfo, success, failure) {
-                    var formData = new FormData();
-                    formData.append('image', blobInfo.blob(), blobInfo.filename());
-
-                    fetch('/letters/upload/image', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                        },
-                        body: formData
-                    })
-                        .then(function(response) { return response.json(); })
-                        .then(function(data) {
-                            if (data.location) {
-                                success(data.location);
-                            } else {
-                                failure('Image upload failed');
-                            }
-                        })
-                        .catch(function() {
-                            failure('Image upload failed');
-                        });
-                }
+                toolbar: 'undo redo | formatselect | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat'
             }));
 
             tinymce.init(Object.assign({}, letterEditorDefaults, {
                 selector: '#footer',
-                height: 36,
-                min_height: 36,
-                toolbar: 'bold italic | removeformat'
+                height: 128,
+                min_height: 128,
+                toolbar: 'bold italic | image | removeformat'
             }));
         }
 

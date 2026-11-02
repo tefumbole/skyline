@@ -131,7 +131,7 @@ class ProcessQueue implements ShouldQueue
                 }
             } elseif ($letter->people_type === 'directory') {
                 $toRecipients = [];
-                LetterRecipients::eachDirectoryRecipient($letter->recipients_json, function ($recipient, $ref) use ($sendTo, $letter, &$toRecipients) {
+                LetterRecipients::eachSendable($letter, $letter->recipients_json, function ($recipient, $ref) use ($sendTo, $letter, &$toRecipients) {
                     try {
                         $sendTo($recipient, $ref ?: ($recipient->email ?: $recipient->phone_number));
                         $toRecipients[] = $recipient;

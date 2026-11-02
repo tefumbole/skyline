@@ -91,6 +91,52 @@ class LetterRecipients
         }
     }
 
+    /**
+     * Directory recipients ready to send. A personalized letter turns each
+     * selected WhatsApp group into one recipient per member.
+     */
+    public static function eachSendable($letter, $json, callable $callback): void
+    {
+        foreach (self::peopleForSend($letter, $json) as $person) {
+            $callback(self::toSendObject($person), $person['id'] ?? null);
+        }
+    }
+
+    public static function peopleForSend($letter, $json): array
+    {
+        $people = self::decodePeopleJson($json);
+        if (! $letter || empty($letter->personalized)) {
+            return $people;
+        }
+
+        $jids = [];
+        $rest = [];
+        foreach ($people as $person) {
+            $id = (string) ($person['id'] ?? '');
+            $jid = trim((string) ($person['group_jid'] ?? ''));
+            if ($jid === '' && strpos($id, 'group:') === 0) {
+                $jid = substr($id, 6);
+            }
+            $isGroup = (($person['kind'] ?? '') === 'group') || strpos($id, 'group:') === 0;
+            if ($isGroup && substr($jid, -5) === '@g.us') {
+                $jids[] = $jid;
+                continue;
+            }
+            $rest[] = $person;
+        }
+        if (! $jids) {
+            return $people;
+        }
+
+        $members = app(\App\Services\AnnouncementService::class)->previewGroupPeople(array_values(array_unique($jids)));
+        foreach ($members as $i => $member) {
+            $members[$i]['kind'] = 'contact';
+            $members[$i]['phone'] = $member['phone'] ?? '';
+        }
+
+        return array_merge($rest, $members);
+    }
+
     public static function decodePeopleJson($json): array
     {
         if (is_array($json)) {

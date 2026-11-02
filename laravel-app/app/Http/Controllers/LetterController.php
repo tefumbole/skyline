@@ -431,6 +431,7 @@ class LetterController extends Controller
             $data['sent_by'] = null;
 
             $data['reference'] = \App\Support\LetterReference::next();
+            $data['personalized'] = $request->boolean('personalized') ? 1 : 0;
 
             $forwardTo = (string) $request->input('forward_letter', 'editor');
             $creator = Auth::user();
@@ -1212,7 +1213,8 @@ class LetterController extends Controller
         $attachment_path = public_path('letter/attachment/');
         $message = 'Letter notification sent successfully';
         $groupJid = trim((string) ($lims_customer_data->group_jid ?? ''));
-        if ($groupJid !== '' && substr($groupJid, -5) === '@g.us') {
+        $recipientKind = strtolower(trim((string) ($lims_customer_data->kind ?? '')));
+        if ($recipientKind === 'group' && $groupJid !== '' && substr($groupJid, -5) === '@g.us') {
             $this->sendLetterFilesToGroup($letter, $path, $attachment_path, $groupJid, $lims_customer_data->name ?? 'WhatsApp group');
 
             return $message;

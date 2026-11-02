@@ -60,6 +60,11 @@
     <div class="lt-user-list lt-rlist"></div>
     <div class="lt-rchips mt-2"></div>
     <div class="lt-rhiddens"></div>
+    <div class="mt-2">
+        <button type="button" class="lt-pill" id="lt-personalize-btn">Personalize</button>
+        <input type="checkbox" name="personalized" id="lt-personalized" value="1" class="d-none">
+        <p class="text-muted small mb-0 mt-1" id="lt-personalize-note">Select a WhatsApp group, then Personalize. Each member gets their own letter, with their name.</p>
+    </div>
 
     <hr>
     <div class="d-flex align-items-center mb-1" style="gap:8px;">
@@ -240,6 +245,7 @@ window.LT_PRESELECT = @json([
                 refreshRecipients();
             });
             syncHiddens(document.querySelector('.lt-rhiddens'), recipients, 'recipient_ids');
+            syncPersonalize();
         });
     }
 
@@ -332,6 +338,28 @@ window.LT_PRESELECT = @json([
         recipients = [];
         refreshRecipients();
     });
+    var personalizeBtn = document.getElementById('lt-personalize-btn');
+    var personalizeBox = document.getElementById('lt-personalized');
+    function syncPersonalize() {
+        if (!personalizeBtn || !personalizeBox) return;
+        personalizeBtn.classList.toggle('active', !!personalizeBox.checked);
+        var hasGroup = recipients.some(function (id) { return String(id).indexOf('group:') === 0; });
+        personalizeBtn.title = hasGroup
+            ? 'Each member of the selected WhatsApp group gets their own letter'
+            : 'Select a WhatsApp group to personalize each member';
+    }
+    if (personalizeBtn && personalizeBox) {
+        personalizeBtn.addEventListener('click', function () {
+            var hasGroup = recipients.some(function (id) { return String(id).indexOf('group:') === 0; });
+            if (!personalizeBox.checked && !hasGroup) {
+                alert('Select a WhatsApp group first. Personalize sends a separate letter to each member.');
+                return;
+            }
+            personalizeBox.checked = !personalizeBox.checked;
+            syncPersonalize();
+        });
+    }
+    syncPersonalize();
     document.querySelector('.lt-cselect-all').addEventListener('click', function () {
         var q = (document.querySelector('.lt-csearch').value || '').trim();
         if (!q && cRole !== 'groups') return;

@@ -69,14 +69,20 @@
         border-color: #d7deea;
     }
     .letter-create label { color: #3d4d66; font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
-    .letter-create #submit-btn {
+    .letter-create #submit-btn,
+    .letter-create #submit-btn:hover,
+    .letter-create #submit-btn:focus,
+    .letter-create #submit-btn:active {
         min-height: 46px;
+        min-width: 140px;
         padding: 0 22px;
-        border: 0;
+        border: 0 !important;
         border-radius: 12px;
-        background: #e1b368;
-        color: #0c1830;
+        background: #e1b368 !important;
+        border-color: #e1b368 !important;
+        color: #0c1830 !important;
         font-weight: 700;
+        box-shadow: none;
     }
     .letter-create .letter-compose-section {
         border-color: #e4eaf3;

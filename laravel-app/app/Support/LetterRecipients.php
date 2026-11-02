@@ -155,6 +155,50 @@ class LetterRecipients
         return app(PeopleDirectoryService::class)->resolveDirectoryPeople($ids);
     }
 
+    /**
+     * Names shown on the public letter verification page.
+     */
+    public static function audienceLabels($letter, $which = 'to'): array
+    {
+        $json = $which === 'cc' ? ($letter->cc_json ?? null) : ($letter->recipients_json ?? null);
+        $people = self::decodePeopleJson($json);
+        $names = [];
+        foreach ($people as $person) {
+            $name = trim((string) ($person['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+        if ($names) {
+            return array_values(array_unique($names));
+        }
+
+        $raw = trim((string) ($which === 'cc' ? ($letter->cc ?? '') : ($letter->to ?? '')));
+        if ($raw === '') {
+            return [];
+        }
+        if (($letter->people_type ?? '') === 'csv') {
+            return ['CSV recipient list'];
+        }
+        if (($letter->people_type ?? '') === 'all') {
+            return ['All customers and employees'];
+        }
+
+        $model = ($letter->people_type ?? '') === 'customer' ? \App\Customer::class : \App\Employee::class;
+        foreach (array_filter(array_map('trim', explode(',', $raw))) as $id) {
+            if (! ctype_digit($id)) {
+                continue;
+            }
+            $row = $model::find($id);
+            $name = trim((string) ($row->name ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
+
     public static function toSendObject(array $person)
     {
         $r = (object) [];

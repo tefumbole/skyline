@@ -124,13 +124,30 @@ class QRController extends Controller
 
     public function letterScan($id)
     {
-        $data = Letter::with('category')->find($id);
-        if (!$data) {
+        $data = Letter::with(['category', 'createdBy', 'signedBy', 'approvedBy', 'sentBy', 'editedBy'])->find($id);
+        if (! $data) {
             abort(404, 'Letter not found');
         }
 
         $general_setting = GeneralSetting::first();
+        $rejected = (int) $data->is_rejected === 1;
+        $signed = (int) $data->is_sign === 1;
+        $verify = [
+            'valid' => ! $rejected,
+            'status' => $rejected ? 'Not valid' : 'Valid',
+            'detail' => $rejected ? 'This letter was rejected.' : ($signed ? 'This letter is signed.' : 'This letter is on file and is not signed yet.'),
+            'date' => $data->created_at ? $data->created_at->timezone(config('app.timezone') ?: 'Africa/Douala')->format('j M Y') : '',
+            'signed_at' => $data->sign_signed_at ? \Carbon\Carbon::parse($data->sign_signed_at)->timezone(config('app.timezone') ?: 'Africa/Douala')->format('j M Y, H:i') : '',
+            'sent_at' => ((int) $data->is_sent === 1 && $data->updated_at) ? $data->updated_at->timezone(config('app.timezone') ?: 'Africa/Douala')->format('j M Y') : '',
+            'to' => \App\Support\LetterRecipients::audienceLabels($data, 'to'),
+            'cc' => \App\Support\LetterRecipients::audienceLabels($data, 'cc'),
+            'signed_by' => optional($data->signedBy)->name ?: '',
+            'approved_by' => optional($data->approvedBy)->name ?: '',
+            'author' => trim((string) ($data->name ?? '')) ?: optional($data->createdBy)->name,
+            'sent' => (int) $data->is_sent === 1,
+            'personalized' => (int) ($data->personalized ?? 0) === 1,
+        ];
 
-        return view('letter.public_view', compact('data', 'general_setting'));
+        return view('letter.public_view', compact('data', 'general_setting', 'verify'));
     }
 }

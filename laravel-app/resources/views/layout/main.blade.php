@@ -45,7 +45,7 @@
         <link rel="stylesheet" href="<?php echo asset('public/css/dropzone.css') ?>">
         <link rel="stylesheet" href="<?php echo asset('public/css/custom.css') ?>">
         @if(request()->routeIs('sale.pos'))
-        <link rel="stylesheet" href="<?php echo asset('public/css/pos-mobile.css') ?>?v=1">
+        <link rel="stylesheet" href="<?php echo asset('public/css/pos-mobile.css') ?>?v=2">
         @endif
 
 

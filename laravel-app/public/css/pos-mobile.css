@@ -10,30 +10,32 @@
         padding-left: 6px;
         padding-right: 6px;
     }
-    body.beyond-pos-active .pos-service-bar {
-        flex-wrap: wrap;
+    body.beyond-pos-active .pos-section .pos-service-bar {
+        flex-wrap: wrap !important;
         align-items: stretch;
         gap: 8px;
     }
-    body.beyond-pos-active .pos-service-toggle {
+    body.beyond-pos-active .pos-section .pos-service-toggle {
         width: 100%;
+        flex: 1 1 100%;
     }
-    body.beyond-pos-active .pos-service-toggle label {
+    body.beyond-pos-active .pos-section .pos-service-toggle label {
         flex: 1 1 0;
     }
-    body.beyond-pos-active .pos-service-toggle span {
+    body.beyond-pos-active .pos-section .pos-service-toggle span {
         text-align: center;
         min-height: 44px;
         line-height: 32px;
         padding: 6px 8px;
     }
-    body.beyond-pos-active .pos-service-field,
-    body.beyond-pos-active .pos-service-bar .bootstrap-select,
-    body.beyond-pos-active .pos-service-field select {
+    body.beyond-pos-active .pos-section .pos-service-field,
+    body.beyond-pos-active .pos-section .pos-service-bar .bootstrap-select,
+    body.beyond-pos-active .pos-section .pos-service-field select,
+    body.beyond-pos-active .pos-section .pos-service-bar .bootstrap-select > .dropdown-toggle {
         width: 100% !important;
         max-width: none !important;
-        flex: 1 1 100%;
-        min-width: 0;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
     }
     body.beyond-pos-active .pos-side .col-md-4,
     body.beyond-pos-active .pos-side .col-md-2,

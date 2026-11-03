@@ -59,6 +59,7 @@
             <p class="sky-kicker">Orders</p>
             @if(!empty($readyDesk))
                 <h1>Ready for Delivery</h1>
+                <p class="sky-meta" style="margin-top:10px;"><a class="btn btn-primary" href="{{ route('sale.pos') }}">POS</a></p>
             @else
                 <h1>{{ $lanes[$lane] ?? 'Orders' }} · {{ $tabs[$tab] ?? '' }}</h1>
             @endif

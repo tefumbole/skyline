@@ -49,6 +49,7 @@ class SiteMenu
             'sale'         => 'Sale',
             'booking'      => 'Rental Module',
             'orders'       => 'Orders',
+            'pos'          => 'POS',
             'ready-delivery' => 'Ready for Delivery',
             'events'       => 'Events',
             'invitations'  => 'Digital Invitations',

@@ -1851,6 +1851,9 @@
                                 </ul>
                             </li>
                         @endif
+                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0)
+                            <li id="waiter-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="pos"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
+                        @endif
                         @if(\App\Services\Restaurant\RestaurantAccess::installed() && \App\Services\Restaurant\RestaurantAccess::canReadyDesk(auth()->user()))
                             @php
                                 $readyDeliveryCount = 0;
@@ -3306,6 +3309,10 @@
                         if (map['ready-delivery'] && map['orders']) {
                             map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);
                             used['ready-delivery'] = true;
+                        }
+                        if (map['pos'] && map['ready-delivery']) {
+                            map['ready-delivery'].insertAdjacentElement('beforebegin', map['pos']);
+                            used['pos'] = true;
                         }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).
                         kids.forEach(function (li) {

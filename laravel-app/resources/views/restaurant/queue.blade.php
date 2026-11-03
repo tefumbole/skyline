@@ -10,13 +10,13 @@
         .sky-tabs a.active { background:#0c1830; color:#e1b368; }
         .sky-tabs .badge { background:#e1b368; color:#0c1830; margin-left:6px; }
         .sky-ticket {
-            background:#fff; border:1px solid #d7deea; border-radius:16px;
-            box-shadow:0 10px 28px rgba(12,24,48,.05);
-            padding:16px 18px; display:grid; grid-template-columns:minmax(160px,220px) minmax(220px,1fr) minmax(220px,280px);
+            background:#fff; border:1px solid #d7deea; border-radius:18px;
+            box-shadow:0 12px 32px rgba(12,24,48,.06);
+            padding:18px; display:grid; grid-template-columns:minmax(180px,240px) minmax(220px,1fr) minmax(200px,260px);
             gap:16px; align-items:start;
         }
-        .sky-kicker { margin:0; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8a7350; }
-        .sky-ref { margin:4px 0 0; font-size:18px; font-weight:700; color:#0c1830; }
+        .sky-kicker { margin:0; font-size:22px; font-weight:800; letter-spacing:-.02em; text-transform:none; color:#0c1830; }
+        .sky-ref { margin:4px 0 0; font-size:15px; font-weight:700; color:#5c6b82; }
         .sky-guest { margin:4px 0 0; color:#243044; }
         .sky-meta { margin:8px 0 0; color:#5c6b80; font-size:13px; }
         .sky-item { margin:0; font-size:20px; line-height:1.25; color:#0c1830; }

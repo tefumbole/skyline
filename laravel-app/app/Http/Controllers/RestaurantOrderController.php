@@ -118,7 +118,7 @@ class RestaurantOrderController extends Controller
             ->limit(80)
             ->get();
 
-        return view('restaurant.queue', [
+        return view('restaurant.ready', [
             'lanes' => [],
             'lane' => 'ready',
             'tabs' => [],
@@ -263,8 +263,20 @@ class RestaurantOrderController extends Controller
             foreach ($readyRows as $row) {
                 $sale = $row->order ? $row->order->sale : null;
                 $lane = RestaurantAccess::itemStation($row);
+                $tableName = optional(optional($row->order)->diningTable)->name;
+                $service = $row->order ? (string) $row->order->service_type : '';
+                if ($tableName) {
+                    $destination = 'Deliver to '.$tableName;
+                } elseif ($service === 'take_away' || $service === 'takeaway') {
+                    $destination = 'Take away';
+                } elseif ($service === 'dine_in') {
+                    $destination = 'Dine in';
+                } else {
+                    $destination = 'Take away';
+                }
                 $items[] = [
                     'id' => 'ready-'.(int) $row->id,
+                    'destination' => $destination,
                     'name' => $row->product_name,
                     'qty' => $row->qty,
                     'status' => 'ready',

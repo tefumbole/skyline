@@ -10,6 +10,9 @@ class FloorOrderController extends Controller
     public function index()
     {
         $user = auth()->user();
+        if ($user && strcasecmp((string) $user->roleName(), 'Waiter') === 0) {
+            return redirect()->route('restaurant.ready');
+        }
         $allowed = $user && (
             $user->hasFullAdminAccess()
             || in_array(strtolower((string) $user->roleName()), ['waiter', 'manager'], true)

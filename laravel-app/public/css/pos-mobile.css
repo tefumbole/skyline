@@ -1,0 +1,101 @@
+@media (max-width: 767px) {
+    body.beyond-pos-active .pos-section .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    body.beyond-pos-active .pos-side,
+    body.beyond-pos-active .products-side {
+        flex: 0 0 100%;
+        max-width: 100%;
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+    body.beyond-pos-active .pos-service-bar {
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 8px;
+    }
+    body.beyond-pos-active .pos-service-toggle {
+        width: 100%;
+    }
+    body.beyond-pos-active .pos-service-toggle label {
+        flex: 1 1 0;
+    }
+    body.beyond-pos-active .pos-service-toggle span {
+        text-align: center;
+        min-height: 44px;
+        line-height: 32px;
+        padding: 6px 8px;
+    }
+    body.beyond-pos-active .pos-service-field,
+    body.beyond-pos-active .pos-service-bar .bootstrap-select,
+    body.beyond-pos-active .pos-service-field select {
+        width: 100% !important;
+        max-width: none !important;
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+    body.beyond-pos-active .pos-side .col-md-4,
+    body.beyond-pos-active .pos-side .col-md-2,
+    body.beyond-pos-active .pos-side .col-md-3,
+    body.beyond-pos-active .products-side .col-md-4 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    body.beyond-pos-active .input-group.pos {
+        display: flex;
+        width: 100%;
+    }
+    body.beyond-pos-active .input-group.pos .bootstrap-select,
+    body.beyond-pos-active .input-group.pos .bootstrap-select > .dropdown-toggle,
+    body.beyond-pos-active .pos-side .bootstrap-select,
+    body.beyond-pos-active .pos-side .bootstrap-select > .dropdown-toggle {
+        width: 100% !important;
+        flex: 1 1 auto;
+        min-height: 44px;
+    }
+    body.beyond-pos-active .input-group.pos > .btn {
+        min-width: 48px;
+        min-height: 44px;
+        font-size: 18px;
+    }
+    body.beyond-pos-active .pos-side .form-control,
+    body.beyond-pos-active .pos-side select,
+    body.beyond-pos-active .bootstrap-select .dropdown-toggle {
+        font-size: 16px;
+    }
+    body.beyond-pos-active .pos-product-grid .product-img,
+    body.beyond-pos-active .category-img,
+    body.beyond-pos-active .brand-img {
+        flex: 0 0 50%;
+        max-width: 50%;
+        min-height: 112px;
+    }
+    body.beyond-pos-active .pos-pay-bar {
+        left: 0 !important;
+        right: 0;
+    }
+    body.beyond-pos-active .pos-pay-bar .payment-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+    }
+    body.beyond-pos-active .pos-pay-bar .column-5 {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+        width: auto !important;
+        margin: 0 !important;
+    }
+    body.beyond-pos-active .pos-pay-bar .btn {
+        width: 100%;
+        min-height: 48px;
+        font-size: 16px;
+    }
+    body.beyond-pos-active .pos-side {
+        padding-bottom: 150px;
+    }
+    body.beyond-pos-active .products-side .header .nav-menu {
+        display: none;
+    }
+}

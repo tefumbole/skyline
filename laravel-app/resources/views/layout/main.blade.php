@@ -44,6 +44,9 @@
         <link rel="stylesheet" href="<?php echo asset('public/css/style.default.css') ?>" id="theme-stylesheet" type="text/css">
         <link rel="stylesheet" href="<?php echo asset('public/css/dropzone.css') ?>">
         <link rel="stylesheet" href="<?php echo asset('public/css/custom.css') ?>">
+        @if(request()->routeIs('sale.pos'))
+        <link rel="stylesheet" href="<?php echo asset('public/css/pos-mobile.css') ?>?v=1">
+        @endif
 
 
         <script type="text/javascript" src="<?php echo asset('public/vendor/jquery/jquery.min.js') ?>"></script>
@@ -1776,7 +1779,9 @@
                             ['role_id', $role->id]
                         ])->first();
                         ?>
-                        @if($sale_index_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
+                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0 && $sale_add_permission_active)
+                            <li id="sale-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="sale"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
+                        @elseif($sale_index_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
                             <li><a href="#sale" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-cart"></i><span>{{trans('file.Sale')}}</span></a>
                                 <ul id="sale" class="collapse list-unstyled ">
                                     @if($sale_index_permission_active)
@@ -1811,9 +1816,7 @@
                                 $restaurantMenu = false;
                             }
                         @endphp
-                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0)
-                            <li id="order-floor-menu"><a href="{{ route('orders.floor') }}" data-nav-key="orders"><i class="fa fa-cutlery"></i><span>Orders</span></a></li>
-                        @elseif($restaurantMenu)
+                        @if($restaurantMenu && !(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0))
                             <li><a href="#restaurant-orders" data-nav-key="orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
                                 <ul id="restaurant-orders" class="collapse list-unstyled">
                                     @php
@@ -4658,6 +4661,7 @@
             #sky-order-pop .go { background:#e1b368; color:#0c1830; }
             #sky-order-pop .stay { background:transparent; color:#fff8ea; border:1px solid #e1b368; }
         </style>
+        <audio id="sky-ready-beep" preload="auto" src="{{ url('public/beep/beep-07.mp3') }}"></audio>
         <div id="sky-order-pop" hidden>
             <h2 id="sky-order-pop-title">Order waiting</h2>
             <div id="sky-order-pop-body"></div>
@@ -4683,15 +4687,43 @@
                         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
                     });
                 }
+                var heardReady = {};
+                var readyPrimed = false;
+                function noteReady() {
+                    var fresh = false;
+                    queue.forEach(function (item) {
+                        if (item.status !== 'ready') return;
+                        if (readyPrimed && !heardReady[item.id]) fresh = true;
+                        heardReady[item.id] = true;
+                    });
+                    readyPrimed = true;
+                    if (!fresh) return;
+                    var audio = document.getElementById('sky-ready-beep');
+                    if (!audio) return;
+                    audio.currentTime = 0;
+                    audio.play().catch(function () {});
+                }
                 function render() {
+                    if (/\/orders\/ready\/?$/.test(location.pathname)) {
+                        noteReady();
+                        box.hidden = true;
+                        body.innerHTML = '';
+                        return;
+                    }
+                    noteReady();
                     if (!queue.length) { box.hidden = true; body.innerHTML = ''; return; }
                     var readyCount = queue.filter(function (item) { return item.status === 'ready'; }).length;
                     title.textContent = (readyCount === queue.length ? 'Ready for delivery' : 'Order waiting') + ' · ' + queue.length;
                     body.innerHTML = queue.slice(0, 8).map(function (item) {
-                        var word = item.status === 'ready' ? 'Ready for delivery' : 'Waiting';
-                        var by = item.placed_by ? ('<br>' + esc(item.placed_by)) : '';
-                        return '<div class="sky-order-row"><p><strong>' + word + '</strong> · ' + esc(item.lane_label) + ' · ' + esc(item.ref) +
-                            '<br>' + esc(item.name) + ' × ' + esc(item.qty) + by + '</p>' +
+                        var where = item.destination || '';
+                        if (!where && item.status === 'ready') {
+                            where = item.placed_by ? ('Deliver to ' + item.placed_by) : 'Take away';
+                        }
+                        var word = item.status === 'ready' ? (where || 'Ready for delivery') : 'Waiting';
+                        var by = item.status !== 'ready' && item.placed_by ? ('<br>' + esc(item.placed_by)) : '';
+                        return '<div class="sky-order-row"><p><strong>' + esc(word) + '</strong>' +
+                            (item.status === 'ready' ? '' : (' · ' + esc(item.lane_label))) +
+                            '<br>' + esc(item.ref) + ' · ' + esc(item.name) + ' × ' + esc(item.qty) + by + '</p>' +
                             '<a class="go" href="' + esc(item.href) + '">Open</a>' +
                             '<button type="button" class="stay" data-dismiss-id="' + esc(item.id) + '">Dismiss</button></div>';
                     }).join('');

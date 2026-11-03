@@ -1851,6 +1851,9 @@
                                 </ul>
                             </li>
                         @endif
+                        @if(\App\Support\TableBoard::canView(auth()->user()))
+                            <li id="tables-menu"><a href="{{ route('tables.index') }}" data-nav-key="tables"><i class="fa fa-th-large"></i><span>Tables</span></a></li>
+                        @endif
                         @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0)
                             <li id="waiter-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="pos"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
                         @endif
@@ -3305,6 +3308,10 @@
                         if (map['coth'] && map['help']) {
                             map['coth'].insertAdjacentElement('afterend', map['help']);
                             used['help'] = true;
+                        }
+                        if (map['tables'] && map['sale']) {
+                            map['sale'].insertAdjacentElement('afterend', map['tables']);
+                            used['tables'] = true;
                         }
                         if (map['ready-delivery'] && map['orders']) {
                             map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);

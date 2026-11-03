@@ -494,6 +494,8 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/orders/kitchen', 'RestaurantOrderController@kitchen')->name('restaurant.kitchen');
     Route::get('/orders/bar', 'RestaurantOrderController@bar')->name('restaurant.bar');
     Route::get('/orders/ready', 'RestaurantOrderController@ready')->name('restaurant.ready');
+    Route::get('/tables', 'TableBoardController@index')->name('tables.index');
+    Route::get('/tables/{table}', 'TableBoardController@show')->where('table', '[0-9]+')->name('tables.show');
     Route::get('/orders/logs', 'RestaurantOrderController@logs')->name('restaurant.logs');
     Route::get('/orders/confirmation/{sale}', 'RestaurantOrderController@confirmation')->name('restaurant.confirmation');
     Route::post('/orders/items/{item}/accept', 'RestaurantOrderController@accept')->name('restaurant.accept');

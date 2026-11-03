@@ -3318,6 +3318,13 @@ class SaleController extends Controller
     public function addPayment(Request $request)
     {
         $data = $request->all();
+        $tableReturn = (string) $request->input('redirect_to');
+        if ($tableReturn !== '') {
+            $payer = auth()->user();
+            if (! preg_match('#^/tables(?:/[0-9]+)?$#', $tableReturn) || ! \App\Support\TableBoard::canPay($payer)) {
+                return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to add this payment.');
+            }
+        }
         if (!$data['amount'])
             $data['amount'] = 0.00;
 
@@ -3497,6 +3504,9 @@ class SaleController extends Controller
                 $message = 'Payment created successfully. Please setup your <a href="setting/mail_setting">mail setting</a> to send mail.';
             }
 
+        }
+        if ($tableReturn !== '' && preg_match('#^/tables(?:/[0-9]+)?$#', $tableReturn)) {
+            return redirect($tableReturn)->with('message', $message);
         }
         return redirect('sales')->with('message', $message);
     }

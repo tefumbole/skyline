@@ -47,6 +47,7 @@ class SiteMenu
             'leaders'      => 'About Us Leaders',
             'purchase'     => 'Purchase',
             'sale'         => 'Sale',
+            'tables'       => 'Tables',
             'booking'      => 'Rental Module',
             'orders'       => 'Orders',
             'pos'          => 'POS',

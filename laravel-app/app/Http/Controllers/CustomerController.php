@@ -66,6 +66,24 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+        $allowed = $user && $user->hasFullAdminAccess();
+        if (! $allowed && $user) {
+            try {
+                $role = Role::find($user->role_id);
+                $allowed = $role && $role->hasPermissionTo('customers-add');
+            } catch (\Throwable $e) {
+                $allowed = false;
+            }
+        }
+        if (! $allowed) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Sorry! You are not allowed to add a customer.'], 403);
+            }
+
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+
         $this->validate($request, [
             'phone_number' => [
                 'max:255',

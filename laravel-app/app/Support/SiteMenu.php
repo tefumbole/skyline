@@ -50,7 +50,6 @@ class SiteMenu
             'tables'       => 'Tables',
             'booking'      => 'Rental Module',
             'orders'       => 'Orders',
-            'pos'          => 'POS',
             'ready-delivery' => 'Ready for Delivery',
             'events'       => 'Events',
             'invitations'  => 'Digital Invitations',

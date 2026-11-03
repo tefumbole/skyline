@@ -1811,7 +1811,9 @@
                                 $restaurantMenu = false;
                             }
                         @endphp
-                        @if($restaurantMenu)
+                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0)
+                            <li id="order-floor-menu"><a href="{{ route('orders.floor') }}" data-nav-key="orders"><i class="fa fa-cutlery"></i><span>Orders</span></a></li>
+                        @elseif($restaurantMenu)
                             <li><a href="#restaurant-orders" data-nav-key="orders" aria-expanded="false" data-toggle="collapse"><i class="fa fa-cutlery"></i><span>Orders</span></a>
                                 <ul id="restaurant-orders" class="collapse list-unstyled">
                                     @php
@@ -1853,9 +1855,6 @@
                         @endif
                         @if(\App\Support\TableBoard::canView(auth()->user()))
                             <li id="tables-menu"><a href="{{ route('tables.index') }}" data-nav-key="tables"><i class="fa fa-th-large"></i><span>Tables</span></a></li>
-                        @endif
-                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0)
-                            <li id="waiter-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="pos"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
                         @endif
                         @if(\App\Services\Restaurant\RestaurantAccess::installed() && \App\Services\Restaurant\RestaurantAccess::canReadyDesk(auth()->user()))
                             @php
@@ -3316,10 +3315,6 @@
                         if (map['ready-delivery'] && map['orders']) {
                             map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);
                             used['ready-delivery'] = true;
-                        }
-                        if (map['pos'] && map['ready-delivery']) {
-                            map['ready-delivery'].insertAdjacentElement('beforebegin', map['pos']);
-                            used['pos'] = true;
                         }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).
                         kids.forEach(function (li) {

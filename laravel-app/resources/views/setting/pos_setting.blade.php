@@ -106,15 +106,33 @@
                                         @endif
                                         <label class="mt-2"><strong>{{trans('file.Touchscreen keybord')}}</label>
                                     </div>
+                                    <div class="form-group">
+                                        <input class="mt-2" type="checkbox" name="sunmi_print_enabled" value="1" {{ $lims_pos_setting_data && (int) $lims_pos_setting_data->sunmi_print_enabled === 1 ? 'checked' : '' }}>
+                                        <label class="mt-2"><strong>SUNMI printing</strong></label>
+                                        <p class="mb-1"><small>Off uses the browser print dialog. On sends the invoice to the SUNMI web print service on this terminal. It does not detect the device by itself.</small></p>
+                                        <label>Paper width</label>
+                                        @php $sunmiPaper = (int) optional($lims_pos_setting_data)->sunmi_paper_mm === 58 ? 58 : 80; @endphp
+                                        <select name="sunmi_paper_mm" id="sunmi-paper-mm" class="form-control">
+                                            <option value="80" {{ $sunmiPaper === 80 ? 'selected' : '' }}>80 mm</option>
+                                            <option value="58" {{ $sunmiPaper === 58 ? 'selected' : '' }}>58 mm</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         {!! Form::close() !!}
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-default" id="sunmi-test-btn">Test SUNMI Printer</button>
+                            <p id="sunmi-print-status" class="mt-2 mb-1"></p>
+                            <button type="button" class="btn btn-default" id="sunmi-reprint" style="display:none;">Reprint</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
+<script src="{{ asset('public/vendor/sunmi/bundle.umd.js') }}"></script>
+<script src="{{ asset('public/js/sunmi-receipt.js') }}"></script>
 
 <script type="text/javascript">
 
@@ -128,6 +146,36 @@
     $('select[name="biller_id"]').val($("input[name='biller_id_hidden']").val());
     $('select[name="warehouse_id"]').val($("input[name='warehouse_id_hidden']").val());
     $('.selectpicker').selectpicker('refresh');
+
+    var sunmiBusy = false;
+    function sunmiHooks() {
+        return {
+            onBusy: function (isBusy) {
+                sunmiBusy = isBusy;
+                $('#sunmi-test-btn, #sunmi-reprint').prop('disabled', isBusy);
+                if (isBusy) {
+                    $('#sunmi-reprint').hide();
+                }
+            },
+            onStatus: function (message, tone) {
+                $('#sunmi-print-status').text(message).css('color', tone === 'error' ? '#a32020' : '#1a2744');
+                $('#sunmi-reprint').toggle(tone === 'error' || message === 'Sent to printer.');
+            }
+        };
+    }
+    function runSunmiTest() {
+        if (sunmiBusy) return;
+        if (!window.SkylineSunmi) {
+            $('#sunmi-print-status').text('The SUNMI printer script did not load.').css('color', '#a32020');
+            return;
+        }
+        window.SkylineSunmi.printTest({
+            paperMm: $('#sunmi-paper-mm').val(),
+            hotel: @json(optional($general_setting ?? null)->site_title ?: 'Skyline Hotel')
+        }, sunmiHooks());
+    }
+    $('#sunmi-test-btn').on('click', runSunmiTest);
+    $('#sunmi-reprint').on('click', runSunmiTest);
 
 </script>
 @endsection

@@ -3204,8 +3204,11 @@ class SaleController extends Controller
         else
             $numberTransformer = $numberToWords->getNumberTransformer(\App::getLocale());
         $numberInWords = $numberTransformer->toWords($lims_sale_data->grand_total);
+        $posSetting = \App\PosSetting::query()->orderBy('id', 'desc')->first();
+        $sunmiPrint = $posSetting && (int) $posSetting->sunmi_print_enabled === 1;
+        $sunmiPaperMm = $posSetting && (int) $posSetting->sunmi_paper_mm === 58 ? 58 : 80;
 
-        return view('sale.invoice', compact('header', 'footer', 'water_mark', 'all_permission', 'lims_account_data_cradit', 'lims_account_data_debit', 'lims_sale_data', 'lims_product_sale_data', 'lims_biller_data', 'lims_warehouse_data', 'lims_customer_data', 'lims_payment_data', 'numberInWords'));
+        return view('sale.invoice', compact('header', 'footer', 'water_mark', 'all_permission', 'lims_account_data_cradit', 'lims_account_data_debit', 'lims_sale_data', 'lims_product_sale_data', 'lims_biller_data', 'lims_warehouse_data', 'lims_customer_data', 'lims_payment_data', 'numberInWords', 'sunmiPrint', 'sunmiPaperMm'));
     }
 
     public function confirmCash($sale, $token)

@@ -707,6 +707,8 @@ class SettingController extends Controller
             $pos_setting->keybord_active = false;
         else
             $pos_setting->keybord_active = true;
+        $pos_setting->sunmi_print_enabled = ! empty($data['sunmi_print_enabled']) ? 1 : 0;
+        $pos_setting->sunmi_paper_mm = (int) ($data['sunmi_paper_mm'] ?? 80) === 58 ? 58 : 80;
     	$pos_setting->save();
     	return redirect()->back()->with('message', 'POS setting updated successfully');
     }

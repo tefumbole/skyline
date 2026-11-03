@@ -24,6 +24,8 @@
         $dueAmount = (float) $lims_sale_data->grand_total - $paidAmount;
         $saleNote = trim(strip_tags((string) ($lims_sale_data->sale_note ?? '')));
         $staffNote = trim(strip_tags((string) ($lims_sale_data->staff_note ?? '')));
+        $sunmiPrint = ! empty($sunmiPrint);
+        $sunmiPaperMm = (int) ($sunmiPaperMm ?? 80) === 58 ? 58 : 80;
     @endphp
     <style type="text/css">
         * { box-sizing: border-box; }
@@ -235,7 +237,10 @@
     <table>
         <tr>
             <td><a href="{{$url}}" class="btn btn-info"><i class="fa fa-arrow-left"></i> {{trans('file.Back')}}</a></td>
-            <td><button type="button" onclick="window.print();" class="btn btn-primary"><i class="dripicons-print"></i> {{trans('file.Print')}}</button></td>
+            <td><button type="button" id="invoice-print-btn" class="btn btn-primary" @if(empty($sunmiPrint)) onclick="window.print();" @endif><i class="dripicons-print"></i> {{trans('file.Print')}}</button></td>
+            @if(!empty($sunmiPrint))
+            <td><button type="button" id="sunmi-test-btn" class="btn btn-info">Test SUNMI Printer</button></td>
+            @endif
             <td><a href="{{ route('sale.pos') }}" class="btn btn-danger"><i class="dripicons-cross"></i> Close</a></td>
         </tr>
     </table>
@@ -473,6 +478,10 @@
     @endif
 @endif
 </div>
+@if($sunmiPrint)
+<p id="sunmi-print-status" class="hidden-print" style="max-width:920px;margin:12px auto 0;font-family:Helvetica,Arial,sans-serif;font-size:14px;"></p>
+<p class="hidden-print" style="max-width:920px;margin:8px auto 0;"><button type="button" id="sunmi-reprint" class="btn btn-primary" style="display:none;">Reprint</button></p>
+@endif
 
 <script type="text/javascript">
     try {
@@ -480,9 +489,148 @@
         localStorage.clear();
         if (myItem !== null) localStorage.setItem('pos-expend', myItem);
     } catch (e) {}
-    @if(session()->has('message') || request()->boolean('autoprint'))
-    setTimeout(function () { window.print(); }, 600);
-    @endif
 </script>
+@if($sunmiPrint)
+<script src="{{ asset('public/vendor/sunmi/bundle.umd.js') }}"></script>
+<script src="{{ asset('public/js/sunmi-receipt.js') }}"></script>
+@php
+    $sunmiMoney = function ($amount) use ($isMini) {
+        $amount = (float) $amount;
+        if ($isMini && abs($amount - round($amount)) < 0.001) {
+            return number_format($amount, 0);
+        }
+        return number_format($amount, 2);
+    };
+    $sunmiItems = [];
+    foreach ($lims_product_sale_data as $product_sale_data) {
+        $product = \App\Product::find($product_sale_data->product_id);
+        $name = $product ? $product->name : 'Item';
+        if ($product_sale_data->variant_id) {
+            $variant = \App\Variant::find($product_sale_data->variant_id);
+            if ($variant && $variant->name !== '') {
+                $name .= ' ['.$variant->name.']';
+            }
+        }
+        $lineTotal = (float) ($product_sale_data->total ?? 0);
+        $qty = (float) ($product_sale_data->qty ?: 0);
+        $unit = $qty ? ($lineTotal / $qty) : 0;
+        $sunmiItems[] = [
+            'name' => $name,
+            'qty' => $qty + 0,
+            'unit' => $sunmiMoney($unit),
+            'total' => $sunmiMoney($lineTotal),
+        ];
+    }
+    $sunmiTotals = [];
+    if ($orderTax > 0) {
+        $sunmiTotals[] = ['label' => 'Order tax', 'value' => $sunmiMoney($orderTax)];
+    }
+    if ($orderDiscount > 0) {
+        $sunmiTotals[] = ['label' => 'Order discount', 'value' => $sunmiMoney($orderDiscount)];
+    }
+    if ($couponDiscount > 0) {
+        $sunmiTotals[] = ['label' => 'Coupon discount', 'value' => $sunmiMoney($couponDiscount)];
+    }
+    if ($shippingCost > 0) {
+        $sunmiTotals[] = ['label' => 'Shipping', 'value' => $sunmiMoney($shippingCost)];
+    }
+    $sunmiTotals[] = ['label' => 'Total', 'value' => $sunmiMoney($lims_sale_data->grand_total)];
+    $sunmiTotals[] = ['label' => 'Paid', 'value' => $sunmiMoney($paidAmount)];
+    if ($dueAmount > 0.009) {
+        $sunmiTotals[] = ['label' => 'Pending', 'value' => $sunmiMoney($dueAmount)];
+    }
+    $sunmiPayments = [];
+    foreach ($lims_payment_data as $payment_data) {
+        $sunmiPayments[] = [
+            'method' => (string) $payment_data->paying_method,
+            'amount' => $sunmiMoney($payment_data->amount),
+            'change' => (float) $payment_data->change > 0 ? $sunmiMoney($payment_data->change) : '',
+        ];
+    }
+    $cashierName = '';
+    if (optional($lims_sale_data->user)->name) {
+        $cashierName = $lims_sale_data->user->name;
+    } elseif (optional($lims_biller_data)->name) {
+        $cashierName = $lims_biller_data->name;
+    }
+    $sunmiWhen = $lims_sale_data->created_at;
+    $sunmiWhenText = $sunmiWhen instanceof \DateTimeInterface
+        ? $sunmiWhen->format('j M Y H:i')
+        : date('j M Y H:i', strtotime((string) $sunmiWhen));
+    $sunmiReceipt = [
+        'paperMm' => $sunmiPaperMm,
+        'hotel' => $general_setting->site_title,
+        'title' => 'Sales Invoice',
+        'reference' => $lims_sale_data->reference_no,
+        'date' => $sunmiWhenText,
+        'cashier' => $cashierName,
+        'customer' => optional($lims_customer_data)->name ?: '',
+        'items' => $sunmiItems,
+        'totals' => $sunmiTotals,
+        'payments' => $sunmiPayments,
+        'thanks' => 'Thank you',
+    ];
+@endphp
+<script>
+    var sunmiReceipt = @json($sunmiReceipt);
+    var sunmiBusy = false;
+    var sunmiLast = 'receipt';
+    function sunmiHooks() {
+        return {
+            onBusy: function (isBusy) {
+                sunmiBusy = isBusy;
+                ['invoice-print-btn', 'sunmi-test-btn', 'sunmi-reprint'].forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) el.disabled = isBusy;
+                });
+                var reprint = document.getElementById('sunmi-reprint');
+                if (reprint && isBusy) reprint.style.display = 'none';
+            },
+            onStatus: function (message, tone) {
+                var status = document.getElementById('sunmi-print-status');
+                var reprint = document.getElementById('sunmi-reprint');
+                if (status) {
+                    status.textContent = message;
+                    status.style.color = tone === 'error' ? '#a32020' : '#1a2744';
+                }
+                if (reprint) {
+                    reprint.style.display = (tone === 'error' || message === 'Sent to printer.') ? 'inline-block' : 'none';
+                }
+            }
+        };
+    }
+    function printSunmiReceipt() {
+        if (sunmiBusy) return;
+        if (!window.SkylineSunmi) {
+            sunmiHooks().onStatus('The SUNMI printer script did not load.', 'error');
+            return;
+        }
+        sunmiLast = 'receipt';
+        window.SkylineSunmi.printReceipt(sunmiReceipt, sunmiHooks());
+    }
+    function printSunmiTest() {
+        if (sunmiBusy) return;
+        if (!window.SkylineSunmi) {
+            sunmiHooks().onStatus('The SUNMI printer script did not load.', 'error');
+            return;
+        }
+        sunmiLast = 'test';
+        window.SkylineSunmi.printTest({
+            paperMm: sunmiReceipt.paperMm,
+            hotel: sunmiReceipt.hotel
+        }, sunmiHooks());
+    }
+    document.getElementById('invoice-print-btn').addEventListener('click', printSunmiReceipt);
+    document.getElementById('sunmi-test-btn').addEventListener('click', printSunmiTest);
+    document.getElementById('sunmi-reprint').addEventListener('click', function () {
+        if (sunmiLast === 'test') printSunmiTest();
+        else printSunmiReceipt();
+    });
+</script>
+@elseif(session()->has('message') || request()->boolean('autoprint'))
+<script>
+    setTimeout(function () { window.print(); }, 600);
+</script>
+@endif
 </body>
 </html>

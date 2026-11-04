@@ -72,10 +72,11 @@
     .sky-slip table.sky-total td { background: #e6e6e6; font-weight: 800; font-size: 14px; padding: 8px 8px; }
     .sky-slip table.sky-total td:first-child { border-radius: 8px 0 0 8px; }
     .sky-slip table.sky-total td:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-    .sky-slip .sky-badge { display: block; width: 64px; margin: 1mm auto 4mm; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
-    .sky-slip .sky-sign { text-align: center; margin: 2mm 0 3mm; }
-    .sky-slip .sky-sign img { display: block; height: 16mm; width: auto; max-width: 50mm; margin: 0 auto 1mm; }
-    .sky-slip .sky-sign-name { font-size: 13px; }
+    .sky-slip .sky-badge { display: block; width: 64px; margin: 2mm 0 0; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
+    .sky-slip .sky-sign { text-align: center; margin: 16mm 8mm 3mm; }
+    .sky-slip .sky-sign img { display: block; height: 14mm; width: auto; max-width: 48mm; margin: 0 auto -6mm; }
+    .sky-slip .sky-sign-line { border-bottom: 1px solid #111; height: 0; margin: 0 0 2mm; }
+    .sky-slip .sky-sign-name { font-size: 13px; margin-top: 1.5mm; }
     .sky-slip .sky-qr { text-align: center; margin: 0 0 3mm; }
     .sky-slip .sky-qr img { width: 32mm; height: 32mm; }
     .sky-slip .sky-bar { text-align: center; }
@@ -138,6 +139,7 @@
             @if($signatureSrc !== '')
                 <img src="{{ $signatureSrc }}" alt="">
             @endif
+            <div class="sky-sign-line"></div>
             @if($cashierName !== '')
                 <div class="sky-sign-name">{{ $cashierName }}</div>
             @endif

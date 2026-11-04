@@ -118,6 +118,16 @@ class StaffPhoneAuthController extends Controller
             return redirect('/staff-otp-login')->withErrors(['otp' => 'Account not found.']);
         }
 
+        $request->session()->put('staff_qr_gate', [
+            'user_id' => (int) $user->id,
+            'next' => 'staff-phone',
+        ]);
+
+        return redirect()->route('login.qr');
+    }
+
+    public function finishAfterQr(Request $request, User $user)
+    {
         if (Auth::guard('beyond')->check()) {
             Auth::guard('beyond')->logout();
         }

@@ -420,6 +420,8 @@ Route::get('/online-invitation/request/{token}', 'OnlineInvitationRequestLinkCon
 Route::post('/online-invitation/request/{token}', 'OnlineInvitationRequestLinkController@submitPublic')->name('online_invitation.request.submit');
 
 Auth::routes(['register' => false, 'reset' => false, 'verify' => false]);
+Route::get('/login-qr', 'Auth\LoginController@showLoginQr')->name('login.qr');
+Route::post('/login-qr', 'Auth\LoginController@submitLoginQr')->middleware('throttle:10,1');
 // GET/POST /login are registered by Auth::routes → LoginController, which delegates
 // to BeyondAuthController (unified staff-first then customer routing).
 

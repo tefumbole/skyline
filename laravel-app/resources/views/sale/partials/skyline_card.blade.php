@@ -77,10 +77,10 @@
     .sky-slip .sky-sign img { display: block; height: 14mm; width: auto; max-width: 48mm; margin: 0 auto -6mm; }
     .sky-slip .sky-sign-line { border-bottom: 1px solid #111; height: 0; margin: 0 0 2mm; }
     .sky-slip .sky-sign-name { font-size: 13px; margin-top: 1.5mm; }
-    .sky-slip .sky-qr { text-align: center; margin: 0 0 3mm; }
-    .sky-slip .sky-qr img { width: 32mm; height: 32mm; }
+    .sky-slip .sky-qr { text-align: center; margin: 0 0 2mm; }
+    .sky-slip .sky-qr img { width: 18mm; height: 18mm; }
     .sky-slip .sky-bar { text-align: center; }
-    .sky-slip .sky-bar img { width: 100%; height: 14mm; }
+    .sky-slip .sky-bar img { width: 70%; height: 8mm; }
     @media print {
         .sky-slip { width: 80mm; margin: 0; }
     }

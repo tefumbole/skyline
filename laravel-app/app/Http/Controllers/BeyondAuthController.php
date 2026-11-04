@@ -294,8 +294,22 @@ class BeyondAuthController extends Controller
      * The password is checked by the caller against the resolved row, so login by
      * email, username, phone or name all behave the same.
      */
+    public function resumeStaffLogin(Request $request, User $staff)
+    {
+        return $this->completeStaffLogin($request, $staff);
+    }
+
     protected function completeStaffLogin(Request $request, User $staff)
     {
+        if ((int) $request->session()->pull('staff_qr_passed') !== (int) $staff->id) {
+            $request->session()->put('staff_qr_gate', [
+                'user_id' => (int) $staff->id,
+                'next' => 'staff',
+            ]);
+
+            return redirect()->route('login.qr');
+        }
+
         app(\App\Services\Cloud\CloudCompanyAccess::class)->ensureRole($staff, true);
         $staff->refresh();
         Auth::guard('web')->login($staff, true);

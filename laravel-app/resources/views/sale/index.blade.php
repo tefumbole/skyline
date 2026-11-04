@@ -1125,7 +1125,7 @@
                     }
                     var meta = data.meta || {};
                     var status = String(meta.payment_status || 'DUE').toUpperCase();
-                    var phone = digits(sale[6]);
+                    var phone = '237';
                     var customerPhone = digits(sale[10]);
                     var logo = $('.mini-logo').attr('src') || '';
                     var staff = String(sale[25] || '').trim();

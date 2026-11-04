@@ -7,20 +7,8 @@
 
         return number_format($amount, 2);
     };
-    $cashierPhone = '';
+    $cashierPhone = '237';
     $viewer = auth()->user();
-    if ($viewer && ! empty($viewer->phone)) {
-        $cashierPhone = preg_replace('/\D+/', '', (string) $viewer->phone);
-    }
-    if ($cashierPhone === '' && ! empty($lims_sale_data->user_id)) {
-        $saleUser = $lims_sale_data->user;
-        if ($saleUser && ! empty($saleUser->phone)) {
-            $cashierPhone = preg_replace('/\D+/', '', (string) $saleUser->phone);
-        }
-    }
-    if ($cashierPhone === '' && ! empty($lims_biller_data->phone_number)) {
-        $cashierPhone = preg_replace('/\D+/', '', (string) $lims_biller_data->phone_number);
-    }
     $cashierName = '';
     if (optional($lims_sale_data->user)->name) {
         $cashierName = trim((string) $lims_sale_data->user->name);

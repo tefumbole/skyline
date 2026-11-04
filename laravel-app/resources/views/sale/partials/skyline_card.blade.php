@@ -7,7 +7,7 @@
 
         return number_format($amount, 2);
     };
-    $cashierPhone = '237';
+    $cashierPhone = '(+237) 694-677-541';
     $saleUser = $lims_sale_data->user;
     $cashierName = $saleUser && $saleUser->name ? trim((string) $saleUser->name) : '';
     $signatureSrc = '';
@@ -55,7 +55,7 @@
     .sky-slip { width: 80mm; max-width: 100%; margin: 12px auto 24px; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 6px 8px 10px; }
     .sky-slip * { box-sizing: border-box; }
     .sky-slip .sky-logo { display: block; height: 22mm; width: auto; max-width: 36mm; margin: 0 auto 1mm; object-fit: contain; }
-    .sky-slip .sky-phone { margin: 0 0 2mm; text-align: center; font-weight: 800; font-size: 18px; line-height: 1.1; }
+    .sky-slip .sky-phone { margin: 0 0 2mm; text-align: center; font-weight: 800; font-size: 15px; line-height: 1.1; letter-spacing: 0; }
     .sky-slip .sky-rule { border: 0; border-top: 3px solid #111; margin: 0; height: 0; }
     .sky-slip .sky-title { margin: 1.2mm 0; text-align: center; font-weight: 900; font-size: 30px; letter-spacing: -0.8px; line-height: 1; }
     .sky-slip .sky-box { background: #ececec; border-radius: 8px; padding: 8px 10px; margin: 3mm 0; font-size: 13px; line-height: 1.45; }

@@ -402,9 +402,11 @@ echo $response;
         if (! $role) {
             abort(403, 'Your account has no role assigned. Ask an administrator to set it.');
         }
-        try {
-            $role->revokePermissionTo('search_all_products');
-        } catch (\Throwable $e) {
+        if (! Auth::user()->hasFullAdminAccess()) {
+            try {
+                $role->revokePermissionTo('search_all_products');
+            } catch (\Throwable $e) {
+            }
         }
         if (\App\Support\StaffOtp::required(Auth::user()) && Auth::user()->otp_verify == 0) {
             return redirect()->route('check.otp');
@@ -435,6 +437,12 @@ echo $response;
         $company = app(\App\Services\Cloud\CloudTenantContext::class)->tenant();
         if ($company && $company->type === \App\Cloud\CloudTenantType::CUSTOMER) {
             return view('cloud.company_dashboard', app(\App\Services\Cloud\CloudCompanyDashboard::class)->snapshot());
+        }
+
+        if (strcasecmp((string) Auth::user()->roleName(), 'Manager') === 0) {
+            return view('manager.dashboard', [
+                'charts' => \App\Support\ManagerDashboard::charts(Auth::user()),
+            ]);
         }
 
         try {

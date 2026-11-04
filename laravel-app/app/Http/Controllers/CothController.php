@@ -128,6 +128,7 @@ class CothController extends Controller
             'allowChairs' => $allowChairs,
             'maxChairs' => $maxChairs,
             'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
+            'countries' => $this->bookingCountries(),
         ]);
     }
 
@@ -210,6 +211,110 @@ class CothController extends Controller
         ]);
     }
 
+    public function sendPhoneCode(Request $request, BeyondAuthService $auth)
+    {
+        $digits = $this->bookingDigits($request);
+        if ($digits === null) {
+            return response()->json(['message' => 'Enter a valid WhatsApp number with country code.'], 422);
+        }
+        $request->session()->forget(['coth.verified_phone', 'coth.verified_until']);
+        try {
+            $otp = $auth->createOtp($digits, 'coth_reservation');
+            app(BeyondWasenderService::class)->sendOtp($digits, $otp['code'], 'reservation');
+        } catch (\Throwable $e) {
+            \Log::warning('coth phone code: '.$e->getMessage());
+
+            return response()->json(['message' => 'The code could not be sent. Check the number and try again.'], 422);
+        }
+
+        return response()->json(['sent' => true, 'phone' => $digits]);
+    }
+
+    public function checkPhoneCode(Request $request, BeyondAuthService $auth)
+    {
+        $data = $request->validate([
+            'phone' => 'required|string|max:32',
+            'otp' => 'required|digits:6',
+        ]);
+        $digits = preg_replace('/\D/', '', $data['phone']);
+        $result = $auth->verifyOtp($digits, $data['otp'], 'coth_reservation');
+        if (empty($result['success'])) {
+            return response()->json([
+                'message' => isset($result['error']) ? $result['error'] : 'That code is not valid.',
+            ], 422);
+        }
+        $request->session()->put('coth.verified_phone', $digits);
+        $request->session()->put('coth.verified_until', time() + (20 * 60));
+
+        return response()->json(['verified' => true, 'phone' => $digits]);
+    }
+
+    protected function bookingDigits(Request $request)
+    {
+        $data = $request->validate([
+            'dial_code' => 'required|string|max:8',
+            'local' => 'required|string|max:32',
+        ]);
+        $dial = preg_replace('/\D/', '', (string) $data['dial_code']);
+        $local = preg_replace('/\D/', '', (string) $data['local']);
+        if ($dial !== '' && strpos($local, $dial) === 0 && strlen($local) > strlen($dial) + 6) {
+            $local = substr($local, strlen($dial));
+        }
+        if ($local !== '' && isset($local[0]) && $local[0] === '0') {
+            $local = substr($local, 1);
+        }
+        $digits = $dial.$local;
+        if (strlen($digits) < 10) {
+            return null;
+        }
+
+        return $digits;
+    }
+
+    protected function bookingCountries()
+    {
+        $flags = [
+            '237' => '🇨🇲', '250' => '🇷🇼', '256' => '🇺🇬', '254' => '🇰🇪', '255' => '🇹🇿',
+            '243' => '🇨🇩', '242' => '🇨🇬', '235' => '🇹🇩', '236' => '🇨🇫', '241' => '🇬🇦',
+            '234' => '🇳🇬', '233' => '🇬🇭', '225' => '🇨🇮', '221' => '🇸🇳', '212' => '🇲🇦',
+            '213' => '🇩🇿', '216' => '🇹🇳', '20' => '🇪🇬', '27' => '🇿🇦', '251' => '🇪🇹',
+            '249' => '🇸🇩', '211' => '🇸🇸', '1' => '🇺🇸', '44' => '🇬🇧', '33' => '🇫🇷',
+            '49' => '🇩🇪', '32' => '🇧🇪', '31' => '🇳🇱', '41' => '🇨🇭', '39' => '🇮🇹',
+            '34' => '🇪🇸', '351' => '🇵🇹', '91' => '🇮🇳', '86' => '🇨🇳', '81' => '🇯🇵',
+            '82' => '🇰🇷', '61' => '🇦🇺', '64' => '🇳🇿', '55' => '🇧🇷', '52' => '🇲🇽',
+            '971' => '🇦🇪', '966' => '🇸🇦', '974' => '🇶🇦', '965' => '🇰🇼', '973' => '🇧🇭',
+            '968' => '🇴🇲', '90' => '🇹🇷', '7' => '🇷🇺', '380' => '🇺🇦', '48' => '🇵🇱',
+            '46' => '🇸🇪', '47' => '🇳🇴', '45' => '🇩🇰', '358' => '🇫🇮', '353' => '🇮🇪',
+            '43' => '🇦🇹', '36' => '🇭🇺', '420' => '🇨🇿', '40' => '🇷🇴', '30' => '🇬🇷',
+            '972' => '🇮🇱', '92' => '🇵🇰', '880' => '🇧🇩', '63' => '🇵🇭', '62' => '🇮🇩',
+            '60' => '🇲🇾', '65' => '🇸🇬', '66' => '🇹🇭', '84' => '🇻🇳', '852' => '🇭🇰',
+            '886' => '🇹🇼', '54' => '🇦🇷', '56' => '🇨🇱', '57' => '🇨🇴', '58' => '🇻🇪',
+            '51' => '🇵🇪', '593' => '🇪🇨', '240' => '🇬🇶',
+        ];
+        $rows = [];
+        foreach (\App\Support\CountryDialCodes::all() as $code => $label) {
+            $dial = ltrim((string) $code, '+');
+            $name = trim((string) preg_replace('/\s*\(\+\d+\)\s*$/', '', (string) $label));
+            $rows[] = [
+                'dial' => $dial,
+                'name' => $name,
+                'flag' => isset($flags[$dial]) ? $flags[$dial] : '',
+            ];
+        }
+        usort($rows, function ($a, $b) {
+            if ($a['dial'] === '237') {
+                return -1;
+            }
+            if ($b['dial'] === '237') {
+                return 1;
+            }
+
+            return strcasecmp($a['name'], $b['name']);
+        });
+
+        return $rows;
+    }
+
     public function hold(Request $request, CothReservationService $reservations)
     {
         $data = $request->validate([
@@ -218,7 +323,7 @@ class CothController extends Controller
             'name' => 'required|string|max:191',
             'phone' => 'required|string|max:32',
             'email' => 'nullable|email|max:191',
-            'pay_choice' => 'required|in:deposit,full,custom',
+            'pay_choice' => 'required|in:deposit,full,custom,later',
             'custom_amount' => 'nullable|integer|min:0',
             'extra_chairs' => 'nullable|integer|min:0|max:50',
             'terms' => 'accepted',
@@ -227,6 +332,12 @@ class CothController extends Controller
         if (! $table) {
             return back()->with('not_permitted', 'Choose an available table.');
         }
+        $phoneDigits = preg_replace('/\D/', '', (string) $data['phone']);
+        $verified = (string) $request->session()->get('coth.verified_phone');
+        $verifiedUntil = (int) $request->session()->get('coth.verified_until');
+        if ($verified === '' || $verified !== $phoneDigits || $verifiedUntil < time()) {
+            return back()->withInput()->with('not_permitted', 'Enter the WhatsApp code for this number before the booking can continue.');
+        }
         try {
             $reservation = $reservations->hold($table, $data['event_date'], $data);
         } catch (\InvalidArgumentException $e) {
@@ -234,9 +345,21 @@ class CothController extends Controller
         } catch (\Throwable $e) {
             return back()->withInput()->with('not_permitted', 'Enter a valid WhatsApp number.');
         }
-        $this->dispatchReservationOtp($reservation);
+        $reservation->phone_verified_at = now();
+        $reservation->save();
+        $request->session()->forget(['coth.verified_phone', 'coth.verified_until']);
+        if ($reservation->pay_choice === 'later') {
+            try {
+                $reservations->confirmPayLater($reservation);
+            } catch (\InvalidArgumentException $e) {
+                return redirect()->route('coth.payment', $reservation->public_token)->with('not_permitted', $e->getMessage());
+            }
 
-        return redirect()->route('coth.verify', $reservation->public_token);
+            return redirect()->route('coth.show', $reservation->public_token)
+                ->with('message', 'Your table is reserved. The full amount is still due.');
+        }
+
+        return redirect()->route('coth.payment', $reservation->public_token);
     }
 
     /**
@@ -336,7 +459,18 @@ class CothController extends Controller
         if ($reservation->hold_expires_at && $reservation->hold_expires_at->isPast()) {
             return back()->with('not_permitted', 'This hold has expired. Choose the table again.');
         }
-        $method = $request->input('method') === 'card' ? 'card' : 'momo';
+        $method = (string) $request->input('method');
+        if ($method === 'later') {
+            try {
+                app(\App\Services\Coth\CothReservationService::class)->confirmPayLater($reservation);
+            } catch (\InvalidArgumentException $e) {
+                return back()->with('not_permitted', $e->getMessage());
+            }
+
+            return redirect()->route('coth.show', $token)
+                ->with('message', 'Your table is reserved. The full amount is still due.');
+        }
+        $method = $method === 'card' ? 'card' : 'momo';
         try {
             $link = $payments->start($reservation, $method);
         } catch (\Throwable $e) {

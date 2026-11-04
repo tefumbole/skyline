@@ -87,6 +87,8 @@ Route::get('/chill-on-the-hill', 'CothController@index')->name('coth.index');
 Route::get('/chill-on-the-hill/tables', 'CothController@tables')->name('coth.tables');
 Route::get('/chill-on-the-hill/book', 'CothController@book')->name('coth.book');
 Route::post('/chill-on-the-hill/resolve-phone', 'CothController@resolvePhone')->name('coth.resolve-phone');
+Route::post('/chill-on-the-hill/phone-code', 'CothController@sendPhoneCode')->middleware('throttle:6,1')->name('coth.phone-code');
+Route::post('/chill-on-the-hill/phone-code/check', 'CothController@checkPhoneCode')->middleware('throttle:12,1')->name('coth.phone-check');
 Route::post('/chill-on-the-hill/hold', 'CothController@hold')->name('coth.hold');
 // Back-compat: /checkout now routes to the correct 3-stage page.
 Route::get('/chill-on-the-hill/checkout/{token}', 'CothController@checkout')->name('coth.checkout');

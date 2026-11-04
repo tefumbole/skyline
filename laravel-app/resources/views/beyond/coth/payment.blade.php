@@ -83,6 +83,13 @@
                     </button>
                 </form>
 
+                <form method="POST" action="{{ route('coth.pay', $reservation->public_token) }}" class="mt-4">
+                    @csrf
+                    <input type="hidden" name="method" value="later">
+                    <button class="w-full rounded-full border border-brand-gold text-brand-gold font-bold uppercase tracking-[0.12em] px-5 py-3 bg-transparent" type="submit">Pay later</button>
+                    <p class="text-xs text-white/55 mt-2 text-center">Keep the table now. The full amount stays due.</p>
+                </form>
+
                 <p class="text-xs text-white/55 mt-5">By continuing you accept that the deposit is non-refundable and that this booking covers only the date shown.</p>
             </div>
 

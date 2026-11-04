@@ -72,7 +72,7 @@ class CothReservationService
         if (empty($guest['terms'])) {
             throw new \InvalidArgumentException('Accept the non-refundable deposit terms to continue.');
         }
-        $payChoice = (isset($guest['pay_choice']) && in_array($guest['pay_choice'], ['full', 'custom'], true)) ? $guest['pay_choice'] : 'deposit';
+        $payChoice = (isset($guest['pay_choice']) && in_array($guest['pay_choice'], ['full', 'custom', 'later'], true)) ? $guest['pay_choice'] : 'deposit';
         $extraChairs = max(0, (int) ($guest['extra_chairs'] ?? 0));
 
         if ($extraChairs > 0) {
@@ -86,7 +86,9 @@ class CothReservationService
         }
 
         $quote = app(CothPricing::class)->quote($table->price, $date, $settings, $table, $extraChairs);
-        if ($payChoice === 'custom') {
+        if ($payChoice === 'later') {
+            $amountDue = 0;
+        } elseif ($payChoice === 'custom') {
             $custom = (int) ($guest['custom_amount'] ?? 0);
             $minimum = (int) $quote['deposit_due'];
             $maximum = (int) $quote['booking_total'];
@@ -287,6 +289,49 @@ class CothReservationService
         });
     }
 
+    /**
+     * Confirm a verified hold without taking money. The full amount stays due.
+     */
+    public function confirmPayLater(CothReservation $reservation)
+    {
+        return DB::transaction(function () use ($reservation) {
+            $row = CothReservation::where('id', $reservation->id)->lockForUpdate()->first();
+            if (! $row) {
+                throw new \InvalidArgumentException('This reservation could not be found.');
+            }
+            if ($row->status === 'confirmed') {
+                return $row;
+            }
+            if ($row->status !== 'held' || ! $row->phone_verified_at) {
+                throw new \InvalidArgumentException('Verify the phone number before the booking can be completed.');
+            }
+            if ($row->hold_expires_at && $row->hold_expires_at->isPast()) {
+                throw new \InvalidArgumentException('This hold has expired. Choose the table again.');
+            }
+            $slot = CothSlot::where('id', $row->coth_slot_id)->lockForUpdate()->first();
+            if (! $slot || $slot->status !== 'held') {
+                throw new \InvalidArgumentException('This table is no longer held.');
+            }
+
+            $row->pay_choice = 'later';
+            $row->amount_due = 0;
+            $row->amount_paid = 0;
+            $row->balance = (int) $row->booking_total;
+            $row->payment_status = 'pay_later';
+            $row->pay_method = 'later';
+            $row->status = 'confirmed';
+            $row->customer_id = $this->customerId($row);
+            $row->sale_id = $this->recordSale($row);
+            $row->save();
+            $slot->status = 'booked';
+            $slot->save();
+            $this->confirmChairHold($row);
+            $this->notify($row);
+
+            return $row;
+        });
+    }
+
     protected function customerId(CothReservation $reservation)
     {
         if (! Schema::hasTable('customers')) {
@@ -347,7 +392,7 @@ class CothReservationService
                 'shipping_cost' => 0,
                 'grand_total' => $grand,
                 'sale_status' => 1,
-                'payment_status' => $reservation->balance <= 0 ? 4 : 3,
+                'payment_status' => $reservation->balance <= 0 ? 4 : ((int) $reservation->amount_paid > 0 ? 3 : 2),
                 'paid_amount' => $reservation->amount_paid,
                 'paid_by_id' => $reservation->pay_method === 'card' ? 3 : 8,
                 'sale_note' => 'Chill on the Hill '.$reservation->reference.' · '.$reservation->event_date->format('Y-m-d')
@@ -355,7 +400,7 @@ class CothReservationService
                         ? ' · '.$reservation->extra_chairs_qty.' extra chair(s) @ '.number_format((int) $reservation->extra_chair_rate).' FCFA'
                         : ''),
             ]);
-            if (Schema::hasTable('payments')) {
+            if (Schema::hasTable('payments') && (int) $reservation->amount_paid > 0) {
                 try {
                     $payment = new Payment();
                     $payment->sale_id = $sale->id;
@@ -410,8 +455,12 @@ class CothReservationService
             $lines[] = '• Booking total: '.number_format((int) $reservation->booking_total).' FCFA';
             $lines[] = '• Paid: '.number_format((int) $reservation->amount_paid).' FCFA';
             $lines[] = '• Balance: '.number_format((int) $reservation->balance).' FCFA';
-            $lines[] = '• Payment: '.$reservation->payment_status;
-            $lines[] = '• The deposit is non-refundable.';
+            $lines[] = '• Payment: '.($reservation->pay_choice === 'later' ? 'Pay later' : $reservation->payment_status);
+            if ($reservation->pay_choice === 'later') {
+                $lines[] = '• Nothing was paid today. The full amount is still due.';
+            } else {
+                $lines[] = '• The deposit is non-refundable.';
+            }
             $lines[] = '• View: '.$reservation->publicUrl();
 
             app(\App\Services\Messaging\NotificationRouter::class)

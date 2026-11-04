@@ -35,6 +35,9 @@
         $dueLabel = 'Due today (full)';
     } elseif ($r && $r->pay_choice === 'custom') {
         $dueLabel = 'Due today (custom)';
+    } elseif ($r && $r->pay_choice === 'later') {
+        $dueLabel = 'Due today';
+        $dueToday = 0;
     }
     $balance = max(0, (int) ($q['booking_total'] ?? 0) - $dueToday);
     $totalGuests = ($t ? (int) $t->capacity : 0) + (int) ($q['extra_chairs_qty'] ?? 0);

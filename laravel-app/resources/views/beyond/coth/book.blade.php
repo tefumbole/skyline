@@ -12,17 +12,30 @@
     }
     .coth-field { background: #2A1C14; border: 1px solid rgba(198,161,91,.35); transition: border-color .15s ease; }
     .coth-field:focus-within { border-color: #E8C878; }
-    .coth-dial select {
-        background: transparent; color: #fff; border: none; outline: none;
-        padding-right: 18px; font-weight: 600; font-size: 14px; appearance: none;
-        background-image: linear-gradient(45deg, transparent 50%, #E8C878 50%),
-                          linear-gradient(135deg, #E8C878 50%, transparent 50%);
-        background-position: calc(100% - 10px) calc(50% - 2px),
-                             calc(100% - 6px) calc(50% - 2px);
-        background-size: 4px 4px, 4px 4px;
-        background-repeat: no-repeat;
+    .coth-country { position: relative; }
+    .coth-country-btn {
+        background: transparent; color: #fff; border: 0; font-weight: 600; font-size: 14px;
+        display: flex; align-items: center; gap: 6px; max-width: 148px; text-align: left; cursor: pointer;
     }
-    .coth-dial select option { color: #0A0A0A; }
+    .coth-country-menu {
+        position: absolute; z-index: 40; left: 0; top: calc(100% + 8px); width: min(320px, calc(100vw - 48px));
+        background: #2A1C14; border: 1px solid rgba(232,200,120,.55); border-radius: 16px;
+        box-shadow: 0 16px 40px rgba(0,0,0,.45); padding: 8px;
+    }
+    .coth-country-menu input {
+        width: 100%; background: #24160F; color: #fff; border: 1px solid rgba(198,161,91,.35);
+        border-radius: 12px; padding: 10px 12px; font-size: 16px; outline: none;
+    }
+    .coth-country-menu ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 240px; overflow: auto; }
+    .coth-country-menu button {
+        width: 100%; text-align: left; background: transparent; color: #F6EFE4; border: 0;
+        border-radius: 10px; padding: 10px 8px; font-size: 14px; cursor: pointer;
+    }
+    .coth-country-menu button:hover, .coth-country-menu button.is-active { background: rgba(197,160,89,.16); }
+    .coth-otp-input {
+        width: 100%; background: transparent; color: #fff; border: 0; outline: none;
+        font-size: 22px; letter-spacing: .28em; font-weight: 700;
+    }
     .coth-pay-opt { border: 1px solid rgba(198,161,91,.28); background: #2A1C14; transition: border-color .15s ease, background .15s ease; }
     .coth-pay-opt.is-active { border-color: #E8C878; background: rgba(197,160,89,.1); }
     .coth-src { color: #34d399; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
@@ -39,31 +52,6 @@
 </style>
 @endpush
 @section('content')
-@php
-    $visuals = app(\App\Services\Coth\CothVisualLibrary::class);
-    $countries = [
-        ['dial' => '237', 'flag' => '🇨🇲', 'name' => 'Cameroon'],
-        ['dial' => '234', 'flag' => '🇳🇬', 'name' => 'Nigeria'],
-        ['dial' => '233', 'flag' => '🇬🇭', 'name' => 'Ghana'],
-        ['dial' => '225', 'flag' => '🇨🇮', 'name' => 'Ivory Coast'],
-        ['dial' => '221', 'flag' => '🇸🇳', 'name' => 'Senegal'],
-        ['dial' => '250', 'flag' => '🇷🇼', 'name' => 'Rwanda'],
-        ['dial' => '254', 'flag' => '🇰🇪', 'name' => 'Kenya'],
-        ['dial' => '27',  'flag' => '🇿🇦', 'name' => 'South Africa'],
-        ['dial' => '241', 'flag' => '🇬🇦', 'name' => 'Gabon'],
-        ['dial' => '242', 'flag' => '🇨🇬', 'name' => 'Congo-Brazzaville'],
-        ['dial' => '243', 'flag' => '🇨🇩', 'name' => 'DR Congo'],
-        ['dial' => '236', 'flag' => '🇨🇫', 'name' => 'Central African Republic'],
-        ['dial' => '240', 'flag' => '🇬🇶', 'name' => 'Equatorial Guinea'],
-        ['dial' => '235', 'flag' => '🇹🇩', 'name' => 'Chad'],
-        ['dial' => '44',  'flag' => '🇬🇧', 'name' => 'United Kingdom'],
-        ['dial' => '1',   'flag' => '🇺🇸', 'name' => 'United States'],
-        ['dial' => '33',  'flag' => '🇫🇷', 'name' => 'France'],
-        ['dial' => '32',  'flag' => '🇧🇪', 'name' => 'Belgium'],
-        ['dial' => '49',  'flag' => '🇩🇪', 'name' => 'Germany'],
-        ['dial' => '971', 'flag' => '🇦🇪', 'name' => 'UAE'],
-    ];
-@endphp
 <div class="coth-shell text-white min-h-[80vh] py-6 px-4">
     <div class="max-w-6xl mx-auto">
         <div class="flex items-center justify-between flex-wrap gap-3">
@@ -123,20 +111,37 @@
                         <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">WhatsApp number</span>
                         <div class="coth-field rounded-2xl flex items-center px-3 py-2 gap-2">
                             <span class="opacity-80">&#128222;</span>
-                            <div class="coth-dial flex items-center gap-1 border-r border-white/15 pr-2">
-                                <select id="coth-dial">
-                                    @foreach ($countries as $c)
-                                        <option value="{{ $c['dial'] }}" @if($c['dial'] === '237') selected @endif>{{ $c['flag'] }} +{{ $c['dial'] }}</option>
-                                    @endforeach
-                                </select>
+                            <div class="coth-country border-r border-white/15 pr-2" id="coth-country">
+                                <button type="button" class="coth-country-btn" id="coth-country-btn" aria-haspopup="listbox" aria-expanded="false">
+                                    <span id="coth-country-label">Cameroon +237</span>
+                                </button>
+                                <div class="coth-country-menu" id="coth-country-menu" hidden>
+                                    <input id="coth-country-search" type="search" placeholder="Search country" autocomplete="off" aria-label="Search country">
+                                    <ul id="coth-country-list" role="listbox"></ul>
+                                </div>
+                                <input type="hidden" id="coth-dial" value="237">
                             </div>
                             <input id="coth-local" required inputmode="tel" autocomplete="tel-national" placeholder="WhatsApp number" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
                             <input type="hidden" name="phone" id="coth-phone-hidden" value="{{ old('phone') }}">
                             <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#24160F] rounded-full px-4 py-2">Next</button>
                         </div>
                     </label>
-                    <p class="text-xs text-white/50 mt-2">Pick your country code. Cameroonian numbers are checked with Campay to pre-fill your name.</p>
+                    <p class="text-xs text-white/50 mt-2">Search for your country, then enter the number. A WhatsApp code is required before the booking is saved.</p>
                     <p id="coth-phone-err" class="text-xs text-red-300 mt-2 coth-hidden"></p>
+                </div>
+
+                <div id="coth-otp-box" class="space-y-3 coth-hidden">
+                    <label class="block">
+                        <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">WhatsApp code</span>
+                        <div class="coth-field rounded-2xl flex items-center px-4 py-3 gap-3">
+                            <input id="coth-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" class="coth-otp-input">
+                            <button type="button" id="coth-otp-go" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#24160F] rounded-full px-4 py-2">Verify</button>
+                        </div>
+                    </label>
+                    <div class="flex items-center justify-between gap-3">
+                        <p id="coth-otp-err" class="text-xs text-red-300 m-0 coth-hidden"></p>
+                        <button type="button" id="coth-otp-resend" class="text-sm text-brand-gold underline bg-transparent border-0 p-0">Resend code</button>
+                    </div>
                 </div>
 
                 {{-- Step 2 (within Stage 1): name, email, extras, pay choice, terms --}}
@@ -189,6 +194,12 @@
                                 <span class="text-xs text-white/55" id="coth-custom-min">At least {{ number_format((int) $quote['deposit_due']) }} FCFA (20%)</span>
                                 <p id="coth-custom-err" class="text-xs text-red-300 mt-1 coth-hidden"></p>
                             </label>
+                            <label class="coth-pay-opt rounded-2xl px-4 py-3 cursor-pointer block sm:col-span-2" data-pay>
+                                <input type="radio" name="pay_choice" value="later" id="coth-pay-later" @if(old('pay_choice')==='later') checked @endif class="mr-2 align-middle">
+                                <span class="text-[11px] uppercase tracking-[0.18em] text-white/55">Pay later</span>
+                                <span class="block font-semibold mt-1">0 FCFA today</span>
+                                <span class="text-xs text-white/55">The table is reserved. The full amount stays due.</span>
+                            </label>
                         </div>
                     </div>
 
@@ -201,13 +212,13 @@
 
                     <label class="flex items-start gap-2 text-sm text-white/80">
                         <input type="checkbox" name="terms" value="1" required class="mt-1">
-                        <span>I accept that the deposit is non-refundable and that this booking is for the date shown only.</span>
+                        <span id="coth-terms-copy">I accept that the deposit is non-refundable and that this booking is for the date shown only.</span>
                     </label>
 
-                    <button class="w-full bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-5 py-3 flex items-center justify-center gap-2" type="submit">
-                        Continue to phone verification &rarr;
+                    <button id="coth-submit" class="w-full bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-5 py-3 flex items-center justify-center gap-2" type="submit">
+                        Continue to payment &rarr;
                     </button>
-                    <p class="text-xs text-white/55 text-center -mt-2"><span class="opacity-70">&#128242;</span> We'll send a verification code to your WhatsApp number.</p>
+                    <p class="text-xs text-white/55 text-center -mt-2">The WhatsApp code must be accepted before this booking is saved.</p>
                 </div>
             </form>
 
@@ -229,6 +240,9 @@
 (function () {
     var csrf = @json(csrf_token());
     var resolveUrl = @json(route('coth.resolve-phone'));
+    var codeUrl = @json(route('coth.phone-code'));
+    var checkUrl = @json(route('coth.phone-check'));
+    var countries = @json($countries ?? []);
 
     var dial = document.getElementById('coth-dial');
     var local = document.getElementById('coth-local');
@@ -239,61 +253,193 @@
     var nameNote = document.getElementById('coth-name-note');
     var srcLabel = document.getElementById('coth-name-source');
     var errBox = document.getElementById('coth-phone-err');
+    var otpBox = document.getElementById('coth-otp-box');
+    var otpInput = document.getElementById('coth-otp');
+    var otpGo = document.getElementById('coth-otp-go');
+    var otpResend = document.getElementById('coth-otp-resend');
+    var otpErr = document.getElementById('coth-otp-err');
+    var countryBtn = document.getElementById('coth-country-btn');
+    var countryMenu = document.getElementById('coth-country-menu');
+    var countrySearch = document.getElementById('coth-country-search');
+    var countryList = document.getElementById('coth-country-list');
+    var countryLabel = document.getElementById('coth-country-label');
     var oldName = @json((string) old('name'));
     var oldPhone = @json((string) old('phone'));
+    var verifiedPhone = @json((string) session('coth.verified_phone', ''));
+    var phoneReady = false;
 
     function showErr(msg) { errBox.textContent = msg; errBox.classList.remove('coth-hidden'); }
     function clearErr() { errBox.classList.add('coth-hidden'); errBox.textContent = ''; }
+    function showOtpErr(msg) { otpErr.textContent = msg; otpErr.classList.remove('coth-hidden'); }
+    function clearOtpErr() { otpErr.classList.add('coth-hidden'); otpErr.textContent = ''; }
     function resetBtn(label) { btn.disabled = false; btn.innerHTML = label; }
-
+    function selectedCountry() {
+        var dialCode = dial.value;
+        for (var i = 0; i < countries.length; i++) {
+            if (countries[i].dial === dialCode) return countries[i];
+        }
+        return {dial: dialCode, name: 'Country', flag: ''};
+    }
+    function paintCountry() {
+        var country = selectedCountry();
+        countryLabel.textContent = (country.flag ? country.flag + ' ' : '') + country.name + ' +' + country.dial;
+    }
+    function renderCountries(query) {
+        var q = String(query || '').toLowerCase();
+        countryList.innerHTML = '';
+        countries.forEach(function (country) {
+            var hay = (country.name + ' ' + country.dial + ' +' + country.dial).toLowerCase();
+            if (q && hay.indexOf(q) === -1) return;
+            var item = document.createElement('li');
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('role', 'option');
+            button.textContent = (country.flag ? country.flag + ' ' : '') + country.name + ' +' + country.dial;
+            if (country.dial === dial.value) button.className = 'is-active';
+            button.addEventListener('click', function () {
+                if (dial.value !== country.dial) forgetVerification();
+                dial.value = country.dial;
+                paintCountry();
+                closeCountries();
+            });
+            item.appendChild(button);
+            countryList.appendChild(item);
+        });
+        if (!countryList.children.length) {
+            var empty = document.createElement('li');
+            empty.className = 'px-2 py-2 text-sm text-white/50';
+            empty.textContent = 'No country matches that search.';
+            countryList.appendChild(empty);
+        }
+    }
+    function openCountries() {
+        countryMenu.hidden = false;
+        countryBtn.setAttribute('aria-expanded', 'true');
+        countrySearch.value = '';
+        renderCountries('');
+        setTimeout(function () { countrySearch.focus(); }, 20);
+    }
+    function closeCountries() {
+        countryMenu.hidden = true;
+        countryBtn.setAttribute('aria-expanded', 'false');
+    }
+    function forgetVerification() {
+        phoneReady = false;
+        hidden.value = '';
+        step2.classList.add('coth-hidden');
+        otpBox.classList.add('coth-hidden');
+        if (otpInput) otpInput.value = '';
+    }
     function nationalDigits(raw, dialCode) {
         var d = String(raw || '').replace(/\D/g, '');
         if (d.indexOf(dialCode) === 0 && d.length > dialCode.length + 6) d = d.substring(dialCode.length);
         if (d.charAt(0) === '0') d = d.substring(1);
         return d;
     }
-
+    function postJson(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf},
+            body: JSON.stringify(body)
+        }).then(function (r) { return r.json().then(function (j) { return {ok: r.ok, body: j}; }); });
+    }
+    function applyName(b, dialCode) {
+        if (b.name) {
+            name.value = b.name;
+            srcLabel.classList.remove('coth-hidden');
+            srcLabel.textContent = dialCode === '237' ? 'From this Cameroon number' : 'Found for this number';
+            nameNote.classList.remove('coth-hidden');
+            nameNote.textContent = 'You can edit this name.';
+        } else {
+            if (!name.value) name.value = oldName || '';
+            srcLabel.classList.add('coth-hidden');
+            nameNote.classList.remove('coth-hidden');
+            nameNote.textContent = dialCode === '237' ? 'No name was found for this number. Type it here.' : 'Type the name for this number.';
+        }
+    }
+    function sendCode() {
+        var dialCode = dial.value;
+        var raw = nationalDigits(local.value, dialCode);
+        clearOtpErr();
+        return postJson(codeUrl, {dial_code: dialCode, local: raw}).then(function (res) {
+            if (!res.ok) {
+                showOtpErr(res.body && res.body.message ? res.body.message : 'The code could not be sent.');
+                return false;
+            }
+            return true;
+        });
+    }
     function resolve() {
         var dialCode = dial.value;
         var raw = nationalDigits(local.value, dialCode);
         if (!raw) { showErr('Enter a WhatsApp number.'); return; }
         local.value = raw;
         clearErr();
+        forgetVerification();
         btn.disabled = true; btn.innerHTML = '<span class="coth-spin"></span>';
-        fetch(resolveUrl, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf},
-            body: JSON.stringify({dial_code: dialCode, local: raw})
-        })
-        .then(function (r) { return r.json().then(function (j) { return {ok: r.ok, body: j}; }); })
+        postJson(resolveUrl, {dial_code: dialCode, local: raw})
         .then(function (res) {
-            resetBtn('Change');
-            if (!res.ok) { showErr(res.body && res.body.message ? res.body.message : 'Please enter a valid number.'); return; }
-            var b = res.body;
-            if (b.phone) { hidden.value = b.phone; }
-            if (b.name) {
-                name.value = b.name;
-                srcLabel.classList.remove('coth-hidden');
-                srcLabel.textContent = dialCode === '237' ? 'From this Cameroon number' : 'Found for this number';
-                nameNote.classList.remove('coth-hidden');
-                nameNote.textContent = 'You can edit this name.';
-            } else {
-                if (!name.value) { name.value = oldName || ''; }
-                srcLabel.classList.add('coth-hidden');
-                nameNote.classList.remove('coth-hidden');
-                nameNote.textContent = dialCode === '237' ? 'No name was found for this number. Type it here.' : 'Type the name for this number.';
+            if (!res.ok) {
+                resetBtn('Next');
+                showErr(res.body && res.body.message ? res.body.message : 'Please enter a valid number.');
+                return 'stop';
             }
-            step2.classList.remove('coth-hidden');
-            if (!name.value) { setTimeout(function () { name.focus(); }, 50); }
+            applyName(res.body || {}, dial.value);
+            if (res.body && res.body.phone) hidden.value = res.body.phone;
+            return sendCode();
+        })
+        .then(function (sent) {
+            if (sent === 'stop') return;
+            resetBtn('Change');
+            if (!sent) return;
+            otpBox.classList.remove('coth-hidden');
+            if (otpInput) otpInput.focus();
         })
         .catch(function () {
-            resetBtn('Continue');
+            resetBtn('Next');
             showErr('Could not check that number. Try again.');
         });
     }
+    function verifyCode() {
+        var code = String(otpInput.value || '').replace(/\D/g, '');
+        if (code.length !== 6) { showOtpErr('Enter the 6-digit code.'); return; }
+        clearOtpErr();
+        otpGo.disabled = true;
+        postJson(checkUrl, {phone: hidden.value, otp: code})
+        .then(function (res) {
+            otpGo.disabled = false;
+            if (!res.ok) { showOtpErr(res.body && res.body.message ? res.body.message : 'That code is not valid.'); return; }
+            phoneReady = true;
+            if (res.body && res.body.phone) hidden.value = res.body.phone;
+            step2.classList.remove('coth-hidden');
+            if (!name.value) setTimeout(function () { name.focus(); }, 50);
+        })
+        .catch(function () {
+            otpGo.disabled = false;
+            showOtpErr('Could not check that code. Try again.');
+        });
+    }
 
+    paintCountry();
+    renderCountries('');
+    countryBtn.addEventListener('click', function () {
+        if (countryMenu.hidden) openCountries();
+        else closeCountries();
+    });
+    countrySearch.addEventListener('input', function () { renderCountries(countrySearch.value); });
+    countrySearch.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCountries(); });
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest || !e.target.closest('#coth-country')) closeCountries();
+    });
+    local.addEventListener('input', forgetVerification);
     btn.addEventListener('click', resolve);
     local.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); resolve(); } });
+    otpGo.addEventListener('click', verifyCode);
+    otpInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); verifyCode(); } });
+    otpResend.addEventListener('click', function () {
+        otpResend.disabled = true;
+        sendCode().then(function () { otpResend.disabled = false; });
+    });
 
     // Extra-chairs qty controls + live price breakdown.
     var qtyInput = document.getElementById('coth-qty');
@@ -377,6 +523,11 @@
             dueLabel = 'Due today (full)';
             balance = 0;
             if (customErr) customErr.classList.add('coth-hidden');
+        } else if (document.getElementById('coth-pay-later') && document.getElementById('coth-pay-later').checked) {
+            due = 0;
+            dueLabel = 'Due today';
+            balance = bookingTotal;
+            if (customErr) customErr.classList.add('coth-hidden');
         } else if (customErr) {
             customErr.classList.add('coth-hidden');
         }
@@ -387,6 +538,15 @@
         if (sideDue) sideDue.textContent = fmt(due) + ' FCFA';
         if (sideLabel) sideLabel.textContent = dueLabel;
         if (sideBal) sideBal.textContent = fmt(bookingTotal - due) + ' FCFA';
+        var terms = document.getElementById('coth-terms-copy');
+        var submit = document.getElementById('coth-submit');
+        var later = document.getElementById('coth-pay-later') && document.getElementById('coth-pay-later').checked;
+        if (terms) {
+            terms.textContent = later
+                ? 'I accept that the full amount stays due and that this booking is for the date shown only.'
+                : 'I accept that the deposit is non-refundable and that this booking is for the date shown only.';
+        }
+        if (submit) submit.textContent = later ? 'Reserve and pay later' : 'Continue to payment';
 
         if (guestLine) {
             if (q > 0) {
@@ -428,9 +588,9 @@
     // Expand step 2 when the server returned validation errors with old inputs.
     sync();
     document.getElementById('coth-form').addEventListener('submit', function (e) {
-        if (!hidden.value) {
+        if (!hidden.value || !phoneReady) {
             e.preventDefault();
-            showErr('Tap Next after the WhatsApp number.');
+            showErr('Verify the WhatsApp code before the booking can continue.');
             return;
         }
         var customRadio = document.getElementById('coth-pay-custom');
@@ -445,7 +605,11 @@
             }
         }
     });
-    if (oldPhone) { hidden.value = oldPhone; step2.classList.remove('coth-hidden'); }
+    if (oldPhone && verifiedPhone && String(oldPhone).replace(/\D/g, '') === String(verifiedPhone).replace(/\D/g, '')) {
+        hidden.value = oldPhone;
+        phoneReady = true;
+        step2.classList.remove('coth-hidden');
+    }
 })();
 </script>
 @endpush

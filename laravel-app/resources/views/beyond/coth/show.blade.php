@@ -13,6 +13,9 @@
     <div class="max-w-5xl mx-auto">
         <p class="text-[11px] tracking-[0.22em] uppercase text-brand-gold">Chill on the Hill</p>
         <h1 class="font-serif text-3xl mt-2">{{ $reservation->status === 'confirmed' ? 'Reservation confirmed' : 'Reservation '.$reservation->status }}</h1>
+        @if (session('message'))
+            <div class="mt-3 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm">{{ session('message') }}</div>
+        @endif
         <p class="text-lg">{{ $reservation->event_date->format('l, j F Y') }} · one day</p>
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-5">
@@ -49,7 +52,7 @@
                     <div class="font-semibold border-t border-white/10 pt-2 mt-2">{{ number_format((int) ($reservation->booking_total ?: $reservation->final_price)) }} FCFA</div>
                     <div class="text-white/60">Paid</div><div>{{ number_format((int) $reservation->amount_paid) }} FCFA</div>
                     <div class="text-brand-gold font-semibold">Balance</div><div class="text-brand-gold font-semibold">{{ number_format((int) $reservation->balance) }} FCFA</div>
-                    <div class="text-white/60">Payment</div><div>{{ $reservation->payment_status }}</div>
+                    <div class="text-white/60">Payment</div><div>{{ $reservation->payment_status === 'pay_later' ? 'Pay later' : $reservation->payment_status }}</div>
                 </dl>
                 <p class="text-sm text-white/70 mt-4">The deposit is non-refundable. This link is your reservation record.</p>
                 @if ($reservation->payment_status === 'needs_reconciliation')

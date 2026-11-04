@@ -91,9 +91,9 @@
     </section>
 
     <style>
-        .w2k-mini-invoice{max-width:380px;margin:1.75rem auto;}
+        .w2k-mini-invoice{max-width:420px;margin:1.75rem auto;}
         .w2k-mini-invoice .mini-chrome{display:none !important;}
-        .sky-slip{width:80mm;max-width:100%;margin:0 auto 12px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:6px 8px 10px;}
+        .sky-slip{width:60.69mm;zoom:1.45;margin:0 auto 12px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:6px 8px 10px;}
         .sky-slip *{box-sizing:border-box;}
         .sky-slip .sky-logo{display:block;height:22mm;width:auto;max-width:36mm;margin:0 auto 1mm;object-fit:contain;}
         .sky-slip .sky-phone{margin:0 0 2mm;text-align:center;font-weight:800;font-size:15px;line-height:1.1;}
@@ -537,9 +537,9 @@
             if (!printRoot) return;
             var isMini = {{ ($general_setting->invoice_format ?? '') === 'mini' ? 'true' : 'false' }};
             var css = '<style>' +
-                '@page{size:A4 portrait;margin:' + (isMini ? '0' : '8mm') + '}' +
-                'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:12px}' +
-                (isMini ? '.thermal-print{width:80mm;max-width:80mm}.mini-chrome{display:none!important}.sky-slip{width:80mm;font-family:Arial,Helvetica,sans-serif;color:#111}.sky-slip .sky-logo{display:block;height:22mm;margin:0 auto}.sky-slip .sky-phone,.sky-slip .sky-title,.sky-slip .sky-sign,.sky-slip .sky-qr,.sky-slip .sky-bar{text-align:center}.sky-slip .sky-phone{font-weight:800;font-size:15px}.sky-slip .sky-title{font-weight:900;font-size:30px}.sky-slip .sky-rule{border:0;border-top:3px solid #111;margin:0}.sky-slip .sky-box{background:#ececec;border-radius:8px;padding:8px 10px}.sky-slip table.sky-grid{width:100%;border-collapse:separate}.sky-slip table.sky-grid th,.sky-slip table.sky-total td{background:#e6e6e6;font-weight:800}.sky-slip .sky-badge{display:block;width:64px;margin:2mm 0 0;background:#111;color:#fff;text-align:center;font-weight:800;border-radius:7px}.sky-slip .sky-sign{margin-top:16mm}.sky-slip .sky-sign img{display:block;height:14mm;max-width:48mm;margin:0 auto -6mm}.sky-slip .sky-sign-line{border-bottom:1px solid #111;margin-bottom:2mm}.sky-slip .r{text-align:right}.sky-slip .c{text-align:center}.sky-slip .sky-qr img{width:18mm;height:18mm}.sky-slip .sky-bar img{width:70%;height:8mm}' : '') +
+                '@page{size:' + (isMini ? '88mm auto' : 'A4 portrait') + ';margin:' + (isMini ? '0' : '8mm') + '}' +
+                'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:12px' + (isMini ? ';width:88mm' : '') + '}' +
+                (isMini ? '.thermal-print{width:88mm;max-width:88mm}.mini-chrome{display:none!important}.sky-slip{width:60.69mm;zoom:1.45;font-family:Arial,Helvetica,sans-serif;color:#111}.sky-slip .sky-logo{display:block;height:22mm;margin:0 auto}.sky-slip .sky-phone,.sky-slip .sky-title,.sky-slip .sky-sign,.sky-slip .sky-qr,.sky-slip .sky-bar{text-align:center}.sky-slip .sky-phone{font-weight:800;font-size:15px}.sky-slip .sky-title{font-weight:900;font-size:30px}.sky-slip .sky-rule{border:0;border-top:3px solid #111;margin:0}.sky-slip .sky-box{background:#ececec;border-radius:8px;padding:8px 10px}.sky-slip table.sky-grid{width:100%;border-collapse:separate}.sky-slip table.sky-grid th,.sky-slip table.sky-total td{background:#e6e6e6;font-weight:800}.sky-slip .sky-badge{display:block;width:64px;margin:2mm 0 0;background:#111;color:#fff;text-align:center;font-weight:800;border-radius:7px}.sky-slip .sky-sign{margin-top:16mm}.sky-slip .sky-sign img{display:block;height:14mm;max-width:48mm;margin:0 auto -6mm}.sky-slip .sky-sign-line{border-bottom:1px solid #111;margin-bottom:2mm}.sky-slip .r{text-align:right}.sky-slip .c{text-align:center}.sky-slip .sky-qr img{width:18mm;height:18mm}.sky-slip .sky-bar img{width:70%;height:8mm}' : '') +
                 '.d-print-none{display:none!important}' +
                 'img{max-width:100%}' +
                 '</style>';

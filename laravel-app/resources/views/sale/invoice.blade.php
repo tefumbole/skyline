@@ -224,6 +224,13 @@
             .content-pad { padding: 8px 12mm 78px; }
             .watermark { opacity: 0.06; }
         }
+        @if($isMini)
+        @media print {
+            @page { size: 88mm auto; margin: 0; }
+            html, body { width: 88mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+            .sheet { width: 88mm !important; max-width: 88mm !important; margin: 0 !important; padding: 0 !important; }
+        }
+        @endif
     </style>
 </head>
 <body>

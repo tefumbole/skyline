@@ -52,7 +52,10 @@
     $customerPhone = preg_replace('/\D+/', '', (string) (@$lims_customer_data->phone_number ?? ''));
 @endphp
 <style>
-    .sky-slip { width: 80mm; max-width: 100%; margin: 12px auto 24px; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 6px 8px 10px; }
+    .sky-roll { width: 88mm; margin: 12px auto 24px; }
+    .sky-slip { width: 60.69mm; zoom: 1.45; margin: 0; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 6px 8px 10px; }
+    .sky-pdf .sky-roll { width: auto; margin: 0; }
+    .sky-pdf .sky-slip { width: 88mm; zoom: 1; }
     .sky-slip * { box-sizing: border-box; }
     .sky-slip .sky-logo { display: block; height: 22mm; width: auto; max-width: 36mm; margin: 0 auto 1mm; object-fit: contain; }
     .sky-slip .sky-phone { margin: 0 0 2mm; text-align: center; font-weight: 800; font-size: 15px; line-height: 1.1; letter-spacing: 0; }
@@ -82,9 +85,12 @@
     .sky-slip .sky-bar { text-align: center; }
     .sky-slip .sky-bar img { width: 70%; height: 8mm; }
     @media print {
-        .sky-slip { width: 80mm; margin: 0; }
+        .sky-roll { width: 88mm; margin: 0; }
+        .sky-slip { width: 60.69mm; margin: 0; zoom: 1.45; }
+        .sky-pdf .sky-slip { width: 88mm; zoom: 1; }
     }
 </style>
+<div class="sky-roll">
 <div class="sky-slip">
     <img class="sky-logo" src="{{ $logoUrl }}" alt="">
     @if($cashierPhone !== '')
@@ -151,4 +157,5 @@
     <div class="sky-bar">
         <?php echo '<img src="data:image/png;base64,'.DNS1D::getBarcodePNG($lims_sale_data->reference_no, 'C128').'" alt="">'; ?>
     </div>
+</div>
 </div>

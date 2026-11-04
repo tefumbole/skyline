@@ -7,7 +7,7 @@
         html, body { margin: 0; padding: 0; background: #fff; }
     </style>
 </head>
-<body>
+<body class="sky-pdf">
 @include('sale.partials.skyline_card')
 </body>
 </html>

@@ -91,11 +91,37 @@
     </section>
 
     <style>
-        .w2k-mini-invoice{max-width:360px;margin:1.75rem auto;}
-        .w2k-thermal-name{font-weight:700;margin-top:6px;}
-        .w2k-thermal-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;line-height:1.45;}
-        .w2k-thermal-row span:last-child{white-space:nowrap;}
-        .w2k-thermal-rule{border:0;border-top:1px dashed #222;margin:8px 0;}
+        .w2k-mini-invoice{max-width:380px;margin:1.75rem auto;}
+        .w2k-mini-invoice .mini-chrome{display:none !important;}
+        .sky-slip{width:80mm;max-width:100%;margin:0 auto 12px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:6px 8px 10px;}
+        .sky-slip *{box-sizing:border-box;}
+        .sky-slip .sky-logo{display:block;height:22mm;width:auto;max-width:36mm;margin:0 auto 1mm;object-fit:contain;}
+        .sky-slip .sky-phone{margin:0 0 2mm;text-align:center;font-weight:800;font-size:18px;line-height:1.1;}
+        .sky-slip .sky-rule{border:0;border-top:3px solid #111;margin:0;}
+        .sky-slip .sky-title{margin:1.2mm 0;text-align:center;font-weight:900;font-size:30px;letter-spacing:-0.8px;line-height:1;}
+        .sky-slip .sky-box{background:#ececec;border-radius:8px;padding:8px 10px;margin:3mm 0;font-size:13px;line-height:1.45;}
+        .sky-slip table.sky-grid{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;margin:0 0 2mm;}
+        .sky-slip table.sky-grid th{background:#e6e6e6;font-weight:800;padding:7px 5px;text-align:left;}
+        .sky-slip table.sky-grid th:first-child{border-radius:8px 0 0 8px;}
+        .sky-slip table.sky-grid th:last-child{border-radius:0 8px 8px 0;}
+        .sky-slip table.sky-grid td{padding:7px 5px;vertical-align:top;}
+        .sky-slip .c{text-align:center;}
+        .sky-slip .r{text-align:right;white-space:nowrap;}
+        .sky-slip table.sky-extra{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 1.5mm;}
+        .sky-slip table.sky-extra td{padding:2px 5px;font-weight:700;}
+        .sky-slip table.sky-total{width:100%;border-collapse:separate;border-spacing:0;margin:1mm 0 3mm;}
+        .sky-slip table.sky-total td{background:#e6e6e6;font-weight:800;font-size:14px;padding:8px;}
+        .sky-slip table.sky-total td:first-child{border-radius:8px 0 0 8px;}
+        .sky-slip table.sky-total td:last-child{border-radius:0 8px 8px 0;text-align:right;}
+        .sky-slip .sky-badge{display:block;width:64px;margin:1mm auto 3mm;background:#111;color:#fff;text-align:center;font-weight:800;font-size:12px;letter-spacing:.06em;border-radius:7px;padding:4px 0 3px;}
+        .sky-slip .sky-line{border:0;border-top:1px solid #111;margin:1mm 0 10mm;}
+        .sky-slip .sky-sign{text-align:center;margin:0 0 4mm;}
+        .sky-slip .sky-sign-line{width:62mm;border-top:1px solid #111;margin:0 auto 2mm;}
+        .sky-slip .sky-sign-name{font-size:13px;}
+        .sky-slip .sky-qr{text-align:center;margin:0 0 3mm;}
+        .sky-slip .sky-qr img{width:32mm;height:32mm;}
+        .sky-slip .sky-bar{text-align:center;}
+        .sky-slip .sky-bar img{width:100%;height:14mm;}
     </style>
     <div id="sale-details" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
         <div role="document" class="modal-dialog {{ ($general_setting->invoice_format ?? '') === 'mini' ? 'w2k-mini-invoice' : 'modal-lg' }}">
@@ -124,11 +150,11 @@
                         <img src="{{url('public/logo', $general_setting->email_water_mark)}}" alt="" class="sale-watermark" style="width:42%;position:absolute;left:29%;top:34%;opacity:0.07;pointer-events:none;z-index:0;">
                     @else
                         @if(($general_setting->invoice_format ?? '') === 'mini')
-                            <img src="{{ \App\Support\SiteBrand::logoUrl($general_setting) }}" alt="{{ $general_setting->site_title }}" style="display:block;height:16mm;width:auto;max-width:32mm;object-fit:contain;margin:0 auto 4px;">
+                            <img class="mini-chrome mini-logo" src="{{ \App\Support\SiteBrand::logoUrl($general_setting) }}" alt="" style="display:block;height:16mm;width:auto;max-width:32mm;object-fit:contain;margin:0 auto 4px;">
                         @endif
-                        <h3 class="modal-title text-center">{{$general_setting->site_title}}</h3>
+                        <h3 class="modal-title text-center mini-chrome">{{$general_setting->site_title}}</h3>
                     @endif
-                    <div class="mb-2" style="position:relative;z-index:1;">
+                    <div class="mb-2 mini-chrome" style="position:relative;z-index:1;">
                         <div id="sale-site-phone" class="text-center" style="font-size:13px;display:none;"></div>
                         <div class="text-center"><strong style="font-size:16px;">Sales Invoice</strong></div>
                         <div id="sale-ref-line" style="font-size:12px;line-height:1.45;text-align:left;color:#1f2a44;"></div>
@@ -146,9 +172,9 @@
                     <table class="table table-sm table-bordered product-sale-list mb-2" style="position:relative;z-index:1;">
                         <tbody></tbody>
                     </table>
-                    <div class="text-center text-muted mb-2" style="position:relative;z-index:1;">{{trans('file.Thank you for shopping with us. Please come again')}}</div>
-                    <div id="sale-footer" class="modal-body p-0 text-left mb-2" style="position:relative;z-index:1;"></div>
-                    <div class="text-center mb-2" style="position:relative;z-index:1;">
+                    <div class="text-center text-muted mb-2 mini-chrome" style="position:relative;z-index:1;">{{trans('file.Thank you for shopping with us. Please come again')}}</div>
+                    <div id="sale-footer" class="modal-body p-0 text-left mb-2 mini-chrome" style="position:relative;z-index:1;"></div>
+                    <div class="text-center mb-2 mini-chrome" style="position:relative;z-index:1;">
                         <div style="margin:0 0 6px;">
                             <img id="sale-qrcode" src="" alt="qrcode" height="56" width="56">
                         </div>
@@ -511,13 +537,10 @@
             if (!printRoot) return;
             var isMini = {{ ($general_setting->invoice_format ?? '') === 'mini' ? 'true' : 'false' }};
             var css = '<style>' +
-                '@page{size:A4 portrait;margin:8mm}' +
+                '@page{size:A4 portrait;margin:' + (isMini ? '0' : '8mm') + '}' +
                 'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:12px}' +
-                (isMini ? '.thermal-print{width:72mm;max-width:72mm}' : '') +
+                (isMini ? '.thermal-print{width:80mm;max-width:80mm}.mini-chrome{display:none!important}.sky-slip{width:80mm;font-family:Arial,Helvetica,sans-serif;color:#111}.sky-slip .sky-logo{display:block;height:22mm;margin:0 auto}.sky-slip .sky-phone,.sky-slip .sky-title,.sky-slip .sky-sign,.sky-slip .sky-qr,.sky-slip .sky-bar{text-align:center}.sky-slip .sky-phone{font-weight:800;font-size:18px}.sky-slip .sky-title{font-weight:900;font-size:30px}.sky-slip .sky-rule{border:0;border-top:3px solid #111;margin:0}.sky-slip .sky-box{background:#ececec;border-radius:8px;padding:8px 10px}.sky-slip table.sky-grid{width:100%;border-collapse:separate}.sky-slip table.sky-grid th,.sky-slip table.sky-total td{background:#e6e6e6;font-weight:800}.sky-slip .sky-badge{display:block;width:64px;margin:2mm auto;background:#111;color:#fff;text-align:center;font-weight:800;border-radius:7px}.sky-slip .sky-line{border:0;border-top:1px solid #111;margin:1mm 0 10mm}.sky-slip .sky-sign-line{width:62mm;border-top:1px solid #111;margin:0 auto}.sky-slip .r{text-align:right}.sky-slip .c{text-align:center}.sky-slip .sky-qr img{width:32mm;height:32mm}.sky-slip .sky-bar img{width:100%;height:14mm}' : '') +
                 '.d-print-none{display:none!important}' +
-                '.w2k-thermal-name{font-weight:700;margin-top:6px}' +
-                '.w2k-thermal-row{display:flex;justify-content:space-between;gap:12px}' +
-                '.w2k-thermal-rule{border:0;border-top:1px dashed #222;margin:8px 0}' +
                 'img{max-width:100%}' +
                 '</style>';
             var markup = '<!DOCTYPE html><html><head><title>Invoice</title>' + css + '</head><body>' +
@@ -1069,55 +1092,59 @@
                 if (isMiniInvoice) {
                     var money = function (n) {
                         var v = parseSaleAmt(n);
-                        return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                        if (Math.abs(v - Math.round(v)) < 0.001) {
+                            return Math.round(v).toLocaleString('en-US');
+                        }
+                        return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     };
-                    var row = function (label, amount, bold) {
-                        var open = bold ? '<strong>' : '';
-                        var close = bold ? '</strong>' : '';
-                        return '<div class="w2k-thermal-row"><span>' + open + label + close + '</span><span>' + open + money(amount) + close + '</span></div>';
+                    var esc = function (value) {
+                        return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+                            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+                        });
                     };
-                    var html = '';
-                    var lineTax = 0;
+                    var digits = function (value) {
+                        return String(value || '').replace(/\D+/g, '');
+                    };
+                    var rows = '';
                     $.each(data[0] || [], function (index) {
                         var qty = parseSaleAmt(data[1][index]);
                         var total = parseSaleAmt(data[6][index]);
                         var unit = qty ? (total / qty) : 0;
-                        var tax = parseSaleAmt(data[3][index]);
-                        var rate = parseSaleAmt(data[4][index]);
                         var name = String(data[0][index] || '').replace(/\s*\[[^\]]*\]\s*$/, '');
-                        lineTax += tax;
-                        html += '<div class="w2k-thermal-name">' + name + '</div>';
-                        html += row((qty + 0) + ' × ' + money(unit), total, false);
-                        html += row('{{ trans('file.Tax') }}' + (rate > 0 ? ' (' + rate + '%)' : ''), tax, false);
+                        var qtyText = Math.abs(qty - Math.round(qty)) < 0.001 ? String(Math.round(qty)) : String(qty);
+                        rows += '<tr><td>' + esc(name) + '</td><td class="c">' + qtyText + '</td><td class="r">' + money(unit) + '</td><td class="r">' + money(total) + '</td></tr>';
                     });
-                    html += '<hr class="w2k-thermal-rule">';
-                    html += row('{{ trans('file.Discount') }}', parseSaleAmt(sale[19]) + parseSaleAmt(sale[29]), false);
-                    var orderTax = parseSaleAmt(sale[17]);
-                    var orderRate = parseSaleAmt(sale[18]);
-                    html += row('{{ trans('file.Tax') }}' + (orderTax > 0 && orderRate > 0 ? ' (' + orderRate + '%)' : ''), lineTax + orderTax, false);
-                    html += row('{{ trans('file.Total') }}', sale[21], true);
-                    html += row('{{ trans('file.Paying Amount') }}', sale[22], false);
-                    html += row('{{ trans('file.Pending Amount') }}', Math.max(0, parseSaleAmt(sale[21]) - parseSaleAmt(sale[22])), false);
+                    var discount = parseSaleAmt(sale[19]) + parseSaleAmt(sale[29]);
+                    var shipping = parseSaleAmt(sale[20]);
+                    var extra = '';
+                    if (discount > 0.009) {
+                        extra += '<tr><td>Discount</td><td class="r">' + money(discount) + '</td></tr>';
+                    }
+                    if (shipping > 0.009) {
+                        extra += '<tr><td>Shipping</td><td class="r">' + money(shipping) + '</td></tr>';
+                    }
                     var meta = data.meta || {};
-                    $.each(meta.payments || [], function (_, pay) {
-                        html += row(pay.method || '', pay.amount, false);
-                    });
-                    html += '<div class="w2k-thermal-row"><span>{{ trans('file.Payment Status') }}</span><span>' + (meta.payment_status || '') + '</span></div>';
-                    if (meta.words) {
-                        html += '<div style="margin-top:8px;"><strong>{{ trans('file.In Words') }}:</strong> ' + (meta.currency ? meta.currency + ' ' : '') + meta.words + '</div>';
-                    }
-                    if (meta.when) {
-                        $('#sale-ref-line').html(
-                            '<strong>{{trans("file.reference")}}:</strong> ' + (sale[1] || '') + '<br>' +
-                            '<strong>{{trans("file.Date")}}:</strong> ' + meta.when + '<br>' +
-                            '<strong>{{trans("file.Sale Status")}}:</strong> ' + (sale[2] || '') + '<br>' +
-                            '<strong>{{trans("file.customer")}}:</strong> ' + (sale[9] || '') + '<br>' +
-                            '<strong>{{trans("file.Phone Number")}}:</strong> ' + (sale[10] || '') + '<br>' +
-                            '<strong>{{trans("file.City")}}:</strong> ' + (sale[12] || '')
-                        );
-                    }
+                    var status = String(meta.payment_status || 'DUE').toUpperCase();
+                    var phone = digits(sale[6]);
+                    var customerPhone = digits(sale[10]);
+                    var logo = $('.mini-logo').attr('src') || '';
+                    var staff = String(sale[25] || '').trim();
+                    var html = '<div class="sky-slip">' +
+                        (logo ? '<img class="sky-logo" src="' + esc(logo) + '" alt="">' : '') +
+                        (phone ? '<div class="sky-phone">' + esc(phone) + '</div>' : '') +
+                        '<hr class="sky-rule"><div class="sky-title">SALES INVOICE</div><hr class="sky-rule">' +
+                        '<div class="sky-box"><div><strong>Customer:</strong> ' + esc(sale[9] || '') + '</div><div><strong>Phone:</strong> ' + esc(customerPhone) + '</div></div>' +
+                        '<table class="sky-grid"><thead><tr><th>Product</th><th class="c">Qty</th><th class="r">Price</th><th class="r">Total</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+                        (extra ? '<table class="sky-extra">' + extra + '</table>' : '') +
+                        '<table class="sky-total"><tr><td>TOTAL (XAF)</td><td>' + money(sale[21]) + '</td></tr></table>' +
+                        '<div class="sky-badge">' + esc(status) + '</div><hr class="sky-line">' +
+                        (staff && staff.toLowerCase() !== 'null' ? '<div class="sky-sign"><div class="sky-sign-line"></div><div class="sky-sign-name">' + esc(staff) + '</div></div>' : '') +
+                        '<div class="sky-qr"><img src="' + esc($('#sale-qrcode').attr('src') || '') + '" alt=""></div>' +
+                        '<div class="sky-bar"><img src="' + esc($('#sale-barcode').attr('src') || '') + '" alt=""></div>' +
+                        '</div>';
                     $('#sale-content').html(html);
                     $('table.product-sale-list').hide();
+                    $('#sale-footer').empty();
                     return;
                 }
                 $('table.product-sale-list').show();

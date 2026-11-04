@@ -18,43 +18,32 @@
             $cashierPhone = preg_replace('/\D+/', '', (string) $saleUser->phone);
         }
     }
+    if ($cashierPhone === '' && ! empty($lims_biller_data->phone_number)) {
+        $cashierPhone = preg_replace('/\D+/', '', (string) $lims_biller_data->phone_number);
+    }
+    $cashierName = '';
+    if (optional($lims_sale_data->user)->name) {
+        $cashierName = trim((string) $lims_sale_data->user->name);
+    } elseif ($viewer && ! empty($viewer->name)) {
+        $cashierName = trim((string) $viewer->name);
+    }
     $paidAmount = (float) ($lims_sale_data->paid_amount ?? 0);
     $grand = (float) $lims_sale_data->grand_total;
     $dueAmount = max(0, $grand - $paidAmount);
-    $isPaid = (int) $lims_sale_data->payment_status === 4 || ($grand > 0 && $dueAmount < 0.01);
-    $saleStatus = (int) $lims_sale_data->sale_status === 1
-        ? trans('file.Completed')
-        : ((int) $lims_sale_data->sale_status === 2 ? trans('file.Pending') : trans('file.Draft'));
-    $saleWhen = $lims_sale_data->created_at;
-    $saleWhenText = $saleWhen instanceof \DateTimeInterface
-        ? $saleWhen->format('j M Y H:i')
-        : date('j M Y H:i', strtotime((string) $saleWhen));
+    $payStatus = (int) $lims_sale_data->payment_status;
+    if ($payStatus === 4 || ($grand > 0 && $dueAmount < 0.01)) {
+        $statusLabel = 'PAID';
+    } elseif ($payStatus === 3) {
+        $statusLabel = 'PARTIAL';
+    } elseif ($payStatus === 1) {
+        $statusLabel = 'PENDING';
+    } else {
+        $statusLabel = 'DUE';
+    }
     $logoUrl = \App\Support\SiteBrand::logoUrl($general_setting ?? null);
     $qr = \App\Support\SaleInvoiceQr::dataUri($lims_sale_data, true);
-    $payLabels = [];
-    $payRows = isset($lims_payment_data) ? $lims_payment_data : [];
-    foreach ($payRows as $payRow) {
-        $rawMethod = strtolower((string) ($payRow->paying_method ?? ''));
-        $label = '';
-        if (strpos($rawMethod, 'momo') !== false || strpos($rawMethod, 'orange') !== false || strpos($rawMethod, 'mobile') !== false) {
-            $label = 'Momo';
-        } elseif (strpos($rawMethod, 'visa') !== false || strpos($rawMethod, 'card') !== false) {
-            $label = 'VISA';
-        } elseif (strpos($rawMethod, 'cash') !== false) {
-            $label = 'Cash';
-        }
-        if ($label !== '' && ! in_array($label, $payLabels, true)) {
-            $payLabels[] = $label;
-        }
-    }
-    if (! $payLabels) {
-        $paidBy = (int) ($lims_sale_data->paid_by_id ?? 0);
-        if ($paidBy === 1) {
-            $payLabels[] = 'Cash';
-        } elseif ($paidBy === 8) {
-            $payLabels[] = 'Momo';
-        }
-    }
+    $orderDiscount = (float) ($lims_sale_data->order_discount ?? 0) + (float) ($lims_sale_data->coupon_discount ?? 0);
+    $shippingCost = (float) ($lims_sale_data->shipping_cost ?? 0);
     $lines = [];
     foreach ($lims_product_sale_data as $product_sale_data) {
         $product = \App\Product::find($product_sale_data->product_id);
@@ -70,108 +59,102 @@
         $unit = $qty ? ($lineTotal / $qty) : 0;
         $lines[] = ['name' => $name, 'qty' => $qty, 'unit' => $unit, 'total' => $lineTotal];
     }
+    $customerPhone = preg_replace('/\D+/', '', (string) (@$lims_customer_data->phone_number ?? ''));
 @endphp
 <style>
-    .sky-inv { max-width: 420px; margin: 18px auto 28px; background: #fff; color: #1a2744; font-family: DejaVu Serif, Georgia, "Times New Roman", serif; padding: 28px 26px 22px; }
-    .sky-inv * { box-sizing: border-box; }
-    .sky-inv .sky-logo { display: block; height: 92px; width: auto; margin: 0 auto 8px; }
-    .sky-inv .sky-brand { margin: 0; text-align: center; font-size: 28px; line-height: 1.15; color: #1a2744; font-weight: 700; }
-    .sky-inv .sky-phone { margin: 4px 0 0; text-align: center; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 14px; color: #5c6b80; letter-spacing: .04em; }
-    .sky-inv .sky-kicker { margin: 16px 0 14px; text-align: center; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: .08em; }
-    .sky-inv table.sky-meta { width: 100%; border-collapse: collapse; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 13px; margin-bottom: 16px; }
-    .sky-inv table.sky-meta td { padding: 3px 0; vertical-align: middle; }
-    .sky-inv table.sky-meta .lab { width: 38%; font-weight: 800; letter-spacing: .04em; font-size: 12px; }
-    .sky-inv .sky-pill { display: inline-block; background: #d9f5e5; color: #178a45; border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 12px; }
-    .sky-inv table.sky-items { width: 100%; border-collapse: collapse; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 14px; margin-bottom: 12px; }
-    .sky-inv table.sky-items th { background: #0c1830; color: #fff; text-align: left; padding: 10px 12px; font-size: 12px; letter-spacing: .06em; }
-    .sky-inv table.sky-items th.amt, .sky-inv table.sky-items td.amt { text-align: right; }
-    .sky-inv table.sky-items td { padding: 12px; border-bottom: 1px solid #e6ebf2; vertical-align: top; }
-    .sky-inv .sky-sub { display: block; color: #8a93a3; font-size: 12px; margin-top: 2px; }
-    .sky-inv table.sky-sum { width: 100%; border-collapse: collapse; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; margin-bottom: 8px; }
-    .sky-inv table.sky-sum td { padding: 12px 14px; font-weight: 800; }
-    .sky-inv table.sky-sum .amt { text-align: right; }
-    .sky-inv .sky-total td { background: #e7f2fb; color: #1a2744; }
-    .sky-inv .sky-paid td { background: #d9f5e5; color: #178a45; }
-    .sky-inv .sky-due td { background: #fff4e5; color: #8a5a1f; }
-    .sky-inv .sky-thanks { width: 100%; border-collapse: collapse; margin-top: 18px; }
-    .sky-inv .sky-thanks td { vertical-align: bottom; }
-    .sky-inv .sky-script { font-family: DejaVu Serif, Georgia, "Times New Roman", serif; font-style: italic; font-size: 32px; line-height: 1; color: #1a2744; margin: 0; }
-    .sky-inv .sky-script-sub { font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 13px; color: #1a2744; margin: 4px 0 0; }
-    .sky-inv .sky-qr { text-align: right; }
-    .sky-inv .sky-qr img { width: 92px; height: 92px; }
-    .sky-inv .sky-scan { font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 10px; color: #8a93a3; text-align: right; margin: 2px 0 0; }
-    .sky-inv .sky-dash { border: 0; border-top: 1px dashed #c5ceda; margin: 16px 0 10px; }
-    .sky-inv .sky-bar { text-align: center; }
-    .sky-inv .sky-bar img { width: 100%; max-width: 340px; height: 54px; }
-    .sky-inv .sky-ref { text-align: center; font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 12px; color: #5c6b80; margin: 4px 0 0; }
+    .sky-slip { width: 80mm; max-width: 100%; margin: 12px auto 24px; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 6px 8px 10px; }
+    .sky-slip * { box-sizing: border-box; }
+    .sky-slip .sky-logo { display: block; height: 22mm; width: auto; max-width: 36mm; margin: 0 auto 1mm; object-fit: contain; }
+    .sky-slip .sky-phone { margin: 0 0 2mm; text-align: center; font-weight: 800; font-size: 18px; line-height: 1.1; }
+    .sky-slip .sky-rule { border: 0; border-top: 3px solid #111; margin: 0; height: 0; }
+    .sky-slip .sky-title { margin: 1.2mm 0; text-align: center; font-weight: 900; font-size: 30px; letter-spacing: -0.8px; line-height: 1; }
+    .sky-slip .sky-box { background: #ececec; border-radius: 8px; padding: 8px 10px; margin: 3mm 0; font-size: 13px; line-height: 1.45; }
+    .sky-slip table.sky-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; margin: 0 0 2mm; }
+    .sky-slip table.sky-grid th { background: #e6e6e6; font-weight: 800; padding: 7px 5px; text-align: left; }
+    .sky-slip table.sky-grid th:first-child { border-radius: 8px 0 0 8px; }
+    .sky-slip table.sky-grid th:last-child { border-radius: 0 8px 8px 0; }
+    .sky-slip table.sky-grid td { padding: 7px 5px; vertical-align: top; }
+    .sky-slip .c { text-align: center; }
+    .sky-slip .r { text-align: right; white-space: nowrap; }
+    .sky-slip table.sky-extra { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 0 0 1.5mm; }
+    .sky-slip table.sky-extra td { padding: 2px 5px; font-weight: 700; }
+    .sky-slip table.sky-total { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1mm 0 3mm; }
+    .sky-slip table.sky-total td { background: #e6e6e6; font-weight: 800; font-size: 14px; padding: 8px 8px; }
+    .sky-slip table.sky-total td:first-child { border-radius: 8px 0 0 8px; }
+    .sky-slip table.sky-total td:last-child { border-radius: 0 8px 8px 0; text-align: right; }
+    .sky-slip .sky-badge { display: block; width: 64px; margin: 1mm auto 3mm; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
+    .sky-slip .sky-line { border: 0; border-top: 1px solid #111; margin: 1mm 0 10mm; }
+    .sky-slip .sky-sign { text-align: center; margin: 0 0 4mm; }
+    .sky-slip .sky-sign-line { width: 62mm; border-top: 1px solid #111; margin: 0 auto 2mm; }
+    .sky-slip .sky-sign-name { font-size: 13px; }
+    .sky-slip .sky-qr { text-align: center; margin: 0 0 3mm; }
+    .sky-slip .sky-qr img { width: 32mm; height: 32mm; }
+    .sky-slip .sky-bar { text-align: center; }
+    .sky-slip .sky-bar img { width: 100%; height: 14mm; }
+    @media print {
+        .sky-slip { width: 80mm; margin: 0; }
+    }
 </style>
-<div class="sky-inv">
-    <img class="sky-logo" src="{{ $logoUrl }}" alt="{{ $general_setting->site_title }}">
-    <h1 class="sky-brand">{{ $general_setting->site_title }}</h1>
+<div class="sky-slip">
+    <img class="sky-logo" src="{{ $logoUrl }}" alt="">
     @if($cashierPhone !== '')
-        <p class="sky-phone">{{ $cashierPhone }}</p>
+        <div class="sky-phone">{{ $cashierPhone }}</div>
     @endif
-    <div class="sky-kicker">SALES INVOICE</div>
-    <table class="sky-meta">
-        <tr><td class="lab">REFERENCE:</td><td>{{ $lims_sale_data->reference_no }}</td></tr>
-        <tr><td class="lab">DATE:</td><td>{{ $saleWhenText }}</td></tr>
-        <tr><td class="lab">CUSTOMER:</td><td>{{ @$lims_customer_data->name }}</td></tr>
-        <tr><td class="lab">PHONE:</td><td>{{ @$lims_customer_data->phone_number }}</td></tr>
-        <tr><td class="lab">CITY:</td><td>{{ @$lims_customer_data->city }}</td></tr>
-        <tr>
-            <td class="lab">PAYMENT:</td>
-            <td>{{ $payLabels ? implode(', ', $payLabels) : '—' }}</td>
-        </tr>
-        <tr>
-            <td class="lab">STATUS:</td>
-            <td>@if((int) $lims_sale_data->sale_status === 1)<span class="sky-pill">&#10003; {{ $saleStatus }}</span>@else{{ $saleStatus }}@endif</td>
-        </tr>
-    </table>
-    <table class="sky-items">
+    <hr class="sky-rule">
+    <div class="sky-title">SALES INVOICE</div>
+    <hr class="sky-rule">
+    <div class="sky-box">
+        <div><strong>Customer:</strong> {{ @$lims_customer_data->name }}</div>
+        <div><strong>Phone:</strong> {{ $customerPhone }}</div>
+    </div>
+    <table class="sky-grid">
         <thead>
-            <tr><th>ITEM</th><th class="amt">AMOUNT (XAF)</th></tr>
+            <tr>
+                <th>Product</th>
+                <th class="c">Qty</th>
+                <th class="r">Price</th>
+                <th class="r">Total</th>
+            </tr>
         </thead>
         <tbody>
             @foreach($lines as $line)
                 <tr>
-                    <td>{{ $line['name'] }}<span class="sky-sub">{{ $line['qty'] + 0 }} &times; {{ $skyMoney($line['unit']) }}</span></td>
-                    <td class="amt">{{ $skyMoney($line['total']) }}</td>
+                    <td>{{ $line['name'] }}</td>
+                    <td class="c">{{ $line['qty'] + 0 }}</td>
+                    <td class="r">{{ $skyMoney($line['unit']) }}</td>
+                    <td class="r">{{ $skyMoney($line['total']) }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
-    <table class="sky-sum">
-        <tr class="sky-total"><td>TOTAL</td><td class="amt">XAF {{ $skyMoney($grand) }}</td></tr>
-    </table>
-    @if($isPaid)
-        <table class="sky-sum">
-            <tr class="sky-paid"><td>PAID</td><td class="amt">XAF {{ $skyMoney($paidAmount) }}</td></tr>
+    @if($orderDiscount > 0.009)
+        <table class="sky-extra">
+            <tr><td>Discount</td><td class="r">{{ $skyMoney($orderDiscount) }}</td></tr>
         </table>
-    @else
-        <table class="sky-sum">
-            <tr class="sky-paid"><td>PAID</td><td class="amt">XAF {{ $skyMoney($paidAmount) }}</td></tr>
-        </table>
-        @if($dueAmount > 0.009)
-            <table class="sky-sum">
-                <tr class="sky-due"><td>BALANCE</td><td class="amt">XAF {{ $skyMoney($dueAmount) }}</td></tr>
-            </table>
-        @endif
     @endif
-    <table class="sky-thanks">
+    @if($shippingCost > 0.009)
+        <table class="sky-extra">
+            <tr><td>Shipping</td><td class="r">{{ $skyMoney($shippingCost) }}</td></tr>
+        </table>
+    @endif
+    <table class="sky-total">
         <tr>
-            <td>
-                <p class="sky-script">Thank you</p>
-                <p class="sky-script-sub">for shopping with us!</p>
-            </td>
-            <td class="sky-qr">
-                <img src="{{ $qr }}" alt="Invoice QR">
-                <p class="sky-scan">Scan for details</p>
-            </td>
+            <td>TOTAL (XAF)</td>
+            <td>{{ $skyMoney($grand) }}</td>
         </tr>
     </table>
-    <hr class="sky-dash">
+    <div class="sky-badge">{{ $statusLabel }}</div>
+    <hr class="sky-line">
+    @if($cashierName !== '')
+        <div class="sky-sign">
+            <div class="sky-sign-line"></div>
+            <div class="sky-sign-name">{{ $cashierName }}</div>
+        </div>
+    @endif
+    <div class="sky-qr">
+        <img src="{{ $qr }}" alt="">
+    </div>
     <div class="sky-bar">
-        <?php echo '<img src="data:image/png;base64,'.DNS1D::getBarcodePNG($lims_sale_data->reference_no, 'C128').'" alt="barcode">'; ?>
-        <p class="sky-ref">{{ $lims_sale_data->reference_no }}</p>
+        <?php echo '<img src="data:image/png;base64,'.DNS1D::getBarcodePNG($lims_sale_data->reference_no, 'C128').'" alt="">'; ?>
     </div>
 </div>

@@ -2570,12 +2570,21 @@ class SaleController extends Controller
                 $currencyCode = '';
             }
         }
+        $signature = '';
+        $seller = $saleRow ? $saleRow->user : null;
+        if ($seller && ! empty($seller->sign)) {
+            $sign = \App\Support\LetterSignature::invoiceSignatureForUser($seller, $saleRow->created_at);
+            if (($sign['via'] ?? '') === 'user' && ! empty($sign['src'])) {
+                $signature = $sign['src'];
+            }
+        }
         $product_sale['meta'] = [
             'payments' => $payments,
             'payment_status' => $paymentStatus,
             'words' => $words,
             'currency' => $currencyCode,
             'when' => $saleRow && $saleRow->created_at ? $saleRow->created_at->format('d-m-Y H:i') : '',
+            'signature' => $signature,
         ];
 
         return $product_sale;

@@ -8,12 +8,14 @@
         return number_format($amount, 2);
     };
     $cashierPhone = '237';
-    $viewer = auth()->user();
-    $cashierName = '';
-    if (optional($lims_sale_data->user)->name) {
-        $cashierName = trim((string) $lims_sale_data->user->name);
-    } elseif ($viewer && ! empty($viewer->name)) {
-        $cashierName = trim((string) $viewer->name);
+    $saleUser = $lims_sale_data->user;
+    $cashierName = $saleUser && $saleUser->name ? trim((string) $saleUser->name) : '';
+    $signatureSrc = '';
+    if ($saleUser && ! empty($saleUser->sign)) {
+        $sign = \App\Support\LetterSignature::invoiceSignatureForUser($saleUser, $lims_sale_data->created_at);
+        if (($sign['via'] ?? '') === 'user' && ! empty($sign['src'])) {
+            $signatureSrc = $sign['src'];
+        }
     }
     $paidAmount = (float) ($lims_sale_data->paid_amount ?? 0);
     $grand = (float) $lims_sale_data->grand_total;
@@ -70,10 +72,9 @@
     .sky-slip table.sky-total td { background: #e6e6e6; font-weight: 800; font-size: 14px; padding: 8px 8px; }
     .sky-slip table.sky-total td:first-child { border-radius: 8px 0 0 8px; }
     .sky-slip table.sky-total td:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-    .sky-slip .sky-badge { display: block; width: 64px; margin: 1mm auto 3mm; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
-    .sky-slip .sky-line { border: 0; border-top: 1px solid #111; margin: 1mm 0 10mm; }
-    .sky-slip .sky-sign { text-align: center; margin: 0 0 4mm; }
-    .sky-slip .sky-sign-line { width: 62mm; border-top: 1px solid #111; margin: 0 auto 2mm; }
+    .sky-slip .sky-badge { display: block; width: 64px; margin: 1mm auto 4mm; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
+    .sky-slip .sky-sign { text-align: center; margin: 2mm 0 3mm; }
+    .sky-slip .sky-sign img { display: block; height: 16mm; width: auto; max-width: 50mm; margin: 0 auto 1mm; }
     .sky-slip .sky-sign-name { font-size: 13px; }
     .sky-slip .sky-qr { text-align: center; margin: 0 0 3mm; }
     .sky-slip .sky-qr img { width: 32mm; height: 32mm; }
@@ -132,11 +133,14 @@
         </tr>
     </table>
     <div class="sky-badge">{{ $statusLabel }}</div>
-    <hr class="sky-line">
-    @if($cashierName !== '')
+    @if($cashierName !== '' || $signatureSrc !== '')
         <div class="sky-sign">
-            <div class="sky-sign-line"></div>
-            <div class="sky-sign-name">{{ $cashierName }}</div>
+            @if($signatureSrc !== '')
+                <img src="{{ $signatureSrc }}" alt="">
+            @endif
+            @if($cashierName !== '')
+                <div class="sky-sign-name">{{ $cashierName }}</div>
+            @endif
         </div>
     @endif
     <div class="sky-qr">

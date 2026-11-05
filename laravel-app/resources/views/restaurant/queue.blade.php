@@ -138,8 +138,16 @@
                         @if($item->status === 'delivered')
                             @php
                                 $placedAt = $order && $order->created_at ? $order->created_at : null;
-                                $acceptMinutes = ($placedAt && $item->accepted_at) ? $placedAt->diffInMinutes($item->accepted_at) : null;
-                                $acceptText = $acceptMinutes === null ? '—' : ($acceptMinutes >= 60 ? intdiv($acceptMinutes, 60).' h '.($acceptMinutes % 60).' min' : $acceptMinutes.' min');
+                                $acceptSeconds = ($placedAt && $item->accepted_at) ? $placedAt->diffInSeconds($item->accepted_at) : null;
+                                if ($acceptSeconds === null) {
+                                    $acceptText = '—';
+                                } elseif ($acceptSeconds < 60) {
+                                    $acceptText = $acceptSeconds.' sec';
+                                } elseif ($acceptSeconds < 3600) {
+                                    $acceptText = intdiv($acceptSeconds, 60).' min';
+                                } else {
+                                    $acceptText = intdiv($acceptSeconds, 3600).' h '.intdiv($acceptSeconds % 3600, 60).' min';
+                                }
                                 $preparedNames = [];
                                 foreach ([optional($item->acceptedBy)->name, optional($item->readyBy)->name] as $who) {
                                     $who = trim((string) $who);

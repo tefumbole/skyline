@@ -2317,13 +2317,15 @@
                                                 <input type="number" name="product_price" required class="form-control">
                                             </div>
                                             <div class="form-group">
-                                                <label>Drinks or Bar <strong>*</strong> </label>
+                                                <label>Bar or Restaurant <strong>*</strong> </label>
                                                 <select required id="product-category" class="form-control" name="category">
-                                                    <option value="">Select Drinks or Bar</option>
-                                                    @foreach($lims_category_list as $list)
-                                                        @if(in_array(strtolower(trim($list->name)), ['drinks', 'bar'], true))
-                                                            <option value="{{$list->id}}">{{$list->name}}</option>
-                                                        @endif
+                                                    <option value="">Select Bar or Restaurant</option>
+                                                    @foreach(collect($lims_category_list)->filter(function ($list) {
+                                                        return in_array(strtolower(trim($list->name)), ['bar', 'restaurant'], true);
+                                                    })->sortBy(function ($list) {
+                                                        return strtolower(trim($list->name)) === 'bar' ? 0 : 1;
+                                                    }) as $list)
+                                                        <option value="{{$list->id}}">{{ ucwords(strtolower($list->name)) }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -4153,7 +4155,7 @@
             e.preventDefault();
             var category = $('#product-category').val();
             if (!category) {
-                alert('Select Drinks or Bar.');
+                alert('Select Bar or Restaurant.');
                 return;
             }
             $.ajax({

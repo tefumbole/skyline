@@ -2272,8 +2272,8 @@ class SaleController extends Controller
     {
         $category = \App\Category::where('id', $request->input('category'))->where('is_active', 1)->first();
         $categoryName = $category ? strtolower(trim((string) $category->name)) : '';
-        if (! in_array($categoryName, ['drinks', 'bar'], true)) {
-            return response()->json(['error' => 'Select Drinks or Bar.'], 422);
+        if (! in_array($categoryName, ['bar', 'restaurant'], true)) {
+            return response()->json(['error' => 'Select Bar or Restaurant.'], 422);
         }
         if (trim((string) $request->input('product_name')) === '' || (float) $request->input('product_price') <= 0) {
             return response()->json(['error' => 'Name and price are required.'], 422);

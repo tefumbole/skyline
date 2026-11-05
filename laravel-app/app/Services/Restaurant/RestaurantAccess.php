@@ -233,6 +233,10 @@ class RestaurantAccess
 
     public static function seeStatus($user, $status)
     {
+        $role = strtolower((string) ($user ? $user->roleName() : ''));
+        if ($role === 'restaurant' || $role === 'kitchen') {
+            return $status === 'awaiting' || $status === 'accepted';
+        }
         if (self::can($user, 'orders-index') || self::can($user, 'orders-'.$status.'-index') || self::can($user, 'order-logs')) {
             return true;
         }

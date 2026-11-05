@@ -1634,7 +1634,7 @@
               </div>
                 <div class="main-menu">
                     <ul id="side-main-menu" class="side-menu list-unstyled">
-                        @if(!Auth::user()->isAssetStaff() && !Auth::user()->isStationStaff())
+                        @if(!Auth::user()->isAssetStaff())
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
                         @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
@@ -1659,7 +1659,9 @@
                         @if($canCothDesk)
                             <li id="coth-reservations-menu"><a href="{{ route('coth.admin', ['tab' => 'tables']) }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
                         @endif
+                        @if(!in_array(strtolower((string) Auth::user()->roleName()), ['restaurant', 'kitchen'], true))
                         <li><a href="{{ route('admin.help') }}" data-nav-key="help"> <i class="dripicons-question"></i><span>Help</span></a></li>
+                        @endif
                         <?php
                         $role = \Spatie\Permission\Models\Role::find(Auth::user()->role_id);
                         if (! $role) {

@@ -72,7 +72,7 @@ class User extends Authenticatable
     {
         $name = strtolower($this->roleName());
 
-        return in_array($name, ['restaurant', 'bar', 'waiter'], true);
+        return in_array($name, ['restaurant', 'kitchen', 'bar', 'waiter'], true);
     }
 
     /**

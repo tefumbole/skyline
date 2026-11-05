@@ -139,105 +139,13 @@
       </p>
     </div>
     <div class="beyond-dashboard-actions">
-      <div class="filter-toggle btn-group">
-        <button class="btn btn-secondary date-btn" data-start_date="{{date('Y-m-d')}}" data-end_date="{{date('Y-m-d')}}">{{trans('file.Today')}}</button>
-        <button class="btn btn-secondary date-btn" data-start_date="{{date('Y-m-d', strtotime(' -7 day'))}}" data-end_date="{{date('Y-m-d')}}">{{trans('file.Last 7 Days')}}</button>
-        <button class="btn btn-secondary date-btn active" data-start_date="{{date('Y').'-'.date('m').'-'.'01'}}" data-end_date="{{date('Y-m-d')}}">{{trans('file.This Month')}}</button>
-        <button class="btn btn-secondary date-btn" data-start_date="{{date('Y').'-01'.'-01'}}" data-end_date="{{date('Y').'-12'.'-31'}}">{{trans('file.This Year')}}</button>
-      </div>
       @if($role->name == 'Admin' || Auth::user()->role_id <= 2)
       <a href="{{ route('setting.general') }}" class="btn btn-primary"><i class="dripicons-gear"></i> Settings</a>
       @endif
     </div>
   </div>
 
-  <div class="beyond-stat-grid">
-        <a href="{{ route('sales.index') }}" class="beyond-stat-card" title="Open Sale List">
-          <div>
-            <div class="label">{{ trans('file.revenue') }}</div>
-            <div class="value revenue-data">{{ number_format((float)$revenue, 2, '.', ',') }}</div>
-          </div>
-          <div class="beyond-stat-icon blue"><i class="dripicons-graph-bar"></i></div>
-        </a>
-        <a href="javascript:void(0)" id="beyond-profit-stat-link" class="beyond-stat-card" title="Open Summary / Profit Report">
-          <div>
-            <div class="label">{{ trans('file.profit') }}</div>
-            <div class="value profit-data">{{ number_format((float)$profit, 2, '.', ',') }}</div>
-          </div>
-          <div class="beyond-stat-icon gold"><i class="dripicons-trophy"></i></div>
-        </a>
-        {!! Form::open(['route' => 'report.profitLoss', 'method' => 'post', 'id' => 'beyond-profit-stat-form', 'class' => 'd-none']) !!}
-          <input type="hidden" name="start_date" value="{{ date('Y-m').'-01' }}" />
-          <input type="hidden" name="end_date" value="{{ date('Y-m-d') }}" />
-        {!! Form::close() !!}
-        <a href="{{ route('booking.index') }}" class="beyond-stat-card" title="Open Rental Bookings">
-          <div>
-            <div class="label">Active Bookings</div>
-            <div class="value">{{ number_format($activeBookings) }}</div>
-          </div>
-          <div class="beyond-stat-icon gold"><i class="dripicons-calendar"></i></div>
-        </a>
-        <a href="{{ route('customer.index') }}" class="beyond-stat-card" title="Open Customer List">
-          <div>
-            <div class="label">{{ trans('file.Customer List') }}</div>
-            <div class="value">{{ number_format($totalCustomers) }}</div>
-          </div>
-          <div class="beyond-stat-icon purple"><i class="dripicons-user-group"></i></div>
-        </a>
-      </div>
-
-      <div class="beyond-stat-grid beyond-stat-grid-ops">
-        <a href="{{ route('tasks.dashboard') }}" class="beyond-stat-card" title="Open Task Manager">
-          <div>
-            <div class="label">Open Tasks</div>
-            <div class="value">{{ number_format((int) ($taskOps['open'] ?? 0)) }}</div>
-            <div class="hint">{{ number_format((int) ($taskOps['overdue'] ?? 0)) }} overdue · {{ number_format((int) ($taskOps['total'] ?? 0)) }} total</div>
-          </div>
-          <div class="beyond-stat-icon orange"><i class="dripicons-checklist"></i></div>
-        </a>
-        <a href="{{ route('quotations.index', ['tab' => 'awaiting']) }}" class="beyond-stat-card" title="Quotations awaiting signature">
-          <div>
-            <div class="label">Awaiting Signatures</div>
-            <div class="value">{{ number_format((int) ($quoteOps['awaiting'] ?? 0)) }}</div>
-            <div class="hint">{{ number_format((float) ($quoteOps['awaiting_value'] ?? 0), 2, '.', ',') }} value pending</div>
-          </div>
-          <div class="beyond-stat-icon rose"><i class="dripicons-document-edit"></i></div>
-        </a>
-      </div>
-
-      <div class="beyond-chart-grid">
-        <div class="beyond-chart-panel">
-          <h5><i class="dripicons-graph-bar"></i> Financial Overview</h5>
-          <div class="beyond-chart-canvas-wrap">
-            <canvas id="beyond-finance-bar"
-              data-revenue="{{ $chartRevenue }}"
-              data-profit="{{ $chartProfit }}"
-              data-purchase="{{ $chartPurchase }}"
-              data-expense="{{ $chartExpense }}"
-              data-label-revenue="{{ trans('file.revenue') }}"
-              data-label-profit="{{ trans('file.profit') }}"
-              data-label-purchase="{{ trans('file.Purchase') }}"
-              data-label-expense="{{ trans('file.Expense') }}"></canvas>
-          </div>
-          <p class="text-muted small mb-0 mt-2">Selected period totals — click Revenue or Profit cards above for details.</p>
-        </div>
-        <div class="beyond-chart-panel">
-          <h5><i class="dripicons-graph-pie"></i> Bookings Distribution</h5>
-          <div class="beyond-chart-canvas-wrap">
-            <canvas id="beyond-booking-pie"
-              data-completed="{{ $bookingCompleted }}"
-              data-pending="{{ $bookingPending }}"
-              data-draft="{{ $bookingDraft }}"
-              data-requests="{{ $bookingRequests }}"></canvas>
-          </div>
-          <div class="beyond-chart-legend">
-            <span><i style="background:#e1b368;"></i> Completed ({{ $bookingCompleted }})</span>
-            <span><i style="background:#f59e0b;"></i> Pending ({{ $bookingPending }})</span>
-            <span><i style="background:#94a3b8;"></i> Draft ({{ $bookingDraft }})</span>
-            <span><i style="background:#7b61ff;"></i> Guest Requests ({{ $bookingRequests }})</span>
-          </div>
-        </div>
-      </div>
+  @include('dashboard.floor_today')
 
       <div class="beyond-section-head">
         <div>
@@ -976,6 +884,44 @@
             ['Awaiting signature', 'Approved', 'Rejected', 'Client quote'],
             ['#e11d48', '#e1b368', '#64748b', '#7b61ff']
         );
+
+        var staffEl = document.getElementById('floor-staff-chart');
+        var staffDataEl = document.getElementById('floor-staff-data');
+        if (staffEl && staffDataEl) {
+            var staffRows = [];
+            try { staffRows = JSON.parse(staffDataEl.textContent || '[]'); } catch (e) { staffRows = []; }
+            if (staffRows.length) {
+                new Chart(staffEl, {
+                    type: 'bar',
+                    data: {
+                        labels: staffRows.map(function (row) { return row.name; }),
+                        datasets: [
+                            { label: 'Waiting', backgroundColor: '#c9842a', data: staffRows.map(function (row) { return row.waiting; }) },
+                            { label: 'Placed', backgroundColor: '#0c1830', data: staffRows.map(function (row) { return row.placed; }) },
+                            { label: 'Delivered', backgroundColor: '#e1b368', data: staffRows.map(function (row) { return row.delivered; }) }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        legend: { display: false },
+                        tooltips: { mode: 'index', intersect: false },
+                        scales: {
+                            yAxes: [{ ticks: { beginAtZero: true, precision: 0 }, gridLines: { color: '#eef2f7' } }],
+                            xAxes: [{
+                                gridLines: { display: false },
+                                barPercentage: 0.72,
+                                ticks: {
+                                    callback: function (value) {
+                                        return value && value.length > 14 ? value.substr(0, 12) + '…' : value;
+                                    }
+                                }
+                            }]
+                        }
+                    }
+                });
+            }
+        }
         document.querySelectorAll('.dash-span').forEach(function (button) {
             button.addEventListener('click', function () {
                 var today = button.getAttribute('data-span') === 'today';

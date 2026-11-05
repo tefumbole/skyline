@@ -6,7 +6,6 @@ use App\Account;
 use App\Customer;
 use App\Deposit;
 use App\PublicDonation;
-use App\RestaurantOrder;
 use App\Sale;
 use App\Services\AccountDepositService;
 use App\Services\CampayPayoutService;
@@ -44,25 +43,19 @@ class PaymentController extends Controller
         if ($customerId) {
             $query->where('customer_id', $customerId);
         }
-        $open = (clone $query)->where('payment_status', '!=', 4)->get();
+        $open = $query->where('payment_status', '!=', 4)
+            ->whereRaw('COALESCE(grand_total, 0) - COALESCE(paid_amount, 0) > 0.009')
+            ->get();
         if (! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('restaurant_order_items')) {
             return $open;
         }
-        $ids = RestaurantOrder::whereHas('items', function ($items) {
-            $items->whereNotIn('status', ['delivered', 'rejected', 'cancelled']);
-        })->pluck('sale_id');
-        $pendingPaid = collect();
-        if ($ids->isNotEmpty()) {
-            $paid = Sale::with('customer')->where('payment_status', 4)->whereIn('id', $ids);
-            if ($customerId) {
-                $paid->where('customer_id', $customerId);
-            }
-            $pendingPaid = $paid->orderByDesc('id')->get();
-        }
-        $sales = $open->merge($pendingPaid)->unique('id')->sortByDesc('id')->values();
-        RestaurantSettlement::attach($sales);
+        RestaurantSettlement::attach($open);
 
-        return $sales;
+        return $open->filter(function ($sale) {
+            $due = isset($sale->settlement['due']) ? (float) $sale->settlement['due'] : 0;
+
+            return $due > 0.009;
+        })->values();
     }
 
     public function Desposit()

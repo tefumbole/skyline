@@ -7,6 +7,7 @@
     .ready-lead { margin: 8px 0 0; color: #5c6b82; }
     .ready-card { margin-top: 14px; padding: 18px; border: 1px solid #d7deea; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgba(12,24,48,.06); }
     .ready-where { margin: 0; color: #0c1830; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+    .ready-client { margin: 6px 0 0; color: #0c1830; font-size: 18px; font-weight: 800; }
     .ready-ref { margin: 6px 0 0; color: #5c6b82; font-size: 14px; }
     .ready-who { margin: 6px 0 0; color: #0c1830; font-size: 15px; font-weight: 700; }
     .ready-clock {
@@ -51,8 +52,10 @@
                     $where = 'Take away';
                 }
                 $sale = $order ? $order->sale : null;
+                $client = trim((string) optional(optional($sale)->customer)->name);
                 $groups[$key] = [
                     'where' => $where,
+                    'client' => $client,
                     'ref' => $sale->reference_no ?? ($order ? $order->id : $item->id),
                     'deliver_by' => optional(optional($order)->placedBy)->name ?: 'Staff',
                     'since' => null,
@@ -71,6 +74,9 @@
     @forelse($groups as $group)
         <article class="ready-card">
             <h2 class="ready-where">{{ $group['where'] }}</h2>
+            @if(!empty($group['client']))
+                <p class="ready-client">{{ $group['client'] }}</p>
+            @endif
             <p class="ready-ref">{{ $group['ref'] }}</p>
             @php
                 $preparedNames = [];

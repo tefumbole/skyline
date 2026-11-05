@@ -111,7 +111,7 @@ class BeyondAuthController extends Controller
         Auth::guard('beyond')->login($user);
         $request->session()->put('beyond_masked_phone', $this->whatsapp->maskPhone($phone));
 
-        if ($this->auth->shouldSkipOtp()) {
+        if ($this->auth->shouldSkipOtp() || \App\Support\StaffOtp::paused()) {
             $request->session()->put('beyond_otp_verified', true);
 
             return redirect($this->loginRedirect($request, $user, BeyondProfile::find($user->id)));
@@ -271,7 +271,7 @@ class BeyondAuthController extends Controller
         Auth::guard('beyond')->login($user);
         $request->session()->put('beyond_masked_phone', $this->whatsapp->maskPhone($phone));
 
-        if ($this->auth->shouldSkipOtp()) {
+        if ($this->auth->shouldSkipOtp() || \App\Support\StaffOtp::paused()) {
             $request->session()->put('beyond_otp_verified', true);
 
             return redirect($this->loginRedirect($request, $user, $profile));
@@ -340,7 +340,9 @@ class BeyondAuthController extends Controller
                 'entity' => 'auth',
                 'summary' => \App\Support\LocalDevAuth::skipStaffOtp()
                     ? 'Logged in to admin (local OTP skipped)'
-                    : 'Logged in to admin',
+                    : (\App\Support\StaffOtp::paused()
+                        ? 'Logged in to admin (WhatsApp OTP paused)'
+                        : 'Logged in to admin'),
                 'method' => 'POST',
                 'path' => '/login',
             ], $request);
@@ -356,6 +358,12 @@ class BeyondAuthController extends Controller
         }
 
         // ERP shop-customer role (legacy POS customer login)
+        if (\App\Support\StaffOtp::paused()) {
+            Auth::user()->update(['otp_verify' => 1, 'otp' => null, 'otp_time' => null]);
+
+            return redirect(\App\Support\AuthIntended::afterLogin(Auth::user()));
+        }
+
         Auth::user()->update(['otp_verify' => 0]);
         try {
             $otp = app(LoginController::class)->sendOTP(Auth::user()->phone);

@@ -1206,6 +1206,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::get('report/daily_sale/{year}/{month}', 'ReportController@dailySale');
 	Route::post('report/daily_sale/{year}/{month}', 'ReportController@dailySaleByWarehouse')->name('report.dailySaleByWarehouse');
 	Route::get('report/yearly_sale', 'ReportController@yearlySale')->name('report.yearlySale');
+	Route::get('report/order-lifecycle', 'ReportController@orderLifecycle')->name('report.orderLifecycle');
 	Route::get('report/customers', 'ReportController@customerSummary')->name('report.customers');
 	Route::get('report/staff', 'ReportController@staffSummary')->name('report.staff');
 	Route::get('report/payments', 'ReportController@paymentSummary')->name('report.payments');

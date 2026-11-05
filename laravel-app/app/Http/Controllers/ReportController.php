@@ -2317,6 +2317,107 @@ class ReportController extends Controller
         return ['cash' => $cash, 'momo' => $momo, 'total' => $total];
     }
 
+    public function orderLifecycle(Request $request)
+    {
+        $user = Auth::user();
+        $kitchen = \App\Services\Restaurant\RestaurantAccess::can($user, 'order-logs')
+            || \App\Services\Restaurant\RestaurantAccess::can($user, 'kitchen-orders')
+            || \App\Services\Restaurant\RestaurantAccess::can($user, 'bar-orders');
+        if (! $kitchen && ! $this->allowsReport(['sale-report', 'daily-sale'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $window = $this->reportWindow($request, 'today');
+        $from = $window['startAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+        $to = $window['endAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+        $items = \App\RestaurantOrderItem::with(['order.sale'])
+            ->where('status', '<>', 'rejected')
+            ->whereHas('order', function ($query) use ($from, $to) {
+                $query->where('created_at', '>=', $from)->where('created_at', '<=', $to);
+            })
+            ->orderByDesc('id')
+            ->get();
+        $groups = [];
+        $lines = [];
+        foreach ($items as $item) {
+            $order = $item->order;
+            $placed = $order ? $order->created_at : null;
+            $accept = ($placed && $item->accepted_at) ? $placed->diffInMinutes($item->accepted_at) : null;
+            $deliver = ($placed && $item->delivered_at) ? $placed->diffInMinutes($item->delivered_at) : null;
+            $name = trim((string) $item->product_name) !== '' ? $item->product_name : 'Item';
+            if (! isset($groups[$name])) {
+                $groups[$name] = ['name' => $name, 'accept' => [], 'deliver' => []];
+            }
+            if ($accept !== null) {
+                $groups[$name]['accept'][] = $accept;
+            }
+            if ($deliver !== null) {
+                $groups[$name]['deliver'][] = $deliver;
+            }
+            if (count($lines) < 200) {
+                $lines[] = [
+                    'when' => $placed ? $placed->format('j M H:i') : '',
+                    'reference' => $order && $order->sale ? $order->sale->reference_no : '',
+                    'item' => $name,
+                    'qty' => $item->qty,
+                    'accept' => $accept,
+                    'deliver' => $deliver,
+                    'status' => $item->status,
+                ];
+            }
+        }
+        $products = [];
+        foreach ($groups as $group) {
+            $products[] = [
+                'name' => $group['name'],
+                'orders' => count($group['deliver']),
+                'accept' => $this->averageMinutes($group['accept']),
+                'deliver' => $this->averageMinutes($group['deliver']),
+            ];
+        }
+        usort($products, function ($a, $b) {
+            if ($a['orders'] === $b['orders']) {
+                return strcasecmp($a['name'], $b['name']);
+            }
+
+            return $a['orders'] < $b['orders'] ? 1 : -1;
+        });
+        $range = $window['range'];
+        $heading = 'Order lifecycle · '.$window['heading'];
+        $period = $window['period'];
+        $print = (string) $request->input('print');
+        if (in_array($print, ['letter', 'thermal'], true)) {
+            $printLines = [];
+            foreach ($products as $product) {
+                $printLines[] = [
+                    $product['name'],
+                    $product['orders'],
+                    $product['accept'] === null ? '—' : $product['accept'].' min',
+                    $product['deliver'] === null ? '—' : $product['deliver'].' min',
+                ];
+            }
+
+            return view('report.summary_print', [
+                'print' => $print,
+                'heading' => $heading,
+                'period' => $period,
+                'columns' => ['Dish', 'Delivered', 'Avg to accept', 'Avg to deliver'],
+                'lines' => $printLines,
+                'back' => route('report.orderLifecycle', ['range' => $range]),
+            ]);
+        }
+
+        return view('report.order_lifecycle', compact('products', 'lines', 'range', 'heading', 'period'));
+    }
+
+    protected function averageMinutes(array $values)
+    {
+        if (! $values) {
+            return null;
+        }
+
+        return (int) round(array_sum($values) / count($values));
+    }
+
     protected function payKind($method)
     {
         $name = strtolower((string) $method);

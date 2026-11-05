@@ -26,6 +26,12 @@
             background:#f6f0e4; color:#6a5420; font-size:12px; font-weight:700;
         }
         .sky-pill.late { background:#fde8e8; color:#8a1f1f; }
+        .sky-clock {
+            display:inline-block; margin-top:8px; min-width:96px; padding:6px 12px; border-radius:10px;
+            background:#0c1830; color:#e1b368; font-size:22px; font-weight:800; letter-spacing:.04em;
+            font-variant-numeric: tabular-nums;
+        }
+        .sky-clock.is-late { background:#8a1f1f; color:#fff; }
         .sky-pay { display:inline-block; margin-top:8px; margin-left:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
         .sky-pay.paid { background:#e3f6e8; color:#1f6a35; }
         .sky-pay.pending { background:#fdecdb; color:#8a5a1f; }
@@ -74,6 +80,7 @@
             @endforeach
             @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
                 <a href="{{ route('restaurant.logs', ['lane' => $lane]) }}">Log</a>
+                <a href="{{ route('report.orderLifecycle', ['range' => 'today']) }}">Lifecycle</a>
             @endif
         </nav>
         @endif
@@ -119,9 +126,11 @@
                         <p class="sky-meta">
                             @if($item->ready_at)
                                 Ready {{ $item->ready_at->format('H:i') }}
+                            @elseif($item->expected_ready_at && $item->status === 'preparing')
+                                <span class="sky-clock" data-due="{{ $item->expected_ready_at->getTimestamp() }}">--:--</span>
+                                <span>Due {{ $item->expected_ready_at->format('H:i') }}</span>
                             @elseif($item->expected_ready_at)
                                 Due {{ $item->expected_ready_at->format('H:i') }}
-                                @if($late) · taking longer than expected @endif
                             @elseif($item->status === 'preparing')
                                 No time given
                             @endif
@@ -190,4 +199,28 @@
             @endforelse
         </div>
     </section>
+    <script>
+        (function () {
+            function pad(n) { return (n < 10 ? '0' : '') + n; }
+            function paint() {
+                var now = Date.now();
+                var clocks = document.querySelectorAll('.sky-clock');
+                for (var i = 0; i < clocks.length; i++) {
+                    var due = parseInt(clocks[i].getAttribute('data-due'), 10) * 1000;
+                    if (!due) continue;
+                    var diff = Math.round((due - now) / 1000);
+                    var late = diff < 0;
+                    var abs = Math.abs(diff);
+                    var hours = Math.floor(abs / 3600);
+                    var mins = Math.floor((abs % 3600) / 60);
+                    var secs = abs % 60;
+                    clocks[i].textContent = (late ? '-' : '') + (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+                    if (late) clocks[i].className = 'sky-clock is-late';
+                    else clocks[i].className = 'sky-clock';
+                }
+            }
+            paint();
+            setInterval(paint, 1000);
+        })();
+    </script>
 @endsection

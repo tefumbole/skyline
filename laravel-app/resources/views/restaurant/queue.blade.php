@@ -32,6 +32,12 @@
             font-variant-numeric: tabular-nums;
         }
         .sky-clock.is-late { background:#8a1f1f; color:#fff; }
+        .sky-wait {
+            display:inline-block; margin-top:8px; min-width:96px; padding:6px 12px; border-radius:10px;
+            background:#0c1830; color:#e1b368; font-size:22px; font-weight:800; letter-spacing:.04em;
+            font-variant-numeric: tabular-nums;
+        }
+        .sky-meta.is-other { color:#8a1f1f; font-weight:700; }
         .sky-pay { display:inline-block; margin-top:8px; margin-left:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; }
         .sky-pay.paid { background:#e3f6e8; color:#1f6a35; }
         .sky-pay.pending { background:#fdecdb; color:#8a5a1f; }
@@ -114,7 +120,7 @@
                         @if($item->status === 'preparing')
                             <p class="sky-meta">Accepted by {{ optional($item->acceptedBy)->name ?: 'Staff' }}</p>
                         @endif
-                        @if(in_array($item->status, ['ready', 'delivered'], true))
+                        @if($item->status === 'ready')
                             @php
                                 $preparedNames = [];
                                 foreach ([optional($item->acceptedBy)->name, optional($item->readyBy)->name] as $who) {
@@ -127,6 +133,29 @@
                             @if($preparedNames)
                                 <p class="sky-meta">Prepared by: {{ implode(', ', array_keys($preparedNames)) }}</p>
                             @endif
+                            <p class="sky-meta">Deliver by {{ optional(optional($order)->placedBy)->name ?: 'Staff' }}</p>
+                        @endif
+                        @if($item->status === 'delivered')
+                            @php
+                                $placedAt = $order && $order->created_at ? $order->created_at : null;
+                                $acceptMinutes = ($placedAt && $item->accepted_at) ? $placedAt->diffInMinutes($item->accepted_at) : null;
+                                $acceptText = $acceptMinutes === null ? '—' : ($acceptMinutes >= 60 ? intdiv($acceptMinutes, 60).' h '.($acceptMinutes % 60).' min' : $acceptMinutes.' min');
+                                $preparedNames = [];
+                                foreach ([optional($item->acceptedBy)->name, optional($item->readyBy)->name] as $who) {
+                                    $who = trim((string) $who);
+                                    if ($who !== '') {
+                                        $preparedNames[$who] = true;
+                                    }
+                                }
+                                $orderedBy = optional(optional($order)->placedBy)->name ?: 'Staff';
+                                $deliveredBy = optional($item->deliveredBy)->name ?: 'Staff';
+                                $someoneElse = strcasecmp($deliveredBy, $orderedBy) !== 0;
+                            @endphp
+                            <p class="sky-meta">Placed {{ $placedAt ? $placedAt->format('j M H:i') : '—' }}</p>
+                            <p class="sky-meta">Time to accept: {{ $acceptText }}</p>
+                            <p class="sky-meta">Accepted and prepared by {{ $preparedNames ? implode(', ', array_keys($preparedNames)) : 'Staff' }}</p>
+                            <p class="sky-meta">Ordered by {{ $orderedBy }}</p>
+                            <p class="sky-meta {{ $someoneElse ? 'is-other' : '' }}">Delivered by {{ $deliveredBy }}@if($someoneElse) · not {{ $orderedBy }}@endif</p>
                         @endif
                     </div>
                     <div>
@@ -141,7 +170,10 @@
                         @if(optional($order)->customer_comment)<p class="sky-note">Note: {{ $order->customer_comment }}</p>@endif
                         @if($item->customer_comment)<p class="sky-note">Item note: {{ $item->customer_comment }}</p>@endif
                         <p class="sky-meta">
-                            @if($item->ready_at)
+                            @if($item->status === 'ready' && $item->ready_at)
+                                <span class="sky-wait" data-since="{{ $item->ready_at->getTimestamp() }}">--:--</span>
+                                <span>since it was marked ready</span>
+                            @elseif($item->ready_at)
                                 Ready {{ $item->ready_at->format('H:i') }}
                             @elseif($item->expected_ready_at && $item->status === 'preparing')
                                 <span class="sky-clock" data-due="{{ $item->expected_ready_at->getTimestamp() }}">--:--</span>
@@ -234,6 +266,16 @@
                     clocks[i].textContent = (late ? '-' : '') + (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
                     if (late) clocks[i].className = 'sky-clock is-late';
                     else clocks[i].className = 'sky-clock';
+                }
+                var waits = document.querySelectorAll('.sky-wait');
+                for (var j = 0; j < waits.length; j++) {
+                    var since = parseInt(waits[j].getAttribute('data-since'), 10) * 1000;
+                    if (!since) continue;
+                    var waited = Math.max(0, Math.round((now - since) / 1000));
+                    var waitHours = Math.floor(waited / 3600);
+                    var waitMins = Math.floor((waited % 3600) / 60);
+                    var waitSecs = waited % 60;
+                    waits[j].textContent = (waitHours > 0 ? waitHours + ':' : '') + pad(waitMins) + ':' + pad(waitSecs);
                 }
             }
             paint();

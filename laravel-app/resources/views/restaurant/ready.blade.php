@@ -9,6 +9,11 @@
     .ready-where { margin: 0; color: #0c1830; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
     .ready-ref { margin: 6px 0 0; color: #5c6b82; font-size: 14px; }
     .ready-who { margin: 6px 0 0; color: #0c1830; font-size: 15px; font-weight: 700; }
+    .ready-clock {
+        display: inline-block; min-width: 88px; margin-left: 6px; padding: 4px 10px; border-radius: 10px;
+        background: #0c1830; color: #e1b368; font-size: 20px; font-weight: 800; letter-spacing: .04em;
+        font-variant-numeric: tabular-nums;
+    }
     .ready-lines { margin: 14px 0 0; padding: 0; list-style: none; }
     .ready-lines li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #e6ebf2; }
     .ready-lines strong { color: #0c1830; font-size: 17px; }
@@ -49,8 +54,16 @@
                 $groups[$key] = [
                     'where' => $where,
                     'ref' => $sale->reference_no ?? ($order ? $order->id : $item->id),
+                    'deliver_by' => optional(optional($order)->placedBy)->name ?: 'Staff',
+                    'since' => null,
                     'items' => [],
                 ];
+            }
+            if ($item->ready_at) {
+                $marked = $item->ready_at->getTimestamp();
+                if ($groups[$key]['since'] === null || $marked < $groups[$key]['since']) {
+                    $groups[$key]['since'] = $marked;
+                }
             }
             $groups[$key]['items'][] = $item;
         }
@@ -72,6 +85,10 @@
             @endphp
             @if($preparedNames)
                 <p class="ready-who">Prepared by: {{ implode(', ', array_keys($preparedNames)) }}</p>
+            @endif
+            <p class="ready-who">Deliver by: {{ $group['deliver_by'] }}</p>
+            @if($group['since'])
+                <p class="ready-who">Waiting <span class="ready-clock" data-since="{{ $group['since'] }}">--:--</span></p>
             @endif
             <ul class="ready-lines">
                 @foreach($group['items'] as $item)
@@ -110,5 +127,23 @@
     })();
     var readyMenu = document.getElementById('ready-delivery-menu');
     if (readyMenu) readyMenu.classList.add('active');
+    (function () {
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        function paint() {
+            var now = Date.now();
+            var clocks = document.querySelectorAll('.ready-clock');
+            for (var i = 0; i < clocks.length; i++) {
+                var since = parseInt(clocks[i].getAttribute('data-since'), 10) * 1000;
+                if (!since) continue;
+                var abs = Math.max(0, Math.round((now - since) / 1000));
+                var hours = Math.floor(abs / 3600);
+                var mins = Math.floor((abs % 3600) / 60);
+                var secs = abs % 60;
+                clocks[i].textContent = (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+            }
+        }
+        paint();
+        setInterval(paint, 1000);
+    })();
 </script>
 @endsection

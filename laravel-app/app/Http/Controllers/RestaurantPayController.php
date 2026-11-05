@@ -36,24 +36,80 @@ class RestaurantPayController extends Controller
         if ($due <= 0) {
             return back()->with('message', 'This invoice is already paid.');
         }
-        $customer = $sale->customer;
-        $phone = $customer ? $customer->phone_number : '';
-        $campay = $this->campayBearerToken();
-        if (! $campay) {
-            return back()->with('not_permitted', 'Mobile money is not configured yet. Please pay at the cashier.');
+        $amount = (int) round((float) $request->input('amount', $due));
+        if ($amount < 100 || $amount > (int) round($due) + 1) {
+            return back()->with('not_permitted', 'Enter a whole amount of at least 100 XAF, up to the amount still due. Nothing was charged.');
         }
-        $link = $this->mobileMoneyRequestLink(
-            $campay,
-            $due,
-            route('restaurant.pay.callback'),
-            $sale->id,
-            $phone
-        );
-        if ($link == false) {
-            return back()->with('not_permitted', 'The payment page could not be opened. Please try again or pay at the cashier.');
+        $customer = $sale->customer;
+        $campay = app(\App\Services\CampayCollectService::class);
+        $phone = $campay->momoNumber($request->input('momo_phone') ?: ($customer ? $customer->phone_number : ''));
+        if (! $phone) {
+            return back()->with('not_permitted', 'Enter an MTN or Orange Cameroon number. Nothing was charged.');
+        }
+        $external = 'sale-momo-'.$sale->id.'-'.date('His');
+        $body = $campay->collect($phone, $amount, $external, 'Skyline '.$sale->reference_no);
+        $reference = is_array($body) && ! empty($body['reference']) ? (string) $body['reference'] : '';
+        if ($reference === '') {
+            return back()->with('not_permitted', $campay->collectError($body).' Nothing was charged.');
+        }
+        $pending = [
+            'sale_id' => $sale->id,
+            'amount' => $amount,
+            'reference' => $reference,
+            'phone' => $phone,
+            'external' => $external,
+        ];
+        \Illuminate\Support\Facades\Cache::put($external, $pending, now()->addMinutes(30));
+        \Illuminate\Support\Facades\Cache::put('invoice-momo:'.$sale->id.':'.$token, $pending, now()->addMinutes(30));
+
+        return view('restaurant.pay', [
+            'sale' => $sale,
+            'due' => $due,
+            'empty' => false,
+            'paid' => false,
+            'waiting' => true,
+            'amount' => $amount,
+            'statusUrl' => route('restaurant.pay.status', [$sale->id, $token]),
+        ]);
+    }
+
+    public function status($sale, $token)
+    {
+        $sale = $this->sale($sale, $token);
+        $key = 'invoice-momo:'.$sale->id.':'.$token;
+        $pending = \Illuminate\Support\Facades\Cache::get($key);
+        if ((int) $sale->payment_status === 4 && (float) $sale->paid_amount > 0.009) {
+            return response()->json(['status' => 'paid']);
+        }
+        if (! is_array($pending)) {
+            return response()->json(['status' => 'failed', 'message' => 'This payment request has expired. Nothing was marked paid.']);
+        }
+        if (RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
+            return response()->json(['status' => 'paid']);
+        }
+        $campay = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
+        $outcome = $campay->collectionOutcome($pending['reference'], $pending['amount'], $pending['phone'], $pattern);
+        if ($outcome['state'] === 'paid' && ! empty($outcome['confirmed'])) {
+            $result = RestaurantPayments::recordGateway($sale, $pending['amount'], $pending['reference'], null);
+            if (in_array($result, ['recorded', 'duplicate', 'paid'], true)) {
+                \Illuminate\Support\Facades\Cache::forget($key);
+
+                return response()->json(['status' => 'paid']);
+            }
+
+            return response()->json(['status' => 'pending']);
+        }
+        if ($outcome['state'] === 'failed') {
+            \Illuminate\Support\Facades\Cache::forget($key);
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $campay->payerFailure(isset($outcome['reason']) ? $outcome['reason'] : '', $pending['amount']),
+            ]);
         }
 
-        return redirect()->away($link);
+        return response()->json(['status' => 'pending']);
     }
 
     public function callback(Request $request)

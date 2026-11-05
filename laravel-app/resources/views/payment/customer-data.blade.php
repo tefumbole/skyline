@@ -76,7 +76,9 @@
                         </td>
                         <td>{{ $sale->created_at }}</td>
                         <td>
+                            @if($due > 0.009)
                             <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $sale->id }}" data-name="{{ e(optional($sale->customer)->name) }}" data-phone="{{ e(optional($sale->customer)->phone_number) }}" data-ref="{{ e($sale->reference_no) }}" data-due="{{ $due }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
+                            @endif
                             <button type="button" class="get-payment btn btn-info btn-sm" data-id = "{{ $sale->id }}"><i class="fa fa-money"></i>{{ trans('file.View') }}</button>
                             <a class="get-payment btn btn-warning btn-sm" href="{{ route('sales.edit',$sale->id ) }}"><i class="fa fa-pencil"></i> Edit Sale</a>
                         </td>
@@ -177,7 +179,7 @@
                     </div>
                     <div class="pay-choice" id="payMethods">
                         <button type="button" class="pay-method is-on" data-id="1">Cash<small>Submit</small></button>
-                        <button type="button" class="pay-method" data-id="8">MoMo / OM<small>Ask the client to confirm</small></button>
+                        <button type="button" class="pay-method" data-id="8">MoMo / OM<small>Wait for the phone</small></button>
                     </div>
                     <div class="pay-choice" id="payModes">
                         <button type="button" class="pay-mode is-on" data-mode="full">Full amount<small>Pay everything due</small></button>
@@ -230,8 +232,8 @@
             $('#add-payment .pay-method').removeClass('is-on');
             $('#add-payment .pay-method[data-id="' + id + '"]').addClass('is-on');
             var momo = String(id) === '8';
-            $('#add-payment .pay-send').text(momo ? 'Ask the client to confirm' : 'Submit');
-            $('#payHint').text(momo ? 'The bill stays unpaid until the client confirms.' : 'This records the cash payment.');
+            $('#add-payment .pay-send').text(momo ? 'Send prompt and wait' : 'Submit');
+            $('#payHint').text(momo ? 'The bill is confirmed only after the client approves on their phone.' : 'This records the cash payment.');
         }
         function lookupPayPhone() {
             var phone = $.trim($('#payPhone').val());

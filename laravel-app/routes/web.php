@@ -77,6 +77,7 @@ Route::get('/order-review/{sale}/{token}', 'RestaurantTrackingController@review'
 Route::post('/order-review/{sale}/{token}', 'RestaurantTrackingController@storeReview')->name('restaurant.review.store');
 Route::get('/pay/invoice/{sale}/{token}', 'RestaurantPayController@show')->name('restaurant.pay');
 Route::post('/pay/invoice/{sale}/{token}', 'RestaurantPayController@start')->name('restaurant.pay.start');
+Route::get('/pay/invoice/{sale}/{token}/status', 'RestaurantPayController@status')->name('restaurant.pay.status');
 Route::get('/pay/invoice/callback', 'RestaurantPayController@callback')->name('restaurant.pay.callback');
 Route::post('/pay/campay/webhook', 'RestaurantPayController@webhook')->name('campay.webhook');
 Route::get('/pay/cash/{sale}/{token}', 'SaleController@confirmCash')->name('sale.cash.confirm');
@@ -1087,6 +1088,8 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::post('/pos/momo-holder', 'SaleController@momoHolder')->name('pos.momo.holder');
     Route::get('/pos/momo/{token}', 'SaleController@posMomoWait')->where('token', '[a-f0-9]{20}')->name('pos.momo.wait');
     Route::get('/pos/momo/{token}/status', 'SaleController@posMomoStatus')->where('token', '[a-f0-9]{20}')->name('pos.momo.status');
+    Route::get('sales/momo-wait/{token}', 'SaleController@saleMomoWait')->where('token', '[a-f0-9]{32}')->name('sale.momo.wait');
+    Route::get('sales/momo-wait/{token}/status', 'SaleController@saleMomoStatus')->where('token', '[a-f0-9]{32}')->name('sale.momo.status');
 	Route::get('sales/category/associate', 'SaleController@addCategoryIdInSale');
 	Route::post('sales/sale-data', 'SaleController@saleData');
 	Route::post('sales/sendmail', 'SaleController@sendMail')->name('sale.sendmail');

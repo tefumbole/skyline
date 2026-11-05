@@ -29,6 +29,10 @@ class RestaurantOrderService
         if (! Schema::hasTable('restaurant_orders')) {
             return null;
         }
+        $service = (string) $request->input('service_type');
+        if (! in_array($service, ['dine_in', 'take_away'], true)) {
+            return null;
+        }
         $existing = RestaurantOrder::where('sale_id', $sale->id)->first();
         if ($existing) {
             return $existing;

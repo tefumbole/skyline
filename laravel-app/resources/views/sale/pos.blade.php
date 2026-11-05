@@ -1957,31 +1957,41 @@
                             </div>
 
                             {!! Form::close() !!}
-                            <div id="momo-collect" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left">
-                                <div role="document" class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header" style="background:#0c1830;color:#fff;">
-                                            <h5 class="modal-title">Pay with Mobile Money</h5>
-                                            <button type="button" data-dismiss="modal" aria-label="Close" class="close" style="color:#fff;"><span aria-hidden="true">&times;</span></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <p>A prompt is sent to the phone. The order, the receipt, and the kitchen ticket wait until that debit is approved. Use Submit to place an order without taking payment.</p>
-                                            <div class="form-group">
-                                                <label for="momo-collect-phone">Momo number</label>
-                                                <input id="momo-collect-phone" class="form-control" type="text" inputmode="tel" autocomplete="off">
-                                                <p id="momo-holder-name" style="font-weight:700;min-height:1.4em;margin:8px 0 0;"></p>
+                            <div id="momo-collect" tabindex="-1" role="dialog" aria-hidden="true" class="modal fade text-left" data-method="momo">
+                                <div role="document" class="modal-dialog" style="max-width:460px;margin:16px auto;">
+                                    <div class="modal-content" style="border:0;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(12,24,48,.28);">
+                                        <div style="display:flex;justify-content:space-between;gap:12px;padding:14px 16px;background:#0c1830;color:#fff;">
+                                            <div>
+                                                <div style="color:#e1b368;font-size:11px;font-weight:700;letter-spacing:.12em;">ADD PAYMENT</div>
+                                                <h5 class="modal-title" style="margin:4px 0 0;font-size:20px;">Payment</h5>
+                                                <div id="pos-pay-ref" style="color:rgba(255,255,255,.72);font-size:13px;"></div>
                                             </div>
-                                            <label style="margin-right:16px;"><input type="radio" name="momo_pay_mode" value="full" checked> Full payment</label>
-                                            <label><input type="radio" name="momo_pay_mode" value="partial"> Partial payment</label>
-                                            <div id="momo-partial-wrap" class="form-group" style="display:none;margin-top:12px;">
-                                                <label for="momo-partial-amount">Amount to collect now (XAF)</label>
-                                                <input id="momo-partial-amount" class="form-control" type="number" min="100" step="1">
-                                                <small class="text-muted">At least 100 XAF. The rest is sent to Payments.</small>
-                                            </div>
+                                            <button type="button" data-dismiss="modal" aria-label="Close" class="close" style="width:44px;height:44px;border:0;border-radius:22px;background:rgba(255,255,255,.1);color:#fff;opacity:1;font-size:22px;">&times;</button>
                                         </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-default" data-dismiss="modal">Back</button>
-                                            <button type="button" class="btn btn-primary" id="momo-collect-go">Request Momo</button>
+                                        <div style="padding:12px 16px 14px;background:#f3f6fb;">
+                                            <div style="margin-bottom:8px;padding:10px 14px;border-radius:14px;background:#fff;">
+                                                <div style="color:#8a6230;font-size:11px;font-weight:700;letter-spacing:.08em;">STILL DUE</div>
+                                                <strong id="pos-pay-amount" style="display:block;margin-top:2px;color:#0c1830;font-size:24px;">0 XAF</strong>
+                                            </div>
+                                            <label for="momo-collect-phone" style="display:block;margin:0 0 6px;color:#5c6b82;font-size:12px;font-weight:700;letter-spacing:.04em;">PHONE NUMBER</label>
+                                            <input id="momo-collect-phone" class="form-control" type="text" inputmode="tel" autocomplete="off" style="min-height:48px;border-radius:12px;font-size:16px;">
+                                            <p id="momo-holder-name" style="font-weight:700;min-height:1.4em;margin:8px 0;"></p>
+                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                                                <button type="button" class="pos-pay-method" data-method="cash" style="min-height:52px;border:1px solid #d7deea;border-radius:14px;background:#fff;color:#0c1830;font-weight:700;">Cash<small style="display:block;color:#5c6b82;">Submit</small></button>
+                                                <button type="button" class="pos-pay-method is-on" data-method="momo" style="min-height:52px;border:1px solid #0c1830;border-radius:14px;background:#0c1830;color:#fff;font-weight:700;">MoMo / OM<small style="display:block;color:#e1b368;">Wait for the phone</small></button>
+                                            </div>
+                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                                                <button type="button" id="pos-pay-full" style="min-height:52px;border:1px solid #0c1830;border-radius:14px;background:#0c1830;color:#fff;font-weight:700;">Full amount<small style="display:block;color:#e1b368;">Pay everything due</small></button>
+                                                <button type="button" id="pos-pay-part" style="min-height:52px;border:1px solid #d7deea;border-radius:14px;background:#fff;color:#0c1830;font-weight:700;">Partial<small style="display:block;color:#5c6b82;">Pay part now</small></button>
+                                            </div>
+                                            <input type="radio" name="momo_pay_mode" value="full" checked style="display:none;">
+                                            <input type="radio" name="momo_pay_mode" value="partial" style="display:none;">
+                                            <div id="momo-partial-wrap" style="display:none;margin-bottom:8px;">
+                                                <label for="momo-partial-amount" style="display:block;margin:0 0 6px;color:#5c6b82;font-size:12px;font-weight:700;letter-spacing:.04em;">AMOUNT (XAF)</label>
+                                                <input id="momo-partial-amount" class="form-control" type="number" min="1" step="1" style="min-height:48px;border-radius:12px;font-size:16px;">
+                                            </div>
+                                            <button type="button" id="momo-collect-go" style="width:100%;min-height:48px;border:0;border-radius:14px;background:#e1b368;color:#0c1830;font-weight:700;">Send prompt and wait</button>
+                                            <p style="margin:8px 0 0;color:#5c6b82;font-size:12px;text-align:center;">MoMo is confirmed only after the client approves on their phone. Cash is recorded now.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -3861,9 +3871,7 @@
             });
         }
 
-        $("#momo-btn").on("click", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        function openPosPay(method) {
             var rownumber = $('table.order-list tbody tr:last').index();
             if (rownumber < 0) {
                 alert("Please insert product to order table!");
@@ -3873,20 +3881,46 @@
                 alert("Every item needs a price before it can be paid.");
                 return;
             }
-            var other = ($('#pos-other-momo').val() || '').trim();
-            var phone = other !== '' ? other : customerPhone();
-            if (phone.replace(/\D/g, '').length < 9) {
-                alert('Enter the Momo number.');
-                $('#pos-other-momo').focus();
-                return;
-            }
             var total = moneyNumber($('#grand-total').text());
-            if (!(total >= 100)) {
-                alert('Mobile Money needs a whole amount of at least 100 XAF.');
-                return;
-            }
-            $('input[name="momo_phone"]').val(phone);
-            submitPosSale(8, Math.round(total));
+            $('#pos-pay-amount').text(Math.round(total).toLocaleString('fr-FR') + ' XAF');
+            var phone = ($('#pos-other-momo').val() || '').trim() || customerPhone();
+            if (phone) $('#momo-collect-phone').val(phone);
+            setPosPayMethod(method);
+            $('input[name="momo_pay_mode"][value="full"]').prop('checked', true);
+            $('#momo-partial-wrap').hide();
+            $('#momo-collect').modal('show');
+        }
+        function setPosPayMethod(method) {
+            $('#momo-collect').data('method', method);
+            $('.pos-pay-method').each(function () {
+                var on = $(this).data('method') === method;
+                $(this).css({
+                    background: on ? '#0c1830' : '#fff',
+                    color: on ? '#fff' : '#0c1830',
+                    borderColor: on ? '#0c1830' : '#d7deea'
+                });
+                $(this).find('small').css('color', on ? '#e1b368' : '#5c6b82');
+            });
+            $('#momo-collect-go').text(method === 'momo' ? 'Send prompt and wait' : 'Submit');
+        }
+        $("#momo-btn").on("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPosPay('momo');
+        });
+        $(document).on('click', '.pos-pay-method', function () {
+            setPosPayMethod($(this).data('method'));
+        });
+        $('#pos-pay-full').on('click', function () {
+            $('input[name="momo_pay_mode"][value="full"]').prop('checked', true).trigger('change');
+            $(this).css({background:'#0c1830', color:'#fff', borderColor:'#0c1830'});
+            $('#pos-pay-part').css({background:'#fff', color:'#0c1830', borderColor:'#d7deea'});
+        });
+        $('#pos-pay-part').on('click', function () {
+            $('input[name="momo_pay_mode"][value="partial"]').prop('checked', true).trigger('change');
+            $(this).css({background:'#0c1830', color:'#fff', borderColor:'#0c1830'});
+            $('#pos-pay-full').css({background:'#fff', color:'#0c1830', borderColor:'#d7deea'});
+            $('#momo-partial-amount').focus();
         });
         $('#momo-collect-phone').on('input', function () {
             var value = this.value;
@@ -3899,18 +3933,29 @@
         $('#momo-collect-go').on('click', function () {
             var total = moneyNumber($('#grand-total').text());
             var mode = $('input[name="momo_pay_mode"]:checked').val();
+            var method = $('#momo-collect').data('method') || 'momo';
             var charge = total;
             if (mode === 'partial') {
                 charge = moneyNumber($('#momo-partial-amount').val());
-                if (!(charge >= 100) || charge >= total) {
-                    alert('Enter a whole amount of at least 100 XAF, and less than the bill. The rest goes to Payments.');
+                if (!(charge > 0) || charge >= total) {
+                    alert('Enter an amount greater than 0 and less than the bill.');
                     return;
                 }
-            } else if (!(total >= 100)) {
+            }
+            charge = Math.round(charge);
+            if (method === 'cash') {
+                if (!(charge > 0)) {
+                    alert('Enter the cash amount.');
+                    return;
+                }
+                $('#momo-collect').modal('hide');
+                submitPosSale(1, charge);
+                return;
+            }
+            if (!(charge >= 100)) {
                 alert('Mobile Money needs a whole amount of at least 100 XAF.');
                 return;
             }
-            charge = Math.round(charge);
             var phone = $('#momo-collect-phone').val() || '';
             if (phone.replace(/\D/g, '').length < 9) {
                 alert('Enter the Momo number.');
@@ -3942,16 +3987,10 @@
 
         $("#cash-btn").on("click", function(e) {
             e.preventDefault();
-            if (posLineMissingPrice()) {
-                alert("Every item needs a price before the order can be placed.");
-                return;
-            }
-            var total = moneyNumber($("#grand-total").text());
-            if (!window.confirm("Take cash of " + total + " XAF and send this order?")) {
-                return;
-            }
-            submitPosSale(1, total);
+            openPosPay('cash');
         });
+
+
 
         $("#pay-later-btn").on("click", function(e) {
             e.preventDefault();

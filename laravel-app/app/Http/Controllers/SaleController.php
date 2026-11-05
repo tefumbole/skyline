@@ -339,11 +339,14 @@ class SaleController extends Controller
                             <a href="'.url('sales/'.$sale->id.'/create').'" class="btn btn-link"><i class="dripicons-document-edit"></i> '.trans('file.edit').'</a>
                         </li>';
                 }
+                if ((int) $sale->payment_status !== 4 && ((float) $sale->grand_total - (float) $sale->paid_amount) > 0.009) {
+                    $nestedData['options'] .=
+                        '<li>
+                            <button type="button" class="add-payment btn btn-link" data-id = "'.$sale->id.'" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i> '.trans('file.Add Payment').'</button>
+                        </li>';
+                }
                 $nestedData['options'] .=
                     '<li>
-                        <button type="button" class="add-payment btn btn-link" data-id = "'.$sale->id.'" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i> '.trans('file.Add Payment').'</button>
-                    </li>
-                    <li>
                         <button type="button" class="get-payment btn btn-link" data-id = "'.$sale->id.'"><i class="fa fa-money"></i> '.trans('file.View Payment').'</button>
                     </li>
                     <li>
@@ -3294,17 +3297,24 @@ class SaleController extends Controller
             $external = 'sale-momo-'.$sale->id.'-'.date('His');
             $body = $collect->collect($momo, (int) $amount, $external, 'Skyline '.$sale->reference_no);
             $reference = is_array($body) && ! empty($body['reference']) ? (string) $body['reference'] : '';
-            if ($reference === '') {
+            $campayStatus = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+            if ($reference === '' || $campayStatus === 'FAILED') {
                 return redirect()->back()->with('not_permitted', 'Mobile Money did not send a prompt. The bill was not marked paid.');
             }
-            \Illuminate\Support\Facades\Cache::put($external, [
+            $token = bin2hex(random_bytes(16));
+            $pending = [
                 'sale_id' => $sale->id,
-                'amount' => $amount,
+                'amount' => (int) $amount,
                 'user_id' => Auth::id(),
                 'reference' => $reference,
-            ], now()->addMinutes(30));
+                'phone' => $momo,
+                'external' => $external,
+                'back' => route('payment.index'),
+            ];
+            \Illuminate\Support\Facades\Cache::put($external, $pending, now()->addMinutes(30));
+            \Illuminate\Support\Facades\Cache::put('sale-add-momo:'.$token, $pending, now()->addMinutes(30));
 
-            return redirect()->back()->with('message', 'A Mobile Money prompt was sent to the client. The bill stays unpaid until they approve.');
+            return redirect()->route('sale.momo.wait', ['token' => $token]);
         }
         $token = $this->cashConfirmToken($sale, $amount);
         \Illuminate\Support\Facades\Cache::put('sale-cash-'.$sale->id, [
@@ -3322,6 +3332,68 @@ class SaleController extends Controller
         }
 
         return redirect()->back()->with('message', 'The client was asked to confirm the cash payment. The bill stays unpaid until they confirm.');
+    }
+
+    public function saleMomoWait($token)
+    {
+        $pending = \Illuminate\Support\Facades\Cache::get('sale-add-momo:'.$token);
+        $sale = is_array($pending) ? Sale::find($pending['sale_id']) : null;
+        if (! $pending || ! $sale) {
+            return redirect()->route('payment.index')->with('not_permitted', 'This Mobile Money request has expired. The bill was not marked paid.');
+        }
+
+        return view('payment.momo_wait', [
+            'sale' => $sale,
+            'amount' => $pending['amount'],
+            'phone' => $pending['phone'],
+            'statusUrl' => route('sale.momo.status', ['token' => $token]),
+            'backUrl' => isset($pending['back']) ? $pending['back'] : route('payment.index'),
+        ]);
+    }
+
+    public function saleMomoStatus($token)
+    {
+        $pending = \Illuminate\Support\Facades\Cache::get('sale-add-momo:'.$token);
+        $sale = is_array($pending) ? Sale::find($pending['sale_id']) : null;
+        if (! $pending || ! $sale) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'This Mobile Money request has expired. The bill was not marked paid.',
+            ]);
+        }
+        $back = isset($pending['back']) ? $pending['back'] : route('payment.index');
+        if (\App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
+            return response()->json(['status' => 'paid', 'url' => $back]);
+        }
+        $campay = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
+        $outcome = $campay->collectionOutcome($pending['reference'], $pending['amount'], $pending['phone'], $pattern);
+        if ($outcome['state'] === 'paid' && ! empty($outcome['confirmed'])) {
+            $result = \App\Services\Restaurant\RestaurantPayments::recordGateway(
+                $sale,
+                $pending['amount'],
+                $pending['reference'],
+                isset($pending['user_id']) ? $pending['user_id'] : null
+            );
+            if (in_array($result, ['recorded', 'duplicate', 'paid'], true)) {
+                \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
+                \Illuminate\Support\Facades\Cache::forget($pending['external']);
+
+                return response()->json(['status' => 'paid', 'url' => $back]);
+            }
+
+            return response()->json(['status' => 'pending']);
+        }
+        if ($outcome['state'] === 'failed') {
+            \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $campay->payerFailure(isset($outcome['reason']) ? $outcome['reason'] : '', $pending['amount']),
+            ]);
+        }
+
+        return response()->json(['status' => 'pending']);
     }
 
     public function addPayment(Request $request)

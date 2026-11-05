@@ -1,22 +1,29 @@
 @extends('layout.main')
 @section('content')
-<section class="forms">
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-8 offset-md-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h4 class="mb-0">Mobile Money</h4>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-1">Ask <strong>{{ $customerName }}</strong> to approve this payment on their phone.</p>
-                        <p class="mb-1">Number: <strong>{{ $phone }}</strong></p>
-                        <p class="mb-3">Amount: <strong>{{ number_format($amount, 0, '.', ' ') }} XAF</strong></p>
-                        <p id="momo-hint">Waiting for approval. Nothing is sold, and nothing is sent, until the phone accepts the debit.</p>
-                        <a id="momo-back" class="btn btn-secondary" href="{{ url('pos') }}" style="display:none">Back to POS</a>
-                    </div>
-                </div>
+<style>
+    .momo-wait { max-width: 460px; margin: 24px auto; }
+    .momo-wait .card { border: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 60px rgba(12, 24, 48, .18); }
+    .momo-wait .pay-head { padding: 16px; background: #0c1830; color: #fff; }
+    .momo-wait .pay-kicker { color: #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .momo-wait h1 { margin: 4px 0 0; font-size: 22px; }
+    .momo-wait .pay-body { padding: 16px; background: #f3f6fb; }
+    .momo-wait .pay-due { padding: 12px 14px; border-radius: 14px; background: #fff; }
+    .momo-wait .pay-due strong { display: block; margin-top: 2px; color: #0c1830; font-size: 28px; }
+    .momo-wait #momo-back { display: none; margin-top: 12px; }
+</style>
+<section class="momo-wait">
+    <div class="card">
+        <div class="pay-head">
+            <div class="pay-kicker">Mobile Money</div>
+            <h1>{{ $customerName }}</h1>
+        </div>
+        <div class="pay-body">
+            <div class="pay-due">
+                <div class="pay-kicker" style="color:#8a6230">Waiting for</div>
+                <strong>{{ number_format($amount, 0, '.', ' ') }} XAF</strong>
             </div>
+            <p id="momo-hint" style="margin-top:14px">A prompt was sent. The order is placed only after the client approves it on their phone.</p>
+            <a id="momo-back" class="btn btn-default" href="{{ url('pos') }}">Back to POS</a>
         </div>
     </div>
 </section>
@@ -35,7 +42,7 @@
             .then(function (data) {
                 if (data.status === 'paid' && data.url) {
                     stopped = true;
-                    hint.textContent = 'Payment received. Opening the invoice.';
+                    hint.textContent = 'Payment received. Opening the sale.';
                     window.location = data.url;
                     return;
                 }

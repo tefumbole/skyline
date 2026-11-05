@@ -91,7 +91,7 @@ class ReceivedCollects
         }
         $this->useTenant(isset($row->cloud_tenant_id) ? $row->cloud_tenant_id : null);
         $sale = Sale::find($saleId);
-        if (! $sale || RestaurantPayments::hasReference($sale->id, $reference)) {
+        if (! $sale || RestaurantPayments::alreadyRecorded($sale->id, $reference)) {
             return;
         }
         RestaurantPayments::recordGateway($sale, $landed, $reference, $row->user_id);

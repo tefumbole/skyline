@@ -24,6 +24,11 @@ class RestaurantPayments
         return Payment::where('sale_id', $saleId)->where('payment_note', 'like', '%'.$note.'%')->exists();
     }
 
+    public static function hasReference($saleId, $reference)
+    {
+        return self::alreadyRecorded($saleId, $reference);
+    }
+
     /**
      * Record a Campay success once. Returns recorded, duplicate, paid, or failed.
      */

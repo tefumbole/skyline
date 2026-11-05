@@ -254,14 +254,23 @@ class RestaurantOrderController extends Controller
         }
         $items = [];
         $summary = [];
-        if (RestaurantAccess::installed() && RestaurantAccess::canReadyAlerts($user)) {
+        if (RestaurantAccess::installed()) {
             $readyRows = RestaurantOrderItem::with(['order.sale', 'order.diningTable'])
                 ->where('status', 'ready')
                 ->orderBy('id', 'desc')
-                ->limit(20)
+                ->limit(40)
                 ->get();
+            $showEveryReady = RestaurantAccess::canReadyAlerts($user);
             foreach ($readyRows as $row) {
                 $sale = $row->order ? $row->order->sale : null;
+                $ownerId = 0;
+                if ($row->order) {
+                    $ownerId = (int) ($row->order->placed_by_user_id ?: ($sale ? $sale->user_id : 0));
+                }
+                $mine = $ownerId > 0 && $ownerId === (int) $user->id;
+                if (! $showEveryReady && ! $mine) {
+                    continue;
+                }
                 $lane = RestaurantAccess::itemStation($row);
                 $tableName = optional(optional($row->order)->diningTable)->name;
                 $service = $row->order ? (string) $row->order->service_type : '';
@@ -284,6 +293,7 @@ class RestaurantOrderController extends Controller
                     'lane_label' => RestaurantAccess::lanes()[$lane] ?? $lane,
                     'ref' => $sale ? $sale->reference_no : '',
                     'placed_by' => optional(optional($row->order)->diningTable)->name ?: '',
+                    'mine' => $mine,
                     'href' => route('restaurant.ready'),
                 ];
             }

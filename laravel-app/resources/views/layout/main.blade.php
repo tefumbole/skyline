@@ -4837,6 +4837,9 @@
             })();
         </script>
       @endif
+      @if(auth()->check() && ! auth()->user()->isShopCustomer() && \App\Services\Restaurant\RestaurantAccess::installed())
+        @include('restaurant.deliver_blink')
+      @endif
       <script src="{{ asset('public/js/money-format.js') }}?v=3"></script>
       </body>
     </html>

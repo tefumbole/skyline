@@ -36,8 +36,12 @@
             <strong>{{ $money }}</strong>
         </div>
         <div class="sky-sale-card">
-            <span>Total Sales</span>
-            <strong>{{ $money }}</strong>
+            <span>Cash</span>
+            <strong>{{ number_format((float) ($cash ?? 0), 0, '.', ',') }}</strong>
+        </div>
+        <div class="sky-sale-card">
+            <span>MoMo / OM</span>
+            <strong>{{ number_format((float) ($momo ?? 0), 0, '.', ',') }}</strong>
         </div>
     </div>
 
@@ -104,7 +108,7 @@
     .sky-sale-custom label { display: flex; flex-direction: column; gap: 2px; color: #5c6570; font-size: 12px; font-weight: 700; margin: 0; }
     .sky-sale-custom input { min-height: 36px; border: 1px solid #d5dbe3; border-radius: 8px; padding: 6px 8px; background: #fff; }
     .sky-sale-custom button { min-height: 36px; border: 0; border-radius: 8px; padding: 6px 14px; background: #0c1830; color: #fff; font-weight: 700; }
-    .sky-sale-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 760px; margin: 0 auto 4px; }
+    .sky-sale-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 760px; margin: 0 auto 4px; }
     .sky-sale-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); text-align: center; padding: 8px 8px 6px; }
     .sky-sale-card span { display: block; color: #8b93a7; font-size: 13px; }
     .sky-sale-card strong { display: block; margin-top: 2px; font-size: 22px; line-height: 1.1; color: #1a1a1a; font-weight: 800; }
@@ -129,6 +133,7 @@
     .sky-sale-table tfoot th { background: #0c1830; color: #fff; }
     .sky-sale-empty td, .sky-sale-none { color: #6b7280; padding: 8px 4px; }
     @media (max-width: 640px) {
+        .sky-sale-cards { grid-template-columns: 1fr; }
         .sky-sale-card strong { font-size: 20px; }
         .sky-sale-table th, .sky-sale-table td { padding: 5px 6px; font-size: 13px; }
     }

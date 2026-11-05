@@ -1713,37 +1713,14 @@ class ReportController extends Controller
         }
         $start_date = $startAt->toDateString();
         $end_date = $endAt->toDateString();
-        $zone = config('app.timezone') ?: 'UTC';
-        $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
-        $to = $endAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
-        $products = [];
-        $total = 0;
-        if ($picked) {
-            $sales = Sale::with(['products.product'])
-                ->where('created_at', '>=', $from)
-                ->where('created_at', '<=', $to)
-                ->orderBy('created_at')
-                ->get();
-            foreach ($this->saleReportLines($sales, $this->saleVariantNames($sales)) as $line) {
-                $name = trim((string) $line['product']);
-                if ($name === '') {
-                    $name = 'Sale';
-                }
-                if (! isset($products[$name])) {
-                    $products[$name] = ['name' => $name, 'qty' => 0.0, 'total' => 0.0];
-                }
-                $products[$name]['qty'] += (float) $line['qty'];
-                $products[$name]['total'] += (float) $line['total'];
-                $total += (float) $line['total'];
-            }
-            uasort($products, function ($a, $b) {
-                return strcasecmp($a['name'], $b['name']);
-            });
-        }
-        $qty_total = 0;
-        foreach ($products as $row) {
-            $qty_total += (float) $row['qty'];
-        }
+        $snapshot = $picked
+            ? $this->salesPeriodSnapshot($startAt, $endAt)
+            : ['sales' => collect(), 'products' => [], 'total' => 0, 'qty_total' => 0, 'cash' => 0, 'momo' => 0];
+        $products = $snapshot['products'];
+        $total = $snapshot['total'];
+        $qty_total = $snapshot['qty_total'];
+        $cash = $snapshot['cash'];
+        $momo = $snapshot['momo'];
         $headings = [
             'today' => "Today's Sales",
             'week' => 'This Week',
@@ -1764,8 +1741,74 @@ class ReportController extends Controller
         }
 
         return view('report.sales_by_date', compact(
-            'products', 'total', 'qty_total', 'start_date', 'end_date', 'range', 'picked', 'heading', 'period'
+            'products', 'total', 'qty_total', 'cash', 'momo', 'start_date', 'end_date', 'range', 'picked', 'heading', 'period'
         ));
+    }
+
+    /**
+     * Product totals and cash / Mobile Money split for sales created in the period.
+     */
+    public function salesPeriodSnapshot($startAt, $endAt, $userId = null)
+    {
+        $zone = config('app.timezone') ?: 'UTC';
+        $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $to = $endAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $query = Sale::with(['products.product', 'customer'])
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<=', $to);
+        if ($userId) {
+            $query->where('user_id', $userId);
+        }
+        $sales = $query->orderBy('created_at')->get();
+        $products = [];
+        $total = 0;
+        foreach ($this->saleReportLines($sales, $this->saleVariantNames($sales)) as $line) {
+            $name = trim((string) $line['product']);
+            if ($name === '') {
+                $name = 'Sale';
+            }
+            if (! isset($products[$name])) {
+                $products[$name] = ['name' => $name, 'qty' => 0.0, 'total' => 0.0];
+            }
+            $products[$name]['qty'] += (float) $line['qty'];
+            $products[$name]['total'] += (float) $line['total'];
+            $total += (float) $line['total'];
+        }
+        uasort($products, function ($a, $b) {
+            return strcasecmp($a['name'], $b['name']);
+        });
+        $qty_total = 0;
+        foreach ($products as $row) {
+            $qty_total += (float) $row['qty'];
+        }
+        $cash = 0;
+        $momo = 0;
+        $saleIds = $sales->pluck('id');
+        if ($saleIds->isNotEmpty()) {
+            $methods = DB::table('payments')
+                ->whereIn('sale_id', $saleIds->all())
+                ->where('amount', '>', 0)
+                ->select('paying_method', DB::raw('SUM(amount) as amount'))
+                ->groupBy('paying_method')
+                ->get();
+            foreach ($methods as $method) {
+                $name = strtolower((string) $method->paying_method);
+                if (strpos($name, 'momo') !== false || strpos($name, 'orange') !== false) {
+                    $momo += (float) $method->amount;
+                } elseif (strpos($name, 'cash') !== false) {
+                    $cash += (float) $method->amount;
+                }
+            }
+        }
+
+        return [
+            'sales' => $sales,
+            'products' => $products,
+            'total' => $total,
+            'qty_total' => $qty_total,
+            'cash' => $cash,
+            'momo' => $momo,
+        ];
     }
 
     protected function saleReportLines($sales, array $variantNames)

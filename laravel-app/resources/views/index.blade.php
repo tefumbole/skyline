@@ -433,6 +433,7 @@
   </div>
 
   <div class="beyond-analytics-section">
+      @include('dashboard.today_sales')
       <!-- Counts Section -->
       <section class="dashboard-counts">
         <div class="container-fluid">
@@ -509,8 +510,9 @@
               <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                   <h4>{{trans('file.Recent Transaction')}}</h4>
-                  <div class="right-column">
-                    <div class="badge badge-primary">{{trans('file.latest')}} 5</div>
+                  <div class="right-column dash-span-switch">
+                    <button type="button" class="badge badge-primary dash-span on" data-span="latest">{{trans('file.latest')}} 5</button>
+                    <button type="button" class="badge badge-primary dash-span" data-span="today">Today</button>
                   </div>
                 </div>
                 <ul class="nav nav-tabs" role="tablist">
@@ -537,27 +539,21 @@
                               <th>{{trans('file.date')}}</th>
                               <th>{{trans('file.reference')}}</th>
                               <th>{{trans('file.customer')}}</th>
-                              <th>{{trans('file.status')}}</th>
+                              <th>{{trans('file.Payment Status')}}</th>
                               <th>{{trans('file.grand total')}}</th>
                             </tr>
                           </thead>
-                          <tbody>
+                          <tbody id="dash-sales-latest">
                             @foreach($recent_sale as $sale)
-                            <?php $customer = DB::table('customers')->find($sale->customer_id); ?>
-                            <tr>
-                              <td>{{ date($general_setting->date_format, strtotime($sale->created_at->toDateString())) }}</td>
-                              <td>{{$sale->reference_no}}</td>
-                              <td>{{$customer->name}}</td>
-                              @if($sale->sale_status == 1)
-                              <td><div class="badge badge-success">{{trans('file.Completed')}}</div></td>
-                              @elseif($sale->sale_status == 2)
-                              <td><div class="badge badge-danger">{{trans('file.Pending')}}</div></td>
-                              @else
-                              <td><div class="badge badge-warning">{{trans('file.Draft')}}</div></td>
-                              @endif
-                              <td>{{$sale->grand_total}}</td>
-                            </tr>
+                            @include('dashboard.sale_row', ['sale' => $sale])
                             @endforeach
+                          </tbody>
+                          <tbody id="dash-sales-today" hidden>
+                            @forelse($today_sales as $sale)
+                            @include('dashboard.sale_row', ['sale' => $sale])
+                            @empty
+                            <tr><td colspan="5">No sales today.</td></tr>
+                            @endforelse
                           </tbody>
                         </table>
                       </div>
@@ -979,6 +975,18 @@
             ['Awaiting signature', 'Approved', 'Rejected', 'Client quote'],
             ['#e11d48', '#e1b368', '#64748b', '#7b61ff']
         );
+        document.querySelectorAll('.dash-span').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var today = button.getAttribute('data-span') === 'today';
+                document.querySelectorAll('.dash-span').forEach(function (item) {
+                    item.classList.toggle('on', item === button);
+                });
+                var latest = document.getElementById('dash-sales-latest');
+                var allToday = document.getElementById('dash-sales-today');
+                if (latest) latest.hidden = today;
+                if (allToday) allToday.hidden = !today;
+            });
+        });
     })();
 </script>
 @endsection

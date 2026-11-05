@@ -605,8 +605,31 @@ echo $response;
             $yearly_purchase_amount[] = number_format((float)$purchase_amount, 2, '.', '');
             $start = strtotime("+1 month", $start);
         }
+        $today_sales = collect();
+        $dash_products = [];
+        $dash_total = 0;
+        $dash_qty = 0;
+        $dash_cash = 0;
+        $dash_momo = 0;
+        try {
+            $ownUser = (Auth::user()->role_id > 2 && $general_setting && $general_setting->staff_access == 'own') ? Auth::id() : null;
+            $today = \Carbon\Carbon::now('Africa/Douala');
+            $board = app(\App\Http\Controllers\ReportController::class)->salesPeriodSnapshot(
+                $today->copy()->startOfDay(),
+                $today->copy()->endOfDay(),
+                $ownUser
+            );
+            $today_sales = $board['sales']->sortByDesc('id')->values();
+            $dash_products = $board['products'];
+            $dash_total = $board['total'];
+            $dash_qty = $board['qty_total'];
+            $dash_cash = $board['cash'];
+            $dash_momo = $board['momo'];
+        } catch (\Throwable $e) {
+            \Log::warning('Dashboard sales report failed: '.$e->getMessage(), ['user' => Auth::id()]);
+        }
         $workOps = $this->workOpsSnapshot();
-        return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps'));
+        return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo'));
         } catch (\Throwable $e) {
             \Log::warning('Sales dashboard failed: '.$e->getMessage(), ['user' => Auth::id()]);
             $workOps = $this->workOpsSnapshot();
@@ -614,8 +637,11 @@ echo $response;
             $payment_recieved = $payment_sent = $month = $yearly_sale_amount = $yearly_purchase_amount = [];
             $recent_sale = $recent_purchase = $recent_quotation = $recent_payment = collect();
             $best_selling_qty = $yearly_best_selling_qty = $yearly_best_selling_price = collect();
+            $today_sales = collect();
+            $dash_products = [];
+            $dash_total = $dash_qty = $dash_cash = $dash_momo = 0;
 
-            return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps'));
+            return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo'));
         }
     }
 

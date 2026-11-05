@@ -1713,14 +1713,16 @@ class ReportController extends Controller
         }
         $start_date = $startAt->toDateString();
         $end_date = $endAt->toDateString();
+        $warehouseId = (int) $request->input('warehouse_id', 0);
         $snapshot = $picked
-            ? $this->salesPeriodSnapshot($startAt, $endAt)
-            : ['sales' => collect(), 'products' => [], 'total' => 0, 'qty_total' => 0, 'cash' => 0, 'momo' => 0];
+            ? $this->salesPeriodSnapshot($startAt, $endAt, null, $warehouseId)
+            : ['sales' => collect(), 'products' => [], 'total' => 0, 'qty_total' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0];
         $products = $snapshot['products'];
         $total = $snapshot['total'];
         $qty_total = $snapshot['qty_total'];
         $cash = $snapshot['cash'];
         $momo = $snapshot['momo'];
+        $due = $snapshot['due'];
         $headings = [
             'today' => "Today's Sales",
             'week' => 'This Week',
@@ -1729,6 +1731,9 @@ class ReportController extends Controller
             'custom' => 'Custom',
         ];
         $heading = $headings[$range];
+        if ($range === 'custom' && $start_date === $end_date) {
+            $heading = 'Sales for '.date('j M Y', strtotime($start_date));
+        }
         $period = date('j M Y', strtotime($start_date));
         if ($start_date !== $end_date) {
             $period .= ' – '.date('j M Y', strtotime($end_date));
@@ -1736,19 +1741,19 @@ class ReportController extends Controller
         $print = (string) $request->input('print');
         if ($picked && in_array($print, ['letter', 'thermal'], true)) {
             return view('report.sales_print', compact(
-                'products', 'total', 'qty_total', 'start_date', 'end_date', 'range', 'heading', 'period', 'print'
+                'products', 'total', 'qty_total', 'cash', 'momo', 'due', 'start_date', 'end_date', 'range', 'heading', 'period', 'print'
             ));
         }
 
         return view('report.sales_by_date', compact(
-            'products', 'total', 'qty_total', 'cash', 'momo', 'start_date', 'end_date', 'range', 'picked', 'heading', 'period'
+            'products', 'total', 'qty_total', 'cash', 'momo', 'due', 'start_date', 'end_date', 'range', 'picked', 'heading', 'period', 'warehouseId'
         ));
     }
 
     /**
      * Product totals and cash / Mobile Money split for sales created in the period.
      */
-    public function salesPeriodSnapshot($startAt, $endAt, $userId = null)
+    public function salesPeriodSnapshot($startAt, $endAt, $userId = null, $warehouseId = 0)
     {
         $zone = config('app.timezone') ?: 'UTC';
         $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
@@ -1758,6 +1763,9 @@ class ReportController extends Controller
             ->where('created_at', '<=', $to);
         if ($userId) {
             $query->where('user_id', $userId);
+        }
+        if ((int) $warehouseId > 0) {
+            $query->where('warehouse_id', (int) $warehouseId);
         }
         $sales = $query->orderBy('created_at')->get();
         $products = [];
@@ -1783,6 +1791,13 @@ class ReportController extends Controller
         }
         $cash = 0;
         $momo = 0;
+        $due = 0;
+        foreach ($sales as $sale) {
+            $gap = (float) $sale->grand_total - (float) $sale->paid_amount;
+            if ($gap > 0.009) {
+                $due += $gap;
+            }
+        }
         $saleIds = $sales->pluck('id');
         if ($saleIds->isNotEmpty()) {
             $methods = DB::table('payments')
@@ -1808,7 +1823,511 @@ class ReportController extends Controller
             'qty_total' => $qty_total,
             'cash' => $cash,
             'momo' => $momo,
+            'due' => $due,
         ];
+    }
+
+    public function yearlySale()
+    {
+        if (! $this->allowsReport(['daily-sale', 'monthly-sale', 'sale-report'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $rows = [];
+        $year = (int) date('Y');
+        for ($i = 0; $i < 5; $i++) {
+            $y = $year - $i;
+            $start = \Carbon\Carbon::create($y, 1, 1, 0, 0, 0, 'Africa/Douala')->startOfDay();
+            $end = \Carbon\Carbon::create($y, 12, 31, 0, 0, 0, 'Africa/Douala')->endOfDay();
+            $snap = $this->salesPeriodSnapshot($start, $end);
+            $rows[] = [
+                'year' => $y,
+                'total' => $snap['total'],
+                'cash' => $snap['cash'],
+                'momo' => $snap['momo'],
+                'due' => $snap['due'],
+                'url' => route('report.sales', [
+                    'range' => 'custom',
+                    'start_date' => $y.'-01-01',
+                    'end_date' => $y.'-12-31',
+                ]),
+            ];
+        }
+
+        return view('report.yearly_sale', compact('rows'));
+    }
+
+    public function customerSummary(Request $request)
+    {
+        if (! $this->allowsReport(['customer-report', 'sale-report'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $window = $this->reportWindow($request, 'month');
+        $snap = $window['picked']
+            ? $this->salesPeriodSnapshot($window['startAt'], $window['endAt'])
+            : ['sales' => collect()];
+        $customers = [];
+        foreach ($snap['sales'] as $sale) {
+            $id = (int) $sale->customer_id;
+            if (! isset($customers[$id])) {
+                $name = $sale->customer ? $sale->customer->name : 'Walk-in';
+                $customers[$id] = ['name' => $name, 'amount' => 0.0, 'orders' => 0, 'items' => []];
+            }
+            $customers[$id]['amount'] += (float) $sale->grand_total;
+            $customers[$id]['orders']++;
+            foreach ($sale->products as $line) {
+                $item = $line->product ? $line->product->name : 'Item';
+                if (! isset($customers[$id]['items'][$item])) {
+                    $customers[$id]['items'][$item] = 0;
+                }
+                $customers[$id]['items'][$item] += (float) $line->qty;
+            }
+        }
+        uasort($customers, function ($a, $b) {
+            if ($a['amount'] == $b['amount']) {
+                return $b['orders'] - $a['orders'];
+            }
+
+            return $a['amount'] < $b['amount'] ? 1 : -1;
+        });
+        $range = $window['range'];
+        $heading = 'Customers · '.$window['heading'];
+        $period = $window['period'];
+        $start_date = $window['start_date'];
+        $end_date = $window['end_date'];
+        $print = (string) $request->input('print');
+        if (in_array($print, ['letter', 'thermal'], true)) {
+            $lines = [];
+            foreach ($customers as $row) {
+                $bits = [];
+                foreach ($row['items'] as $item => $qty) {
+                    $bits[] = $item.' × '.(abs($qty - round($qty)) < 0.001 ? (int) round($qty) : $qty);
+                }
+                $lines[] = [$row['name'], number_format($row['amount'], 0, '.', ','), $row['orders'], implode(', ', $bits)];
+            }
+
+            return view('report.summary_print', [
+                'print' => $print,
+                'heading' => $heading,
+                'period' => $period,
+                'columns' => ['Customer', 'Spent', 'Visits', 'Items'],
+                'lines' => $lines,
+                'back' => route('report.customers', ['range' => $range]),
+            ]);
+        }
+
+        return view('report.customer_summary', compact('customers', 'range', 'heading', 'period', 'start_date', 'end_date'));
+    }
+
+    public function staffSummary(Request $request)
+    {
+        if (! $this->allowsReport(['user-report'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $window = $this->reportWindow($request, 'month');
+        $from = $window['startAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+        $to = $window['endAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+        $waiters = $this->staffRows('waiter');
+        $barStaff = $this->staffRows('bar');
+        $kitchen = $this->staffRows('restaurant');
+        $sales = Sale::with('customer')->where('created_at', '>=', $from)->where('created_at', '<=', $to)->get();
+        $waiterIds = [];
+        foreach ($waiters as $row) {
+            $waiterIds[$row['id']] = true;
+        }
+        $orderWaiter = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('restaurant_orders')) {
+            $orders = DB::table('restaurant_orders')->whereIn('sale_id', $sales->pluck('id')->all() ?: [0])->get();
+            foreach ($orders as $order) {
+                $chosen = 0;
+                if (! empty($order->waitress_user_id) && isset($waiterIds[(int) $order->waitress_user_id])) {
+                    $chosen = (int) $order->waitress_user_id;
+                } elseif (! empty($order->placed_by_user_id) && isset($waiterIds[(int) $order->placed_by_user_id])) {
+                    $chosen = (int) $order->placed_by_user_id;
+                }
+                if ($chosen) {
+                    $orderWaiter[(int) $order->sale_id] = $chosen;
+                }
+            }
+        }
+        foreach ($sales as $sale) {
+            $uid = isset($orderWaiter[$sale->id]) ? $orderWaiter[$sale->id] : (int) $sale->user_id;
+            if (! isset($waiterIds[$uid])) {
+                continue;
+            }
+            foreach ($waiters as $key => $row) {
+                if ($row['id'] !== $uid) {
+                    continue;
+                }
+                $waiters[$key]['orders']++;
+                $waiters[$key]['worth'] += (float) $sale->grand_total;
+                if ($sale->customer_id) {
+                    $waiters[$key]['customers'][$sale->customer_id] = true;
+                }
+            }
+        }
+        $this->stationWork($barStaff, $from, $to, ['bar', 'coffee']);
+        $this->stationWork($kitchen, $from, $to, ['restaurant']);
+        $sections = [
+            ['key' => 'waiter', 'title' => 'Waiters', 'people' => $this->finishStaff($waiters), 'show_worth' => true],
+            ['key' => 'bar', 'title' => 'Bar', 'people' => $this->finishStaff($barStaff), 'show_worth' => false],
+            ['key' => 'restaurant', 'title' => 'Restaurant', 'people' => $this->finishStaff($kitchen), 'show_worth' => false],
+        ];
+        $range = $window['range'];
+        $heading = 'Staff · '.$window['heading'];
+        $period = $window['period'];
+        $print = (string) $request->input('print');
+        if (in_array($print, ['letter', 'thermal'], true)) {
+            $lines = [];
+            foreach ($sections as $section) {
+                $lines[] = [$section['title'], '', '', ''];
+                foreach ($section['people'] as $person) {
+                    $lines[] = [
+                        $person['name'],
+                        $person['orders'],
+                        $section['show_worth'] ? number_format($person['worth'], 0, '.', ',') : '—',
+                        $person['served'],
+                    ];
+                }
+            }
+
+            return view('report.summary_print', [
+                'print' => $print,
+                'heading' => $heading,
+                'period' => $period,
+                'columns' => ['Name', 'Orders', 'Worth', 'Customers'],
+                'lines' => $lines,
+                'back' => route('report.staff', ['range' => $range]),
+            ]);
+        }
+
+        return view('report.staff_summary', compact('sections', 'range', 'heading', 'period'));
+    }
+
+    public function paymentSummary(Request $request)
+    {
+        if (! $this->allowsReport(['payment-report'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $range = (string) $request->input('range', 'day');
+        if (! in_array($range, ['day', 'month', 'year', 'customer'], true)) {
+            $range = 'day';
+        }
+        $now = \Carbon\Carbon::now('Africa/Douala');
+        $rows = [];
+        $cards = ['total' => 0, 'cash' => 0, 'momo' => 0];
+        $heading = 'Payments';
+        if ($range === 'day') {
+            $heading = 'Payments by day · '.$now->format('F Y');
+            $start = $now->copy()->startOfMonth();
+            $days = (int) $start->daysInMonth;
+            for ($d = 1; $d <= $days; $d++) {
+                $day = $start->copy()->day($d);
+                $bucket = $this->collectBuckets($day->copy()->startOfDay(), $day->copy()->endOfDay());
+                $rows[] = [
+                    'label' => $day->format('j M'),
+                    'cash' => $bucket['cash'],
+                    'momo' => $bucket['momo'],
+                    'total' => $bucket['total'],
+                    'url' => route('report.sales', [
+                        'range' => 'custom',
+                        'start_date' => $day->toDateString(),
+                        'end_date' => $day->toDateString(),
+                    ]),
+                ];
+                $cards['cash'] += $bucket['cash'];
+                $cards['momo'] += $bucket['momo'];
+                $cards['total'] += $bucket['total'];
+            }
+        } elseif ($range === 'month') {
+            $heading = 'Payments by month · '.$now->year;
+            for ($m = 1; $m <= 12; $m++) {
+                $start = \Carbon\Carbon::create($now->year, $m, 1, 0, 0, 0, 'Africa/Douala')->startOfDay();
+                $bucket = $this->collectBuckets($start, $start->copy()->endOfMonth());
+                $rows[] = [
+                    'label' => $start->format('F'),
+                    'cash' => $bucket['cash'],
+                    'momo' => $bucket['momo'],
+                    'total' => $bucket['total'],
+                    'url' => '',
+                ];
+                $cards['cash'] += $bucket['cash'];
+                $cards['momo'] += $bucket['momo'];
+                $cards['total'] += $bucket['total'];
+            }
+        } elseif ($range === 'year') {
+            $heading = 'Payments by year';
+            for ($i = 0; $i < 5; $i++) {
+                $y = (int) $now->year - $i;
+                $start = \Carbon\Carbon::create($y, 1, 1, 0, 0, 0, 'Africa/Douala')->startOfDay();
+                $bucket = $this->collectBuckets($start, $start->copy()->endOfYear());
+                $rows[] = [
+                    'label' => (string) $y,
+                    'cash' => $bucket['cash'],
+                    'momo' => $bucket['momo'],
+                    'total' => $bucket['total'],
+                    'url' => '',
+                ];
+                $cards['cash'] += $bucket['cash'];
+                $cards['momo'] += $bucket['momo'];
+                $cards['total'] += $bucket['total'];
+            }
+        } else {
+            $window = $this->reportWindow($request, 'month');
+            $heading = 'Payments by customer · '.$window['heading'];
+            $from = $window['startAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+            $to = $window['endAt']->copy()->timezone(config('app.timezone') ?: 'UTC')->format('Y-m-d H:i:s');
+            $payments = DB::table('payments')
+                ->join('sales', 'sales.id', '=', 'payments.sale_id')
+                ->leftJoin('customers', 'customers.id', '=', 'sales.customer_id')
+                ->where('payments.amount', '>', 0)
+                ->where('payments.created_at', '>=', $from)
+                ->where('payments.created_at', '<=', $to)
+                ->get(['payments.amount', 'payments.paying_method', 'customers.name as customer_name']);
+            $grouped = [];
+            foreach ($payments as $payment) {
+                $name = trim((string) $payment->customer_name) !== '' ? $payment->customer_name : 'Walk-in';
+                if (! isset($grouped[$name])) {
+                    $grouped[$name] = ['label' => $name, 'cash' => 0, 'momo' => 0, 'total' => 0, 'url' => ''];
+                }
+                $kind = $this->payKind($payment->paying_method);
+                $grouped[$name][$kind] += (float) $payment->amount;
+                $grouped[$name]['total'] += (float) $payment->amount;
+            }
+            uasort($grouped, function ($a, $b) {
+                return $a['total'] < $b['total'] ? 1 : -1;
+            });
+            $rows = array_values($grouped);
+            foreach ($rows as $row) {
+                $cards['cash'] += $row['cash'];
+                $cards['momo'] += $row['momo'];
+                $cards['total'] += $row['total'];
+            }
+        }
+        $print = (string) $request->input('print');
+        if (in_array($print, ['letter', 'thermal'], true)) {
+            $lines = [];
+            foreach ($rows as $row) {
+                $lines[] = [
+                    $row['label'],
+                    number_format($row['total'], 0, '.', ','),
+                    number_format($row['cash'], 0, '.', ','),
+                    number_format($row['momo'], 0, '.', ','),
+                ];
+            }
+
+            return view('report.summary_print', [
+                'print' => $print,
+                'heading' => $heading,
+                'period' => '',
+                'columns' => ['Name', 'Collected', 'Cash', 'MoMo / OM'],
+                'lines' => $lines,
+                'back' => route('report.payments', ['range' => $range]),
+            ]);
+        }
+
+        return view('report.payment_summary', compact('rows', 'cards', 'range', 'heading'));
+    }
+
+    protected function reportWindow(Request $request, $default = 'today')
+    {
+        $range = (string) $request->input('range', $default);
+        if (! in_array($range, ['today', 'week', 'month', 'year', 'custom'], true)) {
+            $range = $default;
+        }
+        $now = \Carbon\Carbon::now('Africa/Douala');
+        $picked = true;
+        if ($range === 'week') {
+            $startAt = $now->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+            $endAt = $now->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+        } elseif ($range === 'month') {
+            $startAt = $now->copy()->startOfMonth()->startOfDay();
+            $endAt = $now->copy()->endOfMonth()->endOfDay();
+        } elseif ($range === 'year') {
+            $startAt = $now->copy()->startOfYear()->startOfDay();
+            $endAt = $now->copy()->endOfYear()->endOfDay();
+        } elseif ($range === 'custom') {
+            $start_date = $this->reportDate($request->input('start_date'), '');
+            $end_date = $this->reportDate($request->input('end_date'), '');
+            if ($start_date === '' || $end_date === '') {
+                $picked = false;
+                $startAt = $now->copy()->startOfDay();
+                $endAt = $now->copy()->endOfDay();
+            } else {
+                if ($end_date < $start_date) {
+                    $swap = $start_date;
+                    $start_date = $end_date;
+                    $end_date = $swap;
+                }
+                $startAt = \Carbon\Carbon::parse($start_date, 'Africa/Douala')->startOfDay();
+                $endAt = \Carbon\Carbon::parse($end_date, 'Africa/Douala')->endOfDay();
+            }
+        } else {
+            $range = 'today';
+            $startAt = $now->copy()->startOfDay();
+            $endAt = $now->copy()->endOfDay();
+        }
+        $start_date = $startAt->toDateString();
+        $end_date = $endAt->toDateString();
+        $labels = [
+            'today' => "Today's Sales",
+            'week' => 'This Week',
+            'month' => 'This Month',
+            'year' => 'This Year',
+            'custom' => 'Custom',
+        ];
+        $period = date('j M Y', strtotime($start_date));
+        if ($start_date !== $end_date) {
+            $period .= ' – '.date('j M Y', strtotime($end_date));
+        }
+
+        return [
+            'range' => $range,
+            'picked' => $picked,
+            'startAt' => $startAt,
+            'endAt' => $endAt,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'heading' => $labels[$range],
+            'period' => $period,
+        ];
+    }
+
+    protected function allowsReport($names)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->isSuperAdmin() || $user->hasFullAdminAccess()) {
+            return true;
+        }
+        $role = Role::find($user->role_id);
+        if (! $role) {
+            return false;
+        }
+        foreach ((array) $names as $name) {
+            try {
+                if ($role->hasPermissionTo($name)) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
+        return false;
+    }
+
+    protected function staffRows($roleName)
+    {
+        $roleIds = DB::table('roles')->whereRaw('LOWER(name) = ?', [strtolower($roleName)])->pluck('id');
+        $users = User::where('is_active', true)->whereIn('role_id', $roleIds)->orderBy('name')->get();
+        $rows = [];
+        foreach ($users as $user) {
+            $rows[] = [
+                'id' => (int) $user->id,
+                'name' => $user->name,
+                'orders' => 0,
+                'worth' => 0.0,
+                'customers' => [],
+            ];
+        }
+
+        return $rows;
+    }
+
+    protected function stationWork(&$people, $from, $to, array $lanes)
+    {
+        if (! $people || ! \Illuminate\Support\Facades\Schema::hasTable('restaurant_order_items')) {
+            return;
+        }
+        $ids = [];
+        foreach ($people as $person) {
+            $ids[$person['id']] = true;
+        }
+        $items = DB::table('restaurant_order_items as i')
+            ->join('restaurant_orders as o', 'o.id', '=', 'i.restaurant_order_id')
+            ->join('sales as s', 's.id', '=', 'o.sale_id')
+            ->whereIn('i.lane', $lanes)
+            ->where('i.status', '<>', 'rejected')
+            ->where('s.created_at', '>=', $from)
+            ->where('s.created_at', '<=', $to)
+            ->get(['i.ready_by', 'i.accepted_by', 'o.id as order_id', 's.customer_id']);
+        $seen = [];
+        foreach ($items as $item) {
+            $uid = (int) ($item->ready_by ?: $item->accepted_by);
+            if (! isset($ids[$uid])) {
+                continue;
+            }
+            $key = $uid.'-'.$item->order_id;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            foreach ($people as $index => $person) {
+                if ($person['id'] !== $uid) {
+                    continue;
+                }
+                $people[$index]['orders']++;
+                if ($item->customer_id) {
+                    $people[$index]['customers'][$item->customer_id] = true;
+                }
+            }
+        }
+    }
+
+    protected function finishStaff(array $people)
+    {
+        foreach ($people as $index => $person) {
+            $people[$index]['served'] = count($person['customers']);
+        }
+        usort($people, function ($a, $b) {
+            if ($a['orders'] === $b['orders']) {
+                return $a['worth'] < $b['worth'] ? 1 : -1;
+            }
+
+            return $a['orders'] < $b['orders'] ? 1 : -1;
+        });
+
+        return $people;
+    }
+
+    protected function collectBuckets($startAt, $endAt)
+    {
+        $zone = config('app.timezone') ?: 'UTC';
+        $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $to = $endAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $payments = DB::table('payments')
+            ->whereNotNull('sale_id')
+            ->where('amount', '>', 0)
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<=', $to)
+            ->get(['amount', 'paying_method']);
+        $cash = 0;
+        $momo = 0;
+        $total = 0;
+        foreach ($payments as $payment) {
+            $amount = (float) $payment->amount;
+            $total += $amount;
+            $kind = $this->payKind($payment->paying_method);
+            if ($kind === 'cash' || $kind === 'momo') {
+                ${$kind} += $amount;
+            }
+        }
+
+        return ['cash' => $cash, 'momo' => $momo, 'total' => $total];
+    }
+
+    protected function payKind($method)
+    {
+        $name = strtolower((string) $method);
+        if (strpos($name, 'momo') !== false || strpos($name, 'orange') !== false) {
+            return 'momo';
+        }
+        if (strpos($name, 'cash') !== false) {
+            return 'cash';
+        }
+
+        return 'other';
     }
 
     protected function saleReportLines($sales, array $variantNames)

@@ -529,7 +529,20 @@
             .beyond-module-tabs-sub .beyond-module-tab {
                 padding: 7px 12px;
                 font-size: 12px;
-                border-style: dashed;
+                background: #f7f1e3;
+                border: 1px solid #e1b368;
+                color: #6b5420;
+            }
+
+            .beyond-module-tabs-sub .beyond-module-tab i {
+                color: #8a7424 !important;
+            }
+
+            .beyond-module-tabs-sub .beyond-module-tab.is-active,
+            .beyond-module-tabs-sub .beyond-module-tab.is-active i {
+                background: #e1b368 !important;
+                border-color: #e1b368 !important;
+                color: #0c1830 !important;
             }
 
             .beyond-module-tab {
@@ -2969,19 +2982,26 @@
                             <li><a href="#report" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-document-remove"></i><span>{{trans('file.Reports')}}</span></a>
                                 <ul id="report" class="collapse list-unstyled ">
                                     @if($sale_report_active)
-                                        <li id="sale-report-today">
-                                            <a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a>
+                                        <li id="sale-report-menu">
+                                            <a href="{{ route('report.sales', ['range' => 'today']) }}">Sales Summary</a>
                                             <ul class="report-sub">
+                                                <li id="sale-report-today"><a href="{{ route('report.sales', ['range' => 'today']) }}">Today's Sales</a></li>
                                                 <li id="sale-report-week"><a href="{{ route('report.sales', ['range' => 'week']) }}">This Week</a></li>
                                                 <li id="sale-report-month"><a href="{{ route('report.sales', ['range' => 'month']) }}">This Month</a></li>
                                                 <li id="sale-report-year"><a href="{{ route('report.sales', ['range' => 'year']) }}">This Year</a></li>
                                                 <li id="sale-report-custom"><a href="{{ route('report.sales', ['range' => 'custom']) }}">Custom</a></li>
+                                                <li id="sale-report-customer"><a href="{{ route('report.customers', ['range' => 'month']) }}">Customer</a></li>
                                             </ul>
                                         </li>
                                     @endif
                                     @if($daily_sale_active)
                                         <li id="daily-sale-report-menu">
                                             <a href="{{url('report/daily_sale/'.date('Y').'/'.date('m'))}}">{{trans('file.Daily Sale')}}</a>
+                                            <ul class="report-sub">
+                                                <li id="daily-sale-daily"><a href="{{url('report/daily_sale/'.date('Y').'/'.date('m'))}}">Daily</a></li>
+                                                <li id="daily-sale-monthly"><a href="{{url('report/monthly_sale/'.date('Y'))}}">Monthly</a></li>
+                                                <li id="daily-sale-yearly"><a href="{{ route('report.yearlySale') }}">Yearly</a></li>
+                                            </ul>
                                         </li>
                                     @endif
                                     @if($profit_loss_active)
@@ -3013,11 +3033,6 @@
                                             <a href="{{route('report.category')}}">Category Report</a>
                                         </li>
                                     @endif
-                                    @if($monthly_sale_active)
-                                        <li id="monthly-sale-report-menu">
-                                            <a href="{{url('report/monthly_sale/'.date('Y'))}}">{{trans('file.Monthly Sale')}}</a>
-                                        </li>
-                                    @endif
                                     @if($average_sale_active)
                                         <li id="average_sale_active-menu">
                                             <a href="{{url('report/average_sale')}}">{{trans('file.AMC Report')}}</a>
@@ -3025,11 +3040,13 @@
                                     @endif
                                     @if($payment_report_active)
                                         <li id="payment-report-menu">
-                                            {!! Form::open(['route' => 'report.paymentByDate', 'method' => 'post', 'id' => 'payment-report-form']) !!}
-                                            <input type="hidden" name="start_date" value="{{date('Y-m').'-'.'01'}}" />
-                                            <input type="hidden" name="end_date" value="{{date('Y-m-d')}}" />
-                                            <a id="payment-report-link" href="">{{trans('file.Payment Report')}}</a>
-                                            {!! Form::close() !!}
+                                            <a href="{{ route('report.payments', ['range' => 'day']) }}">{{trans('file.Payment Report')}}</a>
+                                            <ul class="report-sub">
+                                                <li id="payment-report-day"><a href="{{ route('report.payments', ['range' => 'day']) }}">Day</a></li>
+                                                <li id="payment-report-month"><a href="{{ route('report.payments', ['range' => 'month']) }}">Month</a></li>
+                                                <li id="payment-report-year"><a href="{{ route('report.payments', ['range' => 'year']) }}">Year</a></li>
+                                                <li id="payment-report-customer"><a href="{{ route('report.payments', ['range' => 'customer']) }}">Customer</a></li>
+                                            </ul>
                                         </li>
                                     @endif
                                     @if($purchase_report_active)
@@ -3059,12 +3076,12 @@
                                     @endif
                                     @if($user_report_active)
                                         <li id="user-report-menu">
-                                            <a id="user-report-link" href="">{{trans('file.User Report')}}</a>
+                                            <a href="{{ route('report.staff', ['range' => 'month']) }}">{{trans('file.User Report')}}</a>
                                         </li>
                                     @endif
                                     @if($customer_report_active)
                                         <li id="customer-report-menu">
-                                            <a id="customer-report-link" href="">{{trans('file.Customer Report')}}</a>
+                                            <a href="{{ route('report.customers', ['range' => 'month']) }}">{{trans('file.Customer Report')}}</a>
                                         </li>
                                     @endif
                                     @if($supplier_report_active)
@@ -4426,7 +4443,12 @@
                           }
                           return '';
                       }
-                      var hereRange = rangeOf(window.location.search) || 'today';
+                      var herePath = window.location.pathname.replace(/\/+$/, '');
+                      var onSales = /\/report\/sales$/.test(herePath);
+                      var hereRange = rangeOf(window.location.search);
+                      if (onSales && !hereRange) {
+                          hereRange = 'today';
+                      }
                       $reportItem.find('.report-sub > li > a').each(function () {
                           var $link = $(this);
                           var href = $link.attr('href');
@@ -4438,15 +4460,20 @@
                               return;
                           }
                           var linkSearch = '';
+                          var linkPath = '';
                           try {
                               var linkNode = document.createElement('a');
                               linkNode.href = href;
                               linkSearch = linkNode.search || '';
+                              linkPath = (linkNode.pathname || '').replace(/\/+$/, '');
                           } catch (e) {}
                           var linkRange = rangeOf(linkSearch);
-                          var isActive = linkRange === hereRange;
+                          var samePath = linkPath === herePath
+                              || (linkPath.indexOf('/report/daily_sale') !== -1 && herePath.indexOf('/report/daily_sale') !== -1)
+                              || (linkPath.indexOf('/report/monthly_sale') !== -1 && herePath.indexOf('/report/monthly_sale') !== -1);
+                          var isActive = linkRange ? (linkRange === hereRange && (linkPath === herePath || linkPath === '')) : samePath;
                           var $tab = $('<a>', {
-                              'class': 'beyond-module-tab tone-gold' + (isActive ? ' is-active' : ''),
+                              'class': 'beyond-module-tab is-sub' + (isActive ? ' is-active' : ''),
                               'href': href
                           });
                           $tab.append($('<i>', { 'class': 'dripicons-calendar' }));

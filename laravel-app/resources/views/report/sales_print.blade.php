@@ -69,6 +69,7 @@
             @endif
             <h1>{{ $heading }}</h1>
             <p class="period">{{ $period }}</p>
+            <p class="period">Total {{ $money }} · Cash {{ number_format((float) ($cash ?? 0), 0, '.', ',') }} · MoMo/OM {{ number_format((float) ($momo ?? 0), 0, '.', ',') }} · Due {{ number_format((float) ($due ?? 0), 0, '.', ',') }}</p>
         @else
             <img class="logo" src="{{ $logo }}" alt="">
             <h1>{{ $general_setting->site_title ?? 'Skyline Hotel' }}</h1>
@@ -76,6 +77,7 @@
                 <p class="sub">{{ $phone }}</p>
             @endif
             <p class="period">{{ $heading }}<br>{{ $period }}</p>
+            <p class="period">Sales {{ $money }}<br>Cash {{ number_format((float) ($cash ?? 0), 0, '.', ',') }} · MoMo {{ number_format((float) ($momo ?? 0), 0, '.', ',') }}<br>Due {{ number_format((float) ($due ?? 0), 0, '.', ',') }}</p>
             <hr>
         @endif
         <table class="lines">

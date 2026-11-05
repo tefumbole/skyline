@@ -1205,6 +1205,10 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('report/warehouse_stock', 'ReportController@warehouseStockById')->name('report.warehouseStock');
 	Route::get('report/daily_sale/{year}/{month}', 'ReportController@dailySale');
 	Route::post('report/daily_sale/{year}/{month}', 'ReportController@dailySaleByWarehouse')->name('report.dailySaleByWarehouse');
+	Route::get('report/yearly_sale', 'ReportController@yearlySale')->name('report.yearlySale');
+	Route::get('report/customers', 'ReportController@customerSummary')->name('report.customers');
+	Route::get('report/staff', 'ReportController@staffSummary')->name('report.staff');
+	Route::get('report/payments', 'ReportController@paymentSummary')->name('report.payments');
 	Route::get('report/monthly_sale/{year}', 'ReportController@monthlySale');
 	Route::post('report/monthly_sale/{year}', 'ReportController@monthlySaleByWarehouse')->name('report.monthlySaleByWarehouse');
 	Route::get('report/daily_purchase/{year}/{month}', 'ReportController@dailyPurchase');

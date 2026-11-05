@@ -11,10 +11,12 @@
     $money = number_format((float) $total, 0, '.', ',');
 @endphp
 <section class="sky-sales">
+    <p class="sky-kicker">Sales Summary</p>
     <nav class="sky-sale-ranges" aria-label="Sales report">
         @foreach ($ranges as $key => $label)
-            <a class="{{ $range === $key ? 'on' : '' }}" href="{{ route('report.sales', ['range' => $key]) }}">{{ $label }}</a>
+            <a class="{{ $range === $key ? 'on' : '' }} {{ $key === 'today' ? '' : 'sky-sub' }}" href="{{ route('report.sales', ['range' => $key]) }}">{{ $label }}</a>
         @endforeach
+        <a class="sky-sub" href="{{ route('report.customers', ['range' => 'month']) }}">Customer</a>
     </nav>
 
     @if ($range === 'custom')
@@ -30,24 +32,32 @@
         </form>
     @endif
 
+    <h3 class="sky-sale-heading">{{ $heading }}</h3>
     <div class="sky-sale-cards">
         <div class="sky-sale-card">
-            <span>Total Amount</span>
+            <span>Total Sales</span>
             <strong>{{ $money }}</strong>
         </div>
         <div class="sky-sale-card">
-            <span>Cash</span>
+            <span>Cash Received</span>
             <strong>{{ number_format((float) ($cash ?? 0), 0, '.', ',') }}</strong>
         </div>
         <div class="sky-sale-card">
-            <span>MoMo / OM</span>
+            <span>MoMo / OM Received</span>
             <strong>{{ number_format((float) ($momo ?? 0), 0, '.', ',') }}</strong>
+        </div>
+        <div class="sky-sale-card">
+            <span>Pending / Due</span>
+            <strong>{{ number_format((float) ($due ?? 0), 0, '.', ',') }}</strong>
         </div>
     </div>
 
     @if ($picked)
         @php
             $exportQuery = ['range' => $range, 'start_date' => $start_date, 'end_date' => $end_date];
+            if (! empty($warehouseId)) {
+                $exportQuery['warehouse_id'] = $warehouseId;
+            }
             $qtyTotalText = abs($qty_total - round($qty_total)) < 0.001 ? (string) (int) round($qty_total) : number_format($qty_total, 2, '.', ',');
         @endphp
         <div class="sky-sale-tools">
@@ -97,18 +107,21 @@
 </section>
 <style>
     .sky-sales { background: #f4f6f8; margin: -8px -12px 0; padding: 8px 10px 16px; }
+    .sky-kicker { margin: 0 0 4px; color: #8a7424; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+    .sky-sale-heading { margin: 0 0 8px; color: #0c1830; font-size: 20px; font-weight: 800; }
     .sky-sale-ranges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
     .sky-sale-ranges a {
         display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px;
         border-radius: 999px; border: 1px solid #d5dbe3; background: #fff; color: #1a1a1a;
         text-decoration: none; font-weight: 700; font-size: 13px;
     }
+    .sky-sale-ranges a.sky-sub { background: #f7f1e3; border-color: #e1b368; color: #6b5420; }
     .sky-sale-ranges a.on { background: #0c1830; border-color: #0c1830; color: #fff; }
     .sky-sale-custom { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 0 0 8px; }
     .sky-sale-custom label { display: flex; flex-direction: column; gap: 2px; color: #5c6570; font-size: 12px; font-weight: 700; margin: 0; }
     .sky-sale-custom input { min-height: 36px; border: 1px solid #d5dbe3; border-radius: 8px; padding: 6px 8px; background: #fff; }
     .sky-sale-custom button { min-height: 36px; border: 0; border-radius: 8px; padding: 6px 14px; background: #0c1830; color: #fff; font-weight: 700; }
-    .sky-sale-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 760px; margin: 0 auto 4px; }
+    .sky-sale-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 8px; }
     .sky-sale-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05); text-align: center; padding: 8px 8px 6px; }
     .sky-sale-card span { display: block; color: #8b93a7; font-size: 13px; }
     .sky-sale-card strong { display: block; margin-top: 2px; font-size: 22px; line-height: 1.1; color: #1a1a1a; font-weight: 800; }
@@ -133,7 +146,7 @@
     .sky-sale-table tfoot th { background: #0c1830; color: #fff; }
     .sky-sale-empty td, .sky-sale-none { color: #6b7280; padding: 8px 4px; }
     @media (max-width: 640px) {
-        .sky-sale-cards { grid-template-columns: 1fr; }
+        .sky-sale-cards { grid-template-columns: 1fr 1fr; }
         .sky-sale-card strong { font-size: 20px; }
         .sky-sale-table th, .sky-sale-table td { padding: 5px 6px; font-size: 13px; }
     }
@@ -141,7 +154,7 @@
 <script>
     $("ul#report").siblings('a').attr('aria-expanded', 'true');
     $("ul#report").addClass("show");
-    $("#sale-report-{{ $range }}").addClass("active");
+    $("#sale-report-menu, #sale-report-{{ $range }}").addClass("active");
     var filter = document.getElementById('sky-sale-filter');
     if (filter) {
         filter.addEventListener('input', function () {

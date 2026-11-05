@@ -32,7 +32,7 @@ class CampayCollectService
 
     public function collect($phone, $amount, $reference, $description)
     {
-        return $this->call('POST', 'collect/', [
+        $body = $this->call('POST', 'collect/', [
             'amount' => (string) (int) $amount,
             'currency' => 'XAF',
             'from' => (string) $phone,
@@ -40,6 +40,9 @@ class CampayCollectService
             'external_reference' => (string) $reference,
             'webhook' => url('/pay/campay/webhook'),
         ]);
+        $this->scheduleSettle();
+
+        return $body;
     }
 
     public function transaction($reference)
@@ -189,6 +192,22 @@ class CampayCollectService
         }
 
         return $decoded;
+    }
+
+    protected function scheduleSettle()
+    {
+        static $queued = false;
+        if ($queued) {
+            return;
+        }
+        $queued = true;
+        app()->terminating(function () {
+            try {
+                app(\App\Services\Restaurant\ReceivedCollects::class)->settle();
+            } catch (\Throwable $e) {
+                Log::warning('Received Mobile Money could not be applied', ['error' => $e->getMessage()]);
+            }
+        });
     }
 
     protected function token()

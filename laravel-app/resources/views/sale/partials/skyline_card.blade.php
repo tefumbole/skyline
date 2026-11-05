@@ -52,38 +52,38 @@
     $customerPhone = preg_replace('/\D+/', '', (string) (@$lims_customer_data->phone_number ?? ''));
 @endphp
 <style>
-    .sky-roll { width: 88mm; margin: 12px auto 24px; }
-    .sky-slip { width: 60.69mm; zoom: 1.45; margin: 0; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 6px 8px 10px; }
+    .sky-roll { width: 88mm; margin: 8px auto 12px; }
+    .sky-slip { width: 60.69mm; zoom: 1.45; margin: 0; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; padding: 2px 4px 3px; }
     .sky-pdf .sky-roll { width: auto; margin: 0; }
     .sky-pdf .sky-slip { width: 88mm; zoom: 1; }
     .sky-slip * { box-sizing: border-box; }
-    .sky-slip .sky-logo { display: block; height: 22mm; width: auto; max-width: 36mm; margin: 0 auto 1mm; object-fit: contain; }
-    .sky-slip .sky-phone { margin: 0 0 2mm; text-align: center; font-weight: 800; font-size: 15px; line-height: 1.1; letter-spacing: 0; }
-    .sky-slip .sky-rule { border: 0; border-top: 3px solid #111; margin: 0; height: 0; }
-    .sky-slip .sky-title { margin: 1.2mm 0; text-align: center; font-weight: 900; font-size: 30px; letter-spacing: -0.8px; line-height: 1; }
-    .sky-slip .sky-box { background: #ececec; border-radius: 8px; padding: 8px 10px; margin: 3mm 0; font-size: 13px; line-height: 1.45; }
-    .sky-slip table.sky-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; margin: 0 0 2mm; }
-    .sky-slip table.sky-grid th { background: #e6e6e6; font-weight: 800; padding: 7px 5px; text-align: left; }
-    .sky-slip table.sky-grid th:first-child { border-radius: 8px 0 0 8px; }
-    .sky-slip table.sky-grid th:last-child { border-radius: 0 8px 8px 0; }
-    .sky-slip table.sky-grid td { padding: 7px 5px; vertical-align: top; }
+    .sky-slip .sky-logo { display: block; height: 14mm; width: auto; max-width: 28mm; margin: 0 auto 0.5mm; object-fit: contain; }
+    .sky-slip .sky-phone { margin: 0 0 1mm; text-align: center; font-weight: 800; font-size: 12px; line-height: 1.1; letter-spacing: 0; }
+    .sky-slip .sky-rule { border: 0; border-top: 2px solid #111; margin: 0; height: 0; }
+    .sky-slip .sky-title { margin: 0.6mm 0; text-align: center; font-weight: 900; font-size: 18px; letter-spacing: -0.4px; line-height: 1.05; }
+    .sky-slip .sky-box { background: #ececec; border-radius: 6px; padding: 4px 6px; margin: 1.5mm 0; font-size: 11px; line-height: 1.3; }
+    .sky-slip table.sky-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; margin: 0 0 1mm; }
+    .sky-slip table.sky-grid th { background: #e6e6e6; font-weight: 800; padding: 3px 3px; text-align: left; }
+    .sky-slip table.sky-grid th:first-child { border-radius: 6px 0 0 6px; }
+    .sky-slip table.sky-grid th:last-child { border-radius: 0 6px 6px 0; }
+    .sky-slip table.sky-grid td { padding: 3px 3px; vertical-align: top; }
     .sky-slip .c { text-align: center; }
     .sky-slip .r { text-align: right; white-space: nowrap; }
-    .sky-slip table.sky-extra { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 0 0 1.5mm; }
-    .sky-slip table.sky-extra td { padding: 2px 5px; font-weight: 700; }
-    .sky-slip table.sky-total { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1mm 0 3mm; }
-    .sky-slip table.sky-total td { background: #e6e6e6; font-weight: 800; font-size: 14px; padding: 8px 8px; }
-    .sky-slip table.sky-total td:first-child { border-radius: 8px 0 0 8px; }
-    .sky-slip table.sky-total td:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-    .sky-slip .sky-badge { display: block; width: 64px; margin: 2mm 0 0; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .06em; border-radius: 7px; padding: 4px 0 3px; }
-    .sky-slip .sky-sign { text-align: center; margin: 16mm 8mm 3mm; }
-    .sky-slip .sky-sign img { display: block; height: 14mm; width: auto; max-width: 48mm; margin: 0 auto -6mm; }
-    .sky-slip .sky-sign-line { border-bottom: 1px solid #111; height: 0; margin: 0 0 2mm; }
-    .sky-slip .sky-sign-name { font-size: 13px; margin-top: 1.5mm; }
-    .sky-slip .sky-qr { text-align: center; margin: 0 0 2mm; }
-    .sky-slip .sky-qr img { width: 18mm; height: 18mm; }
+    .sky-slip table.sky-extra { width: 100%; border-collapse: collapse; font-size: 11px; margin: 0 0 1mm; }
+    .sky-slip table.sky-extra td { padding: 1px 3px; font-weight: 700; }
+    .sky-slip table.sky-total { width: 100%; border-collapse: separate; border-spacing: 0; margin: 1mm 0 1.5mm; }
+    .sky-slip table.sky-total td { background: #e6e6e6; font-weight: 800; font-size: 12px; padding: 4px 6px; }
+    .sky-slip table.sky-total td:first-child { border-radius: 6px 0 0 6px; }
+    .sky-slip table.sky-total td:last-child { border-radius: 0 6px 6px 0; text-align: right; }
+    .sky-slip .sky-badge { display: block; width: 52px; margin: 1mm 0 0; background: #111; color: #fff; text-align: center; font-weight: 800; font-size: 11px; letter-spacing: .06em; border-radius: 6px; padding: 2px 0 1px; }
+    .sky-slip .sky-sign { text-align: center; margin: 2mm 6mm 1mm; }
+    .sky-slip .sky-sign img { display: block; height: 10mm; width: auto; max-width: 36mm; margin: 0 auto -4mm; }
+    .sky-slip .sky-sign-line { border-bottom: 1px solid #111; height: 0; margin: 0 0 1mm; }
+    .sky-slip .sky-sign-name { font-size: 11px; margin-top: 0.5mm; }
+    .sky-slip .sky-qr { text-align: center; margin: 1mm 0; }
+    .sky-slip .sky-qr img { width: 14mm; height: 14mm; }
     .sky-slip .sky-bar { text-align: center; }
-    .sky-slip .sky-bar img { width: 70%; height: 8mm; }
+    .sky-slip .sky-bar img { width: 62%; height: 6mm; }
     @media print {
         .sky-roll { width: 88mm; margin: 0; }
         .sky-slip { width: 60.69mm; margin: 0; zoom: 1.45; }

@@ -1687,7 +1687,7 @@ class SaleController extends Controller
             'numberInWords' => $numberInWords,
         ];
         if (($setting->invoice_format ?? '') === 'mini') {
-            $height = 820 + (max(1, $lims_product_sale_data->count()) * 52);
+            $height = 360 + (max(1, $lims_product_sale_data->count()) * 28);
             $pdf = PDF::loadView('pdf.sale_mini', $viewData)->setPaper([0, 0, 249.45, $height], 'portrait');
         } else {
             $pdf = PDF::loadView('pdf.sale_pdf', $viewData)->setPaper('A4', 'portrait');

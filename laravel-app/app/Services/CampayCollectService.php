@@ -118,14 +118,17 @@ class CampayCollectService
 
     public function collectionDebited(array $body, $expectedAmount, $expectedPhone = null, $externalPattern = null)
     {
-        if (! isset($body['amount']) || ! is_numeric($body['amount'])) {
+        $charged = isset($body['amount']) && is_numeric($body['amount']) ? (int) round((float) $body['amount']) : null;
+        $received = isset($body['app_amount']) && is_numeric($body['app_amount']) ? (int) round((float) $body['app_amount']) : null;
+        if ($charged === null || $charged <= 0) {
             return false;
         }
-        if ($expectedAmount !== null && (int) round((float) $body['amount']) !== (int) $expectedAmount) {
-            return false;
-        }
-        if ((float) $body['amount'] <= 0) {
-            return false;
+        if ($expectedAmount !== null) {
+            $expected = (int) $expectedAmount;
+            $landed = $received !== null && $received > 0 ? $received : $charged;
+            if ($charged !== $expected && $landed !== $expected) {
+                return false;
+            }
         }
         $currency = strtoupper(trim((string) (isset($body['currency']) ? $body['currency'] : 'XAF')));
         if ($currency !== 'XAF') {

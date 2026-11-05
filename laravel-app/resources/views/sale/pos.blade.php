@@ -1702,7 +1702,7 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-12 totals" style="border-top: 2px solid #e4e6fc; padding-top: 10px;">
+                                                <div class="col-12 totals" hidden style="display:none;">
                                                     <div class="row">
                                                         <div class="col-sm-4">
                                                             <span class="totals-title">{{trans('file.Items')}}</span><span id="item">0</span>

@@ -2270,6 +2270,15 @@ class SaleController extends Controller
 
     public function storeModel(Request $request)
     {
+        $category = \App\Category::where('id', $request->input('category'))->where('is_active', 1)->first();
+        $categoryName = $category ? strtolower(trim((string) $category->name)) : '';
+        if (! in_array($categoryName, ['drinks', 'bar'], true)) {
+            return response()->json(['error' => 'Select Drinks or Bar.'], 422);
+        }
+        if (trim((string) $request->input('product_name')) === '' || (float) $request->input('product_price') <= 0) {
+            return response()->json(['error' => 'Name and price are required.'], 422);
+        }
+
         $this->validate($request, [
             'name' => [
                 'max:255',
@@ -2280,7 +2289,7 @@ class SaleController extends Controller
         ]);
 
         $data = $request->all();
-        $data['type'] = 'standard';
+        $data['type'] = 'digital';
         $data['barcode_symbology'] = 'C128';
         $data['name'] = htmlspecialchars(trim($data['product_name']));
         $data['code'] = mt_rand(10000000, 99999999);
@@ -2345,6 +2354,11 @@ class SaleController extends Controller
                 $product[] = 'n/a'. ',';
             }
             $product[] = $lims_product_data->id;
+            $product[] = null;
+            $product[] = 0;
+            $product[] = 0;
+            $product[] = 'digital';
+            $product[] = 0;
             return $product;
 
         } else {

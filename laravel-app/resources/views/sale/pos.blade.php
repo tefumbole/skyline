@@ -2317,10 +2317,13 @@
                                                 <input type="number" name="product_price" required class="form-control">
                                             </div>
                                             <div class="form-group">
-                                                <label>{{trans('file.category')}} <strong>*</strong> </label>
-                                                <select required  id="product-category"  class="form-control selectpicker" name="category">
+                                                <label>Drinks or Bar <strong>*</strong> </label>
+                                                <select required id="product-category" class="form-control" name="category">
+                                                    <option value="">Select Drinks or Bar</option>
                                                     @foreach($lims_category_list as $list)
-                                                        <option value="{{$list->id}}" {{ $general_setting->category == $list->id ? 'selected' : ''}}>{{$list->name}}</option>
+                                                        @if(in_array(strtolower(trim($list->name)), ['drinks', 'bar'], true))
+                                                            <option value="{{$list->id}}">{{$list->name}}</option>
+                                                        @endif
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -4148,19 +4151,41 @@
 
         $("#star-product").click(function(e){
             e.preventDefault();
+            var category = $('#product-category').val();
+            if (!category) {
+                alert('Select Drinks or Bar.');
+                return;
+            }
             $.ajax({
                 url: '/products/store/model',
                 type: "get",
+                dataType: 'json',
+                headers: {Accept: 'application/json'},
                 data:{
                     product_name: $('input[name="product_name"]').val(),
                     product_price: $('input[name="product_price"]').val(),
-                    category: $('#product-category').val(),
+                    category: category,
                     unit: $('#product-unit').val(),
                     profit: $('input[name="profit"]').val(),
                 },
                 success: function(data){
+                    if (!data || data.error) {
+                        alert(data && data.error ? data.error : 'The product was not added.');
+                        return;
+                    }
                     $("#addProduct").modal('hide');
+                    ensureProductStockCache(data);
                     addNewProduct(data);
+                },
+                error: function(xhr){
+                    var message = 'The product was not added.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        message = xhr.responseJSON.error;
+                    } else if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        var key = Object.keys(xhr.responseJSON.errors)[0];
+                        if (key) message = xhr.responseJSON.errors[key][0];
+                    }
+                    alert(message);
                 }
             });
         });

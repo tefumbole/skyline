@@ -434,6 +434,7 @@
 
   <div class="beyond-analytics-section">
       @include('dashboard.today_sales')
+      @include('dashboard.table_sales')
       <!-- Counts Section -->
       <section class="dashboard-counts">
         <div class="container-fluid">

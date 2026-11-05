@@ -177,12 +177,20 @@ class RestaurantPayController extends Controller
         if ($sale) {
             $verified = $this->verifyCampayTransaction($reference, null, null, $external);
             if ($verified) {
-                RestaurantPayments::recordGateway(
+                $result = RestaurantPayments::recordGateway(
                     $sale,
                     $verified['amount'],
                     $reference,
                     is_array($pending) && isset($pending['user_id']) ? $pending['user_id'] : null
                 );
+                if ($result === 'recorded' && is_array($pending) && ! empty($pending['table_note'])) {
+                    app(SaleController::class)->stampTablePayment(
+                        $sale->id,
+                        $reference,
+                        $pending['table_note'],
+                        isset($pending['amount']) ? $pending['amount'] : $verified['amount']
+                    );
+                }
                 if (strpos($external, 'sale-momo-') === 0) {
                     \Illuminate\Support\Facades\Cache::forget($external);
                 }

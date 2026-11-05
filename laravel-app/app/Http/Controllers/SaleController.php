@@ -3283,12 +3283,57 @@ class SaleController extends Controller
         return redirect()->route('sale.cash.confirm', [$sale->id, $token])->with('message', 'Cash payment confirmed. Thank you.');
     }
 
+    protected function tablePaymentNote($path)
+    {
+        if (! preg_match('#^/tables/([0-9]+)$#', (string) $path, $match)) {
+            return '';
+        }
+        $who = Auth::user() ? Auth::user()->name : 'Staff';
+        $table = \App\RestaurantTable::find((int) $match[1]);
+        $note = 'Received by '.$who;
+        if ($table) {
+            $note .= ' · '.$table->name;
+        }
+
+        return $note;
+    }
+
+    public function stampTablePayment($saleId, $reference, $note, $amount)
+    {
+        $note = trim((string) $note);
+        if ($note === '') {
+            return;
+        }
+        $payment = Payment::where('sale_id', $saleId)
+            ->where('payment_note', 'like', '%'.\App\Services\Restaurant\RestaurantPayments::gatewayNote($reference).'%')
+            ->orderByDesc('id')
+            ->first();
+        if ($payment && strpos((string) $payment->payment_note, 'Received by ') === false) {
+            $payment->payment_note = trim($payment->payment_note.' '.$note);
+            $payment->save();
+        }
+        $sale = Sale::find($saleId);
+        if ($sale) {
+            $this->logTablePayment(request(), $sale, $note, $amount, 'Momo/Orange');
+        }
+    }
+
+    protected function logTablePayment(Request $request, Sale $sale, $note, $amount, $method)
+    {
+        \App\Services\ActivityLogService::log([
+            'action' => 'table-payment',
+            'entity' => 'sales',
+            'entity_id' => $sale->id,
+            'summary' => $note.' · '.number_format((float) $amount, 0).' XAF '.$method.' · '.$sale->reference_no,
+        ], $request);
+    }
+
     protected function cashConfirmToken(Sale $sale, $amount)
     {
         return hash_hmac('sha256', $sale->id.'|'.number_format((float) $amount, 2, '.', ''), (string) config('app.key'));
     }
 
-    protected function askClientToConfirmPayment(Sale $sale, $customer, array $data, $paidBy)
+    protected function askClientToConfirmPayment(Sale $sale, $customer, array $data, $paidBy, $backPath = '')
     {
         $amount = (float) $data['amount'];
         $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
@@ -3316,6 +3361,12 @@ class SaleController extends Controller
                 return redirect()->back()->with('not_permitted', 'Mobile Money did not send a prompt. The bill was not marked paid.');
             }
             $token = bin2hex(random_bytes(16));
+            $back = route('payment.index');
+            $tableNote = '';
+            if (preg_match('#^/tables(?:/[0-9]+)?$#', (string) $backPath)) {
+                $back = url($backPath);
+                $tableNote = $this->tablePaymentNote($backPath);
+            }
             $pending = [
                 'sale_id' => $sale->id,
                 'amount' => (int) $amount,
@@ -3323,7 +3374,8 @@ class SaleController extends Controller
                 'reference' => $reference,
                 'phone' => $momo,
                 'external' => $external,
-                'back' => route('payment.index'),
+                'back' => $back,
+                'table_note' => $tableNote,
             ];
             \Illuminate\Support\Facades\Cache::put($external, $pending, now()->addMinutes(30));
             \Illuminate\Support\Facades\Cache::put('sale-add-momo:'.$token, $pending, now()->addMinutes(30));
@@ -3390,6 +3442,9 @@ class SaleController extends Controller
                 isset($pending['user_id']) ? $pending['user_id'] : null
             );
             if (in_array($result, ['recorded', 'duplicate', 'paid'], true)) {
+                if ($result === 'recorded' && ! empty($pending['table_note'])) {
+                    $this->stampTablePayment($sale->id, $pending['reference'], $pending['table_note'], $pending['amount']);
+                }
                 \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
                 \Illuminate\Support\Facades\Cache::forget($pending['external']);
 
@@ -3427,10 +3482,14 @@ class SaleController extends Controller
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
         $paidBy = (int) ($data['paid_by_id'] ?? 0);
         if ($paidBy === 8) {
-            return $this->askClientToConfirmPayment($lims_sale_data, $lims_customer_data, $data, $paidBy);
+            return $this->askClientToConfirmPayment($lims_sale_data, $lims_customer_data, $data, $paidBy, $tableReturn);
         }
         if (! isset($data['payment_note'])) {
             $data['payment_note'] = '';
+        }
+        $tableNote = $this->tablePaymentNote($tableReturn);
+        if ($tableNote !== '') {
+            $data['payment_note'] = trim($data['payment_note'].' '.$tableNote);
         }
         if (! isset($data['paying_amount']) || $data['paying_amount'] === '') {
             $data['paying_amount'] = $data['amount'];
@@ -3495,6 +3554,9 @@ class SaleController extends Controller
         $lims_payment_data->payment_note = $data['payment_note'];
         $lims_payment_data->save();
         $lims_sale_data->save();
+        if ($tableNote !== '') {
+            $this->logTablePayment($request, $lims_sale_data, $tableNote, $data['amount'], $paying_method);
+        }
 
         $lims_payment_data = Payment::latest()->first();
         $data['payment_id'] = $lims_payment_data->id;

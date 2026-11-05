@@ -28,7 +28,7 @@ class TableBoard
             return true;
         }
 
-        return in_array(strtolower((string) $user->roleName()), ['accountant', 'manager'], true);
+        return in_array(strtolower((string) $user->roleName()), ['waiter', 'accountant', 'manager'], true);
     }
 
     public static function money($amount)
@@ -73,10 +73,10 @@ class TableBoard
 
         $rows = [];
         foreach ($grouped as $row) {
-            if ($row['open'] < 1 && ! $row['today']) {
+            if ($row['open'] < 1) {
                 continue;
             }
-            $row['status'] = $row['due'] > 0.009 ? 'Pending' : 'Paid';
+            $row['status'] = 'Pending';
             $rows[] = $row;
         }
 
@@ -183,5 +183,100 @@ class TableBoard
         }
 
         return array_values($bills);
+    }
+
+    /**
+     * Sold, paid, and still due for each table in a window, ranked by amount.
+     */
+    public static function summary($startAt, $endAt)
+    {
+        $empty = [
+            'rows' => [],
+            'sold' => 0,
+            'paid' => 0,
+            'pending' => 0,
+            'bills' => 0,
+            'top_amount' => null,
+            'top_frequency' => null,
+        ];
+        if (! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('sales') || ! Schema::hasTable('restaurant_tables')) {
+            return $empty;
+        }
+        $zone = config('app.timezone') ?: 'UTC';
+        $from = $startAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $to = $endAt->copy()->timezone($zone)->format('Y-m-d H:i:s');
+        $orders = \DB::table('restaurant_orders as o')
+            ->join('sales as s', 's.id', '=', 'o.sale_id')
+            ->join('restaurant_tables as t', 't.id', '=', 'o.restaurant_table_id')
+            ->whereNotNull('o.restaurant_table_id')
+            ->where('s.sale_status', '<>', 3)
+            ->where('s.created_at', '>=', $from)
+            ->where('s.created_at', '<=', $to)
+            ->get(['t.id as table_id', 't.name', 's.id as sale_id', 's.grand_total', 's.paid_amount']);
+
+        $grouped = [];
+        $seen = [];
+        foreach ($orders as $order) {
+            $saleId = (int) $order->sale_id;
+            if (isset($seen[$saleId])) {
+                continue;
+            }
+            $seen[$saleId] = true;
+            $id = (int) $order->table_id;
+            if (! isset($grouped[$id])) {
+                $grouped[$id] = [
+                    'id' => $id,
+                    'name' => $order->name,
+                    'bills' => 0,
+                    'sold' => 0.0,
+                    'paid' => 0.0,
+                    'pending' => 0.0,
+                ];
+            }
+            $sold = (float) $order->grand_total;
+            $paid = max(0, (float) $order->paid_amount);
+            $grouped[$id]['bills']++;
+            $grouped[$id]['sold'] += $sold;
+            $grouped[$id]['paid'] += $paid;
+            $grouped[$id]['pending'] += max(0, $sold - $paid);
+        }
+
+        $rows = array_values($grouped);
+        usort($rows, function ($a, $b) {
+            if (abs($a['sold'] - $b['sold']) > 0.009) {
+                return $a['sold'] < $b['sold'] ? 1 : -1;
+            }
+            if ($a['bills'] !== $b['bills']) {
+                return $a['bills'] < $b['bills'] ? 1 : -1;
+            }
+
+            return strnatcasecmp($a['name'], $b['name']);
+        });
+
+        $sold = 0;
+        $paid = 0;
+        $pending = 0;
+        $bills = 0;
+        $topFrequency = null;
+        foreach ($rows as $index => $row) {
+            $rows[$index]['rank'] = $index + 1;
+            $sold += $row['sold'];
+            $paid += $row['paid'];
+            $pending += $row['pending'];
+            $bills += $row['bills'];
+            if (! $topFrequency || $row['bills'] > $topFrequency['bills']) {
+                $topFrequency = $row;
+            }
+        }
+
+        return [
+            'rows' => $rows,
+            'sold' => $sold,
+            'paid' => $paid,
+            'pending' => $pending,
+            'bills' => $bills,
+            'top_amount' => isset($rows[0]) && $rows[0]['sold'] > 0.009 ? $rows[0] : null,
+            'top_frequency' => $topFrequency && $topFrequency['bills'] > 0 ? $topFrequency : null,
+        ];
     }
 }

@@ -3013,6 +3013,15 @@
                                             <li id="order-lifecycle-year"><a href="{{ route('report.orderLifecycle', ['range' => 'year']) }}">This Year</a></li>
                                         </ul>
                                     </li>
+                                    <li id="table-report-menu">
+                                        <a href="{{ route('report.tables', ['range' => 'today']) }}">Table Report</a>
+                                        <ul class="report-sub">
+                                            <li id="table-report-today"><a href="{{ route('report.tables', ['range' => 'today']) }}">Today</a></li>
+                                            <li id="table-report-week"><a href="{{ route('report.tables', ['range' => 'week']) }}">This Week</a></li>
+                                            <li id="table-report-month"><a href="{{ route('report.tables', ['range' => 'month']) }}">This Month</a></li>
+                                            <li id="table-report-year"><a href="{{ route('report.tables', ['range' => 'year']) }}">This Year</a></li>
+                                        </ul>
+                                    </li>
                                     @if($profit_loss_active)
                                         <li id="profit-loss-report-menu">
                                             {!! Form::open(['route' => 'report.profitLoss', 'method' => 'post', 'id' => 'profitLoss-report-form']) !!}

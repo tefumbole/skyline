@@ -17,7 +17,7 @@
     .table-sub { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
     .table-due { margin: 0; color: #0c1830; font-size: 20px; font-weight: 800; letter-spacing: -.03em; text-align: right; }
     .table-pill { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-    .table-pill.pending { background: #fff4e5; color: #8a5a1f; }
+    .table-pill.pending, .table-pill.open { background: #fff4e5; color: #8a5a1f; }
     .table-pill.paid { background: #d9f5e5; color: #178a45; }
     .table-empty { margin-top: 18px; padding: 28px 18px; border: 1px dashed #d7deea; border-radius: 18px; background: #fff; color: #5c6b82; text-align: center; }
     @media (min-width: 700px) {
@@ -36,14 +36,14 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="table-kicker">Sales</p>
     <h1>Tables</h1>
-    <p class="table-lead">Each card is the table chosen when the order was placed.</p>
+    <p class="table-lead">Only tables that still have an unpaid bill.</p>
     @if(count($tables))
         <div class="table-grid">
             @foreach($tables as $row)
                 <a class="table-card" href="{{ route('tables.show', $row['id']) }}">
                     <div>
                         <p class="table-name">{{ $row['name'] }}</p>
-                        <p class="table-sub">{{ $row['open'] ? $row['open'].' open bill'.($row['open'] === 1 ? '' : 's') : 'Settled today' }}</p>
+                        <p class="table-sub">{{ $row['open'].' open bill'.($row['open'] === 1 ? '' : 's') }}</p>
                     </div>
                     <div>
                         <p class="table-due">{{ \App\Support\TableBoard::money($row['due']) }} XAF</p>
@@ -53,7 +53,7 @@
             @endforeach
         </div>
     @else
-        <div class="table-empty">No table has an open bill right now.</div>
+        <div class="table-empty">No table has an unpaid bill.</div>
     @endif
 </section>
 <script>

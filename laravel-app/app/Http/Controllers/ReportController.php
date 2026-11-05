@@ -2409,6 +2409,48 @@ class ReportController extends Controller
         return view('report.order_lifecycle', compact('products', 'lines', 'range', 'heading', 'period'));
     }
 
+    public function tableSummary(Request $request)
+    {
+        if (! $this->allowsReport(['sale-report', 'daily-sale', 'tables-index'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $window = $this->reportWindow($request, 'today');
+        $board = \App\Support\TableBoard::summary($window['startAt'], $window['endAt']);
+        $range = $window['range'];
+        $heading = 'Tables · '.$window['heading'];
+        $period = $window['period'];
+        $print = (string) $request->input('print');
+        if (in_array($print, ['letter', 'thermal'], true)) {
+            $lines = [];
+            foreach ($board['rows'] as $row) {
+                $lines[] = [
+                    $row['rank'].'. '.$row['name'],
+                    number_format($row['sold'], 0, '.', ','),
+                    number_format($row['paid'], 0, '.', ','),
+                    number_format($row['pending'], 0, '.', ','),
+                    $row['bills'],
+                ];
+            }
+
+            return view('report.summary_print', [
+                'print' => $print,
+                'heading' => $heading,
+                'period' => $period,
+                'columns' => ['Table', 'Sold', 'Paid', 'Pending', 'Bills'],
+                'lines' => $lines,
+                'back' => route('report.tables', ['range' => $range]),
+            ]);
+        }
+
+        return view('report.table_summary', [
+            'rows' => $board['rows'],
+            'cards' => $board,
+            'range' => $range,
+            'heading' => $heading,
+            'period' => $period,
+        ]);
+    }
+
     protected function averageMinutes(array $values)
     {
         if (! $values) {

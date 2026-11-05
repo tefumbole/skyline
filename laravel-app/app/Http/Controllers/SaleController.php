@@ -449,6 +449,21 @@ class SaleController extends Controller
         return $data;
     }
 
+    protected function waiterNeedsTable(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user || strcasecmp((string) $user->roleName(), 'Waiter') !== 0) {
+            return false;
+        }
+        $service = (string) $request->input('service_type');
+        if (! in_array($service, ['dine_in', 'take_away'], true)) {
+            return false;
+        }
+        $tableId = (int) $request->input('restaurant_table_id');
+
+        return $tableId < 1 || ! \App\RestaurantTable::where('id', $tableId)->where('is_active', 1)->exists();
+    }
+
     public function store(Request $request)
     {
         $data = $request->all();
@@ -459,6 +474,9 @@ class SaleController extends Controller
                     return back()->with('not_permitted', 'Every item needs a price before the order can be placed.');
                 }
             }
+        }
+        if (! empty($data['pos']) && $this->waiterNeedsTable($request)) {
+            return back()->with('not_permitted', 'Select a table before placing this order.');
         }
         if (! empty($data['pos']) && (int) (isset($data['paid_by_id']) ? $data['paid_by_id'] : 0) === 8 && empty($data['momo_verified'])) {
             return $this->beginPosMomo($request, $data);

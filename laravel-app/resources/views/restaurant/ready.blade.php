@@ -8,6 +8,7 @@
     .ready-card { margin-top: 14px; padding: 18px; border: 1px solid #d7deea; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgba(12,24,48,.06); }
     .ready-where { margin: 0; color: #0c1830; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
     .ready-ref { margin: 6px 0 0; color: #5c6b82; font-size: 14px; }
+    .ready-who { margin: 6px 0 0; color: #0c1830; font-size: 15px; font-weight: 700; }
     .ready-lines { margin: 14px 0 0; padding: 0; list-style: none; }
     .ready-lines li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #e6ebf2; }
     .ready-lines strong { color: #0c1830; font-size: 17px; }
@@ -58,6 +59,20 @@
         <article class="ready-card">
             <h2 class="ready-where">{{ $group['where'] }}</h2>
             <p class="ready-ref">{{ $group['ref'] }}</p>
+            @php
+                $preparedNames = [];
+                foreach ($group['items'] as $line) {
+                    foreach ([optional($line->acceptedBy)->name, optional($line->readyBy)->name] as $who) {
+                        $who = trim((string) $who);
+                        if ($who !== '') {
+                            $preparedNames[$who] = true;
+                        }
+                    }
+                }
+            @endphp
+            @if($preparedNames)
+                <p class="ready-who">Prepared by: {{ implode(', ', array_keys($preparedNames)) }}</p>
+            @endif
             <ul class="ready-lines">
                 @foreach($group['items'] as $item)
                     <li>

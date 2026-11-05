@@ -111,6 +111,23 @@
                         @if(optional($order)->waitress && optional($order)->placed_by_user_id != optional($order)->waitress_user_id)
                             <p class="sky-meta">Waitress: {{ $order->waitress->name }}</p>
                         @endif
+                        @if($item->status === 'preparing')
+                            <p class="sky-meta">Accepted by {{ optional($item->acceptedBy)->name ?: 'Staff' }}</p>
+                        @endif
+                        @if(in_array($item->status, ['ready', 'delivered'], true))
+                            @php
+                                $preparedNames = [];
+                                foreach ([optional($item->acceptedBy)->name, optional($item->readyBy)->name] as $who) {
+                                    $who = trim((string) $who);
+                                    if ($who !== '') {
+                                        $preparedNames[$who] = true;
+                                    }
+                                }
+                            @endphp
+                            @if($preparedNames)
+                                <p class="sky-meta">Prepared by: {{ implode(', ', array_keys($preparedNames)) }}</p>
+                            @endif
+                        @endif
                     </div>
                     <div>
                         <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span>@if($item->productSale)<span class="sky-price">{{ number_format((float) $item->productSale->total, 0) }}</span>@endif</p>

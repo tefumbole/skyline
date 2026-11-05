@@ -4800,7 +4800,26 @@
             return false;
         }
 
+        function waiterMustChooseTable() {
+            var must = @json(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0);
+            if (!must) return false;
+            var service = $('input[name="service_type"]:checked').val() || '';
+            if (service !== 'dine_in' && service !== 'take_away') return false;
+            if ($('#restaurant_table_id').val()) return false;
+            alert('Select a table before placing this order.');
+            var picker = $('#restaurant_table_id');
+            if (picker.length) {
+                try { picker.selectpicker('toggle'); } catch (err) {}
+            }
+            return true;
+        }
+
         $(document).on('submit', '.payment-form', function(e) {
+            if (waiterMustChooseTable()) {
+                e.preventDefault();
+                $("#submit-btn").prop('disabled', false);
+                return;
+            }
             if (!$('select[name="warehouse_id"]').val()) {
                 var fallbackWarehouse = $("input[name='warehouse_id_hidden']").val();
                 if (fallbackWarehouse) {

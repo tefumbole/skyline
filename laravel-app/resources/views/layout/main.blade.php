@@ -1637,6 +1637,7 @@
                         @if(!Auth::user()->isAssetStaff())
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
+                        <li id="call-center-menu"><a href="{{ route('calls.index') }}" data-nav-key="calls"><i class="fa fa-phone"></i><span>Call</span></a></li>
                         @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
                             <li><a href="{{ url('/admin/gallery') }}" data-nav-key="gallery"> <i class="dripicons-photo-group"></i><span>Gallery</span></a></li>
@@ -4321,6 +4322,7 @@
                   'order-lane-bar': 'fa fa-glass',
                   'order-lane-online': 'fa fa-globe',
                   'restaurant-tables-menu': 'fa fa-th-large',
+                  'call-center-menu': 'fa fa-phone',
                   'payment-index-menu': 'fa fa-clock-o',
                   'payout-index-menu': 'fa fa-paper-plane',
                   'payout-request-menu': 'fa fa-mobile',
@@ -4639,6 +4641,11 @@
                       $('#coth-reservations-menu').addClass('active');
                       return;
                   }
+                  if (path === '/calls' || path.slice(-6) === '/calls') {
+                      $('#side-main-menu li.active').removeClass('active');
+                      $('#call-center-menu').addClass('active');
+                      return;
+                  }
                   if (path === '/orders/ready') {
                       $('#side-main-menu li.active').removeClass('active');
                       $('#ready-delivery-menu').addClass('active');
@@ -4840,6 +4847,9 @@
       @endif
       @if(auth()->check() && ! auth()->user()->isShopCustomer() && \App\Services\Restaurant\RestaurantAccess::installed())
         @include('restaurant.deliver_blink')
+      @endif
+      @if(auth()->check())
+        @include('calls.overlay')
       @endif
       <script src="{{ asset('public/js/money-format.js') }}?v=3"></script>
       </body>

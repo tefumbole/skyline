@@ -490,6 +490,18 @@ Route::group(['middleware' => ['auth', 'cloud.member']], function () {
     Route::post('/cloud/companies', 'CloudPortalController@addCompany')->name('cloud.companies.store');
 });
 
+Route::group(['middleware' => ['auth', 'active']], function () {
+    Route::get('/calls', 'StaffCallController@index')->name('calls.index');
+    Route::post('/calls/heartbeat', 'StaffCallController@heartbeat')->name('calls.heartbeat');
+    Route::get('/calls/online', 'StaffCallController@online')->name('calls.online');
+    Route::post('/calls', 'StaffCallController@store')->name('calls.store');
+    Route::get('/calls/{id}', 'StaffCallController@show')->where('id', '[0-9]+')->name('calls.show');
+    Route::post('/calls/{id}/answer', 'StaffCallController@answer')->where('id', '[0-9]+')->name('calls.answer');
+    Route::post('/calls/{id}/ice', 'StaffCallController@ice')->where('id', '[0-9]+')->name('calls.ice');
+    Route::post('/calls/{id}/decline', 'StaffCallController@decline')->where('id', '[0-9]+')->name('calls.decline');
+    Route::post('/calls/{id}/end', 'StaffCallController@end')->where('id', '[0-9]+')->name('calls.end');
+});
+
 Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function() {
 
     Route::get('/orders', 'RestaurantOrderController@board')->name('restaurant.orders');

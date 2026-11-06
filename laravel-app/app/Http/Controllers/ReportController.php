@@ -1827,6 +1827,108 @@ class ReportController extends Controller
         ];
     }
 
+    public function dailySummary($year = null, $month = null)
+    {
+        if (! $this->allowsReport(['daily-sale', 'monthly-sale', 'sale-report'])) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $year = (int) $year;
+        $month = (int) $month;
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+        if ($month < 1 || $month > 12) {
+            $month = (int) date('n');
+        }
+        $start = \Carbon\Carbon::create($year, $month, 1, 0, 0, 0, 'Africa/Douala')->startOfDay();
+        $end = $start->copy()->endOfMonth()->endOfDay();
+        $snap = $this->salesPeriodSnapshot($start, $end);
+        $days = [];
+        $count = (int) $start->daysInMonth;
+        for ($day = 1; $day <= $count; $day++) {
+            $date = $start->copy()->day($day);
+            $key = $date->toDateString();
+            $days[$key] = [
+                'label' => $date->format('D j M'),
+                'sales' => 0,
+                'cash' => 0,
+                'momo' => 0,
+                'due' => 0,
+                'customers' => 0,
+                'orders' => 0,
+                'url' => route('report.sales', [
+                    'range' => 'custom',
+                    'start_date' => $key,
+                    'end_date' => $key,
+                ]),
+            ];
+        }
+        $saleDay = [];
+        $customerSets = [];
+        foreach ($snap['sales'] as $sale) {
+            $key = \Carbon\Carbon::parse($sale->created_at)->timezone('Africa/Douala')->toDateString();
+            if (! isset($days[$key])) {
+                continue;
+            }
+            $saleDay[(int) $sale->id] = $key;
+            if ((int) $sale->sale_status === 3) {
+                continue;
+            }
+            $days[$key]['orders']++;
+            $gap = (float) $sale->grand_total - (float) $sale->paid_amount;
+            if ($gap > 0.009) {
+                $days[$key]['due'] += $gap;
+            }
+            $customerId = (int) $sale->customer_id;
+            if ($customerId > 0) {
+                $customerSets[$key][$customerId] = true;
+            }
+        }
+        foreach ($customerSets as $key => $set) {
+            $days[$key]['customers'] = count($set);
+        }
+        foreach ($this->saleReportLines($snap['sales'], $this->saleVariantNames($snap['sales'])) as $line) {
+            $stamp = isset($line['date']) ? substr((string) $line['date'], 0, 10) : '';
+            if (! preg_match('/^\d{2}-\d{2}-\d{4}$/', $stamp)) {
+                continue;
+            }
+            $key = \Carbon\Carbon::createFromFormat('d-m-Y', $stamp, 'Africa/Douala')->toDateString();
+            if (isset($days[$key])) {
+                $days[$key]['sales'] += (float) $line['total'];
+            }
+        }
+        $ids = array_keys($saleDay);
+        if ($ids) {
+            $payments = DB::table('payments')
+                ->whereIn('sale_id', $ids)
+                ->where('amount', '>', 0)
+                ->get(['sale_id', 'paying_method', 'amount']);
+            foreach ($payments as $payment) {
+                $key = isset($saleDay[(int) $payment->sale_id]) ? $saleDay[(int) $payment->sale_id] : null;
+                if (! $key || ! isset($days[$key])) {
+                    continue;
+                }
+                $method = strtolower((string) $payment->paying_method);
+                if (strpos($method, 'cash') !== false) {
+                    $days[$key]['cash'] += (float) $payment->amount;
+                }
+                if (strpos($method, 'momo') !== false || strpos($method, 'orange') !== false) {
+                    $days[$key]['momo'] += (float) $payment->amount;
+                }
+            }
+        }
+        $prev = $start->copy()->subMonth();
+        $next = $start->copy()->addMonth();
+        $now = \Carbon\Carbon::now('Africa/Douala');
+
+        return view('report.daily_summary', [
+            'days' => array_values($days),
+            'title' => $start->format('F Y'),
+            'prevUrl' => route('report.dailySummary', ['year' => $prev->year, 'month' => $prev->month]),
+            'nextUrl' => $next->gt($now->copy()->endOfMonth()) ? null : route('report.dailySummary', ['year' => $next->year, 'month' => $next->month]),
+        ]);
+    }
+
     public function yearlySale()
     {
         if (! $this->allowsReport(['daily-sale', 'monthly-sale', 'sale-report'])) {

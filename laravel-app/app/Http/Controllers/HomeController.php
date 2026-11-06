@@ -644,6 +644,9 @@ echo $response;
                 ],
                 $board['sales']
             );
+            $todayCounts = $this->dashboardCounts($board['sales']);
+            $floor['customers'] = $todayCounts['customers'];
+            $floor['orders'] = $todayCounts['orders'];
             $salesPeriods['week'] = $this->dashboardMoney(
                 $today->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay(),
                 $today->copy()->endOfWeek(\Carbon\Carbon::SUNDAY)->endOfDay(),
@@ -695,7 +698,7 @@ echo $response;
 
     protected function blankSalesPeriods()
     {
-        $empty = ['sales' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0, 'span' => ''];
+        $empty = ['sales' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0, 'customers' => 0, 'orders' => 0, 'span' => ''];
 
         return [
             'week' => $empty,
@@ -724,13 +727,35 @@ echo $response;
             $span .= ' – '.$endAt->format('j M');
         }
 
+        $counts = $this->dashboardCounts($board['sales']);
+
         return [
             'sales' => (float) $board['total'],
             'cash' => (float) $board['cash'],
             'momo' => (float) $board['momo'],
             'due' => (float) $board['due'],
+            'customers' => $counts['customers'],
+            'orders' => $counts['orders'],
             'span' => $span,
         ];
+    }
+
+    protected function dashboardCounts($sales)
+    {
+        $customers = [];
+        $orders = 0;
+        foreach ($sales as $sale) {
+            if ((int) $sale->sale_status === 3) {
+                continue;
+            }
+            $orders++;
+            $customerId = (int) $sale->customer_id;
+            if ($customerId > 0) {
+                $customers[$customerId] = true;
+            }
+        }
+
+        return ['customers' => count($customers), 'orders' => $orders];
     }
 
     /**

@@ -2998,6 +2998,7 @@
                                         <li id="daily-sale-report-menu">
                                             <a href="{{url('report/daily_sale/'.date('Y').'/'.date('m'))}}">{{trans('file.Daily Sale')}}</a>
                                             <ul class="report-sub">
+                                                <li id="daily-sale-summary"><a href="{{ route('report.dailySummary') }}">Daily Summary</a></li>
                                                 <li id="daily-sale-daily"><a href="{{url('report/daily_sale/'.date('Y').'/'.date('m'))}}">Daily</a></li>
                                                 <li id="daily-sale-monthly"><a href="{{url('report/monthly_sale/'.date('Y'))}}">Monthly</a></li>
                                                 <li id="daily-sale-yearly"><a href="{{ route('report.yearlySale') }}">Yearly</a></li>

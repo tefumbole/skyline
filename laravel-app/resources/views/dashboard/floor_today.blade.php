@@ -19,7 +19,10 @@
                 <p class="floor-kicker">Today on the floor</p>
                 <h2>{{ $floor['date'] ?? '' }}</h2>
             </div>
-            <a class="floor-report" href="{{ route('report.sales', ['range' => 'today']) }}">Open sales report</a>
+            <div class="floor-links">
+                <a class="floor-report" href="{{ route('report.sales', ['range' => 'today']) }}">Open sales report</a>
+                <a class="floor-report" href="{{ route('report.dailySummary') }}">Daily sales</a>
+            </div>
         </div>
 
         <a class="floor-sales" href="{{ route('report.sales', ['range' => 'today']) }}">
@@ -48,6 +51,16 @@
                 <strong>{{ $money($due) }}</strong>
             </div>
         </div>
+        <div class="floor-counts">
+            <div class="floor-pay-card">
+                <span>Customers</span>
+                <strong>{{ (int) ($floor['customers'] ?? 0) }}</strong>
+            </div>
+            <div class="floor-pay-card">
+                <span>Orders</span>
+                <strong>{{ (int) ($floor['orders'] ?? 0) }}</strong>
+            </div>
+        </div>
     </div>
 
     @php
@@ -59,7 +72,7 @@
     @endphp
     <div class="floor-periods">
         @foreach($periodCards as $key => $card)
-            @php $row = isset($periods[$key]) ? $periods[$key] : ['sales' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0, 'span' => '']; @endphp
+            @php $row = isset($periods[$key]) ? $periods[$key] : ['sales' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0, 'customers' => 0, 'orders' => 0, 'span' => '']; @endphp
             <a class="floor-period" href="{{ route('report.sales', ['range' => $card['range']]) }}">
                 <span>{{ $card['label'] }}</span>
                 <strong>{{ $money($row['sales']) }}</strong>
@@ -68,6 +81,8 @@
                     <li><b>Cash</b> {{ $money($row['cash']) }}</li>
                     <li><b>MoMo</b> {{ $money($row['momo']) }}</li>
                     <li><b>Due</b> {{ $money($row['due']) }}</li>
+                    <li><b>Customers</b> {{ (int) ($row['customers'] ?? 0) }}</li>
+                    <li><b>Orders</b> {{ (int) ($row['orders'] ?? 0) }}</li>
                 </ul>
             </a>
         @endforeach
@@ -80,6 +95,8 @@
                     <li><b>Cash</b> {{ $money($periods['custom']['cash']) }}</li>
                     <li><b>MoMo</b> {{ $money($periods['custom']['momo']) }}</li>
                     <li><b>Due</b> {{ $money($periods['custom']['due']) }}</li>
+                    <li><b>Customers</b> {{ (int) ($periods['custom']['customers'] ?? 0) }}</li>
+                    <li><b>Orders</b> {{ (int) ($periods['custom']['orders'] ?? 0) }}</li>
                 </ul>
             @else
                 <strong>—</strong>
@@ -113,6 +130,7 @@
         align-items: flex-start;
         gap: 16px;
     }
+    .floor-links { display: flex; flex-wrap: wrap; gap: 8px; }
     .floor-kicker {
         margin: 0 0 4px;
         color: #e1b368;

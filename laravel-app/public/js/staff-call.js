@@ -121,16 +121,11 @@
         var params = sender.getParameters();
         if (!params.encodings || !params.encodings.length) params.encodings = [{}];
         if (sender.track.kind === 'video') {
-            params.encodings[0].maxBitrate = 4000000;
+            params.encodings[0].maxBitrate = 3000000;
             params.encodings[0].maxFramerate = 30;
-            params.encodings[0].scaleResolutionDownBy = 1;
-            params.encodings[0].networkPriority = 'high';
-            params.encodings[0].priority = 'high';
             params.degradationPreference = 'balanced';
         } else {
-            params.encodings[0].maxBitrate = 128000;
-            params.encodings[0].networkPriority = 'high';
-            params.encodings[0].priority = 'high';
+            params.encodings[0].maxBitrate = 96000;
         }
         sender.setParameters(params).catch(function () {});
     }
@@ -142,49 +137,6 @@
             if ('playoutDelayHint' in list[i]) list[i].playoutDelayHint = 0.02;
             if ('jitterBufferTarget' in list[i]) list[i].jitterBufferTarget = 30;
         }
-    }
-
-    function boostSdp(sdp) {
-        if (!sdp) return sdp;
-        var lines = sdp.split('\r\n');
-        var opusPt = null;
-        var i;
-        for (i = 0; i < lines.length; i++) {
-            var rtp = lines[i].match(/^a=rtpmap:(\d+)\s+opus\/48000/i);
-            if (rtp) opusPt = rtp[1];
-        }
-        if (opusPt) {
-            var fmtp = 'a=fmtp:' + opusPt + ' minptime=10;useinbandfec=1;usedtx=0;stereo=0;sprop-stereo=0;maxplaybackrate=48000;maxaveragebitrate=128000';
-            var replaced = false;
-            for (i = 0; i < lines.length; i++) {
-                if (lines[i].indexOf('a=fmtp:' + opusPt) === 0) {
-                    lines[i] = fmtp;
-                    replaced = true;
-                }
-            }
-            if (!replaced) {
-                for (i = 0; i < lines.length; i++) {
-                    if (lines[i].indexOf('a=rtpmap:' + opusPt) === 0) {
-                        lines.splice(i + 1, 0, fmtp);
-                        break;
-                    }
-                }
-            }
-        }
-        var out = [];
-        var videoSection = false;
-        for (i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf('m=') === 0) videoSection = lines[i].indexOf('m=video') === 0;
-            out.push(lines[i]);
-            if (videoSection && lines[i].indexOf('c=') === 0) {
-                var next = lines[i + 1] || '';
-                if (next.indexOf('b=AS:') !== 0 && next.indexOf('b=TIAS:') !== 0) {
-                    out.push('b=AS:4000');
-                    out.push('b=TIAS:3500000');
-                }
-            }
-        }
-        return out.join('\r\n');
     }
 
     function tuneAll() {
@@ -212,9 +164,7 @@
         }
         var audio = audioConstraints();
         var request = kind === 'video'
-            ? navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(true) }).catch(function () {
-                return navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(false) });
-            })
+            ? navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(false) })
             : navigator.mediaDevices.getUserMedia({ audio: audio, video: false });
         return request.then(function (stream) {
             var audioTrack = stream.getAudioTracks()[0];
@@ -242,6 +192,7 @@
         return 'The call could not start.';
     }
 
+    var failTimer = null;
     var toastTimer = null;
     function setNote(text) {
         var note = document.getElementById('call-note');
@@ -379,17 +330,36 @@
         if (play && play.catch) play.catch(function () {});
     }
 
-    function setupPc(stream) {
-        localStream = stream;
-        if (mode === 'video') {
-            localVideo.srcObject = stream;
-            var localPlay = localVideo.play();
-            if (localPlay && localPlay.catch) localPlay.catch(function () {});
+    function showLocalPreview(stream) {
+        if (mode !== 'video' || !localVideo) return;
+        localVideo.srcObject = stream;
+        var localPlay = localVideo.play();
+        if (localPlay && localPlay.catch) localPlay.catch(function () {});
+    }
+
+    function noteLink(stateName) {
+        if (!pc) return;
+        if (stateName === 'connected' || stateName === 'completed') {
+            if (failTimer) clearTimeout(failTimer);
+            failTimer = null;
+            tuneAll();
+            tuneReceivers();
+            readPath();
+            if (connectTimer) clearTimeout(connectTimer);
+            return;
         }
+        if (stateName !== 'failed' || failTimer) return;
+        failTimer = setTimeout(function () {
+            failTimer = null;
+            if (!pc) return;
+            if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') {
+                finish('The call could not connect. Use the hotel WiFi if you are on different networks.', true);
+            }
+        }, 8000);
+    }
+
+    function setupPc() {
         pc = new RTCPeerConnection(iceConfig());
-        var tracks = stream.getTracks();
-        for (var i = 0; i < tracks.length; i++) pc.addTrack(tracks[i], stream);
-        preferCodecs(pc);
         pc.onicecandidate = function (event) {
             if (!event.candidate) return;
             if (!callId) pendingLocal.push(event.candidate);
@@ -397,25 +367,26 @@
         };
         pc.ontrack = function (event) {
             var streamIn = event.streams && event.streams[0];
+            if (!streamIn && event.track) {
+                streamIn = new MediaStream();
+                streamIn.addTrack(event.track);
+            }
             if (streamIn) attachRemote(streamIn);
         };
         pc.oniceconnectionstatechange = function () {
-            if (!pc) return;
-            if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-                tuneAll();
-                tuneReceivers();
-                readPath();
-                if (connectTimer) clearTimeout(connectTimer);
-            }
-            if (pc.iceConnectionState === 'failed') {
-                finish('The call could not connect. Use the hotel WiFi if you are on different networks.', true);
-            }
+            if (pc) noteLink(pc.iceConnectionState);
         };
         pc.onconnectionstatechange = function () {
-            if (pc && pc.connectionState === 'failed') {
-                finish('The call could not connect.', true);
-            }
+            if (pc) noteLink(pc.connectionState);
         };
+    }
+
+    function addCallerTracks(stream) {
+        localStream = stream;
+        showLocalPreview(stream);
+        var tracks = stream.getTracks();
+        for (var i = 0; i < tracks.length; i++) pc.addTrack(tracks[i], stream);
+        preferCodecs(pc);
     }
 
     function readPath() {
@@ -519,9 +490,11 @@
         if (pollTimer) clearInterval(pollTimer);
         if (clockTimer) clearInterval(clockTimer);
         if (connectTimer) clearTimeout(connectTimer);
+        if (failTimer) clearTimeout(failTimer);
         pollTimer = null;
         clockTimer = null;
         connectTimer = null;
+        failTimer = null;
         if (pc) {
             try { pc.close(); } catch (e) {}
         }
@@ -546,10 +519,12 @@
     }
 
     function begin(stream) {
-        setupPc(stream);
+        setupPc();
+        addCallerTracks(stream);
         return pc.createOffer().then(function (offer) {
-            offer.sdp = boostSdp(offer.sdp);
-            return pc.setLocalDescription(offer).then(function () { return offer; });
+            return pc.setLocalDescription(offer).then(function () {
+                return pc.localDescription || offer;
+            });
         });
     }
 
@@ -596,15 +571,17 @@
         state = 'outgoing';
         paintCall('Connecting');
         openMedia(mode).then(function (stream) {
-            setupPc(stream);
+            setupPc();
+            addCallerTracks(stream);
             return pc.setRemoteDescription({ type: 'offer', sdp: offerSdp });
         }).then(function () {
             remoteReady = true;
             flushRemote();
             return pc.createAnswer();
         }).then(function (answer) {
-            answer.sdp = boostSdp(answer.sdp);
-            return pc.setLocalDescription(answer).then(function () { return answer; });
+            return pc.setLocalDescription(answer).then(function () {
+                return pc.localDescription || answer;
+            });
         }).then(function (answer) {
             return postJson(cfg.base + '/' + id + '/answer', { answer: answer.sdp });
         }).then(function (data) {

@@ -137,4 +137,4 @@ window.SKY_CALL = {
     base: @json(url('/calls'))
 };
 </script>
-<script src="{{ asset('public/js/staff-call.js') }}?v=3"></script>
+<script src="{{ asset('public/js/staff-call.js') }}?v=4"></script>

@@ -3356,6 +3356,10 @@
                             map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);
                             used['ready-delivery'] = true;
                         }
+                        if (map['calls'] && map['letter']) {
+                            map['letter'].insertAdjacentElement('afterend', map['calls']);
+                            used['calls'] = true;
+                        }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).
                         kids.forEach(function (li) {
                             var k = keyOf(li);

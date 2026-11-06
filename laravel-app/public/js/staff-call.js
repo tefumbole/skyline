@@ -505,8 +505,9 @@
             });
         }).then(function (data) {
             if (!data || !data.ok) {
-                var reason = data && data.error === 'busy' ? 'That person is already on a call.' : 'That person is not in the app right now.';
-                if (data && data.error === 'invalid') reason = 'The call could not start.';
+                var reason = 'The call could not start.';
+                if (data && data.error === 'busy') reason = 'That person is already on a call.';
+                if (data && data.error === 'offline') reason = 'That person is not in the app right now.';
                 finish(reason, false);
                 return;
             }
@@ -593,6 +594,8 @@
                 var person = people[i];
                 var item = document.createElement('li');
                 item.className = 'call-person';
+                item.setAttribute('data-sky-call', 'audio');
+                item.setAttribute('data-sky-user', String(person.id));
                 var avatar = document.createElement('span');
                 avatar.className = 'call-avatar';
                 avatar.textContent = (person.name || 'S').charAt(0).toUpperCase();
@@ -614,7 +617,7 @@
                 audioBtn.type = 'button';
                 audioBtn.setAttribute('data-sky-call', 'audio');
                 audioBtn.setAttribute('data-sky-user', String(person.id));
-                audioBtn.textContent = 'Audio';
+                audioBtn.textContent = 'Call';
                 var videoBtn = document.createElement('button');
                 videoBtn.type = 'button';
                 videoBtn.setAttribute('data-sky-call', 'video');

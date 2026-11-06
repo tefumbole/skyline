@@ -28,8 +28,8 @@
         </div>
     </section>
     <audio id="sky-call-remote-audio" autoplay playsinline></audio>
-    <p id="sky-call-toast" hidden></p>
 </div>
+<p id="sky-call-toast" hidden></p>
 <style>
     #sky-call-stage, #sky-call-incoming { position: fixed; z-index: 14000; }
     #sky-call-stage {
@@ -137,4 +137,4 @@ window.SKY_CALL = {
     base: @json(url('/calls'))
 };
 </script>
-<script src="{{ asset('public/js/staff-call.js') }}?v=1"></script>
+<script src="{{ asset('public/js/staff-call.js') }}?v=2"></script>

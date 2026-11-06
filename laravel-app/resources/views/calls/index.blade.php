@@ -2,7 +2,7 @@
 @section('content')
 <section class="call-board">
     <header class="call-board-head">
-        <p>Call</p>
+        <p>Call Center</p>
         <h1>People in the app</h1>
         <span>Audio or video stays in Skyline. On the same WiFi the call uses the hotel network.</span>
     </header>
@@ -47,6 +47,7 @@
         background: #fff;
         box-shadow: 0 10px 28px rgba(12, 24, 48, .06);
     }
+    .call-person { cursor: pointer; }
     .call-empty { color: #5c6b82; font-weight: 700; }
     .call-avatar {
         width: 48px;

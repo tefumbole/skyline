@@ -1637,7 +1637,6 @@
                         @if(!Auth::user()->isAssetStaff())
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
-                        <li id="call-center-menu"><a href="{{ route('calls.index') }}" data-nav-key="calls"><i class="fa fa-phone"></i><span>Call</span></a></li>
                         @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
                             <li><a href="{{ url('/admin/gallery') }}" data-nav-key="gallery"> <i class="dripicons-photo-group"></i><span>Gallery</span></a></li>
@@ -2449,6 +2448,7 @@
                                 <a href="{{ route('announcement.index') }}"> <i class="fa fa-bullhorn"></i><span>{{trans('file.Announcement')}}</span></a>
                             </li>
                         @endif
+                        <li id="call-center-menu"><a href="{{ route('calls.index') }}" data-nav-key="calls"><i class="fa fa-phone"></i><span>Call Center</span></a></li>
                         @php
                             $whatsapp_module_permission = \Spatie\Permission\Models\Permission::where('name', 'whatsapp_module')->first();
                             $whatsapp_module_active = $role && $whatsapp_module_permission ? \DB::table('role_has_permissions')->where([

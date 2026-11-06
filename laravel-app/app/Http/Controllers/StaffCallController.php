@@ -64,7 +64,11 @@ class StaffCallController extends Controller
             return response()->json(['ok' => false, 'error' => 'invalid'], 422);
         }
 
-        $callee = $this->onlineQuery()->where('users.id', $calleeId)->first();
+        $callee = $this->onlineQuery()->where('users.id', $calleeId)->first([
+            'users.id',
+            'users.name',
+            'roles.name as role_name',
+        ]);
         if (! $callee) {
             return response()->json(['ok' => false, 'error' => 'offline'], 422);
         }
@@ -88,7 +92,7 @@ class StaffCallController extends Controller
             'ok' => true,
             'id' => (int) $id,
             'name' => $callee->name ?: 'Staff',
-            'role' => $callee->role_name ?: 'Staff',
+            'role' => ! empty($callee->role_name) ? $callee->role_name : 'Staff',
             'mode' => $mode,
         ]);
     }

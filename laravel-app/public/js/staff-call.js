@@ -75,13 +75,15 @@
 
     function audioConstraints() {
         return {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-            sampleRate: 48000,
-            sampleSize: 16
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: { ideal: 1 }
         };
+    }
+
+    function cleanSdp(sdp) {
+        return String(sdp || '').replace(/a=extmap-allow-mixed\r?\n/g, '');
     }
 
     function videoConstraints(wide) {
@@ -349,13 +351,15 @@
             return;
         }
         if (stateName !== 'failed' || failTimer) return;
+        if (role === 'caller' && !answerApplied) return;
+        if (role !== 'caller' && state !== 'live') return;
         failTimer = setTimeout(function () {
             failTimer = null;
             if (!pc) return;
             if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') {
-                finish('The call could not connect. Use the hotel WiFi if you are on different networks.', true);
+                finish('The call could not connect. Use the hotel WiFi if you are on different networks.', true, 'ice-failed');
             }
-        }, 8000);
+        }, 20000);
     }
 
     function setupPc() {
@@ -386,7 +390,32 @@
         showLocalPreview(stream);
         var tracks = stream.getTracks();
         for (var i = 0; i < tracks.length; i++) pc.addTrack(tracks[i], stream);
-        preferCodecs(pc);
+    }
+
+    function attachAnswerTracks(stream) {
+        localStream = stream;
+        showLocalPreview(stream);
+        var tracks = stream.getTracks();
+        var transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+        var used = {};
+        var chain = Promise.resolve();
+        for (var i = 0; i < tracks.length; i++) {
+            (function (track) {
+                chain = chain.then(function () {
+                    for (var t = 0; t < transceivers.length; t++) {
+                        if (used[t]) continue;
+                        var receiverTrack = transceivers[t].receiver && transceivers[t].receiver.track;
+                        if (!receiverTrack || receiverTrack.kind !== track.kind) continue;
+                        if (!transceivers[t].sender || !transceivers[t].sender.replaceTrack) continue;
+                        used[t] = true;
+                        try { transceivers[t].direction = 'sendrecv'; } catch (e) {}
+                        return transceivers[t].sender.replaceTrack(track);
+                    }
+                    pc.addTrack(track, stream);
+                });
+            })(tracks[i]);
+        }
+        return chain;
     }
 
     function readPath() {
@@ -444,7 +473,7 @@
                 if (data.status === 'ended') return finish('Call ended.', false);
                 if (role === 'caller' && data.answer && !answerApplied && pc) {
                     answerApplied = true;
-                    pc.setRemoteDescription({ type: 'answer', sdp: data.answer }).then(function () {
+                    pc.setRemoteDescription({ type: 'answer', sdp: cleanSdp(data.answer) }).then(function () {
                         remoteReady = true;
                         flushRemote();
                         tuneAll();
@@ -452,8 +481,10 @@
                         paintCall('Connected');
                         startClock();
                         readPath();
-                    }).catch(function () {
-                        finish('The call could not connect.', true);
+                    }).catch(function (error) {
+                        answerApplied = false;
+                        var detail = error && error.name ? error.name : 'answer';
+                        finish('The call could not connect.', true, detail);
                     });
                 }
             }).catch(function () {});
@@ -471,7 +502,7 @@
         }, 12000);
     }
 
-    function finish(message, notify) {
+    function finish(message, notify, detail) {
         var id = callId;
         var shouldNotify = notify && id && state !== 'idle';
         ringStop();
@@ -514,7 +545,7 @@
             meta.removeAttribute('data-path');
             meta.removeAttribute('data-clock');
         }
-        if (shouldNotify) postJson(cfg.base + '/' + id + '/end', {}, true).catch(function () {});
+        if (shouldNotify) postJson(cfg.base + '/' + id + '/end', { reason: detail || message || '' }, true).catch(function () {});
         setNote(message || '');
     }
 
@@ -522,8 +553,11 @@
         setupPc();
         addCallerTracks(stream);
         return pc.createOffer().then(function (offer) {
-            return pc.setLocalDescription(offer).then(function () {
-                return pc.localDescription || offer;
+            var sdp = cleanSdp(offer.sdp);
+            return pc.setLocalDescription({ type: 'offer', sdp: sdp }).then(function () {
+                var local = pc.localDescription;
+                if (local && local.sdp) local = { type: 'offer', sdp: cleanSdp(local.sdp) };
+                return local || { type: 'offer', sdp: sdp };
             });
         });
     }
@@ -572,21 +606,25 @@
         paintCall('Connecting');
         openMedia(mode).then(function (stream) {
             setupPc();
-            addCallerTracks(stream);
-            return pc.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+            return pc.setRemoteDescription({ type: 'offer', sdp: cleanSdp(offerSdp) }).then(function () {
+                return attachAnswerTracks(stream);
+            });
         }).then(function () {
             remoteReady = true;
             flushRemote();
             return pc.createAnswer();
         }).then(function (answer) {
-            return pc.setLocalDescription(answer).then(function () {
-                return pc.localDescription || answer;
+            var sdp = cleanSdp(answer.sdp);
+            return pc.setLocalDescription({ type: 'answer', sdp: sdp }).then(function () {
+                var local = pc.localDescription;
+                if (local && local.sdp) return { type: 'answer', sdp: cleanSdp(local.sdp) };
+                return { type: 'answer', sdp: sdp };
             });
         }).then(function (answer) {
             return postJson(cfg.base + '/' + id + '/answer', { answer: answer.sdp });
         }).then(function (data) {
             if (!data || !data.ok) {
-                finish('The call is no longer ringing.', false);
+                finish('The call is no longer ringing.', false, 'answer-rejected');
                 return;
             }
             state = 'live';
@@ -597,7 +635,8 @@
             startPoll();
             armConnectTimer();
         }).catch(function (error) {
-            finish(mediaError(error, true), true);
+            var detail = error && error.name ? error.name : 'accept';
+            finish(mediaError(error, true), true, detail);
         });
     }
 

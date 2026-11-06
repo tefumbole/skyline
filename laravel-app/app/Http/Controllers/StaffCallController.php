@@ -224,11 +224,20 @@ class StaffCallController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function end($id)
+    public function end(Request $request, $id)
     {
         $call = $this->findCall($id);
         if (! $call) {
             return response()->json(['ok' => false], 404);
+        }
+        $reason = substr(trim((string) $request->input('reason')), 0, 180);
+        if ($reason !== '') {
+            \Log::info('staff call ended', [
+                'id' => (int) $call->id,
+                'by' => (int) auth()->id(),
+                'status' => $call->status,
+                'reason' => $reason,
+            ]);
         }
         $now = Carbon::now();
         DB::table('staff_calls')

@@ -32,7 +32,8 @@
     var ringing = false;
     var muted = false;
     var cameraOff = false;
-    var pageTitle = document.title;
+    var SCRIPT_VERSION = 6;
+    var iceServers = null;
 
     function token() {
         var meta = document.querySelector('meta[name="csrf-token"]');
@@ -74,16 +75,37 @@
     }
 
     function audioConstraints() {
-        return {
-            echoCancellation: { ideal: true },
-            noiseSuppression: { ideal: true },
-            autoGainControl: { ideal: true },
-            channelCount: { ideal: 1 }
-        };
+        return true;
     }
 
     function cleanSdp(sdp) {
-        return String(sdp || '').replace(/a=extmap-allow-mixed\r?\n/g, '');
+        var text = String(sdp || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        var lines = text.split('\n');
+        var drop = {};
+        var bad = { red: 1, ulpfec: 1, flexfec: 1, rtx: 1, g722: 1, pcmu: 1, pcma: 1, cn: 1, 'telephone-event': 1 };
+        var i, match;
+        for (i = 0; i < lines.length; i++) {
+            match = /^a=rtpmap:(\d+)\s+([^\s/]+)/i.exec(lines[i]);
+            if (match && bad[match[2].toLowerCase()]) drop[match[1]] = true;
+        }
+        var out = [];
+        for (i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            if (!line || line.indexOf('a=extmap-allow-mixed') === 0) continue;
+            if (/^m=/.test(line)) {
+                var parts = line.split(' ');
+                var kept = parts.slice(0, 3);
+                for (var p = 3; p < parts.length; p++) {
+                    if (!drop[parts[p]]) kept.push(parts[p]);
+                }
+                out.push(kept.join(' '));
+                continue;
+            }
+            match = /^a=(rtpmap|fmtp|rtcp-fb):(\d+)\b/.exec(line);
+            if (match && drop[match[2]]) continue;
+            out.push(line);
+        }
+        return out.join('\r\n') + '\r\n';
     }
 
     function videoConstraints(wide) {
@@ -149,14 +171,13 @@
 
     function iceConfig() {
         return {
-            iceServers: [
+            iceServers: iceServers || [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' }
             ],
             iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 4
+            rtcpMuxPolicy: 'require'
         };
     }
 
@@ -164,10 +185,13 @@
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.RTCPeerConnection) {
             return Promise.reject(new Error('browser'));
         }
-        var audio = audioConstraints();
-        var request = kind === 'video'
-            ? navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(false) })
-            : navigator.mediaDevices.getUserMedia({ audio: audio, video: false });
+        var primary = kind === 'video'
+            ? { audio: true, video: { facingMode: 'user' } }
+            : { audio: true, video: false };
+        var request = navigator.mediaDevices.getUserMedia(primary).catch(function () {
+            if (kind === 'video') return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        });
         return request.then(function (stream) {
             var audioTrack = stream.getAudioTracks()[0];
             var videoTrack = stream.getVideoTracks()[0];
@@ -483,8 +507,7 @@
                         readPath();
                     }).catch(function (error) {
                         answerApplied = false;
-                        var detail = error && error.name ? error.name : 'answer';
-                        finish('The call could not connect.', true, detail);
+                        finish('The call could not connect.', true, errorText(error));
                     });
                 }
             }).catch(function () {});
@@ -598,16 +621,23 @@
         });
     }
 
+    function errorText(error) {
+        if (!error) return 'accept';
+        var name = error.name || 'Error';
+        var message = error.message || '';
+        return (name + (message ? ': ' + message : '')).slice(0, 160);
+    }
+
     function acceptCall() {
         if (state !== 'incoming' || !callId || !offerSdp) return;
         ringStop();
         var id = callId;
         state = 'outgoing';
         paintCall('Connecting');
+        var offer = cleanSdp(offerSdp);
         openMedia(mode).then(function (stream) {
-            setupPc();
-            return pc.setRemoteDescription({ type: 'offer', sdp: cleanSdp(offerSdp) }).then(function () {
-                return attachAnswerTracks(stream);
+            return negotiate(stream, offer, false).catch(function () {
+                return negotiate(stream, offer, true);
             });
         }).then(function () {
             remoteReady = true;
@@ -635,14 +665,30 @@
             startPoll();
             armConnectTimer();
         }).catch(function (error) {
-            var detail = error && error.name ? error.name : 'accept';
-            finish(mediaError(error, true), true, detail);
+            finish(mediaError(error, true), true, errorText(error));
+        });
+    }
+
+    function negotiate(stream, offer, remoteFirst) {
+        if (pc) {
+            try { pc.close(); } catch (e) {}
+            pc = null;
+        }
+        setupPc();
+        if (!remoteFirst) addCallerTracks(stream);
+        return pc.setRemoteDescription({ type: 'offer', sdp: offer }).then(function () {
+            if (remoteFirst) return attachAnswerTracks(stream);
         });
     }
 
     function heartbeat() {
         postJson(cfg.heartbeat, {}).then(function (data) {
             if (!data) return;
+            if (data.iceServers && data.iceServers.length) iceServers = data.iceServers;
+            if (data.script && Number(data.script) > SCRIPT_VERSION && state !== 'live') {
+                window.location.reload();
+                return;
+            }
             if (data.incoming && state === 'idle') {
                 state = 'incoming';
                 role = 'callee';

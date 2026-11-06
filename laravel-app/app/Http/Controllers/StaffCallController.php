@@ -23,6 +23,8 @@ class StaffCallController extends Controller
 
         return response()->json([
             'ok' => true,
+            'script' => 6,
+            'iceServers' => $this->iceServers(),
             'incoming' => $this->incomingPayload($userId),
         ]);
     }
@@ -252,6 +254,30 @@ class StaffCallController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    protected function iceServers()
+    {
+        $servers = [
+            ['urls' => 'stun:stun.l.google.com:19302'],
+            ['urls' => 'stun:stun1.l.google.com:19302'],
+        ];
+        $host = trim((string) config('services.turn.host'));
+        $secret = (string) config('services.turn.secret');
+        if ($host !== '' && $secret !== '') {
+            $username = (time() + 3600).':skyline';
+            $credential = base64_encode(hash_hmac('sha1', $username, $secret, true));
+            $servers[] = [
+                'urls' => [
+                    'turn:'.$host.':3478?transport=udp',
+                    'turn:'.$host.':3478?transport=tcp',
+                ],
+                'username' => $username,
+                'credential' => $credential,
+            ];
+        }
+
+        return $servers;
+    }
+
     protected function touch()
     {
         $user = auth()->user();
@@ -275,9 +301,9 @@ class StaffCallController extends Controller
         DB::table('staff_calls')
             ->where('status', 'accepted')
             ->where(function ($query) use ($now) {
-                $query->where('touched_at', '<', $now->copy()->subSeconds(25))
+                $query->where('touched_at', '<', $now->copy()->subSeconds(90))
                     ->orWhere(function ($inner) use ($now) {
-                        $inner->whereNull('touched_at')->where('updated_at', '<', $now->copy()->subSeconds(25));
+                        $inner->whereNull('touched_at')->where('updated_at', '<', $now->copy()->subSeconds(90));
                     });
             })
             ->update(['status' => 'ended', 'ended_at' => $now, 'updated_at' => $now]);

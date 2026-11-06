@@ -617,6 +617,7 @@ echo $response;
         $dash_momo = 0;
         $dash_tables = ['rows' => [], 'sold' => 0, 'paid' => 0, 'pending' => 0, 'bills' => 0, 'top_amount' => null, 'top_frequency' => null];
         $floor = \App\Support\FloorDashboard::blank();
+        $salesPeriods = $this->blankSalesPeriods();
         try {
             $ownUser = (Auth::user()->role_id > 2 && $general_setting && $general_setting->staff_access == 'own') ? Auth::id() : null;
             $today = \Carbon\Carbon::now('Africa/Douala');
@@ -643,11 +644,37 @@ echo $response;
                 ],
                 $board['sales']
             );
+            $salesPeriods['week'] = $this->dashboardMoney(
+                $today->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay(),
+                $today->copy()->endOfWeek(\Carbon\Carbon::SUNDAY)->endOfDay(),
+                $ownUser
+            );
+            $salesPeriods['month'] = $this->dashboardMoney(
+                $today->copy()->startOfMonth()->startOfDay(),
+                $today->copy()->endOfMonth()->endOfDay(),
+                $ownUser
+            );
+            $customStart = $this->dashboardDate(request('start_date'));
+            $customEnd = $this->dashboardDate(request('end_date'));
+            if ($customStart !== '' && $customEnd !== '' && $customEnd < $customStart) {
+                $swap = $customStart;
+                $customStart = $customEnd;
+                $customEnd = $swap;
+            }
+            $salesPeriods['start_date'] = $customStart;
+            $salesPeriods['end_date'] = $customEnd;
+            if ($customStart !== '' && $customEnd !== '') {
+                $salesPeriods['custom'] = $this->dashboardMoney(
+                    \Carbon\Carbon::parse($customStart, 'Africa/Douala')->startOfDay(),
+                    \Carbon\Carbon::parse($customEnd, 'Africa/Douala')->endOfDay(),
+                    $ownUser
+                );
+            }
         } catch (\Throwable $e) {
             \Log::warning('Dashboard sales report failed: '.$e->getMessage(), ['user' => Auth::id()]);
         }
         $workOps = $this->workOpsSnapshot();
-        return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo', 'dash_tables', 'floor'));
+        return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo', 'dash_tables', 'floor', 'salesPeriods'));
         } catch (\Throwable $e) {
             \Log::warning('Sales dashboard failed: '.$e->getMessage(), ['user' => Auth::id()]);
             $workOps = $this->workOpsSnapshot();
@@ -660,9 +687,50 @@ echo $response;
             $dash_total = $dash_qty = $dash_cash = $dash_momo = 0;
             $dash_tables = ['rows' => [], 'sold' => 0, 'paid' => 0, 'pending' => 0, 'bills' => 0, 'top_amount' => null, 'top_frequency' => null];
             $floor = \App\Support\FloorDashboard::blank();
+            $salesPeriods = $this->blankSalesPeriods();
 
-            return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo', 'dash_tables', 'floor'));
+            return view('index', compact('revenue', 'purchase', 'expense', 'return', 'purchase_return', 'profit', 'payment_recieved', 'payment_sent', 'month', 'yearly_sale_amount', 'yearly_purchase_amount', 'recent_sale', 'recent_purchase', 'recent_quotation', 'recent_payment', 'best_selling_qty', 'yearly_best_selling_qty', 'yearly_best_selling_price', 'workOps', 'today_sales', 'dash_products', 'dash_total', 'dash_qty', 'dash_cash', 'dash_momo', 'dash_tables', 'floor', 'salesPeriods'));
         }
+    }
+
+    protected function blankSalesPeriods()
+    {
+        $empty = ['sales' => 0, 'cash' => 0, 'momo' => 0, 'due' => 0, 'span' => ''];
+
+        return [
+            'week' => $empty,
+            'month' => $empty,
+            'custom' => null,
+            'start_date' => '',
+            'end_date' => '',
+        ];
+    }
+
+    protected function dashboardDate($value)
+    {
+        $raw = trim((string) $value);
+        if ($raw === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            return '';
+        }
+
+        return $raw;
+    }
+
+    protected function dashboardMoney($startAt, $endAt, $ownUser)
+    {
+        $board = app(\App\Http\Controllers\ReportController::class)->salesPeriodSnapshot($startAt, $endAt, $ownUser);
+        $span = $startAt->format('j M');
+        if ($startAt->toDateString() !== $endAt->toDateString()) {
+            $span .= ' – '.$endAt->format('j M');
+        }
+
+        return [
+            'sales' => (float) $board['total'],
+            'cash' => (float) $board['cash'],
+            'momo' => (float) $board['momo'],
+            'due' => (float) $board['due'],
+            'span' => $span,
+        ];
     }
 
     /**

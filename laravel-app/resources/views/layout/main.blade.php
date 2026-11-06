@@ -3356,8 +3356,11 @@
                             map['orders'].insertAdjacentElement('afterend', map['ready-delivery']);
                             used['ready-delivery'] = true;
                         }
-                        if (map['calls'] && map['letter']) {
-                            map['letter'].insertAdjacentElement('afterend', map['calls']);
+                        if (map['calls'] && map['ready-delivery']) {
+                            map['ready-delivery'].insertAdjacentElement('afterend', map['calls']);
+                            used['calls'] = true;
+                        } else if (map['calls'] && map['orders']) {
+                            map['orders'].insertAdjacentElement('afterend', map['calls']);
                             used['calls'] = true;
                         }
                         // Unmatched LIs must NOT stay at the top (that floated Contracts above Dashboard).

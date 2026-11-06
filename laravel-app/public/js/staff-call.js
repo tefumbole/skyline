@@ -73,23 +73,23 @@
         });
     }
 
-    function constraints(kind) {
-        var audio = {
+    function audioConstraints() {
+        return {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
             channelCount: 1,
-            sampleRate: 48000
+            sampleRate: 48000,
+            sampleSize: 16
         };
-        if (kind !== 'video') return { audio: audio, video: false };
+    }
+
+    function videoConstraints(wide) {
         return {
-            audio: audio,
-            video: {
-                facingMode: 'user',
-                width: { ideal: 1280, max: 1280 },
-                height: { ideal: 720, max: 720 },
-                frameRate: { ideal: 30, max: 30 }
-            }
+            facingMode: 'user',
+            width: wide ? { ideal: 1920, max: 1920 } : { ideal: 1280, max: 1280 },
+            height: wide ? { ideal: 1080, max: 1080 } : { ideal: 720, max: 720 },
+            frameRate: { ideal: 30, max: 30 }
         };
     }
 
@@ -121,13 +121,70 @@
         var params = sender.getParameters();
         if (!params.encodings || !params.encodings.length) params.encodings = [{}];
         if (sender.track.kind === 'video') {
-            params.encodings[0].maxBitrate = 2500000;
+            params.encodings[0].maxBitrate = 4000000;
             params.encodings[0].maxFramerate = 30;
+            params.encodings[0].scaleResolutionDownBy = 1;
+            params.encodings[0].networkPriority = 'high';
+            params.encodings[0].priority = 'high';
             params.degradationPreference = 'balanced';
         } else {
             params.encodings[0].maxBitrate = 128000;
+            params.encodings[0].networkPriority = 'high';
+            params.encodings[0].priority = 'high';
         }
         sender.setParameters(params).catch(function () {});
+    }
+
+    function tuneReceivers() {
+        if (!pc || !pc.getReceivers) return;
+        var list = pc.getReceivers();
+        for (var i = 0; i < list.length; i++) {
+            if ('playoutDelayHint' in list[i]) list[i].playoutDelayHint = 0.02;
+            if ('jitterBufferTarget' in list[i]) list[i].jitterBufferTarget = 30;
+        }
+    }
+
+    function boostSdp(sdp) {
+        if (!sdp) return sdp;
+        var lines = sdp.split('\r\n');
+        var opusPt = null;
+        var i;
+        for (i = 0; i < lines.length; i++) {
+            var rtp = lines[i].match(/^a=rtpmap:(\d+)\s+opus\/48000/i);
+            if (rtp) opusPt = rtp[1];
+        }
+        if (opusPt) {
+            var fmtp = 'a=fmtp:' + opusPt + ' minptime=10;useinbandfec=1;usedtx=0;stereo=0;sprop-stereo=0;maxplaybackrate=48000;maxaveragebitrate=128000';
+            var replaced = false;
+            for (i = 0; i < lines.length; i++) {
+                if (lines[i].indexOf('a=fmtp:' + opusPt) === 0) {
+                    lines[i] = fmtp;
+                    replaced = true;
+                }
+            }
+            if (!replaced) {
+                for (i = 0; i < lines.length; i++) {
+                    if (lines[i].indexOf('a=rtpmap:' + opusPt) === 0) {
+                        lines.splice(i + 1, 0, fmtp);
+                        break;
+                    }
+                }
+            }
+        }
+        var out = [];
+        var videoSection = false;
+        for (i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf('m=') === 0) videoSection = lines[i].indexOf('m=video') === 0;
+            out.push(lines[i]);
+            if (videoSection && lines[i].indexOf('c=') === 0) {
+                var next = lines[i + 1] || '';
+                if (next.indexOf('b=AS:') !== 0 && next.indexOf('b=TIAS:') !== 0) {
+                    out.push('b=AS:4000');
+                    out.push('b=TIAS:3500000');
+                }
+            }
+        }
+        return out.join('\r\n');
     }
 
     function tuneAll() {
@@ -153,11 +210,17 @@
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.RTCPeerConnection) {
             return Promise.reject(new Error('browser'));
         }
-        return navigator.mediaDevices.getUserMedia(constraints(kind)).then(function (stream) {
-            var audio = stream.getAudioTracks()[0];
-            var video = stream.getVideoTracks()[0];
-            if (audio && 'contentHint' in audio) audio.contentHint = 'speech';
-            if (video && 'contentHint' in video) video.contentHint = 'detail';
+        var audio = audioConstraints();
+        var request = kind === 'video'
+            ? navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(true) }).catch(function () {
+                return navigator.mediaDevices.getUserMedia({ audio: audio, video: videoConstraints(false) });
+            })
+            : navigator.mediaDevices.getUserMedia({ audio: audio, video: false });
+        return request.then(function (stream) {
+            var audioTrack = stream.getAudioTracks()[0];
+            var videoTrack = stream.getVideoTracks()[0];
+            if (audioTrack && 'contentHint' in audioTrack) audioTrack.contentHint = 'speech';
+            if (videoTrack && 'contentHint' in videoTrack) videoTrack.contentHint = 'detail';
             return stream;
         });
     }
@@ -339,6 +402,8 @@
         pc.oniceconnectionstatechange = function () {
             if (!pc) return;
             if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                tuneAll();
+                tuneReceivers();
                 readPath();
                 if (connectTimer) clearTimeout(connectTimer);
             }
@@ -483,6 +548,7 @@
     function begin(stream) {
         setupPc(stream);
         return pc.createOffer().then(function (offer) {
+            offer.sdp = boostSdp(offer.sdp);
             return pc.setLocalDescription(offer).then(function () { return offer; });
         });
     }
@@ -537,6 +603,7 @@
             flushRemote();
             return pc.createAnswer();
         }).then(function (answer) {
+            answer.sdp = boostSdp(answer.sdp);
             return pc.setLocalDescription(answer).then(function () { return answer; });
         }).then(function (answer) {
             return postJson(cfg.base + '/' + id + '/answer', { answer: answer.sdp });

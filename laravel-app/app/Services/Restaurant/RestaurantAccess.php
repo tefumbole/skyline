@@ -231,6 +231,14 @@ class RestaurantAccess
         return self::can($user, 'kitchen-orders') || self::can($user, 'orders-restaurant-index');
     }
 
+    /** Bar and Restaurant do not get the order log or the lifecycle report. */
+    public static function hidesOrderLog($user)
+    {
+        $role = strtolower((string) ($user ? $user->roleName() : ''));
+
+        return in_array($role, ['restaurant', 'kitchen', 'bar', 'bartender'], true);
+    }
+
     public static function seeStatus($user, $status)
     {
         $role = strtolower((string) ($user ? $user->roleName() : ''));

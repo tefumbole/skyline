@@ -409,7 +409,7 @@ class RestaurantOrderController extends Controller
 
     public function logs(Request $request)
     {
-        if (! RestaurantAccess::can($request->user(), 'order-logs')) {
+        if (RestaurantAccess::hidesOrderLog($request->user()) || ! RestaurantAccess::can($request->user(), 'order-logs')) {
             return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $query = RestaurantOrderItem::with(['order.sale.customer', 'order.diningTable', 'order.placedBy', 'order.waitress', 'acceptedBy', 'readyBy', 'deliveredBy']);

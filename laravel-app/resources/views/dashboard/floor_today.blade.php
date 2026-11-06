@@ -8,16 +8,6 @@
     $momoPct = $paySum > 0 ? round($momo / $paySum * 100, 2) : 0;
     $cashPct = $paySum > 0 ? round($cash / $paySum * 100, 2) : 0;
     $duePct = $paySum > 0 ? max(0, round(100 - $momoPct - $cashPct, 2)) : 0;
-    $staff = $floor['staff'] ?? [];
-    $peak = 1;
-    foreach ($staff as $person) {
-        $peak = max($peak, (int) $person['waiting'], (int) $person['placed'], (int) $person['delivered']);
-    }
-    $lanes = [
-        'waiting' => ['label' => 'Waiting', 'hint' => 'Still with the person who placed it'],
-        'placed' => ['label' => 'Placed', 'hint' => 'Orders opened today'],
-        'delivered' => ['label' => 'Delivered', 'hint' => 'Carried out today'],
-    ];
     $money = function ($amount) {
         return number_format((float) $amount, 0, '.', ',');
     };
@@ -58,96 +48,7 @@
                 <strong>{{ $money($due) }}</strong>
             </div>
         </div>
-
-        <div class="floor-counts">
-            <a href="{{ route('report.customers', ['range' => 'today']) }}">
-                <span>Customers served</span>
-                <strong>{{ number_format((int) ($floor['customers'] ?? 0)) }}</strong>
-                <em>Distinct customers on today’s bills</em>
-            </a>
-            <a href="{{ route('restaurant.orders', ['lane' => 'restaurant']) }}">
-                <span>Orders</span>
-                <strong>{{ number_format((int) ($floor['orders'] ?? 0)) }}</strong>
-                <em>Restaurant orders opened today</em>
-            </a>
-        </div>
     </div>
-
-    <div class="floor-staff">
-        <div class="floor-staff-head">
-            <div>
-                <h3>Staff by orders</h3>
-                <p>Waiting, placed, and delivered</p>
-            </div>
-            <div class="floor-legend">
-                <span><i class="is-waiting"></i> Waiting</span>
-                <span><i class="is-placed"></i> Placed</span>
-                <span><i class="is-delivered"></i> Delivered</span>
-            </div>
-        </div>
-
-        <div class="floor-staff-layout">
-            <div class="floor-chart-panel">
-                @if(count($staff))
-                    <div class="floor-chart-wrap">
-                        <canvas id="floor-staff-chart"></canvas>
-                    </div>
-                @else
-                    <div class="floor-empty">No staff orders yet today.</div>
-                @endif
-            </div>
-            <div class="floor-roster">
-                @forelse($staff as $person)
-                    <article>
-                        <h4>{{ $person['name'] }}</h4>
-                        @foreach(['waiting' => 'Waiting', 'placed' => 'Placed', 'delivered' => 'Delivered'] as $key => $label)
-                            <div class="floor-meter">
-                                <span>{{ $label }}</span>
-                                <b><i class="is-{{ $key }}" style="width: {{ $peak > 0 ? round(((int) $person[$key]) / $peak * 100, 2) : 0 }}%"></i></b>
-                                <em>{{ (int) $person[$key] }}</em>
-                            </div>
-                        @endforeach
-                    </article>
-                @empty
-                    <div class="floor-empty">Orders will appear here as the floor starts taking them.</div>
-                @endforelse
-            </div>
-        </div>
-
-        <div class="floor-lanes">
-            @foreach($lanes as $key => $lane)
-                @php
-                    $ranked = $staff;
-                    usort($ranked, function ($a, $b) use ($key) {
-                        if ((int) $a[$key] === (int) $b[$key]) {
-                            return strcasecmp($a['name'], $b['name']);
-                        }
-                        return (int) $a[$key] < (int) $b[$key] ? 1 : -1;
-                    });
-                    $ranked = array_values(array_filter($ranked, function ($row) use ($key) {
-                        return (int) $row[$key] > 0;
-                    }));
-                    $top = count($ranked) ? (int) $ranked[0][$key] : 1;
-                @endphp
-                <div class="floor-lane is-{{ $key }}">
-                    <header>
-                        <h4>{{ $lane['label'] }}</h4>
-                        <p>{{ $lane['hint'] }}</p>
-                    </header>
-                    @forelse($ranked as $row)
-                        <div class="floor-lane-row">
-                            <span>{{ $row['name'] }}</span>
-                            <b><i style="width: {{ round(((int) $row[$key]) / $top * 100, 2) }}%"></i></b>
-                            <em>{{ (int) $row[$key] }}</em>
-                        </div>
-                    @empty
-                        <div class="floor-lane-empty">None yet</div>
-                    @endforelse
-                </div>
-            @endforeach
-        </div>
-    </div>
-    <script type="application/json" id="floor-staff-data">@json($staff)</script>
 </section>
 <style>
     .floor-board { margin: 0 0 28px; }

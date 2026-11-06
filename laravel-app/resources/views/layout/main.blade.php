@@ -1857,7 +1857,7 @@
                                                                 <li><a href="{{ route('restaurant.orders', ['lane' => $laneKey, 'tab' => $tabKey]) }}">{{ $tabLabel }}@if($tabCount)<span class="badge">{{ $tabCount }}</span>@endif</a></li>
                                                             @endif
                                                         @endforeach
-                                                        @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
+                                                        @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs') && ! \App\Services\Restaurant\RestaurantAccess::hidesOrderLog(auth()->user()))
                                                             <li><a href="{{ route('restaurant.logs', ['lane' => $laneKey]) }}">Log</a></li>
                                                         @endif
                                                     </ul>
@@ -1865,9 +1865,6 @@
                                             </li>
                                         @endif
                                     @endforeach
-                                    @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'sales-add') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'waiter-orders') || \App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'orders-index'))
-                                    <li id="restaurant-tables-menu"><a href="{{ route('restaurant.tables') }}">Tables</a></li>
-                                    @endif
                                 </ul>
                             </li>
                         @endif
@@ -3006,6 +3003,7 @@
                                             </ul>
                                         </li>
                                     @endif
+                                    @if(! \App\Services\Restaurant\RestaurantAccess::hidesOrderLog(auth()->user()))
                                     <li id="order-lifecycle-menu">
                                         <a href="{{ route('report.orderLifecycle', ['range' => 'today']) }}">Order Lifecycle</a>
                                         <ul class="report-sub">
@@ -3015,6 +3013,7 @@
                                             <li id="order-lifecycle-year"><a href="{{ route('report.orderLifecycle', ['range' => 'year']) }}">This Year</a></li>
                                         </ul>
                                     </li>
+                                    @endif
                                     <li id="table-report-menu">
                                         <a href="{{ route('report.tables', ['range' => 'today']) }}">Table Report</a>
                                         <ul class="report-sub">

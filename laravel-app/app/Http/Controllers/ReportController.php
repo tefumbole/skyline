@@ -2320,6 +2320,9 @@ class ReportController extends Controller
     public function orderLifecycle(Request $request)
     {
         $user = Auth::user();
+        if (\App\Services\Restaurant\RestaurantAccess::hidesOrderLog($user)) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
         $kitchen = \App\Services\Restaurant\RestaurantAccess::can($user, 'order-logs')
             || \App\Services\Restaurant\RestaurantAccess::can($user, 'kitchen-orders')
             || \App\Services\Restaurant\RestaurantAccess::can($user, 'bar-orders');

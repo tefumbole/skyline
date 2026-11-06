@@ -84,7 +84,7 @@
                     {{ $tabLabel }}@if($tabCount)<span class="badge">{{ $tabCount }}</span>@endif
                 </a>
             @endforeach
-            @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs'))
+            @if(\App\Services\Restaurant\RestaurantAccess::can(auth()->user(), 'order-logs') && ! \App\Services\Restaurant\RestaurantAccess::hidesOrderLog(auth()->user()))
                 <a href="{{ route('restaurant.logs', ['lane' => $lane]) }}">Log</a>
                 <a href="{{ route('report.orderLifecycle', ['range' => 'today']) }}">Lifecycle</a>
             @endif

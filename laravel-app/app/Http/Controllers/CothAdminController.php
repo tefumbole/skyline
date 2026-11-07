@@ -415,26 +415,32 @@ class CothAdminController extends Controller
         $delta = $after - $before;
 
         $settings = $reservations->settings();
-        $quote = $pricing->quote($table->price, $reservation->event_date, $settings, $table, $after);
+        $dates = $reservations->stayDates($reservation);
+        $quote = $pricing->quoteStay($table, $dates, $settings, $after);
 
-        // Shared pool availability for a positive delta.
+        // Shared pool availability for a positive delta, on every day of the stay.
         if ($delta > 0) {
-            $avail = $reservations->sharedChairsAvailable($reservation->event_date);
-            if ($avail !== null && $delta > $avail) {
-                return $this->adminBack('not_permitted', 'Only '.$avail.' extra chair(s) remain in the shared pool for '.$reservation->event_date->format('Y-m-d').'.');
+            foreach ($dates as $day) {
+                $avail = $reservations->sharedChairsAvailable($day);
+                if ($avail !== null && $delta > $avail) {
+                    return $this->adminBack('not_permitted', 'Only '.$avail.' extra chair(s) remain in the shared pool for '.$day.'.');
+                }
             }
         }
 
         $gatewayUrl = null;
-        DB::transaction(function () use ($reservation, $table, $data, $delta, $after, $quote, $pricing) {
-            // Adjust shared pool "booked" count atomically.
+        DB::transaction(function () use ($reservation, $table, $data, $delta, $after, $quote, $pricing, $dates) {
+            // Adjust shared pool "booked" count atomically on each covered day.
             if ($delta !== 0) {
-                $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
-                if ($row) {
+                foreach ($dates as $day) {
+                    $row = CothExtraChairInventory::whereDate('event_date', $day)->lockForUpdate()->first();
+                    if (! $row) {
+                        continue;
+                    }
                     if ($delta > 0 && $row->total_capacity !== null) {
                         $avail = max(0, (int) $row->total_capacity - (int) $row->held - (int) $row->booked);
                         if ($delta > $avail) {
-                            throw new \RuntimeException('Only '.$avail.' extra chair(s) remain for this date.');
+                            throw new \RuntimeException('Only '.$avail.' extra chair(s) remain for '.$day.'.');
                         }
                     }
                     $row->booked = max(0, (int) $row->booked + $delta);

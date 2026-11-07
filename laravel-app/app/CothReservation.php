@@ -72,9 +72,14 @@ class CothReservation extends Model
             return $this->event_date->format('l, j F Y').' · one day';
         }
         $percent = (int) $this->stay_discount_percent;
-        $label = $this->event_date->format('j M').' – '.$this->stayEnd()->format('j M Y').' · '.$nights.' days';
+        $end = $this->stayEnd();
+        $label = $this->event_date->format('j M').' – '.$end->format('j M Y').' · '.$nights.' open days';
         if ($percent > 0) {
             $label .= ' · '.$percent.'% off';
+        }
+        $span = $this->event_date->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
+        if ($span > $nights) {
+            $label .= ' · closed days in between are not included';
         }
 
         return $label;

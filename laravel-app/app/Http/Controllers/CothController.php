@@ -118,6 +118,11 @@ class CothController extends Controller
         $extraRate = $pricing->extraChairRate($table);
         $maxChairs = $pricing->extraChairLimit($table);
         $allowChairs = $maxChairs > 0;
+        $stays = $reservations->stayChoices($table, $date);
+        if (! count($stays)) {
+            return redirect()->route('coth.tables', ['date' => $date, 'section' => $table->section->code])
+                ->with('not_permitted', 'That table is no longer available for this date.');
+        }
 
         return view('beyond.coth.book', [
             'date' => $date,
@@ -127,7 +132,7 @@ class CothController extends Controller
             'extraRate' => $extraRate,
             'allowChairs' => $allowChairs,
             'maxChairs' => $maxChairs,
-            'stays' => $reservations->stayChoices($table, $date),
+            'stays' => $stays,
             'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
             'countries' => $this->bookingCountries(),
         ]);

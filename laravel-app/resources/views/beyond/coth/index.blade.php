@@ -117,7 +117,7 @@
     <div class="coth-panel">
         <section class="coth-choose">
             <div class="coth-choose-head">
-                <h2>Choose your date</h2>
+                <h2>Choose your first day</h2>
                 <div class="coth-steps" aria-label="Reservation progress">
                     <span class="is-on"><span class="coth-step-dot">1</span> Date</span>
                     <span class="coth-step-line"></span>
@@ -126,6 +126,7 @@
                     <span><span class="coth-step-dot">3</span> Reserve</span>
                 </div>
             </div>
+            <p style="margin:0 0 8px;color:rgba(246,239,228,.65);font-size:13px;">This is the first day. After you pick a table you can add more days, from 5% off for 2 days up to 35% off for 8.</p>
             <div class="coth-dates" id="coth-dates">
                 @foreach ($dates as $date)
                     @php

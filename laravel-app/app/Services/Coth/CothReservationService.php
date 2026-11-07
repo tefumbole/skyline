@@ -223,11 +223,33 @@ class CothReservationService
             }
             $startLabel = Carbon::parse($dates[0])->format('j M');
             $endLabel = Carbon::parse($dates[$nights - 1])->format('j M');
+            $closed = [];
+            if ($nights > 1) {
+                $cursor = Carbon::parse($dates[0])->startOfDay();
+                $last = Carbon::parse($dates[$nights - 1])->startOfDay();
+                $open = array_flip($dates);
+                while ($cursor->lte($last)) {
+                    if (! isset($open[$cursor->toDateString()])) {
+                        $closed[] = $cursor->format('j M');
+                    }
+                    $cursor->addDay();
+                }
+            }
+            $chairCap = null;
+            foreach ($dates as $day) {
+                $avail = $this->sharedChairsAvailable($day);
+                if ($avail === null) {
+                    continue;
+                }
+                $chairCap = $chairCap === null ? $avail : min($chairCap, $avail);
+            }
             $choices[] = [
                 'nights' => $nights,
                 'percent' => app(CothPricing::class)->stayPercent($nights),
                 'end' => $dates[$nights - 1],
                 'label' => $nights === 1 ? $startLabel : $startLabel.' – '.$endLabel,
+                'closed' => $closed,
+                'chairs' => $chairCap,
             ];
         }
 
@@ -261,7 +283,7 @@ class CothReservationService
         if ($row->total_capacity !== null) {
             $avail = (int) $row->total_capacity - (int) $row->held - (int) $row->booked;
             if ($qty > $avail) {
-                throw new \InvalidArgumentException('Only '.$avail.' extra chair(s) are left for this date.');
+                throw new \InvalidArgumentException('Only '.$avail.' extra chair(s) are left on '.Carbon::parse($date)->format('j M Y').'. Choose fewer chairs or fewer days.');
             }
         }
         $row->held = (int) $row->held + $qty;
@@ -564,7 +586,11 @@ class CothReservationService
                     $payment->amount = $reservation->amount_paid;
                     $payment->change = 0;
                     $payment->paying_method = $reservation->pay_method === 'card' ? 'Credit Card' : 'Momo/Orange';
-                    $payment->payment_note = ($reservation->pay_method === 'card' ? 'stripe:' : 'campay:').$reservation->gateway_reference;
+                    if ($reservation->gateway_reference === 'visa-test') {
+                        $payment->payment_note = 'visa-test';
+                    } else {
+                        $payment->payment_note = ($reservation->pay_method === 'card' ? 'stripe:' : 'campay:').$reservation->gateway_reference;
+                    }
                     $payment->save();
                 } catch (\Throwable $e) {
                     \Log::warning('coth payment row: '.$e->getMessage());
@@ -595,7 +621,11 @@ class CothReservationService
                 '• Table: '.($table ? $table->code : $reservation->coth_table_id).' · '.($table ? $table->capacity : '').' included seats',
             ];
             if ($extraQty > 0) {
-                $lines[] = '• Extra chairs: '.$extraQty.' × '.number_format((int) $reservation->extra_chair_rate).' FCFA';
+                $chairLine = '• Extra chairs: '.$extraQty.' × '.number_format((int) $reservation->extra_chair_rate).' FCFA each';
+                if ($reservation->nightCount() > 1) {
+                    $chairLine .= ' per day × '.$reservation->nightCount().' days';
+                }
+                $lines[] = $chairLine;
                 $lines[] = '• Guests: '.$totalGuests.' ('.($table ? $table->capacity : 0).' included + '.$extraQty.' extra)';
             }
             $lines[] = '• Listed table: '.number_format((int) $reservation->list_price).' FCFA';

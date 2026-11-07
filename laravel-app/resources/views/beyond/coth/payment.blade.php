@@ -42,6 +42,8 @@
                 <p class="text-white/70 mt-1 mb-4">
                     @if ($reservation->pay_choice === 'full')
                         You chose to pay the full amount.
+                    @elseif ($reservation->pay_choice === 'custom')
+                        You chose a custom amount.
                     @else
                         You chose to pay the 20% deposit now.
                     @endif

@@ -104,7 +104,7 @@
                             <div>
                                 <h3 class="font-semibold text-base m-0">Add extra chairs</h3>
                                 <p class="text-xs text-white/60 m-0">
-                                    {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each.
+                                    {{ (int) $table->capacity }} seats included · up to {{ (int) $maxChairs }} extra · {{ number_format((int) $extraRate) }} FCFA each per day.
                                     The 20% deposit includes these chairs.
                                 </p>
                             </div>
@@ -118,6 +118,7 @@
                         <p class="text-xs text-brand-gold/90 mt-3 m-0" id="coth-guest-line">
                             {{ (int) $table->capacity }} included seats
                         </p>
+                        <p class="text-xs text-brand-gold/90 mt-1 m-0" id="coth-chair-limit" hidden></p>
                     </div>
                 @else
                     <input type="hidden" name="extra_chairs" id="coth-qty" value="0">
@@ -492,17 +493,34 @@
 
     function fmt(n) { return (Math.max(0, Math.round(n))).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
     function sync() {
-        var q = parseInt(qtyInput.value || '0', 10);
-        if (isNaN(q) || q < 0) q = 0;
-        if (q > maxChairs) q = maxChairs;
-        qtyInput.value = String(q);
-        if (qtyLabel) qtyLabel.textContent = String(q);
-        if (plus) plus.disabled = (q >= maxChairs);
-        if (minus) minus.disabled = (q <= 0);
-
         var nights = nightsInput ? parseInt(nightsInput.value || '1', 10) : 1;
         if (isNaN(nights) || nights < 1) nights = 1;
         if (nights > 8) nights = 8;
+        var stay = null;
+        stays.forEach(function (row) { if (row.nights === nights) stay = row; });
+        var chairCap = maxChairs;
+        if (stay && stay.chairs !== null && stay.chairs !== undefined && !isNaN(parseInt(stay.chairs, 10))) {
+            chairCap = Math.min(maxChairs, parseInt(stay.chairs, 10));
+        }
+        var q = parseInt(qtyInput.value || '0', 10);
+        if (isNaN(q) || q < 0) q = 0;
+        if (q > chairCap) q = chairCap;
+        qtyInput.value = String(q);
+        if (qtyLabel) qtyLabel.textContent = String(q);
+        if (plus) plus.disabled = (q >= chairCap);
+        if (minus) minus.disabled = (q <= 0);
+        var chairLimit = document.getElementById('coth-chair-limit');
+        if (chairLimit) {
+            if (chairCap < maxChairs) {
+                chairLimit.hidden = false;
+                chairLimit.textContent = chairCap < 1
+                    ? 'No extra chairs are left on every day of this stay.'
+                    : ('Only ' + chairCap + ' extra chair(s) are free on every day of this stay.');
+            } else {
+                chairLimit.hidden = true;
+            }
+        }
+
         var stayPct = stayPercents[nights] || 0;
         var tableList = listPrice * nights;
         var tableDiscount = nights > 1 ? Math.floor(tableList * stayPct / 100) : oneDayDiscount;
@@ -516,8 +534,6 @@
         }
         var chairsAmount = chairsGross - chairsDiscount;
         var bookingTotal = tableFinal + chairsAmount;
-        var stay = null;
-        stays.forEach(function (row) { if (row.nights === nights) stay = row; });
         var listEl = document.getElementById('coth-list-amount');
         var discountEl = document.getElementById('coth-discount-amount');
         var finalEl = document.getElementById('coth-final-amount');
@@ -530,7 +546,21 @@
         }
         if (finalEl) finalEl.textContent = fmt(tableFinal) + ' FCFA';
         if (dateLabel && stay) dateLabel.textContent = stay.label;
-        if (dateNote) dateNote.textContent = nights > 1 ? (nights + ' days · ' + stayPct + '% off') : 'One-day reservation';
+        if (dateNote) {
+            var note = nights > 1 ? (nights + ' open days · ' + stayPct + '% off') : 'One-day reservation';
+            if (stay && stay.closed && stay.closed.length) note += ' · ' + stay.closed.join(', ') + ' closed, not charged';
+            dateNote.textContent = note;
+        }
+        var stayLine = document.getElementById('coth-stay-line');
+        if (stayLine && stay) {
+            var line = nights > 1
+                ? ('The table is held for ' + nights + ' open days (' + stay.label + '), ' + stayPct + '% off.')
+                : 'One day at the standard price. Add more days for a discount, from 5% for 2 days up to 35% for 8.';
+            if (stay.closed && stay.closed.length) {
+                line += ' ' + stay.closed.join(' and ') + (stay.closed.length > 1 ? ' are' : ' is') + ' closed and not charged.';
+            }
+            stayLine.textContent = line;
+        }
         var deposit = Math.ceil(bookingTotal * depositPct / 100);
         var balance = Math.max(0, bookingTotal - deposit);
 
@@ -539,7 +569,7 @@
         var chairAmount = document.getElementById('coth-chair-amount');
         var totalAmount = document.getElementById('coth-total-amount');
         if (chairRow) chairRow.style.display = q > 0 ? '' : 'none';
-        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + (nights > 1 ? ' × ' + nights + ' days' : '') + ')';
+        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + (nights > 1 ? ' × ' + nights + ' days' : '') + (chairsDiscount > 0 ? ', after ' + stayPct + '% off' : '') + ')';
         if (chairAmount) chairAmount.textContent = fmt(chairsAmount) + ' FCFA';
         if (totalAmount) totalAmount.textContent = fmt(bookingTotal) + ' FCFA';
 
@@ -596,7 +626,8 @@
         var submit = document.getElementById('coth-submit');
         var later = document.getElementById('coth-pay-later') && document.getElementById('coth-pay-later').checked;
         if (terms) {
-            var cover = nights > 1 ? ('this booking covers ' + nights + ' days' + (stay ? ' (' + stay.label + ')' : '') + '.') : 'this booking is for the date shown only.';
+            var cover = nights > 1 ? ('this booking covers ' + nights + ' open days' + (stay ? ' (' + stay.label + ')' : '') + '.') : 'this booking is for the date shown only.';
+            if (stay && stay.closed && stay.closed.length) cover += ' ' + stay.closed.join(' and ') + (stay.closed.length > 1 ? ' are' : ' is') + ' closed and not charged.';
             terms.textContent = later
                 ? 'I accept that the full amount stays due and that ' + cover
                 : 'I accept that the deposit is non-refundable and that ' + cover;

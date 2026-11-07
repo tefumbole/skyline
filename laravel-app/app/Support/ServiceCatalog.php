@@ -51,7 +51,7 @@ class ServiceCatalog
             $out[$parent->id] = [
                 'label' => $parent->name,
                 'blurb' => $isReservation
-                    ? 'Reserve one table for one night, 24 December 2026 to 2 January 2027.'
+                    ? 'Reserve one table for up to 8 open days, 24 December 2026 to 2 January 2027. Longer stays are discounted.'
                     : self::blurbFor($parent->name),
                 'icon' => $isReservation ? 'calendar' : self::iconFor($parent->name),
                 'reservation' => $isReservation,

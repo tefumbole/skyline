@@ -378,7 +378,7 @@ class SkylineGuestGuide
         $dates = $this->spokenDates(app(CothCatalog::class)->eventDates());
         $lines = [];
         $lines[] = 'Chill on the Hill brief. Use it for dates, tables, and prices.';
-        $lines[] = 'Event period: 24 December 2026 to 2 January 2027. Bookable nights: '.$dates.'. Closed and not bookable: 28 December 2026 and 29 December 2026. A discount does not make a closed night bookable. One booking is one night.';
+        $lines[] = 'Event period: 24 December 2026 to 2 January 2027. Bookable nights: '.$dates.'. Closed and not bookable: 28 December 2026 and 29 December 2026. A discount does not make a closed night bookable. A guest can reserve the same table for 1 to 8 open days, starting on the date they choose. Closed days are skipped and not charged. 2 days is 5% off, 3 is 10%, 4 is 15%, 5 is 20%, 6 is 25%, 7 is 30%, and 8 is 35% off the table and the extra chairs. One day uses the normal price.';
         $lines[] = 'Apply a discount only when the quote tool returns one. Extra-chair discount follows the stored discount_includes_addons flag.';
         $lines[] = $this->depositBrief();
         $conflicts = $this->policyConflicts();
@@ -392,7 +392,7 @@ class SkylineGuestGuide
             }
             $lines[] = $section['name'].': '.implode('; ', $bits).'.';
         }
-        $lines[] = 'These tables are published and can be booked on an open night. If the guest asks which tables are available and has not named a night, list these options and the open nights. Do not say the tables are unavailable. A table is unavailable only when that night is Held or Booked.';
+        $lines[] = 'These tables are published and can be booked on an open night. If the guest asks which tables are available and has not named a night, list these options and the open nights. Do not say the tables are unavailable. A table is unavailable only when that night is Held or Booked. A stay of several days needs every selected open night to be free.';
         $lines[] = 'Read a date however the guest writes it: 24th December, 24/12, Dec 24, Christmas Eve, or the 26th.';
 
         return implode("\n", $lines);

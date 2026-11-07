@@ -121,7 +121,7 @@
                                 </div>
                                 <input type="hidden" id="coth-dial" value="237">
                             </div>
-                            <input id="coth-local" required inputmode="tel" autocomplete="tel-national" placeholder="WhatsApp number" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
+                            <input id="coth-local" data-wa-phone="off" required inputmode="tel" autocomplete="tel-national" placeholder="WhatsApp number" class="flex-1 bg-transparent outline-none text-white placeholder-white/35">
                             <input type="hidden" name="phone" id="coth-phone-hidden" value="{{ old('phone') }}">
                             <button type="button" id="coth-resolve" class="shrink-0 text-xs font-bold uppercase tracking-[0.14em] bg-brand-gold text-[#24160F] rounded-full px-4 py-2">Next</button>
                         </div>
@@ -332,7 +332,14 @@
     }
     function nationalDigits(raw, dialCode) {
         var d = String(raw || '').replace(/\D/g, '');
-        if (d.indexOf(dialCode) === 0 && d.length > dialCode.length + 6) d = d.substring(dialCode.length);
+        dialCode = String(dialCode || '');
+        if (dialCode && d.indexOf(dialCode) === 0 && d.length > dialCode.length + 6) d = d.substring(dialCode.length);
+        // The page formatter used to put 237 in front of every number. Drop that
+        // only when another country is selected and the rest is still a full number.
+        if (dialCode !== '237' && d.indexOf('237') === 0 && d.length >= 11) {
+            var rest = d.substring(3);
+            if (rest.length >= 7 && rest.length <= 12) d = rest;
+        }
         if (d.charAt(0) === '0') d = d.substring(1);
         return d;
     }

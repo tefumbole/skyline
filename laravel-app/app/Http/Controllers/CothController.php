@@ -151,12 +151,7 @@ class CothController extends Controller
         $dial = preg_replace('/\D/', '', (string) ($data['dial_code'] ?? ''));
         $local = preg_replace('/\D/', '', (string) ($data['local'] ?? ''));
         if ($dial !== '' && $local !== '') {
-            if (strpos($local, $dial) === 0 && strlen($local) > strlen($dial) + 6) {
-                $local = substr($local, strlen($dial));
-            }
-            if ($local !== '' && $local[0] === '0') {
-                $local = substr($local, 1);
-            }
+            list($dial, $local) = $this->nationalFromDial($dial, $local);
             $digits = $dial.$local;
         } else {
             $raw = (string) ($data['phone'] ?? '');
@@ -255,20 +250,37 @@ class CothController extends Controller
             'dial_code' => 'required|string|max:8',
             'local' => 'required|string|max:32',
         ]);
-        $dial = preg_replace('/\D/', '', (string) $data['dial_code']);
-        $local = preg_replace('/\D/', '', (string) $data['local']);
-        if ($dial !== '' && strpos($local, $dial) === 0 && strlen($local) > strlen($dial) + 6) {
-            $local = substr($local, strlen($dial));
-        }
-        if ($local !== '' && isset($local[0]) && $local[0] === '0') {
-            $local = substr($local, 1);
-        }
+        list($dial, $local) = $this->nationalFromDial($data['dial_code'], $data['local']);
         $digits = $dial.$local;
         if (strlen($digits) < 10) {
             return null;
         }
 
         return $digits;
+    }
+
+    /**
+     * Keep the country the guest picked. A Cameroon 237 stuck in front of
+     * another country's number is removed; the selected code is not replaced.
+     */
+    protected function nationalFromDial($dial, $local)
+    {
+        $dial = preg_replace('/\D/', '', (string) $dial);
+        $local = preg_replace('/\D/', '', (string) $local);
+        if ($dial !== '' && $local !== '' && strpos($local, $dial) === 0 && strlen($local) > strlen($dial) + 6) {
+            $local = substr($local, strlen($dial));
+        }
+        if ($dial !== '237' && strpos($local, '237') === 0 && strlen($local) >= 11) {
+            $rest = substr($local, 3);
+            if (strlen($rest) >= 7 && strlen($rest) <= 12) {
+                $local = $rest;
+            }
+        }
+        if ($local !== '' && isset($local[0]) && $local[0] === '0') {
+            $local = substr($local, 1);
+        }
+
+        return array($dial, $local);
     }
 
     protected function bookingCountries()

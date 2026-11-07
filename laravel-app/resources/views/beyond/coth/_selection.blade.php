@@ -121,7 +121,12 @@
                     <div class="flex justify-between"><span class="text-white/70">Final table</span><span id="coth-final-amount">{{ number_format((int) $q['final_price']) }} FCFA</span></div>
                     @php $extraQty = (int) ($q['extra_chairs_qty'] ?? 0); @endphp
                     <div class="flex justify-between" id="coth-chair-row" @if($extraQty < 1) style="display:none" @endif>
-                        <span class="text-white/70" id="coth-chair-label">Extra chairs@if($r && $extraQty > 0 && $r->nightCount() > 1) ({{ $extraQty }} × {{ number_format((int) ($q['extra_chair_rate'] ?? 0)) }} × {{ $r->nightCount() }} days)@endif</span>
+                        <span class="text-white/70" id="coth-chair-label">
+                            Extra chairs
+                            @if ($r && $extraQty > 0 && $r->nightCount() > 1)
+                                ({{ $extraQty }} × {{ number_format((int) ($q['extra_chair_rate'] ?? 0)) }} × {{ $r->nightCount() }} days)
+                            @endif
+                        </span>
                         <span id="coth-chair-amount">@if($extraQty > 0){{ number_format((int) $q['extra_chairs_amount']) }} FCFA @endif</span>
                     </div>
                     <div class="flex justify-between font-semibold border-t border-white/10 pt-2 mt-2"><span>Total</span><span id="coth-total-amount">{{ number_format((int) $q['booking_total']) }} FCFA</span></div>

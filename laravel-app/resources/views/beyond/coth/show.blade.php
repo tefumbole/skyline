@@ -33,7 +33,12 @@
 
                     @if ($extraQty > 0)
                         <div class="text-white/60">Extra chairs</div>
-                        <div>{{ $extraQty }} × {{ number_format((int) $reservation->extra_chair_rate) }} FCFA each@if($reservation->nightCount() > 1) per day, for {{ $reservation->nightCount() }} days @endif</div>
+                        <div>
+                            {{ $extraQty }} × {{ number_format((int) $reservation->extra_chair_rate) }} FCFA each
+                            @if ($reservation->nightCount() > 1)
+                                per day, for {{ $reservation->nightCount() }} days
+                            @endif
+                        </div>
                         <div class="text-white/60">Guests</div>
                         <div>{{ $totalGuests }} ({{ $table ? $table->capacity : 0 }} included + {{ $extraQty }} extra)</div>
                     @endif

@@ -507,7 +507,7 @@ var rownumber = $('table.order-list tbody tr:last').index();
 
 for(rowindex  =0; rowindex <= rownumber; rowindex++){
     product_price.push(parseFloat($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-price').val()));
-    exist_code.push($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('td:nth-child(2)').text());
+    exist_code.push($.trim($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-code').val() || $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('td:nth-child(2)').text()));
     exist_type.push($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-type').val());
     var total_discount = parseFloat($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.discount').text());
     var quantity = parseFloat($('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.qty').val());
@@ -531,7 +531,7 @@ $('[data-toggle="tooltip"]').tooltip();
 
 //assigning value
 $('select[name="customer_id"]').val($('input[name="customer_id_hidden"]').val());
-$('select[name="warehouse_id"]').val($('input[name="warehouse_id_hidden"]').val());
+$('#warehouse_id').val($('input[name="warehouse_id_hidden"]').val());
 $('select[name="biller_id"]').val($('input[name="biller_id_hidden"]').val());
 $('select[name="sale_status"]').val($('input[name="sale_status_hidden"]').val());
 $('select[name="order_tax_rate"]').val($('input[name="order_tax_rate_hidden"]').val());
@@ -553,34 +553,57 @@ $.get('../getcustomergroup/' + id, function(data) {
     customer_group_rate = (data / 100);
 });
 
-var id = $('select[name="warehouse_id"]').val();
-$.get('../getproduct/' + id, function(data) {
-    lims_product_array = [];
-    product_code = data[0];
-    product_name = data[1];
-    product_qty = data[2];
-    product_type = data[3];
-    product_id = data[4];
-    product_list = data[5];
-    qty_list = data[6];
-    product_warehouse_price = data[7];
-    batch_no = data[8];
-    product_batch_id = data[9];
+var line_code = exist_code.slice();
+var line_qty = exist_qty.slice();
+var line_type = exist_type.slice();
 
+function saleWarehouseId() {
+    var id = $('#warehouse_id').val();
+    if (!id) {
+        id = $('input[name="warehouse_id_hidden"]').val();
+    }
+    return id;
+}
+
+function applyProductCatalog(data) {
+    lims_product_array = [];
+    product_code = data[0] || [];
+    product_name = data[1] || [];
+    product_qty = data[2] || [];
+    product_type = data[3] || [];
+    product_id = data[4] || [];
+    product_list = data[5] || [];
+    qty_list = data[6] || [];
+    product_warehouse_price = data[7] || [];
+    batch_no = data[8] || [];
+    product_batch_id = data[9] || [];
+
+    var pending_code = line_code.slice();
+    var pending_qty = line_qty.slice();
+    var pending_type = line_type.slice();
     $.each(product_code, function(index) {
-        if(exist_code.includes(product_code[index])) {
-            pos = exist_code.indexOf(product_code[index]);
-            product_qty[index] = product_qty[index] + exist_qty[pos];
-            exist_code.splice(pos, 1);
-            exist_qty.splice(pos, 1);
+        var extra = 0;
+        for (var i = pending_code.length - 1; i >= 0; i--) {
+            if ($.trim(String(pending_code[i])) === $.trim(String(product_code[index]))) {
+                extra += Number(pending_qty[i]) || 0;
+                pending_code.splice(i, 1);
+                pending_qty.splice(i, 1);
+                pending_type.splice(i, 1);
+            }
         }
+        product_qty[index] = (Number(product_qty[index]) || 0) + extra;
         lims_product_array.push(product_code[index] + ' (' + product_name[index] + ')');
     });
-    $.each(exist_code, function(index) {
-        product_type.push(exist_type[index]);
-        product_code.push(exist_code[index]);
-        product_qty.push(exist_qty[index]);
+    $.each(pending_code, function(index) {
+        product_type.push(pending_type[index]);
+        product_code.push($.trim(String(pending_code[index])));
+        product_qty.push(Number(pending_qty[index]) || 0);
     });
+}
+
+var id = saleWarehouseId();
+$.get('../getproduct/' + id, function(data) {
+    applyProductCatalog(data);
 });
 
 isCashRegisterAvailable(id);
@@ -592,24 +615,10 @@ $('select[name="customer_id"]').on('change', function() {
     });
 });
 
-$('select[name="warehouse_id"]').on('change', function() {
-    var id = $(this).val();
+$('#warehouse_id').on('change', function() {
+    var id = saleWarehouseId();
     $.get('../getproduct/' + id, function(data) {
-        lims_product_array = [];
-        product_code = data[0];
-        product_name = data[1];
-        product_qty = data[2];
-        product_type = data[3];
-        product_id = data[4];
-        product_list = data[5];
-        qty_list = data[6];
-        product_warehouse_price = data[7];
-        batch_no = data[8];
-        product_batch_id = data[9];
-
-        $.each(product_code, function(index) {
-            lims_product_array.push(product_code[index] + ' (' + product_name[index] + ')');
-        });
+        applyProductCatalog(data);
     });
     isCashRegisterAvailable(id);
 });
@@ -741,7 +750,7 @@ $('button[name="update_btn"]').on("click", function() {
 $("#myTable").on("change", ".batch-no", function () {
     rowindex = $(this).closest('tr').index();
     var product_id = $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('.product-id').val();
-    var warehouse_id = $('select[name="warehouse_id"]').val();
+    var warehouse_id = saleWarehouseId();
     $.get('../../check-batch-availability/' + product_id + '/' + $(this).val() + '/' + warehouse_id, function(data) {
         if(data['message'] != 'ok') {
             alert(data['message']);
@@ -887,9 +896,15 @@ function edit(){
 }
 
 function checkQuantity(sale_qty, flag) {
-    var row_product_code = $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')').find('td:nth-child(2)').text();
-    pos = product_code.indexOf(row_product_code);
-    console.log('ff')
+    var row = $('table.order-list tbody tr:nth-child(' + (rowindex + 1) + ')');
+    var row_product_code = $.trim(row.find('.product-code').val() || row.find('td:nth-child(2)').text());
+    pos = -1;
+    for (var i = 0; i < product_code.length; i++) {
+        if ($.trim(String(product_code[i])) === row_product_code) {
+            pos = i;
+            break;
+        }
+    }
     if(product_type[pos] == 'standard'){
         var operator = unit_operator[rowindex].split(',');
         var operation_value = unit_operation_value[rowindex].split(',');

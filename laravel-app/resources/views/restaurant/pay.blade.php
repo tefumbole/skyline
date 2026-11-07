@@ -93,9 +93,9 @@
                 if (Date.now() - started > 180000) {
                     hint.textContent = 'Still waiting for the phone. If the prompt expired, go back and send it again.';
                 }
-                window.setTimeout(tick, 4000);
+                window.setTimeout(tick, 1500);
             })
-            .catch(function () { window.setTimeout(tick, 4000); });
+            .catch(function () { window.setTimeout(tick, 1500); });
     }
     tick();
 })();

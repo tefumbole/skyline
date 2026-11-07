@@ -137,9 +137,6 @@ class CampayCollectService
         if ($currency !== 'XAF') {
             return false;
         }
-        if (trim((string) (isset($body['operator_reference']) ? $body['operator_reference'] : '')) === '') {
-            return false;
-        }
         $external = trim((string) (isset($body['external_reference']) ? $body['external_reference'] : ''));
         if ($externalPattern && ($external === '' || ! preg_match($externalPattern, $external))) {
             return false;

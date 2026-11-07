@@ -203,9 +203,8 @@ class CampayPayoutService
     }
 
     /**
-     * Live Campay status for a collection. Paid only when Campay confirms SUCCESSFUL,
-     * the amount and currency match, and the operator returned a debit reference.
-     * A webhook body is never trusted by itself.
+     * Live Campay status for a collection. Paid only when Campay confirms SUCCESSFUL
+     * and the amount and currency match. A webhook body is never trusted by itself.
      *
      * @return array{state:string,confirmed:bool}
      */
@@ -273,9 +272,6 @@ class CampayPayoutService
         }
         $currency = strtoupper(trim((string) (isset($body['currency']) ? $body['currency'] : 'XAF')));
         if ($currency !== 'XAF') {
-            return false;
-        }
-        if (trim((string) (isset($body['operator_reference']) ? $body['operator_reference'] : '')) === '') {
             return false;
         }
         $external = trim((string) (isset($body['external_reference']) ? $body['external_reference'] : ''));

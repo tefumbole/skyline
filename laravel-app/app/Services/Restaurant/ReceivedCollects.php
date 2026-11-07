@@ -18,38 +18,44 @@ class ReceivedCollects
 {
     public function settle()
     {
-        if (! Cache::add('skyline.collects.settle', 1, 30)) {
+        if (! Cache::add('skyline.collects.settle', 1, 8)) {
             return;
         }
         $rows = app(CampayPayoutService::class)->confirmedCollections(
-            date('Y-m-d', strtotime('-21 days')),
+            date('Y-m-d', strtotime('-2 days')),
             date('Y-m-d')
         );
         $campay = app(CampayCollectService::class);
+        $lookups = 0;
         foreach ($rows as $item) {
             $uuid = trim((string) (isset($item['reference_uuid']) ? $item['reference_uuid'] : ''));
             if ($uuid === '') {
                 continue;
             }
-            try {
-                $body = $campay->transaction($uuid);
-            } catch (\Throwable $e) {
+            $external = trim((string) (isset($item['external_reference']) ? $item['external_reference'] : ''));
+            $body = null;
+            if ($external === '' && $lookups < 8) {
+                $lookups++;
+                try {
+                    $body = $campay->transaction($uuid);
+                } catch (\Throwable $e) {
+                    $body = null;
+                }
+                if (is_array($body)) {
+                    $external = trim((string) (isset($body['external_reference']) ? $body['external_reference'] : ''));
+                }
+            }
+            $landed = $this->landed(is_array($body) ? $body : $item, isset($item['credit']) ? $item['credit'] : 0);
+            $gross = 0;
+            if (isset($item['amount']) && is_numeric($item['amount'])) {
+                $gross = (float) $item['amount'];
+            } elseif (is_array($body) && isset($body['amount']) && is_numeric($body['amount'])) {
+                $gross = (float) $body['amount'];
+            }
+            if ($landed <= 0 && $gross <= 0) {
                 continue;
             }
-            if (! is_array($body)) {
-                continue;
-            }
-            $external = trim((string) (isset($body['external_reference']) ? $body['external_reference'] : ''));
-            $landed = $this->landed($body, isset($item['credit']) ? $item['credit'] : 0);
-            if ($landed <= 0) {
-                continue;
-            }
-            $pattern = $external !== '' ? '/^'.preg_quote($external, '/').'$/' : null;
-            $outcome = $campay->collectionOutcome($uuid, $landed, null, $pattern);
-            if ($outcome['state'] !== 'paid' || empty($outcome['confirmed'])) {
-                continue;
-            }
-            $this->applySale($external, $uuid, $landed);
+            $this->applySale($external, $uuid, $landed, $gross);
             $this->applyDeposit($uuid);
             $this->applyDonation($uuid);
         }
@@ -70,7 +76,7 @@ class ReceivedCollects
         return 0;
     }
 
-    protected function applySale($external, $reference, $landed)
+    protected function applySale($external, $reference, $landed, $gross = 0)
     {
         $saleId = 0;
         if (preg_match('/^sale-momo-(\d+)/', (string) $external, $match)) {
@@ -86,7 +92,17 @@ class ReceivedCollects
             return;
         }
         $due = max(0, (float) $row->grand_total - (float) $row->paid_amount);
-        if ($due < 0.5 || abs($due - $landed) > 1) {
+        if ($due < 0.5) {
+            return;
+        }
+        $record = 0;
+        foreach ([$gross, $landed] as $candidate) {
+            if ((float) $candidate > 0 && abs($due - (float) $candidate) <= 1) {
+                $record = $due;
+                break;
+            }
+        }
+        if ($record <= 0) {
             return;
         }
         $this->useTenant(isset($row->cloud_tenant_id) ? $row->cloud_tenant_id : null);
@@ -94,7 +110,7 @@ class ReceivedCollects
         if (! $sale || RestaurantPayments::alreadyRecorded($sale->id, $reference)) {
             return;
         }
-        RestaurantPayments::recordGateway($sale, $landed, $reference, $row->user_id);
+        RestaurantPayments::recordGateway($sale, $record, $reference, $row->user_id);
     }
 
     protected function applyDeposit($reference)

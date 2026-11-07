@@ -24,6 +24,7 @@ class PaymentController extends Controller
 {
     public function index()
     {
+        $this->applyReceivedMomo();
         $sales = $this->awaitingSales();
         $lims_account_list = Account::orderByDesc('id')->get();
         return view('payment.customer-data', compact('sales', 'lims_account_list'));
@@ -32,6 +33,7 @@ class PaymentController extends Controller
 
     public function AwaitingPayments($id)
     {
+        $this->applyReceivedMomo();
         $sales = $this->awaitingSales($id);
         $lims_account_list = Account::orderByDesc('id')->get();
         return view('payment.customer-data', compact('sales', 'lims_account_list'));
@@ -56,6 +58,14 @@ class PaymentController extends Controller
 
             return $due > 0.009;
         })->values();
+    }
+
+    protected function applyReceivedMomo()
+    {
+        try {
+            app(\App\Services\Restaurant\ReceivedCollects::class)->settle();
+        } catch (\Throwable $e) {
+        }
     }
 
     public function Desposit()

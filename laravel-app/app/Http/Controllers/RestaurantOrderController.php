@@ -192,7 +192,8 @@ class RestaurantOrderController extends Controller
 
     public function reject(Request $request, $item)
     {
-        if (! RestaurantAccess::can($request->user(), 'meal-rejections')) {
+        $actor = $request->user();
+        if (! $actor || (! $actor->hasFullAdminAccess() && ! RestaurantAccess::can($actor, 'meal-rejections'))) {
             return redirect('/')->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $row = $this->item($item);
@@ -224,6 +225,26 @@ class RestaurantOrderController extends Controller
         }
 
         return back()->with('message', 'Rejected. That line is off the amount due.');
+    }
+
+    public function removeItem(Request $request, $item)
+    {
+        $user = $request->user();
+        if (! $user || ! $user->hasFullAdminAccess()) {
+            return $this->actionError($request, 'Not allowed');
+        }
+        $row = $this->item($item);
+        try {
+            $due = $this->orders->removeFromBill($row, $user, $request->input('qty'));
+        } catch (\InvalidArgumentException $e) {
+            return $this->actionError($request, $e->getMessage());
+        }
+        $money = number_format((float) $due, 0);
+        $message = $due > 0.009
+            ? 'Item removed. Amount still due: '.$money.'.'
+            : 'Item removed. This order is fully paid.';
+
+        return back()->with('message', $message);
     }
 
     public function openAlert(Request $request)

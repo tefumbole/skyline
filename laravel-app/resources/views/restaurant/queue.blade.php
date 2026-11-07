@@ -231,6 +231,15 @@
                                 <button class="btn btn-primary btn-block" type="submit">Delivered</button>
                             </form>
                         @endif
+                        @if(auth()->user()->hasFullAdminAccess() && ! in_array($item->status, ['rejected', 'cancelled'], true))
+                            <form method="post" action="{{ route('restaurant.item.remove', $item->id) }}" style="margin-top:8px;" onsubmit="return confirm('Remove this item from the order? The amount due will change.');">
+                                @csrf
+                                <div class="input-group">
+                                    <input class="form-control" type="number" name="qty" min="0.01" max="{{ $item->qty }}" step="0.01" value="{{ $item->qty }}" title="Quantity to remove" required>
+                                    <span class="input-group-btn"><button class="btn btn-danger" type="submit">Remove</button></span>
+                                </div>
+                            </form>
+                        @endif
                         @if($canDelete && $item->status === 'delivered')
                             <details>
                                 <summary>Record rejection</summary>

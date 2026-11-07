@@ -106,6 +106,13 @@
                                 <button class="btn btn-primary" type="submit">Delivered</button>
                             </form>
                         @endif
+                        @if(auth()->user()->hasFullAdminAccess())
+                            <form method="post" action="{{ route('restaurant.item.remove', $item->id) }}" style="margin-top:6px;" onsubmit="return confirm('Remove this item from the order? The amount due will change.');">
+                                @csrf
+                                <input type="hidden" name="qty" value="{{ $item->qty }}">
+                                <button class="btn btn-danger" type="submit">Remove</button>
+                            </form>
+                        @endif
                     </li>
                 @endforeach
             </ul>

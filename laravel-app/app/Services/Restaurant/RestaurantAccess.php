@@ -91,8 +91,16 @@ class RestaurantAccess
         return false;
     }
 
+    public static function managesOrders($user)
+    {
+        return $user && $user->hasFullAdminAccess();
+    }
+
     public static function canSeeOrders($user)
     {
+        if (self::managesOrders($user)) {
+            return true;
+        }
         foreach (['kitchen-orders', 'bar-orders', 'waiter-orders', 'order-logs', 'orders-index', 'orders-add', 'orders-edit', 'orders-delete'] as $permission) {
             if (self::can($user, $permission)) {
                 return true;
@@ -177,6 +185,9 @@ class RestaurantAccess
 
     public static function seeLane($user, $lane)
     {
+        if (self::managesOrders($user)) {
+            return true;
+        }
         if (self::can($user, 'orders-index') || self::can($user, 'orders-'.$lane.'-index') || self::can($user, 'order-logs')) {
             return true;
         }
@@ -241,6 +252,9 @@ class RestaurantAccess
 
     public static function seeStatus($user, $status)
     {
+        if (self::managesOrders($user)) {
+            return true;
+        }
         $role = strtolower((string) ($user ? $user->roleName() : ''));
         if ($role === 'restaurant' || $role === 'kitchen') {
             return $status === 'awaiting' || $status === 'accepted';
@@ -275,6 +289,9 @@ class RestaurantAccess
 
     public static function canOrder($user, $action, $item = null)
     {
+        if (self::managesOrders($user)) {
+            return true;
+        }
         $lane = $item ? $item->lane : null;
         $status = $item ? $item->status : null;
         if ($status === 'preparing') {

@@ -25,7 +25,15 @@
                     </td>
                     <td>{{ $line->qty }}</td>
                     <td>{{ $prep ? ucfirst($prep->department) : '—' }}</td>
-                    <td>{{ $prep ? ucfirst($prep->status) : 'On the bill' }}</td>
+                    <td>{{ $prep ? ucfirst($prep->status) : 'On the bill' }}
+                        @if(empty($public) && auth()->check() && auth()->user()->hasFullAdminAccess() && $prep && ! in_array($prep->status, ['rejected', 'cancelled'], true))
+                            <form method="post" action="{{ route('restaurant.item.remove', $prep->id) }}" style="margin-top:6px;" onsubmit="return confirm('Remove this item from the order? The amount due will change.');">
+                                @csrf
+                                <input type="hidden" name="qty" value="{{ $prep->qty }}">
+                                <button class="btn ghost" type="submit">Remove</button>
+                            </form>
+                        @endif
+                    </td>
                 </tr>
             @endforeach
             </tbody>

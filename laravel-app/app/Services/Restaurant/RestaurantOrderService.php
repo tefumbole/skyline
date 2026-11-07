@@ -369,6 +369,15 @@ class RestaurantOrderService
             'remake_item_id' => $remake ? $remake->id : null,
         ]);
         $this->event($item->order, $item, 'rejected', $user->id, $resolution.': '.$reason);
+        if (in_array($resolution, ['cancellation', 'refund'], true)) {
+            $this->reduceBill($item, $qty);
+            if ($qty >= (float) $item->qty - 0.0001) {
+                $item->status = 'rejected';
+            } else {
+                $item->qty = (float) $item->qty - $qty;
+            }
+            $item->save();
+        }
 
         return $rejection;
     }
@@ -397,6 +406,76 @@ class RestaurantOrderService
         }
 
         return $item;
+    }
+
+    /**
+     * Take some or all of a line off the order and lower the amount still due.
+     *
+     * @return float
+     */
+    public function removeFromBill(RestaurantOrderItem $item, User $user, $qty = null)
+    {
+        if (in_array($item->status, ['rejected', 'cancelled'], true)) {
+            throw new \InvalidArgumentException('This item is already off the bill.');
+        }
+        $have = (float) $item->qty;
+        $qty = ($qty === null || $qty === '') ? $have : (float) $qty;
+        if ($qty <= 0 || $qty > $have + 0.0001) {
+            throw new \InvalidArgumentException('Quantity must be between 1 and the amount on this item.');
+        }
+        $full = $qty >= $have - 0.0001;
+        $open = in_array($item->status, ['awaiting', 'preparing', 'hold'], true);
+
+        return DB::transaction(function () use ($item, $user, $qty, $full, $open) {
+            $due = $this->reduceBill($item, $qty);
+            if ($full) {
+                $item->status = 'rejected';
+                $item->internal_note = 'Removed from the bill';
+            } else {
+                $item->qty = round((float) $item->qty - $qty, 4);
+            }
+            $item->save();
+            if ($open) {
+                $product = Product::find($item->product_id);
+                $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+                $sale = $order ? ($order->sale ?: Sale::find($order->sale_id)) : null;
+                if ($product) {
+                    $this->restoreStock($product, $qty, $sale ? $sale->warehouse_id : null);
+                }
+            }
+            $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+            $this->event($order, $item, 'removed', $user->id, 'qty '.$qty);
+
+            return $due;
+        });
+    }
+
+    public function syncItemsToSale(Sale $sale)
+    {
+        if (! Schema::hasTable('restaurant_order_items')) {
+            return;
+        }
+        $order = RestaurantOrder::with('items')->where('sale_id', $sale->id)->first();
+        if (! $order) {
+            return;
+        }
+        $lines = Product_Sale::where('sale_id', $sale->id)->get()->keyBy('id');
+        foreach ($order->items as $item) {
+            if (in_array($item->status, ['rejected', 'cancelled'], true)) {
+                continue;
+            }
+            $line = $item->product_sale_id ? $lines->get($item->product_sale_id) : null;
+            if (! $line || (float) $line->total <= 0.009 || (float) $line->qty <= 0.009) {
+                $item->status = 'rejected';
+                $item->internal_note = 'Removed from the bill';
+                $item->save();
+                continue;
+            }
+            if ((float) $item->qty > (float) $line->qty) {
+                $item->qty = $line->qty;
+                $item->save();
+            }
+        }
     }
 
     public function assignWaitress(RestaurantOrder $order, $userId, User $actor)
@@ -599,6 +678,63 @@ class RestaurantOrderService
             'note' => $note,
         ]);
         RestaurantAccess::forgetCounts();
+    }
+
+    /**
+     * @return float Remaining amount due after the reduction.
+     */
+    protected function reduceBill(RestaurantOrderItem $item, $qty)
+    {
+        $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);
+        $line = $item->product_sale_id ? Product_Sale::find($item->product_sale_id) : null;
+        if (! $line && $order && $item->product_id) {
+            $line = Product_Sale::where('sale_id', $order->sale_id)
+                ->where('product_id', $item->product_id)
+                ->where('qty', '>', 0)
+                ->orderBy('id')
+                ->first();
+        }
+        $amount = 0;
+        if ($line && (float) $line->qty > 0) {
+            $portion = min(1, ((float) $qty) / (float) $line->qty);
+            $amount = round((float) $line->total * $portion, 2);
+            $line->qty = max(0, round((float) $line->qty - (float) $qty, 4));
+            $line->total = max(0, round((float) $line->total - $amount, 2));
+            if ($line->qty <= 0.0001) {
+                $line->qty = 0;
+                $line->total = 0;
+                $line->net_unit_price = 0;
+                $line->tax = 0;
+            }
+            $line->save();
+        }
+        $sale = null;
+        if ($order) {
+            $sale = $order->sale ?: Sale::find($order->sale_id);
+        }
+        if (! $sale && $line) {
+            $sale = Sale::find($line->sale_id);
+        }
+        if (! $sale) {
+            return 0;
+        }
+        if ($amount > 0) {
+            $sale->grand_total = max(0, round((float) $sale->grand_total - $amount, 2));
+            $sale->total_price = max(0, round((float) $sale->total_price - $amount, 2));
+            $sale->total_qty = max(0, round((float) $sale->total_qty - (float) $qty, 4));
+        }
+        $due = round((float) $sale->grand_total - (float) $sale->paid_amount, 2);
+        if ($due <= 0.009) {
+            $sale->payment_status = 4;
+            $due = 0;
+        } elseif ((float) $sale->paid_amount > 0.009) {
+            $sale->payment_status = 3;
+        } elseif ((int) $sale->payment_status !== 1) {
+            $sale->payment_status = 2;
+        }
+        $sale->save();
+
+        return $due;
     }
 
     protected function dropLineFromBill(RestaurantOrderItem $item)

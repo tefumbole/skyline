@@ -329,7 +329,7 @@ class SaleController extends Controller
                                 <li>
                                     <button type="button" class="btn btn-link view"><i class="fa fa-eye"></i> '.trans('file.View').'</button>
                                 </li>';
-                if(in_array("sales-edit", $request['all_permission'])){
+                if(in_array("sales-edit", $request['all_permission']) || (Auth::user() && Auth::user()->hasFullAdminAccess())){
                     if($sale->sale_status != 3)
                         $nestedData['options'] .= '<li>
                             <a href="'.route('sales.edit', $sale->id).'" class="btn btn-link"><i class="dripicons-document-edit"></i> '.trans('file.edit').'</a>
@@ -2803,7 +2803,7 @@ class SaleController extends Controller
     public function createSale($id)
     {
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('sales-edit')){
+        if(($role && $role->hasPermissionTo('sales-edit')) || Auth::user()->hasFullAdminAccess()){
             $lims_biller_list = Biller::where('is_active', true)->get();
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_customer_group_all = CustomerGroup::where('is_active', true)->get();
@@ -2834,7 +2834,7 @@ class SaleController extends Controller
     public function edit($id)
     {
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('sales-edit')){
+        if(($role && $role->hasPermissionTo('sales-edit')) || Auth::user()->hasFullAdminAccess()){
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
             $lims_biller_list = Biller::where('is_active', true)->get();
@@ -3106,6 +3106,11 @@ class SaleController extends Controller
                     $message = 'Sale updated successfully. Please setup your <a href="setting/mail_setting">mail setting</a> to send mail.';
                 }
             }
+        }
+
+        try {
+            app(\App\Services\Restaurant\RestaurantOrderService::class)->syncItemsToSale($lims_sale_data->fresh());
+        } catch (\Throwable $e) {
         }
 
         return redirect('sales')->with('message', $message);

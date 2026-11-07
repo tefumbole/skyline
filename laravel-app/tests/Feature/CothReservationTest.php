@@ -24,6 +24,45 @@ class CothReservationTest extends TestCase
             '--path' => 'database/migrations/2026_07_10_235500_create_be_auth_tables.php',
             '--force' => true,
         ]);
+        $this->artisan('migrate', [
+            '--path' => 'database/migrations/2026_10_28_120000_coth_visuals_and_chairs.php',
+            '--force' => true,
+        ]);
+        $this->artisan('migrate', [
+            '--path' => 'database/migrations/2026_11_07_184800_add_coth_multi_day_stays.php',
+            '--force' => true,
+        ]);
+    }
+
+    public function test_two_days_take_five_percent_and_hold_both_dates()
+    {
+        $table = CothTable::where('code', 'YARD-T4-01')->first();
+        $service = app(CothReservationService::class);
+        $guest = $this->guest('full');
+        $guest['nights'] = 2;
+        $reservation = $service->hold($table, '2026-12-24', $guest);
+
+        $this->assertSame(2, (int) $reservation->nights);
+        $this->assertSame(5, (int) $reservation->stay_discount_percent);
+        $this->assertSame(800000, (int) $reservation->list_price);
+        $this->assertSame(40000, (int) $reservation->discount_amount);
+        $this->assertSame(760000, (int) $reservation->final_price);
+        $this->assertSame('held', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-24')->value('status'));
+        $this->assertSame('held', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-25')->value('status'));
+        $this->assertSame('open', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-26')->value('status'));
+    }
+
+    public function test_stay_discounts_step_up_to_eight_days()
+    {
+        $pricing = app(CothPricing::class);
+        $this->assertSame(0, $pricing->stayPercent(1));
+        $this->assertSame(5, $pricing->stayPercent(2));
+        $this->assertSame(10, $pricing->stayPercent(3));
+        $this->assertSame(15, $pricing->stayPercent(4));
+        $this->assertSame(20, $pricing->stayPercent(5));
+        $this->assertSame(25, $pricing->stayPercent(6));
+        $this->assertSame(30, $pricing->stayPercent(7));
+        $this->assertSame(35, $pricing->stayPercent(8));
     }
 
     public function test_inventory_matches_the_gray_and_teal_arrangement()

@@ -175,7 +175,7 @@
                 @if (!empty($nightTitle))
                     <p class="text-brand-gold text-sm m-0 mb-1">{{ $nightTitle }}</p>
                 @endif
-                <p class="text-white/60 text-sm m-0">One table, this date only. Prices are per table, per day.</p>
+                <p class="text-white/60 text-sm m-0">Pick a table for this date. On the next screen you can add more days, from 5% off for 2 days up to 35% off for 8 days.</p>
             </div>
             <ol class="coth-flow" aria-label="Reservation progress">
                 @foreach ($flow as $num => $meta)

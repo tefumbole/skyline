@@ -332,7 +332,7 @@
                         @endphp
                         <tr>
                             <td><a href="{{ $r->publicUrl() }}" target="_blank" rel="noopener">{{ $r->reference }}</a></td>
-                            <td>{{ optional($r->event_date)->format('Y-m-d') }}</td>
+                            <td>{{ optional($r->event_date)->format('Y-m-d') }}@if($r->nightCount() > 1)<br><small>{{ $r->nightCount() }} days</small>@endif</td>
                             <td>{{ optional($r->table)->code }}<br><small>{{ optional(optional($r->table)->section)->name }}</small></td>
                             <td>
                                 @if ((int) $r->extra_chairs_qty > 0)

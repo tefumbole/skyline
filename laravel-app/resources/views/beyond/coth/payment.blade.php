@@ -45,7 +45,7 @@
                     @else
                         You chose to pay the 20% deposit now.
                     @endif
-                    Paying <span class="font-semibold text-brand-gold">{{ number_format((int) $reservation->amount_due) }} FCFA</span> confirms your table for the date shown.
+                    Paying <span class="font-semibold text-brand-gold">{{ number_format((int) $reservation->amount_due) }} FCFA</span> confirms your table for {{ $reservation->stayLabel() }}.
                 </p>
 
                 @if ($reservation->status === 'held' && $reservation->hold_expires_at)
@@ -67,16 +67,27 @@
                         @if (! $momo)<p class="text-xs text-red-300 mt-2">Not configured.</p>@endif
                     </label>
 
-                    <label class="coth-pay-card rounded-2xl p-5 {{ $card ? '' : 'is-disabled' }}" data-coth-pay="card">
-                        <input type="radio" name="method_radio" value="card" class="sr-only" @if(!$card) disabled @endif>
+                    <label class="coth-pay-card rounded-2xl p-5" data-coth-pay="card">
+                        <input type="radio" name="method_radio" value="card" class="sr-only">
                         <div class="flex items-center justify-between">
                             <span class="inline-flex items-center justify-center w-14 h-10 rounded-md bg-white text-blue-900 font-black text-sm tracking-[.14em]">VISA</span>
                             <span class="text-brand-gold font-bold text-sm">Card</span>
                         </div>
-                        <h3 class="font-serif text-lg mt-3 mb-1">Visa / Mastercard</h3>
-                        <p class="text-xs text-white/60">Pay with any Visa or Mastercard via Stripe.</p>
-                        @if (! $card)<p class="text-xs text-red-300 mt-2">Not configured.</p>@endif
+                        <h3 class="font-serif text-lg mt-3 mb-1">Visa</h3>
+                        <p class="text-xs text-white/60">Use the test card below. It confirms the booking and does not charge a bank.</p>
                     </label>
+
+                    <div id="coth-visa-box" class="sm:col-span-2 rounded-2xl border border-white/15 p-4 space-y-3" hidden>
+                        <p class="text-sm text-white/80 m-0">Test Visa <span class="font-semibold text-brand-gold">4242 4242 4242 4242</span>. Any future expiry, any 3-digit code.</p>
+                        <input name="card_number" data-wa-phone="off" inputmode="numeric" autocomplete="off" maxlength="23" placeholder="4242 4242 4242 4242" class="w-full bg-transparent border border-white/20 rounded-xl px-3 py-2 text-white">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input name="card_expiry" data-wa-phone="off" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="MM/YY" class="bg-transparent border border-white/20 rounded-xl px-3 py-2 text-white">
+                            <input name="card_cvc" data-wa-phone="off" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="CVC" class="bg-transparent border border-white/20 rounded-xl px-3 py-2 text-white">
+                        </div>
+                        @if ($card)
+                            <p class="text-xs text-white/50 m-0">Leave the card blank to pay on Stripe instead.</p>
+                        @endif
+                    </div>
 
                     <button class="sm:col-span-2 w-full bg-brand-gold text-[#0A0A0A] font-bold uppercase tracking-[0.12em] rounded-full px-5 py-3 mt-2" type="submit">
                         Pay {{ number_format((int) $reservation->amount_due) }} FCFA
@@ -90,7 +101,7 @@
                     <p class="text-xs text-white/55 mt-2 text-center">Keep the table now. The full amount stays due.</p>
                 </form>
 
-                <p class="text-xs text-white/55 mt-5">By continuing you accept that the deposit is non-refundable and that this booking covers only the date shown.</p>
+                <p class="text-xs text-white/55 mt-5">By continuing you accept that the deposit is non-refundable and that this booking covers {{ $reservation->stayLabel() }}.</p>
             </div>
 
             <div class="lg:col-span-2">
@@ -116,6 +127,8 @@
             hidden.value = card.getAttribute('data-coth-pay');
             var radio = card.querySelector('input[type=radio]');
             if (radio) radio.checked = true;
+            var visa = document.getElementById('coth-visa-box');
+            if (visa) visa.hidden = hidden.value !== 'card';
         });
     });
 })();

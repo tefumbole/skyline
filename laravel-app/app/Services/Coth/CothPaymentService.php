@@ -134,7 +134,7 @@ class CothPaymentService
                     'unit_amount' => (int) $reservation->amount_due,
                     'product_data' => [
                         'name' => 'Chill on the Hill '.($table ? $table->code : 'table'),
-                        'description' => $reservation->event_date->format('j F Y').' · one day · '.$reservation->reference,
+                        'description' => $reservation->stayLabel().' · '.$reservation->reference,
                     ],
                 ],
                 'quantity' => 1,

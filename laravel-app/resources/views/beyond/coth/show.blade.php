@@ -16,7 +16,7 @@
         @if (session('message'))
             <div class="mt-3 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm">{{ session('message') }}</div>
         @endif
-        <p class="text-lg">{{ $reservation->event_date->format('l, j F Y') }} · one day</p>
+        <p class="text-lg">{{ $reservation->stayLabel() }}</p>
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-5">
             <div class="lg:col-span-3 rounded-3xl border border-brand-gold/30 p-6" style="background:#3C2A1E;">

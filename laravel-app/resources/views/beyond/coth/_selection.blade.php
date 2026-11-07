@@ -102,8 +102,8 @@
             <div class="flex items-center gap-2">
                 <span class="opacity-70">&#128197;</span>
                 <div>
-                    <div class="font-semibold">{{ $d ? \Carbon\Carbon::parse($d)->format('l, j F Y') : '' }}</div>
-                    <div class="text-xs text-white/55">One-day reservation</div>
+                    <div class="font-semibold" id="coth-date-label">{{ $r ? $r->stayLabel() : ($d ? \Carbon\Carbon::parse($d)->format('l, j F Y') : '') }}</div>
+                    <div class="text-xs text-white/55" id="coth-date-note">{{ $r && $r->nightCount() > 1 ? $r->nightCount().' days' : 'One-day reservation' }}</div>
                 </div>
             </div>
         </div>
@@ -112,13 +112,13 @@
             <div class="rounded-xl border border-white/10 overflow-hidden text-sm">
                 <div class="px-3 py-2 bg-white/[.03] text-[11px] uppercase tracking-[0.18em] text-white/55">Price summary</div>
                 <div class="px-3 py-3 space-y-1">
-                    <div class="flex justify-between"><span class="text-white/70">Listed price</span><span>{{ number_format((int) $q['list_price']) }} FCFA</span></div>
+                    <div class="flex justify-between"><span class="text-white/70">Listed price</span><span id="coth-list-amount">{{ number_format((int) $q['list_price']) }} FCFA</span></div>
                     @if (! empty($q['discounted']) && (int) $q['discount_amount'] > 0)
-                        <div class="flex justify-between text-emerald-300"><span>Discount</span><span>−{{ number_format((int) $q['discount_amount']) }} FCFA</span></div>
+                        <div class="flex justify-between text-emerald-300"><span>Discount</span><span id="coth-discount-amount">−{{ number_format((int) $q['discount_amount']) }} FCFA</span></div>
                     @else
-                        <div class="flex justify-between text-white/55"><span>Discount</span><span>0 FCFA</span></div>
+                        <div class="flex justify-between text-white/55"><span>Discount</span><span id="coth-discount-amount">0 FCFA</span></div>
                     @endif
-                    <div class="flex justify-between"><span class="text-white/70">Final table</span><span>{{ number_format((int) $q['final_price']) }} FCFA</span></div>
+                    <div class="flex justify-between"><span class="text-white/70">Final table</span><span id="coth-final-amount">{{ number_format((int) $q['final_price']) }} FCFA</span></div>
                     @php $extraQty = (int) ($q['extra_chairs_qty'] ?? 0); @endphp
                     <div class="flex justify-between" id="coth-chair-row" @if($extraQty < 1) style="display:none" @endif>
                         <span class="text-white/70" id="coth-chair-label">Extra chairs</span>

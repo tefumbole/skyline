@@ -50,11 +50,7 @@ class CothReservationService
                 }
                 $row->status = 'expired';
                 $row->save();
-                $slot = CothSlot::where('id', $row->coth_slot_id)->lockForUpdate()->first();
-                if ($slot && $slot->status === 'held') {
-                    $slot->status = 'open';
-                    $slot->save();
-                }
+                $this->setSlotStatus($row, 'held', 'open');
                 $this->releaseChairHold($row);
             });
         }
@@ -72,6 +68,17 @@ class CothReservationService
         if (empty($guest['terms'])) {
             throw new \InvalidArgumentException('Accept the non-refundable deposit terms to continue.');
         }
+        $nights = (int) ($guest['nights'] ?? 1);
+        if ($nights < 1) {
+            $nights = 1;
+        }
+        if ($nights > 8) {
+            throw new \InvalidArgumentException('A stay can be from 1 to 8 days.');
+        }
+        $dates = $this->consecutiveDates($date, $nights);
+        if (count($dates) !== $nights) {
+            throw new \InvalidArgumentException('Those days are not all open. Choose fewer days or another start date.');
+        }
         $payChoice = (isset($guest['pay_choice']) && in_array($guest['pay_choice'], ['full', 'custom', 'later'], true)) ? $guest['pay_choice'] : 'deposit';
         $extraChairs = max(0, (int) ($guest['extra_chairs'] ?? 0));
 
@@ -85,7 +92,7 @@ class CothReservationService
             }
         }
 
-        $quote = app(CothPricing::class)->quote($table->price, $date, $settings, $table, $extraChairs);
+        $quote = app(CothPricing::class)->quoteStay($table, $dates, $settings, $extraChairs);
         if ($payChoice === 'later') {
             $amountDue = 0;
         } elseif ($payChoice === 'custom') {
@@ -103,29 +110,35 @@ class CothReservationService
             $amountDue = app(CothPricing::class)->amountDue($quote, $payChoice);
         }
 
-        return DB::transaction(function () use ($table, $date, $guest, $settings, $quote, $payChoice, $amountDue, $extraChairs) {
-            $slot = CothSlot::where('coth_table_id', $table->id)
-                ->whereDate('event_date', $date)
-                ->lockForUpdate()
-                ->first();
-            if (! $slot || ! $slot->is_enabled || $slot->status !== 'open' || ! $table->is_active) {
+        return DB::transaction(function () use ($table, $dates, $guest, $settings, $quote, $payChoice, $amountDue, $extraChairs) {
+            if (! $table->is_active) {
                 throw new \InvalidArgumentException('This table is not available on the selected date.');
             }
-            $slot->status = 'held';
-            $slot->save();
-
-            if ($extraChairs > 0) {
-                $this->reserveChairHold($date, $extraChairs);
+            $slots = [];
+            foreach ($dates as $day) {
+                $slot = CothSlot::where('coth_table_id', $table->id)
+                    ->whereDate('event_date', $day)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $slot || ! $slot->is_enabled || $slot->status !== 'open') {
+                    throw new \InvalidArgumentException('This table is not available on every selected day.');
+                }
+                $slot->status = 'held';
+                $slot->save();
+                $slots[] = $slot;
+                if ($extraChairs > 0) {
+                    $this->reserveChairHold($day, $extraChairs);
+                }
             }
 
             $count = CothReservation::count() + 1;
-
-            return CothReservation::create([
+            $first = $slots[0];
+            $payload = [
                 'reference' => 'COTH-'.str_pad((string) $count, 4, '0', STR_PAD_LEFT),
                 'public_token' => bin2hex(random_bytes(16)),
-                'coth_slot_id' => $slot->id,
+                'coth_slot_id' => $first->id,
                 'coth_table_id' => $table->id,
-                'event_date' => $date,
+                'event_date' => $dates[0],
                 'customer_name' => $guest['name'],
                 'phone' => WhatsAppPhone::normalize($guest['phone']),
                 'email' => isset($guest['email']) ? $guest['email'] : null,
@@ -145,8 +158,80 @@ class CothReservationService
                 'payment_status' => 'unpaid',
                 'hold_expires_at' => now()->addMinutes((int) $settings->hold_minutes),
                 'terms_accepted_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('coth_reservations', 'nights')) {
+                $payload['nights'] = count($dates);
+                $payload['stay_discount_percent'] = (int) $quote['stay_percent'];
+            }
+            $reservation = CothReservation::create($payload);
+            if (Schema::hasTable('coth_reservation_days')) {
+                $now = now();
+                foreach ($slots as $held) {
+                    DB::table('coth_reservation_days')->insert([
+                        'coth_reservation_id' => $reservation->id,
+                        'coth_slot_id' => $held->id,
+                        'event_date' => $held->event_date->toDateString(),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+
+            return $reservation;
         });
+    }
+
+    /**
+     * The next event dates from $start, in order. Closed days are skipped
+     * and are not part of the stay.
+     */
+    public function consecutiveDates($start, $nights)
+    {
+        $nights = (int) $nights;
+        $open = app(CothCatalog::class)->eventDates();
+        $startDay = Carbon::parse($start)->toDateString();
+        $index = array_search($startDay, $open, true);
+        if ($index === false || $nights < 1) {
+            return [];
+        }
+
+        return array_slice($open, $index, $nights);
+    }
+
+    /**
+     * How far this table can be held from $start while every day stays open.
+     * Each entry is nights, percent, end date, and a short label.
+     */
+    public function stayChoices(CothTable $table, $start)
+    {
+        $choices = [];
+        for ($nights = 1; $nights <= 8; $nights++) {
+            $dates = $this->consecutiveDates($start, $nights);
+            if (count($dates) !== $nights) {
+                break;
+            }
+            $free = true;
+            foreach ($dates as $day) {
+                $slot = CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', $day)->first();
+                if (! $slot || ! $slot->is_enabled || $slot->status !== 'open') {
+                    $free = false;
+                    break;
+                }
+            }
+            if (! $free) {
+                break;
+            }
+            $startLabel = Carbon::parse($dates[0])->format('j M');
+            $endLabel = Carbon::parse($dates[$nights - 1])->format('j M');
+            $choices[] = [
+                'nights' => $nights,
+                'percent' => app(CothPricing::class)->stayPercent($nights),
+                'end' => $dates[$nights - 1],
+                'label' => $nights === 1 ? $startLabel : $startLabel.' – '.$endLabel,
+            ];
+        }
+
+        return $choices;
     }
 
     /**
@@ -193,12 +278,14 @@ class CothReservationService
         if ($qty <= 0) {
             return;
         }
-        $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
-        if (! $row) {
-            return;
+        foreach ($this->stayDates($reservation) as $day) {
+            $row = CothExtraChairInventory::whereDate('event_date', $day)->lockForUpdate()->first();
+            if (! $row) {
+                continue;
+            }
+            $row->held = max(0, (int) $row->held - $qty);
+            $row->save();
         }
-        $row->held = max(0, (int) $row->held - $qty);
-        $row->save();
     }
 
     /**
@@ -211,13 +298,88 @@ class CothReservationService
         if ($qty <= 0) {
             return;
         }
-        $row = CothExtraChairInventory::whereDate('event_date', $reservation->event_date->toDateString())->lockForUpdate()->first();
-        if (! $row) {
-            return;
+        foreach ($this->stayDates($reservation) as $day) {
+            $row = CothExtraChairInventory::whereDate('event_date', $day)->lockForUpdate()->first();
+            if (! $row) {
+                continue;
+            }
+            $row->held = max(0, (int) $row->held - $qty);
+            $row->booked = (int) $row->booked + $qty;
+            $row->save();
         }
-        $row->held = max(0, (int) $row->held - $qty);
-        $row->booked = (int) $row->booked + $qty;
-        $row->save();
+    }
+
+    /**
+     * Every date covered by the reservation. Older rows only have the start date.
+     */
+    public function stayDates(CothReservation $reservation)
+    {
+        $dates = [];
+        if (Schema::hasTable('coth_reservation_days')) {
+            $rows = DB::table('coth_reservation_days')
+                ->where('coth_reservation_id', $reservation->id)
+                ->orderBy('event_date')
+                ->pluck('event_date');
+            foreach ($rows as $day) {
+                $dates[] = Carbon::parse($day)->toDateString();
+            }
+        }
+        if (! count($dates) && $reservation->event_date) {
+            $dates[] = $reservation->event_date->toDateString();
+        }
+
+        return array_values(array_unique($dates));
+    }
+
+    /**
+     * Slot ids held or booked by this reservation.
+     */
+    public function staySlotIds(CothReservation $reservation)
+    {
+        $ids = [(int) $reservation->coth_slot_id];
+        if (Schema::hasTable('coth_reservation_days')) {
+            $more = DB::table('coth_reservation_days')
+                ->where('coth_reservation_id', $reservation->id)
+                ->pluck('coth_slot_id');
+            foreach ($more as $id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    /**
+     * Move every slot that is currently $from to $to.
+     */
+    protected function setSlotStatus(CothReservation $reservation, $from, $to)
+    {
+        foreach ($this->staySlotIds($reservation) as $slotId) {
+            $slot = CothSlot::where('id', $slotId)->lockForUpdate()->first();
+            if ($slot && $slot->status === $from) {
+                $slot->status = $to;
+                $slot->save();
+            }
+        }
+    }
+
+    protected function holdIsLive(CothReservation $row)
+    {
+        if ($row->status !== 'held' || ! $row->hold_expires_at || ! $row->hold_expires_at->isFuture()) {
+            return false;
+        }
+        $ids = $this->staySlotIds($row);
+        if (! count($ids)) {
+            return false;
+        }
+        foreach ($ids as $slotId) {
+            $slot = CothSlot::where('id', $slotId)->lockForUpdate()->first();
+            if (! $slot || $slot->status !== 'held') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -251,12 +413,7 @@ class CothReservationService
                 return 'failed';
             }
 
-            $slot = CothSlot::where('id', $row->coth_slot_id)->lockForUpdate()->first();
-            $holdLive = $row->status === 'held'
-                && $row->hold_expires_at
-                && $row->hold_expires_at->isFuture()
-                && $slot
-                && $slot->status === 'held';
+            $holdLive = $this->holdIsLive($row);
             $required = (int) $row->amount_due;
             if ($required <= 0) {
                 $required = $row->pay_choice === 'full' ? (int) $row->booking_total : (int) $row->deposit_due;
@@ -280,8 +437,7 @@ class CothReservationService
             $row->customer_id = $this->customerId($row);
             $row->sale_id = $this->recordSale($row);
             $row->save();
-            $slot->status = 'booked';
-            $slot->save();
+            $this->setSlotStatus($row, 'held', 'booked');
             $this->confirmChairHold($row);
             $this->notify($row);
 
@@ -308,8 +464,7 @@ class CothReservationService
             if ($row->hold_expires_at && $row->hold_expires_at->isPast()) {
                 throw new \InvalidArgumentException('This hold has expired. Choose the table again.');
             }
-            $slot = CothSlot::where('id', $row->coth_slot_id)->lockForUpdate()->first();
-            if (! $slot || $slot->status !== 'held') {
+            if (! $this->holdIsLive($row)) {
                 throw new \InvalidArgumentException('This table is no longer held.');
             }
 
@@ -323,8 +478,7 @@ class CothReservationService
             $row->customer_id = $this->customerId($row);
             $row->sale_id = $this->recordSale($row);
             $row->save();
-            $slot->status = 'booked';
-            $slot->save();
+            $this->setSlotStatus($row, 'held', 'booked');
             $this->confirmChairHold($row);
             $this->notify($row);
 
@@ -395,7 +549,7 @@ class CothReservationService
                 'payment_status' => $reservation->balance <= 0 ? 4 : ((int) $reservation->amount_paid > 0 ? 3 : 2),
                 'paid_amount' => $reservation->amount_paid,
                 'paid_by_id' => $reservation->pay_method === 'card' ? 3 : 8,
-                'sale_note' => 'Chill on the Hill '.$reservation->reference.' · '.$reservation->event_date->format('Y-m-d')
+                'sale_note' => 'Chill on the Hill '.$reservation->reference.' · '.$reservation->stayLabel()
                     .((int) $reservation->extra_chairs_qty > 0
                         ? ' · '.$reservation->extra_chairs_qty.' extra chair(s) @ '.number_format((int) $reservation->extra_chair_rate).' FCFA'
                         : ''),
@@ -436,7 +590,7 @@ class CothReservationService
                 '*Chill on the Hill reservation*',
                 '• Reference: '.$reservation->reference,
                 '• Name: '.$reservation->customer_name,
-                '• Date: '.$reservation->event_date->format('l, j F Y').' (one day)',
+                '• Date: '.$reservation->stayLabel(),
                 '• Section: '.$section,
                 '• Table: '.($table ? $table->code : $reservation->coth_table_id).' · '.($table ? $table->capacity : '').' included seats',
             ];

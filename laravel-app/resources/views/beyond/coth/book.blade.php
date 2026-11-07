@@ -49,6 +49,12 @@
         background: rgba(10,10,10,.6); color: #E8C878; font-weight: 700; line-height: 1;
     }
     .coth-qty-btn[disabled] { opacity: .35; cursor: not-allowed; }
+    .coth-day {
+        border: 1px solid rgba(198,161,91,.35); background: #2A1C14; color: #F6EFE4;
+        border-radius: 14px; padding: 8px 10px; min-width: 72px; text-align: left; cursor: pointer;
+    }
+    .coth-day.is-on { border-color: #E8C878; background: rgba(197,160,89,.16); }
+    .coth-day small { display: block; color: #E8C878; font-size: 11px; }
 </style>
 @endpush
 @section('content')
@@ -73,6 +79,24 @@
                 @csrf
                 <input type="hidden" name="table_id" value="{{ $table->id }}">
                 <input type="hidden" name="event_date" value="{{ $date }}">
+                <input type="hidden" name="nights" id="coth-nights" value="{{ (int) old('nights', 1) }}">
+
+                <div>
+                    <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">How many days</span>
+                    <div class="flex flex-wrap gap-2" id="coth-days">
+                        @foreach ($stays as $stay)
+                            <button type="button" class="coth-day {{ (int) old('nights', 1) === (int) $stay['nights'] ? 'is-on' : '' }}" data-stay="{{ (int) $stay['nights'] }}">
+                                {{ (int) $stay['nights'] }} {{ (int) $stay['nights'] === 1 ? 'day' : 'days' }}
+                                @if ((int) $stay['percent'] > 0)
+                                    <small>{{ (int) $stay['percent'] }}% off</small>
+                                @else
+                                    <small>Standard</small>
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+                    <p class="text-xs text-white/55 mt-2 m-0" id="coth-stay-line">The same table is held for each open day you choose. Closed days are skipped. 2 days is 5% off, then 5% more for each extra day, up to 8 days at 35% off.</p>
+                </div>
 
                 @if ($allowChairs)
                     <div class="coth-chairs rounded-2xl p-4">
@@ -457,12 +481,14 @@
     var maxChairs = {{ (int) ($allowChairs ? $maxChairs : 0) }};
     var baseCapacity = {{ (int) $table->capacity }};
     var listPrice = {{ (int) $quote['list_price'] }};
-    var discountPct = {{ (int) $quote['discount_amount'] }};
-    var finalTable = {{ (int) $quote['final_price'] }};
+    var oneDayDiscount = {{ (int) $quote['discount_amount'] }};
     var extraRate = {{ (int) ($allowChairs ? $extraRate : 0) }};
     var discountIncludesAddons = @json($discountIncludesAddons ?? false);
     var isDiscounted = {{ (int) $quote['discounted'] ? 1 : 0 }};
     var depositPct = 20;
+    var stays = @json($stays ?? []);
+    var nightsInput = document.getElementById('coth-nights');
+    var stayPercents = {1: 0, 2: 5, 3: 10, 4: 15, 5: 20, 6: 25, 7: 30, 8: 35};
 
     function fmt(n) { return (Math.max(0, Math.round(n))).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
     function sync() {
@@ -474,16 +500,37 @@
         if (plus) plus.disabled = (q >= maxChairs);
         if (minus) minus.disabled = (q <= 0);
 
-        var chairsGross = extraRate * q;
-        var chairsDiscount = (discountIncludesAddons && isDiscounted) ? Math.floor(chairsGross * discountPct / listPrice) : 0;
-        // discount is tracked as absolute, but keep simple: percent same as table => recompute via rate
-        if (isDiscounted && discountIncludesAddons && listPrice > 0) {
+        var nights = nightsInput ? parseInt(nightsInput.value || '1', 10) : 1;
+        if (isNaN(nights) || nights < 1) nights = 1;
+        if (nights > 8) nights = 8;
+        var stayPct = stayPercents[nights] || 0;
+        var tableList = listPrice * nights;
+        var tableDiscount = nights > 1 ? Math.floor(tableList * stayPct / 100) : oneDayDiscount;
+        var tableFinal = tableList - tableDiscount;
+        var chairsGross = extraRate * q * nights;
+        var chairsDiscount = 0;
+        if (nights > 1) {
+            chairsDiscount = Math.floor(chairsGross * stayPct / 100);
+        } else if (isDiscounted && discountIncludesAddons && listPrice > 0) {
             chairsDiscount = Math.floor(chairsGross * 20 / 100);
-        } else {
-            chairsDiscount = 0;
         }
         var chairsAmount = chairsGross - chairsDiscount;
-        var bookingTotal = finalTable + chairsAmount;
+        var bookingTotal = tableFinal + chairsAmount;
+        var stay = null;
+        stays.forEach(function (row) { if (row.nights === nights) stay = row; });
+        var listEl = document.getElementById('coth-list-amount');
+        var discountEl = document.getElementById('coth-discount-amount');
+        var finalEl = document.getElementById('coth-final-amount');
+        var dateLabel = document.getElementById('coth-date-label');
+        var dateNote = document.getElementById('coth-date-note');
+        if (listEl) listEl.textContent = fmt(tableList) + ' FCFA';
+        if (discountEl) {
+            discountEl.textContent = (tableDiscount > 0 ? '−' : '') + fmt(tableDiscount) + ' FCFA';
+            if (discountEl.parentElement) discountEl.parentElement.style.color = tableDiscount > 0 ? '#6ee7b7' : '';
+        }
+        if (finalEl) finalEl.textContent = fmt(tableFinal) + ' FCFA';
+        if (dateLabel && stay) dateLabel.textContent = stay.label;
+        if (dateNote) dateNote.textContent = nights > 1 ? (nights + ' days · ' + stayPct + '% off') : 'One-day reservation';
         var deposit = Math.ceil(bookingTotal * depositPct / 100);
         var balance = Math.max(0, bookingTotal - deposit);
 
@@ -492,7 +539,7 @@
         var chairAmount = document.getElementById('coth-chair-amount');
         var totalAmount = document.getElementById('coth-total-amount');
         if (chairRow) chairRow.style.display = q > 0 ? '' : 'none';
-        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + ')';
+        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + (nights > 1 ? ' × ' + nights + ' days' : '') + ')';
         if (chairAmount) chairAmount.textContent = fmt(chairsAmount) + ' FCFA';
         if (totalAmount) totalAmount.textContent = fmt(bookingTotal) + ' FCFA';
 
@@ -549,9 +596,10 @@
         var submit = document.getElementById('coth-submit');
         var later = document.getElementById('coth-pay-later') && document.getElementById('coth-pay-later').checked;
         if (terms) {
+            var cover = nights > 1 ? ('this booking covers ' + nights + ' days' + (stay ? ' (' + stay.label + ')' : '') + '.') : 'this booking is for the date shown only.';
             terms.textContent = later
-                ? 'I accept that the full amount stays due and that this booking is for the date shown only.'
-                : 'I accept that the deposit is non-refundable and that this booking is for the date shown only.';
+                ? 'I accept that the full amount stays due and that ' + cover
+                : 'I accept that the deposit is non-refundable and that ' + cover;
         }
         if (submit) submit.textContent = later ? 'Reserve and pay later' : 'Continue to payment';
 
@@ -591,6 +639,16 @@
             sync();
         });
     }
+
+    document.querySelectorAll('[data-stay]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (nightsInput) nightsInput.value = btn.getAttribute('data-stay');
+            document.querySelectorAll('[data-stay]').forEach(function (other) {
+                other.classList.toggle('is-on', other === btn);
+            });
+            sync();
+        });
+    });
 
     // Expand step 2 when the server returned validation errors with old inputs.
     sync();

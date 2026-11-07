@@ -127,6 +127,7 @@ class CothController extends Controller
             'extraRate' => $extraRate,
             'allowChairs' => $allowChairs,
             'maxChairs' => $maxChairs,
+            'stays' => $reservations->stayChoices($table, $date),
             'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
             'countries' => $this->bookingCountries(),
         ]);
@@ -332,6 +333,7 @@ class CothController extends Controller
         $data = $request->validate([
             'table_id' => 'required|integer',
             'event_date' => 'required|date',
+            'nights' => 'nullable|integer|min:1|max:8',
             'name' => 'required|string|max:191',
             'phone' => 'required|string|max:32',
             'email' => 'nullable|email|max:191',
@@ -483,6 +485,12 @@ class CothController extends Controller
                 ->with('message', 'Your table is reserved. The full amount is still due.');
         }
         $method = $method === 'card' ? 'card' : 'momo';
+        if ($method === 'card' && $request->filled('card_number')) {
+            return $this->payWithTestVisa($request, $reservation);
+        }
+        if ($method === 'card' && ! $payments->cardConfigured()) {
+            return back()->with('not_permitted', 'Enter the test Visa 4242 4242 4242 4242, a future expiry, and any 3-digit code.');
+        }
         try {
             $link = $payments->start($reservation, $method);
         } catch (\Throwable $e) {
@@ -493,6 +501,51 @@ class CothController extends Controller
         $reservation->save();
 
         return redirect()->away($link);
+    }
+
+    /**
+     * The published test Visa confirms a hold. The card number is not stored.
+     */
+    protected function payWithTestVisa(Request $request, CothReservation $reservation)
+    {
+        $digits = preg_replace('/\D/', '', (string) $request->input('card_number'));
+        $cvc = preg_replace('/\D/', '', (string) $request->input('card_cvc'));
+        $expiryOk = $this->cardExpiryIsFuture((string) $request->input('card_expiry'));
+        if ($digits !== '4242424242424242' || strlen($cvc) !== 3 || ! $expiryOk) {
+            return back()->with('not_permitted', 'That card was not accepted. Use 4242 4242 4242 4242, a future expiry, and any 3-digit code.');
+        }
+        $result = app(CothReservationService::class)->applyGateway(
+            $reservation,
+            true,
+            (int) $reservation->amount_due,
+            'visa-test',
+            'card'
+        );
+        if ($result !== 'confirmed' && $result !== 'duplicate') {
+            return back()->with('not_permitted', 'The test card could not confirm this hold. Start the booking again.');
+        }
+
+        return redirect()->route('coth.show', $reservation->public_token)
+            ->with('message', 'Test Visa accepted. Your table is reserved.');
+    }
+
+    protected function cardExpiryIsFuture($raw)
+    {
+        $raw = trim((string) $raw);
+        if (! preg_match('/^(\d{2})\s*\/\s*(\d{2}|\d{4})$/', $raw, $match)) {
+            return false;
+        }
+        $month = (int) $match[1];
+        $year = (int) $match[2];
+        if ($month < 1 || $month > 12) {
+            return false;
+        }
+        if ($year < 100) {
+            $year += 2000;
+        }
+        $end = \Carbon\Carbon::create($year, $month, 1, 0, 0, 0)->endOfMonth();
+
+        return $end->isFuture();
     }
 
     public function campayReturn(Request $request, CothPaymentService $payments, CothReservationService $reservations)

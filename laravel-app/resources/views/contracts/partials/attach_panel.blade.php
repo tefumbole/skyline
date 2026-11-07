@@ -2,7 +2,7 @@
 @php
     $linkType = $linkType ?? null;
     $linkId = isset($linkId) ? (string) $linkId : null;
-    if ((! isset($linkedContracts) || $linkedContracts === null) && $linkType && $linkId) {
+    if ((! isset($linkedContracts) || $linkedContracts === null) && $linkType && $linkId && \Illuminate\Support\Facades\Schema::hasTable('btw_contracts')) {
         $ids = \App\ContractLink::where('link_type', $linkType)->where('link_id', $linkId)->pluck('contract_id');
         $linkedContracts = \App\BtwContract::whereIn('id', $ids)->orderByDesc('created_at')->get();
     }

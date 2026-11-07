@@ -101,18 +101,30 @@
                                                     <tr>
                                                     <?php
                                                         $product_data = DB::table('products')->find($product_sale->product_id);
+                                                        if (! $product_data) {
+                                                            $product_data = (object) ['id' => $product_sale->product_id, 'name' => 'Removed product', 'code' => '', 'type' => 'service', 'tax_method' => 1, 'unit_id' => 0];
+                                                        }
+                                                        $lineQty = (float) $product_sale->qty;
+                                                        if ($lineQty <= 0) {
+                                                            $lineQty = 1;
+                                                        }
                                                         if($product_sale->variant_id){
                                                             $product_variant_data = \App\ProductVariant::select('id', 'item_code')->FindExactProduct($product_data->id, $product_sale->variant_id)->first();
-                                                            $product_variant_id = $product_variant_data->id;
-                                                            $product_data->code = $product_variant_data->item_code;
+                                                            $product_variant_id = $product_variant_data ? $product_variant_data->id : null;
+                                                            if ($product_variant_data) {
+                                                                $product_data->code = $product_variant_data->item_code;
+                                                            }
                                                         }
                                                         else
                                                             $product_variant_id = null;
                                                         if($product_data->tax_method == 1){
-                                                            $product_price = $product_sale->net_unit_price + ($product_sale->discount / $product_sale->qty);
+                                                            $product_price = $product_sale->net_unit_price + ($product_sale->discount / $lineQty);
                                                         }
                                                         elseif ($product_data->tax_method == 2) {
-                                                            $product_price =($product_sale->total / $product_sale->qty) + ($product_sale->discount / $product_sale->qty);
+                                                            $product_price =($product_sale->total / $lineQty) + ($product_sale->discount / $lineQty);
+                                                        }
+                                                        else {
+                                                            $product_price = $product_sale->net_unit_price;
                                                         }
 
                                                         $tax = DB::table('taxes')->where('rate',$product_sale->tax_rate)->first();
@@ -134,10 +146,10 @@
                                                                     $unit_operation_value[] = $unit->operation_value;
                                                                 }
                                                             }
-                                                            if($unit_operator[0] == '*'){
+                                                            if(isset($unit_operator[0]) && $unit_operator[0] == '*' && ! empty($unit_operation_value[0])){
                                                                 $product_price = $product_price / $unit_operation_value[0];
                                                             }
-                                                            elseif($unit_operator[0] == '/'){
+                                                            elseif(isset($unit_operator[0]) && $unit_operator[0] == '/' && ! empty($unit_operation_value[0])){
                                                                 $product_price = $product_price * $unit_operation_value[0];
                                                             }
                                                         }

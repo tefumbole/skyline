@@ -2803,7 +2803,15 @@ class SaleController extends Controller
     public function createSale($id)
     {
         $role = Role::find(Auth::user()->role_id);
-        if(($role && $role->hasPermissionTo('sales-edit')) || Auth::user()->hasFullAdminAccess()){
+        $canEditSale = Auth::user()->hasFullAdminAccess();
+        if (! $canEditSale && $role) {
+            try {
+                $canEditSale = $role->hasPermissionTo('sales-edit');
+            } catch (\Throwable $e) {
+                $canEditSale = false;
+            }
+        }
+        if ($canEditSale) {
             $lims_biller_list = Biller::where('is_active', true)->get();
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_customer_group_all = CustomerGroup::where('is_active', true)->get();
@@ -2834,7 +2842,15 @@ class SaleController extends Controller
     public function edit($id)
     {
         $role = Role::find(Auth::user()->role_id);
-        if(($role && $role->hasPermissionTo('sales-edit')) || Auth::user()->hasFullAdminAccess()){
+        $canEditSale = Auth::user()->hasFullAdminAccess();
+        if (! $canEditSale && $role) {
+            try {
+                $canEditSale = $role->hasPermissionTo('sales-edit');
+            } catch (\Throwable $e) {
+                $canEditSale = false;
+            }
+        }
+        if ($canEditSale) {
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
             $lims_biller_list = Biller::where('is_active', true)->get();

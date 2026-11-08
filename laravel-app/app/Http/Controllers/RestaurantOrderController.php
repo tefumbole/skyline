@@ -227,6 +227,23 @@ class RestaurantOrderController extends Controller
         return back()->with('message', 'Rejected. That line is off the amount due.');
     }
 
+    public function destroyDue(Request $request, $order)
+    {
+        $user = $request->user();
+        if (! $user || ! $user->canDeleteDueSale()) {
+            return back()->with('not_permitted', 'You cannot delete this order.');
+        }
+        $row = RestaurantOrder::with('sale')->find($order);
+        if (! $row || ! $row->sale) {
+            return back()->with('not_permitted', 'That order is already gone.');
+        }
+        if (! $row->sale->canBeDeleted()) {
+            return back()->with('not_permitted', 'A paid sale cannot be deleted.');
+        }
+
+        return app(SaleController::class)->destroy($row->sale_id);
+    }
+
     public function removeItem(Request $request, $item)
     {
         $user = $request->user();

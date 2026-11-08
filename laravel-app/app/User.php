@@ -86,6 +86,24 @@ class User extends Authenticatable
             || strcasecmp($this->roleName(), 'Admin') === 0;
     }
 
+    /** Admin and Manager may remove an unpaid sale or due order. A paid sale stays. */
+    public function canDeleteDueSale()
+    {
+        if ($this->hasFullAdminAccess()) {
+            return true;
+        }
+        if ((int) $this->role_id === 10 || strcasecmp((string) $this->roleName(), 'Manager') === 0) {
+            return true;
+        }
+        try {
+            $role = \Spatie\Permission\Models\Role::find($this->role_id);
+
+            return $role && $role->hasPermissionTo('sales-delete');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** Sending money out. Viewing deposits and payouts is separate. */
     public function canSendPayout()
     {

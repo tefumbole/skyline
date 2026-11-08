@@ -47,6 +47,16 @@ class Sale extends Model
         return $this->hasOne('App\RestaurantOrder', 'sale_id', 'id');
     }
 
+    /** A paid or partly paid sale stays. Only a sale with no money received can be removed. */
+    public function canBeDeleted()
+    {
+        if ((int) $this->payment_status === 4) {
+            return false;
+        }
+
+        return (float) $this->paid_amount <= 0.009;
+    }
+
     public function cloudTenantRelations()
     {
         return [

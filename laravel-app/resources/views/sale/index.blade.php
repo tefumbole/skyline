@@ -1261,7 +1261,8 @@
             $('#edit-payment select[name="edit_paid_by_id"]').prop('disabled', false);
         });
 
-        if(all_permission.indexOf("sales-delete") == -1)
+        var canDeleteDueSales = {{ auth()->user() && auth()->user()->canDeleteDueSale() ? 'true' : 'false' }};
+        if (!canDeleteDueSales)
             $('.buttons-delete').addClass('d-none');
 
         function confirmDelete() {

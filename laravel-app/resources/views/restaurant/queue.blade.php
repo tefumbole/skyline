@@ -231,6 +231,12 @@
                                 <button class="btn btn-primary btn-block" type="submit">Delivered</button>
                             </form>
                         @endif
+                        @if($order && $sale && auth()->user()->canDeleteDueSale() && $sale->canBeDeleted())
+                            <form method="post" action="{{ route('restaurant.order.delete-due', $order->id) }}" style="margin-top:8px;" onsubmit="return confirm('Delete this unpaid order? Its due payment will be removed. A paid order cannot be deleted.');">
+                                @csrf
+                                <button class="btn btn-danger btn-block" type="submit">Delete due order</button>
+                            </form>
+                        @endif
                         @if(auth()->user()->hasFullAdminAccess() && ! in_array($item->status, ['rejected', 'cancelled'], true))
                             <form method="post" action="{{ route('restaurant.item.remove', $item->id) }}" style="margin-top:8px;" onsubmit="return confirm('Remove this item from the order? The amount due will change.');">
                                 @csrf

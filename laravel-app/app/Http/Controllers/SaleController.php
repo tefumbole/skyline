@@ -352,13 +352,12 @@ class SaleController extends Controller
                     <li>
                         <button type="button" class="add-delivery btn btn-link" data-id = "'.$sale->id.'"><i class="fa fa-truck"></i> '.trans('file.Add Delivery').'</button>
                     </li>';
-                if(in_array("sales-delete", $request['all_permission']))
+                if ($sale->canBeDeleted() && Auth::user() && Auth::user()->canDeleteDueSale())
                     $nestedData['options'] .= \Form::open(["route" => ["sales.destroy", $sale->id], "method" => "DELETE"] ).'
                             <li>
                               <button type="submit" class="btn btn-link" onclick="return confirmDelete()"><i class="dripicons-trash"></i> '.trans("file.delete").'</button>
-                            </li>'.\Form::close().'
-                        </ul>
-                    </div>';
+                            </li>'.\Form::close();
+                $nestedData['options'] .= '</ul></div>';
                 // data for sale details by one click
                 $coupon = Coupon::find($sale->coupon_id);
                 if($coupon)
@@ -3949,8 +3948,23 @@ class SaleController extends Controller
 
     public function deletePayment(Request $request)
     {
+        $actor = Auth::user();
+        if (! $actor || ! $actor->canDeleteDueSale()) {
+            return redirect('sales')->with('not_permitted', 'You cannot delete this payment.');
+        }
         $lims_payment_data = Payment::find($request['id']);
+        if (! $lims_payment_data) {
+            return redirect('sales')->with('not_permitted', 'That payment is already gone.');
+        }
         $lims_sale_data = Sale::where('id', $lims_payment_data->sale_id)->first();
+        if (! $lims_sale_data) {
+            $lims_payment_data->delete();
+
+            return redirect('sales')->with('message', 'Payment deleted successfully');
+        }
+        if ((int) $lims_sale_data->payment_status === 4) {
+            return redirect('sales')->with('not_permitted', 'A paid sale cannot be deleted.');
+        }
         $lims_sale_data->paid_amount -= $lims_payment_data->amount;
         $balance = $lims_sale_data->grand_total - $lims_sale_data->paid_amount;
         $lims_sale_data->payment_status = $this->paymentStatusForBalance($lims_sale_data->paid_amount, $balance);
@@ -3958,24 +3972,33 @@ class SaleController extends Controller
 
         if ($lims_payment_data->paying_method == 'Gift Card') {
             $lims_payment_gift_card_data = PaymentWithGiftCard::where('payment_id', $request['id'])->first();
-            $lims_gift_card_data = GiftCard::find($lims_payment_gift_card_data->gift_card_id);
-            $lims_gift_card_data->expense -= $lims_payment_data->amount;
-            $lims_gift_card_data->save();
-            $lims_payment_gift_card_data->delete();
+            if ($lims_payment_gift_card_data) {
+                $lims_gift_card_data = GiftCard::find($lims_payment_gift_card_data->gift_card_id);
+                if ($lims_gift_card_data) {
+                    $lims_gift_card_data->expense -= $lims_payment_data->amount;
+                    $lims_gift_card_data->save();
+                }
+                $lims_payment_gift_card_data->delete();
+            }
         }
         elseif($lims_payment_data->paying_method == 'Credit Card'){
             $lims_payment_with_credit_card_data = PaymentWithCreditCard::where('payment_id', $request['id'])->first();
-            $lims_pos_setting_data = PosSetting::latest()->first();
-            Stripe::setApiKey($lims_pos_setting_data->stripe_secret_key);
-            \Stripe\Refund::create(array(
-              "charge" => $lims_payment_with_credit_card_data->charge_id,
-            ));
-
-            $lims_payment_with_credit_card_data->delete();
+            if ($lims_payment_with_credit_card_data && $lims_payment_with_credit_card_data->charge_id) {
+                $lims_pos_setting_data = PosSetting::latest()->first();
+                Stripe::setApiKey($lims_pos_setting_data->stripe_secret_key);
+                \Stripe\Refund::create(array(
+                  "charge" => $lims_payment_with_credit_card_data->charge_id,
+                ));
+            }
+            if ($lims_payment_with_credit_card_data) {
+                $lims_payment_with_credit_card_data->delete();
+            }
         }
         elseif ($lims_payment_data->paying_method == 'Cheque') {
             $lims_payment_cheque_data = PaymentWithCheque::where('payment_id', $request['id'])->first();
-            $lims_payment_cheque_data->delete();
+            if ($lims_payment_cheque_data) {
+                $lims_payment_cheque_data->delete();
+            }
         }
         elseif ($lims_payment_data->paying_method == 'Paypal') {
             $lims_payment_paypal_data = PaymentWithPaypal::where('payment_id', $request['id'])->first();
@@ -4099,15 +4122,26 @@ class SaleController extends Controller
 
     public function deleteBySelection(Request $request)
     {
+        $actor = Auth::user();
+        if (! $actor || ! $actor->canDeleteDueSale()) {
+            return 'You cannot delete this sale.';
+        }
         $sale_id = $request['saleIdArray'];
         if (! is_array($sale_id) || ! count($sale_id)) {
             return 'No payment is selected!';
         }
+        $skippedPaid = 0;
+        $deleted = 0;
         foreach ($sale_id as $id) {
             $lims_sale_data = Sale::find($id);
             if (! $lims_sale_data) {
                 continue;
             }
+            if (! $lims_sale_data->canBeDeleted()) {
+                $skippedPaid++;
+                continue;
+            }
+            $deleted++;
             $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
             $lims_delivery_data = Delivery::where('sale_id',$id)->first();
             if($lims_sale_data->sale_status == 3)
@@ -4178,18 +4212,26 @@ class SaleController extends Controller
             foreach ($lims_payment_data as $payment) {
                 if($payment->paying_method == 'Gift Card'){
                     $lims_payment_with_gift_card_data = PaymentWithGiftCard::where('payment_id', $payment->id)->first();
-                    $lims_gift_card_data = GiftCard::find($lims_payment_with_gift_card_data->gift_card_id);
-                    $lims_gift_card_data->expense -= $payment->amount;
-                    $lims_gift_card_data->save();
-                    $lims_payment_with_gift_card_data->delete();
+                    if ($lims_payment_with_gift_card_data) {
+                        $lims_gift_card_data = GiftCard::find($lims_payment_with_gift_card_data->gift_card_id);
+                        if ($lims_gift_card_data) {
+                            $lims_gift_card_data->expense -= $payment->amount;
+                            $lims_gift_card_data->save();
+                        }
+                        $lims_payment_with_gift_card_data->delete();
+                    }
                 }
                 elseif($payment->paying_method == 'Cheque'){
                     $lims_payment_cheque_data = PaymentWithCheque::where('payment_id', $payment->id)->first();
-                    $lims_payment_cheque_data->delete();
+                    if ($lims_payment_cheque_data) {
+                        $lims_payment_cheque_data->delete();
+                    }
                 }
                 elseif($payment->paying_method == 'Credit Card'){
                     $lims_payment_with_credit_card_data = PaymentWithCreditCard::where('payment_id', $payment->id)->first();
-                    $lims_payment_with_credit_card_data->delete();
+                    if ($lims_payment_with_credit_card_data) {
+                        $lims_payment_with_credit_card_data->delete();
+                    }
                 }
                 elseif($payment->paying_method == 'Paypal'){
                     $lims_payment_paypal_data = PaymentWithPaypal::where('payment_id', $payment->id)->first();
@@ -4210,15 +4252,33 @@ class SaleController extends Controller
                 $lims_coupon_data->used -= 1;
                 $lims_coupon_data->save();
             }
+            $this->deleteDueOrderForSale($lims_sale_data->id);
             $lims_sale_data->delete();
         }
+        if (! $deleted) {
+            return 'A paid sale cannot be deleted.';
+        }
+        if ($skippedPaid) {
+            return 'Unpaid sales were deleted. Paid sales were left in place.';
+        }
+
         return 'Sale deleted successfully!';
     }
 
     public function destroy($id)
     {
         $url = url()->previous();
+        $actor = Auth::user();
+        if (! $actor || ! $actor->canDeleteDueSale()) {
+            return Redirect::to($url)->with('not_permitted', 'You cannot delete this sale.');
+        }
         $lims_sale_data = Sale::find($id);
+        if (! $lims_sale_data) {
+            return Redirect::to($url)->with('not_permitted', 'That sale is already gone.');
+        }
+        if (! $lims_sale_data->canBeDeleted()) {
+            return Redirect::to($url)->with('not_permitted', 'A paid sale cannot be deleted.');
+        }
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
         $lims_delivery_data = Delivery::where('sale_id',$id)->first();
         if($lims_sale_data->sale_status == 3)
@@ -4288,18 +4348,26 @@ class SaleController extends Controller
         foreach ($lims_payment_data as $payment) {
             if($payment->paying_method == 'Gift Card'){
                 $lims_payment_with_gift_card_data = PaymentWithGiftCard::where('payment_id', $payment->id)->first();
-                $lims_gift_card_data = GiftCard::find($lims_payment_with_gift_card_data->gift_card_id);
-                $lims_gift_card_data->expense -= $payment->amount;
-                $lims_gift_card_data->save();
-                $lims_payment_with_gift_card_data->delete();
+                if ($lims_payment_with_gift_card_data) {
+                    $lims_gift_card_data = GiftCard::find($lims_payment_with_gift_card_data->gift_card_id);
+                    if ($lims_gift_card_data) {
+                        $lims_gift_card_data->expense -= $payment->amount;
+                        $lims_gift_card_data->save();
+                    }
+                    $lims_payment_with_gift_card_data->delete();
+                }
             }
             elseif($payment->paying_method == 'Cheque'){
                 $lims_payment_cheque_data = PaymentWithCheque::where('payment_id', $payment->id)->first();
-                $lims_payment_cheque_data->delete();
+                if ($lims_payment_cheque_data) {
+                    $lims_payment_cheque_data->delete();
+                }
             }
             elseif($payment->paying_method == 'Credit Card'){
                 $lims_payment_with_credit_card_data = PaymentWithCreditCard::where('payment_id', $payment->id)->first();
-                $lims_payment_with_credit_card_data->delete();
+                if ($lims_payment_with_credit_card_data) {
+                    $lims_payment_with_credit_card_data->delete();
+                }
             }
             elseif($payment->paying_method == 'Paypal'){
                 $lims_payment_paypal_data = PaymentWithPaypal::where('payment_id', $payment->id)->first();
@@ -4320,8 +4388,31 @@ class SaleController extends Controller
             $lims_coupon_data->used -= 1;
             $lims_coupon_data->save();
         }
+        $this->deleteDueOrderForSale($lims_sale_data->id);
         $lims_sale_data->delete();
-        return Redirect::to($url)->with('not_permitted', $message);
+        return Redirect::to($url)->with('message', $message);
+    }
+
+    /** Drop the restaurant ticket and its events when an unpaid sale is removed. */
+    protected function deleteDueOrderForSale($saleId)
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('restaurant_orders')) {
+            return;
+        }
+        $order = \Illuminate\Support\Facades\DB::table('restaurant_orders')->where('sale_id', $saleId)->first();
+        if (! $order) {
+            return;
+        }
+        foreach (['meal_rejections', 'restaurant_order_events', 'restaurant_order_items'] as $table) {
+            if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                \Illuminate\Support\Facades\DB::table($table)->where('restaurant_order_id', $order->id)->delete();
+            }
+        }
+        \Illuminate\Support\Facades\DB::table('restaurant_orders')->where('id', $order->id)->delete();
+        try {
+            \App\Services\Restaurant\RestaurantAccess::forgetCounts();
+        } catch (\Throwable $e) {
+        }
     }
 
     public function stockDurationSave($id, $qty) {

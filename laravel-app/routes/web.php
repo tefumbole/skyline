@@ -86,6 +86,7 @@ Route::get('/about', 'BeyondController@about')->name('beyond.about');
 Route::get('/services', 'BeyondController@services')->name('beyond.services');
 Route::get('/chill-on-the-hill', 'CothController@index')->name('coth.index');
 Route::get('/chill-on-the-hill/tables', 'CothController@tables')->name('coth.tables');
+Route::get('/chill-on-the-hill/assign', 'CothController@assign')->name('coth.assign');
 Route::get('/chill-on-the-hill/book', 'CothController@book')->name('coth.book');
 Route::post('/chill-on-the-hill/resolve-phone', 'CothController@resolvePhone')->name('coth.resolve-phone');
 Route::post('/chill-on-the-hill/phone-code', 'CothController@sendPhoneCode')->middleware('throttle:6,1')->name('coth.phone-code');

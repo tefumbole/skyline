@@ -79,8 +79,36 @@
                 @csrf
                 <input type="hidden" name="table_id" value="{{ $table->id }}">
                 <input type="hidden" name="event_date" value="{{ $date }}">
-                <input type="hidden" name="nights" id="coth-nights" value="{{ (int) old('nights', 1) }}">
+                <input type="hidden" name="nights" id="coth-nights" value="{{ ! empty($planMode) ? count($planLines) : (int) old('nights', 1) }}">
+                @if (! empty($planMode))
+                    <input type="hidden" name="booking_plan" value="1">
+                @endif
 
+                @if (! empty($planMode))
+                    <div>
+                        <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">Your days</span>
+                        <div class="space-y-2">
+                            @foreach ($planLines as $line)
+                                <div class="rounded-2xl border border-white/10 px-3 py-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div class="font-semibold">{{ $line['label'] }}</div>
+                                            <div class="text-sm text-white/70">{{ $line['table'] }} · {{ $line['section'] }} · {{ number_format((int) $line['price']) }} FCFA</div>
+                                        </div>
+                                        <a class="text-xs text-brand-gold underline" href="{{ $line['change'] }}">Change</a>
+                                    </div>
+                                    @if ((int) $line['max'] > 0)
+                                        <label class="mt-2 flex items-center justify-between gap-3 text-sm text-white/70">
+                                            <span>Extra chairs · {{ number_format((int) $line['rate']) }} FCFA each</span>
+                                            <input class="coth-plan-chair w-16 bg-transparent border-b border-brand-gold/50 text-white text-right" type="number" min="0" max="{{ (int) $line['max'] }}" name="chairs[{{ $line['date'] }}]" data-plan-chair="{{ $line['date'] }}" value="{{ (int) old('chairs.'.$line['date'], 0) }}">
+                                        </label>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-white/55 mt-2 m-0" id="coth-stay-line">These days are paid together. 2 days is 5% off, then 5% more for each extra day, up to 8 days at 35% off.</p>
+                    </div>
+                @else
                 <div>
                     <span class="block text-[11px] uppercase tracking-[0.18em] text-white/55 mb-2">How many days</span>
                     <div class="flex flex-wrap gap-2" id="coth-days">
@@ -97,6 +125,7 @@
                     </div>
                     <p class="text-xs text-white/55 mt-2 m-0" id="coth-stay-line">The same table is held for each open day you choose. Closed days are skipped. 2 days is 5% off, then 5% more for each extra day, up to 8 days at 35% off.</p>
                 </div>
+                @endif
 
                 @if ($allowChairs)
                     <div class="coth-chairs rounded-2xl p-4">
@@ -488,11 +517,29 @@
     var isDiscounted = {{ (int) $quote['discounted'] ? 1 : 0 }};
     var depositPct = 20;
     var stays = @json($stays ?? []);
+    var planLines = @json($planLines ?? []);
     var nightsInput = document.getElementById('coth-nights');
     var stayPercents = {1: 0, 2: 5, 3: 10, 4: 15, 5: 20, 6: 25, 7: 30, 8: 35};
 
     function fmt(n) { return (Math.max(0, Math.round(n))).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
     function sync() {
+        var planListTotal = 0;
+        var planChairGross = 0;
+        if (planLines.length) {
+            var planNames = [];
+            planLines.forEach(function (line) {
+                planListTotal += line.price;
+                planNames.push(line.label + ' · ' + line.table);
+                var input = document.querySelector('[data-plan-chair="' + line.date + '"]');
+                var cq = input ? parseInt(input.value || '0', 10) : 0;
+                if (isNaN(cq) || cq < 0) cq = 0;
+                if (cq > line.max) cq = line.max;
+                if (input) input.value = String(cq);
+                planChairGross += line.rate * cq;
+            });
+            if (nightsInput) nightsInput.value = String(planLines.length);
+            stays = [{nights: planLines.length, percent: stayPercents[planLines.length] || 0, label: planNames.join('; '), closed: [], chairs: null}];
+        }
         var nights = nightsInput ? parseInt(nightsInput.value || '1', 10) : 1;
         if (isNaN(nights) || nights < 1) nights = 1;
         if (nights > 8) nights = 8;
@@ -534,6 +581,18 @@
         }
         var chairsAmount = chairsGross - chairsDiscount;
         var bookingTotal = tableFinal + chairsAmount;
+        if (planLines.length) {
+            nights = planLines.length;
+            stayPct = stayPercents[nights] || 0;
+            tableList = planListTotal;
+            tableDiscount = nights > 1 ? Math.floor(tableList * stayPct / 100) : oneDayDiscount;
+            tableFinal = tableList - tableDiscount;
+            chairsGross = planChairGross;
+            chairsDiscount = nights > 1 ? Math.floor(chairsGross * stayPct / 100) : 0;
+            chairsAmount = chairsGross - chairsDiscount;
+            bookingTotal = tableFinal + chairsAmount;
+            stay = stays[0];
+        }
         var listEl = document.getElementById('coth-list-amount');
         var discountEl = document.getElementById('coth-discount-amount');
         var finalEl = document.getElementById('coth-final-amount');
@@ -546,6 +605,8 @@
         }
         if (finalEl) finalEl.textContent = fmt(tableFinal) + ' FCFA';
         if (dateLabel && stay) dateLabel.textContent = stay.label;
+        var selectTitle = document.getElementById('coth-select-title');
+        if (selectTitle && planLines.length > 1) selectTitle.textContent = planLines.length + ' days';
         if (dateNote) {
             var note = nights > 1 ? (nights + ' open days · ' + stayPct + '% off') : 'One-day reservation';
             if (stay && stay.closed && stay.closed.length) note += ' · ' + stay.closed.join(', ') + ' closed, not charged';
@@ -554,7 +615,9 @@
         var stayLine = document.getElementById('coth-stay-line');
         if (stayLine && stay) {
             var line = nights > 1
-                ? ('The table is held for ' + nights + ' open days (' + stay.label + '), ' + stayPct + '% off.')
+                ? (planLines.length
+                    ? ('These days are paid together (' + stay.label + '), ' + stayPct + '% off.')
+                    : ('The table is held for ' + nights + ' open days (' + stay.label + '), ' + stayPct + '% off.'))
                 : 'One day at the standard price. Add more days for a discount, from 5% for 2 days up to 35% for 8.';
             if (stay.closed && stay.closed.length) {
                 line += ' ' + stay.closed.join(' and ') + (stay.closed.length > 1 ? ' are' : ' is') + ' closed and not charged.';
@@ -568,8 +631,12 @@
         var chairLabel = document.getElementById('coth-chair-label');
         var chairAmount = document.getElementById('coth-chair-amount');
         var totalAmount = document.getElementById('coth-total-amount');
-        if (chairRow) chairRow.style.display = q > 0 ? '' : 'none';
-        if (chairLabel) chairLabel.textContent = 'Extra chairs (' + q + ' × ' + fmt(extraRate) + (nights > 1 ? ' × ' + nights + ' days' : '') + (chairsDiscount > 0 ? ', after ' + stayPct + '% off' : '') + ')';
+        if (chairRow) chairRow.style.display = (planLines.length ? planChairGross > 0 : q > 0) ? '' : 'none';
+        if (chairLabel) {
+            chairLabel.textContent = planLines.length
+                ? ('Extra chairs' + (chairsDiscount > 0 ? ' (after ' + stayPct + '% off)' : ''))
+                : ('Extra chairs (' + q + ' × ' + fmt(extraRate) + (nights > 1 ? ' × ' + nights + ' days' : '') + (chairsDiscount > 0 ? ', after ' + stayPct + '% off' : '') + ')');
+        }
         if (chairAmount) chairAmount.textContent = fmt(chairsAmount) + ' FCFA';
         if (totalAmount) totalAmount.textContent = fmt(bookingTotal) + ' FCFA';
 
@@ -670,6 +737,10 @@
             sync();
         });
     }
+
+    document.querySelectorAll('[data-plan-chair]').forEach(function (input) {
+        input.addEventListener('input', sync);
+    });
 
     document.querySelectorAll('[data-stay]').forEach(function (btn) {
         btn.addEventListener('click', function () {

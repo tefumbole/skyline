@@ -177,7 +177,7 @@ class CothReservationTest extends TestCase
             $this->assertSame('booked', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', $day)->value('status'));
         }
         $this->assertSame('open', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-27')->value('status'));
-        $this->assertSame('24 Dec – 26 Dec 2026 · 3 open days · 10% off', $reservation->fresh()->stayLabel());
+        $this->assertSame('24 Dec, 25 Dec, 26 Dec 2026 · 3 open days · 10% off', $reservation->fresh()->stayLabel());
     }
 
     public function test_an_expired_stay_reopens_every_day()
@@ -223,7 +223,9 @@ class CothReservationTest extends TestCase
         $label = $reservation->stayLabel();
         $this->assertNotFalse(strpos($label, '5 open days'));
         $this->assertNotFalse(strpos($label, '20% off'));
-        $this->assertNotFalse(strpos($label, 'closed days in between are not included'));
+        $this->assertNotFalse(strpos($label, '24 Dec'));
+        $this->assertNotFalse(strpos($label, '30 Dec 2026'));
+        $this->assertFalse(strpos($label, '28 Dec'));
     }
 
     public function test_a_taken_day_stops_the_stay_before_it()
@@ -263,6 +265,32 @@ class CothReservationTest extends TestCase
         $this->assertTrue($blocked);
         $this->assertSame('open', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-24')->value('status'));
         $this->assertSame('open', CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', '2026-12-25')->value('status'));
+    }
+
+    public function test_different_tables_on_chosen_days_are_one_payment()
+    {
+        $pool = CothTable::where('code', 'POOL-T2-01')->first();
+        $hall = CothTable::where('code', 'HALL-T4-01')->first();
+        $service = app(CothReservationService::class);
+        $reservation = $service->holdPlan([
+            ['table' => $pool, 'date' => '2026-12-24', 'chairs' => 0],
+            ['table' => $hall, 'date' => '2026-12-31', 'chairs' => 0],
+        ], $this->guest('full'));
+
+        $this->assertSame(2, (int) $reservation->nights);
+        $this->assertSame(5, (int) $reservation->stay_discount_percent);
+        $this->assertSame(450000, (int) $reservation->list_price);
+        $this->assertSame(22500, (int) $reservation->discount_amount);
+        $this->assertSame(427500, (int) $reservation->booking_total);
+        $this->assertSame('held', CothSlot::where('coth_table_id', $pool->id)->whereDate('event_date', '2026-12-24')->value('status'));
+        $this->assertSame('held', CothSlot::where('coth_table_id', $hall->id)->whereDate('event_date', '2026-12-31')->value('status'));
+        $this->assertSame('open', CothSlot::where('coth_table_id', $pool->id)->whereDate('event_date', '2026-12-25')->value('status'));
+        $this->assertSame('open', CothSlot::where('coth_table_id', $hall->id)->whereDate('event_date', '2026-12-24')->value('status'));
+
+        $this->assertSame('confirmed', $service->applyGateway($reservation, true, 427500, 'plan-pay', 'card'));
+        $this->assertSame('booked', CothSlot::where('coth_table_id', $pool->id)->whereDate('event_date', '2026-12-24')->value('status'));
+        $this->assertSame('booked', CothSlot::where('coth_table_id', $hall->id)->whereDate('event_date', '2026-12-31')->value('status'));
+        $this->assertNotFalse(strpos($reservation->fresh()->stayLabel(), '31 Dec 2026'));
     }
 
     public function test_guest_review_otp_does_not_verify_a_reservation()

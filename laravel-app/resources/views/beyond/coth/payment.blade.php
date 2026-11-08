@@ -47,7 +47,7 @@
                     @else
                         You chose to pay the 20% deposit now.
                     @endif
-                    Paying <span class="font-semibold text-brand-gold">{{ number_format((int) $reservation->amount_due) }} FCFA</span> confirms your table for {{ $reservation->stayLabel() }}.
+                    Paying <span class="font-semibold text-brand-gold">{{ number_format((int) $reservation->amount_due) }} FCFA</span> confirms this booking for {{ $reservation->stayLabel() }}.
                 </p>
 
                 @if ($reservation->status === 'held' && $reservation->hold_expires_at)

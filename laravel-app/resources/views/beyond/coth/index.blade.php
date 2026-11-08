@@ -117,7 +117,7 @@
     <div class="coth-panel">
         <section class="coth-choose">
             <div class="coth-choose-head">
-                <h2>Choose your first day</h2>
+                <h2>Choose your days</h2>
                 <div class="coth-steps" aria-label="Reservation progress">
                     <span class="is-on"><span class="coth-step-dot">1</span> Date</span>
                     <span class="coth-step-line"></span>
@@ -126,15 +126,15 @@
                     <span><span class="coth-step-dot">3</span> Reserve</span>
                 </div>
             </div>
-            <p style="margin:0 0 8px;color:rgba(246,239,228,.65);font-size:13px;">This is the first day. After you pick a table you can add more days, from 5% off for 2 days up to 35% off for 8.</p>
+            <p style="margin:0 0 8px;color:rgba(246,239,228,.65);font-size:13px;">Tap every day you want. You choose a table for each day — they can be different — then pay once. 2 days is 5% off, then 5% more for each extra day, up to 8 days at 35% off.</p>
             <div class="coth-dates" id="coth-dates">
                 @foreach ($dates as $date)
                     @php
                         $carbon = \Carbon\Carbon::parse($date);
                         $night = $nightTitles[$date] ?? '';
-                        $fullLabel = $carbon->format('l, j F Y').($night !== '' ? ' · '.$night : '');
+                        $fullLabel = $carbon->format('D j M').($night !== '' ? ' · '.$night : '');
                     @endphp
-                    <button type="button" class="coth-date {{ $date === $first ? 'is-on' : '' }}" data-date="{{ $date }}" data-label="{{ $fullLabel }}">
+                    <button type="button" class="coth-date" data-date="{{ $date }}" data-label="{{ $fullLabel }}">
                         <span class="tick">✓</span>
                         <small>{{ strtoupper($carbon->format('D')) }}</small>
                         <strong>{{ $carbon->format('j M Y') }}</strong>
@@ -147,9 +147,9 @@
             <div class="coth-selected">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span aria-hidden="true">📅</span>
-                    <p>Selected: <strong id="coth-selected-label">{{ $first ? \Carbon\Carbon::parse($first)->format('l, j F Y').((($nightTitles[$first] ?? '') !== '') ? ' · '.$nightTitles[$first] : '') : '—' }}</strong></p>
+                    <p>Selected: <strong id="coth-selected-label">Tap the days you want</strong></p>
                 </div>
-                <a id="coth-explore" class="coth-go" href="{{ $first ? route('coth.tables', ['date' => $first]) : route('coth.index') }}">Explore available tables &nbsp;&gt;</a>
+                <a id="coth-explore" class="coth-go" href="{{ route('coth.tables', ['date' => $first]) }}" aria-disabled="true">Choose tables &nbsp;&gt;</a>
             </div>
         </section>
     </div>
@@ -187,15 +187,43 @@
     var label = document.getElementById('coth-selected-label');
     var go = document.getElementById('coth-explore');
     var base = @json(route('coth.tables'));
+    var percents = {1: 0, 2: 5, 3: 10, 4: 15, 5: 20, 6: 25, 7: 30, 8: 35};
     if (!dates) return;
+    function paint() {
+        var chosen = [];
+        dates.querySelectorAll('.coth-date.is-on').forEach(function (el) { chosen.push(el); });
+        chosen.sort(function (a, b) { return a.getAttribute('data-date') < b.getAttribute('data-date') ? -1 : 1; });
+        if (!chosen.length) {
+            label.textContent = 'Tap the days you want';
+            go.setAttribute('aria-disabled', 'true');
+            go.setAttribute('href', base);
+            go.style.opacity = '0.45';
+            return;
+        }
+        var names = chosen.map(function (el) { return el.getAttribute('data-label'); });
+        var n = chosen.length;
+        var off = percents[n] || 0;
+        label.textContent = n + (n === 1 ? ' day' : ' days') + (off ? ' · ' + off + '% off' : '') + ' · ' + names.join(', ');
+        var query = chosen.map(function (el) { return el.getAttribute('data-date'); }).join(',');
+        go.setAttribute('aria-disabled', 'false');
+        go.style.opacity = '1';
+        go.setAttribute('href', base + '?date=' + encodeURIComponent(chosen[0].getAttribute('data-date')) + '&dates=' + encodeURIComponent(query));
+    }
     dates.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-date]');
         if (!btn) return;
-        dates.querySelectorAll('.coth-date').forEach(function (el) { el.classList.remove('is-on'); });
-        btn.classList.add('is-on');
-        label.textContent = btn.getAttribute('data-label');
-        go.setAttribute('href', base + '?date=' + encodeURIComponent(btn.getAttribute('data-date')));
+        var on = dates.querySelectorAll('.coth-date.is-on').length;
+        if (!btn.classList.contains('is-on') && on >= 8) {
+            label.textContent = 'A booking can cover up to 8 days.';
+            return;
+        }
+        btn.classList.toggle('is-on');
+        paint();
     });
+    go.addEventListener('click', function (e) {
+        if (go.getAttribute('aria-disabled') === 'true') e.preventDefault();
+    });
+    paint();
 })();
 </script>
 @endpush

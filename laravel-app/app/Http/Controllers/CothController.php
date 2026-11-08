@@ -39,10 +39,22 @@ class CothController extends Controller
     public function tables(Request $request, CothCatalog $catalog, CothReservationService $reservations, CothPricing $pricing)
     {
         $reservations->releaseExpired();
+        $planDates = $this->selectedDates($request, $catalog);
         $date = $request->query('date');
         if (! in_array($date, $catalog->eventDates(), true)) {
-            return redirect()->route('coth.index');
+            if (! count($planDates)) {
+                return redirect()->route('coth.index');
+            }
+            $date = $planDates[0];
         }
+        if (! count($planDates)) {
+            $planDates = [$date];
+        }
+        if (! in_array($date, $planDates, true)) {
+            $date = $planDates[0];
+        }
+        $stored = $request->session()->get('coth.plan', []);
+        $planPicks = (isset($stored['dates']) && $stored['dates'] === $planDates && isset($stored['tables'])) ? $stored['tables'] : [];
         $settings = $reservations->settings();
         $section = $request->query('section') ? CothSection::where('code', $request->query('section'))->where('is_active', 1)->first() : null;
         $sections = CothSection::where('is_active', 1)->orderBy('sort')->get();
@@ -98,11 +110,51 @@ class CothController extends Controller
             'illustrative' => $illustrative,
             'viewMode' => $request->query('view') === 'list' ? 'list' : 'layout',
             'nightTitle' => $this->nightTitles()[$date] ?? '',
+            'planDates' => $planDates,
+            'planPicks' => $planPicks,
+            'datesQuery' => implode(',', $planDates),
+            'nightTitles' => $this->nightTitles(),
         ]);
+    }
+
+    public function assign(Request $request, CothCatalog $catalog)
+    {
+        $dates = $this->selectedDates($request, $catalog);
+        $date = $request->query('date');
+        $table = CothTable::where('code', $request->query('table'))->where('is_active', 1)->first();
+        if (! $table || ! in_array($date, $dates, true)) {
+            return redirect()->route('coth.index');
+        }
+        $slot = CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', $date)->first();
+        if (! $slot || ! $slot->is_enabled || $slot->status !== 'open') {
+            return redirect()->route('coth.tables', ['date' => $date, 'dates' => implode(',', $dates), 'section' => optional($table->section)->code])
+                ->with('not_permitted', 'That table is no longer available for this date.');
+        }
+        $stored = $request->session()->get('coth.plan', []);
+        $previous = (isset($stored['dates']) && $stored['dates'] === $dates && isset($stored['tables'])) ? $stored['tables'] : [];
+        $picks = [];
+        foreach ($dates as $day) {
+            if ($day === $date) {
+                $picks[$day] = $table->code;
+            } elseif (! empty($previous[$day])) {
+                $picks[$day] = $previous[$day];
+            }
+        }
+        $request->session()->put('coth.plan', ['dates' => $dates, 'tables' => $picks]);
+        foreach ($dates as $day) {
+            if (empty($picks[$day])) {
+                return redirect()->route('coth.tables', ['date' => $day, 'dates' => implode(',', $dates)]);
+            }
+        }
+
+        return redirect()->route('coth.book', ['plan' => 1]);
     }
 
     public function book(Request $request, CothCatalog $catalog, CothReservationService $reservations, CothPricing $pricing)
     {
+        if ($request->query('plan') === '1') {
+            return $this->bookPlan($request, $catalog, $reservations, $pricing);
+        }
         $date = $request->query('date');
         $table = CothTable::where('code', $request->query('table'))->where('is_active', 1)->first();
         if (! $table || ! in_array($date, $catalog->eventDates(), true)) {
@@ -135,6 +187,75 @@ class CothController extends Controller
             'stays' => $stays,
             'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
             'countries' => $this->bookingCountries(),
+            'planMode' => false,
+            'planLines' => [],
+        ]);
+    }
+
+    protected function bookPlan(Request $request, CothCatalog $catalog, CothReservationService $reservations, CothPricing $pricing)
+    {
+        $stored = $request->session()->get('coth.plan', []);
+        $dates = isset($stored['dates']) && is_array($stored['dates']) ? array_values($stored['dates']) : [];
+        $picks = isset($stored['tables']) && is_array($stored['tables']) ? $stored['tables'] : [];
+        $open = $catalog->eventDates();
+        $clean = [];
+        foreach ($dates as $date) {
+            if (in_array($date, $open, true) && ! in_array($date, $clean, true)) {
+                $clean[] = $date;
+            }
+        }
+        sort($clean);
+        if (! count($clean)) {
+            return redirect()->route('coth.index');
+        }
+        $lines = [];
+        $js = [];
+        $titles = $this->nightTitles();
+        foreach ($clean as $date) {
+            $code = isset($picks[$date]) ? $picks[$date] : null;
+            $table = $code ? CothTable::where('code', $code)->where('is_active', 1)->first() : null;
+            if (! $table) {
+                return redirect()->route('coth.tables', ['date' => $date, 'dates' => implode(',', $clean)]);
+            }
+            $slot = CothSlot::where('coth_table_id', $table->id)->whereDate('event_date', $date)->first();
+            if (! $slot || ! $slot->is_enabled || $slot->status !== 'open') {
+                unset($picks[$date]);
+                $request->session()->put('coth.plan', ['dates' => $clean, 'tables' => $picks]);
+
+                return redirect()->route('coth.tables', ['date' => $date, 'dates' => implode(',', $clean), 'section' => optional($table->section)->code])
+                    ->with('not_permitted', $table->code.' is no longer available on that day. Choose another table.');
+            }
+            $chairs = max(0, (int) $request->old('chairs.'.$date, 0));
+            $lines[] = ['table' => $table, 'date' => $date, 'chairs' => $chairs];
+            $js[] = [
+                'date' => $date,
+                'label' => Carbon::parse($date)->format('j M').(isset($titles[$date]) ? ' · '.$titles[$date] : ''),
+                'table' => $table->code,
+                'table_id' => $table->id,
+                'section' => optional($table->section)->name,
+                'price' => (int) $table->price,
+                'rate' => (int) ($pricing->extraChairRate($table) ?: 0),
+                'max' => (int) $pricing->extraChairLimit($table),
+                'change' => route('coth.tables', ['date' => $date, 'dates' => implode(',', $clean), 'section' => optional($table->section)->code]),
+            ];
+        }
+        $settings = $reservations->settings();
+        $quote = $pricing->quoteLines($lines, $settings);
+        $first = $lines[0]['table'];
+
+        return view('beyond.coth.book', [
+            'date' => $clean[0],
+            'table' => $first,
+            'quote' => $quote,
+            'settings' => $settings,
+            'extraRate' => $pricing->extraChairRate($first),
+            'allowChairs' => false,
+            'maxChairs' => 0,
+            'stays' => [],
+            'discountIncludesAddons' => (int) ($settings->discount_includes_addons ?? 0) === 1,
+            'countries' => $this->bookingCountries(),
+            'planMode' => true,
+            'planLines' => $js,
         ]);
     }
 
@@ -335,6 +456,9 @@ class CothController extends Controller
 
     public function hold(Request $request, CothReservationService $reservations)
     {
+        if ($request->input('booking_plan') === '1') {
+            return $this->holdSavedPlan($request, $reservations);
+        }
         $data = $request->validate([
             'table_id' => 'required|integer',
             'event_date' => 'required|date',
@@ -376,6 +500,66 @@ class CothController extends Controller
 
             return redirect()->route('coth.show', $reservation->public_token)
                 ->with('message', 'Your table is reserved. The full amount is still due.');
+        }
+
+        return redirect()->route('coth.payment', $reservation->public_token);
+    }
+
+    protected function holdSavedPlan(Request $request, CothReservationService $reservations)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:191',
+            'phone' => 'required|string|max:32',
+            'email' => 'nullable|email|max:191',
+            'pay_choice' => 'required|in:deposit,full,custom,later',
+            'custom_amount' => 'nullable|integer|min:0',
+            'terms' => 'accepted',
+            'chairs' => 'nullable|array',
+            'chairs.*' => 'nullable|integer|min:0|max:50',
+        ]);
+        $phoneDigits = preg_replace('/\D/', '', (string) $data['phone']);
+        $verified = (string) $request->session()->get('coth.verified_phone');
+        $verifiedUntil = (int) $request->session()->get('coth.verified_until');
+        if ($verified === '' || $verified !== $phoneDigits || $verifiedUntil < time()) {
+            return back()->withInput()->with('not_permitted', 'Enter the WhatsApp code for this number before the booking can continue.');
+        }
+        $stored = $request->session()->get('coth.plan', []);
+        $dates = isset($stored['dates']) && is_array($stored['dates']) ? $stored['dates'] : [];
+        $picks = isset($stored['tables']) && is_array($stored['tables']) ? $stored['tables'] : [];
+        $postedChairs = isset($data['chairs']) && is_array($data['chairs']) ? $data['chairs'] : [];
+        $lines = [];
+        foreach ($dates as $date) {
+            $code = isset($picks[$date]) ? $picks[$date] : null;
+            $table = $code ? CothTable::where('code', $code)->where('is_active', 1)->first() : null;
+            if (! $table) {
+                return back()->withInput()->with('not_permitted', 'Choose a table for every selected day.');
+            }
+            $lines[] = [
+                'table' => $table,
+                'date' => $date,
+                'chairs' => max(0, (int) (isset($postedChairs[$date]) ? $postedChairs[$date] : 0)),
+            ];
+        }
+        try {
+            $reservation = $reservations->holdPlan($lines, $data);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('not_permitted', $e->getMessage());
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('not_permitted', 'Enter a valid WhatsApp number.');
+        }
+        $request->session()->forget('coth.plan');
+        $reservation->phone_verified_at = now();
+        $reservation->save();
+        $request->session()->forget(['coth.verified_phone', 'coth.verified_until']);
+        if ($reservation->pay_choice === 'later') {
+            try {
+                $reservations->confirmPayLater($reservation);
+            } catch (\InvalidArgumentException $e) {
+                return redirect()->route('coth.payment', $reservation->public_token)->with('not_permitted', $e->getMessage());
+            }
+
+            return redirect()->route('coth.show', $reservation->public_token)
+                ->with('message', 'Your tables are reserved. The full amount is still due.');
         }
 
         return redirect()->route('coth.payment', $reservation->public_token);
@@ -623,6 +807,28 @@ class CothController extends Controller
         })->first();
 
         return $sample ? $visuals->assetFor($sample) : null;
+    }
+
+    protected function selectedDates(Request $request, CothCatalog $catalog)
+    {
+        $raw = (string) $request->query('dates', '');
+        $parts = preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+        $open = $catalog->eventDates();
+        $dates = [];
+        foreach ($parts as $date) {
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                continue;
+            }
+            if (in_array($date, $open, true) && ! in_array($date, $dates, true)) {
+                $dates[] = $date;
+            }
+        }
+        sort($dates);
+        if (count($dates) > 8) {
+            $dates = array_slice($dates, 0, 8);
+        }
+
+        return $dates;
     }
 
     protected function nightTitles()

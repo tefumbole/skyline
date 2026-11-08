@@ -182,6 +182,152 @@ class CothReservationService
     }
 
     /**
+     * One payment for the days the guest picked. Each day keeps its own table.
+     */
+    public function holdPlan(array $lines, array $guest)
+    {
+        $open = app(CothCatalog::class)->eventDates();
+        $normalized = [];
+        $seen = [];
+        foreach ($lines as $line) {
+            $table = isset($line['table']) ? $line['table'] : null;
+            $date = Carbon::parse($line['date'])->toDateString();
+            if (! $table instanceof CothTable) {
+                throw new \InvalidArgumentException('Choose a table for every selected day.');
+            }
+            if (! in_array($date, $open, true)) {
+                throw new \InvalidArgumentException('Choose a date between 24 December 2026 and 2 January 2027.');
+            }
+            if (isset($seen[$date])) {
+                throw new \InvalidArgumentException('Each day can be booked once in the same payment.');
+            }
+            $seen[$date] = true;
+            $normalized[] = [
+                'table' => $table,
+                'date' => $date,
+                'chairs' => max(0, (int) (isset($line['chairs']) ? $line['chairs'] : 0)),
+            ];
+        }
+        if (! count($normalized)) {
+            throw new \InvalidArgumentException('Select at least one day.');
+        }
+        if (count($normalized) > 8) {
+            throw new \InvalidArgumentException('A stay can be from 1 to 8 days.');
+        }
+        usort($normalized, function ($a, $b) {
+            return strcmp($a['date'], $b['date']);
+        });
+        if (empty($guest['terms'])) {
+            throw new \InvalidArgumentException('Accept the non-refundable deposit terms to continue.');
+        }
+
+        $settings = $this->settings();
+        $pricing = app(CothPricing::class);
+        foreach ($normalized as $line) {
+            if ($line['chairs'] < 1) {
+                continue;
+            }
+            $limit = $pricing->extraChairLimit($line['table']);
+            if ($limit < 1) {
+                throw new \InvalidArgumentException('Extra chairs are not available on '.$line['table']->code.'.');
+            }
+            if ($line['chairs'] > $limit) {
+                throw new \InvalidArgumentException('That exceeds the extra chairs available for '.$line['table']->code.'.');
+            }
+        }
+
+        $quote = $pricing->quoteLines($normalized, $settings);
+        $payChoice = (isset($guest['pay_choice']) && in_array($guest['pay_choice'], ['full', 'custom', 'later'], true)) ? $guest['pay_choice'] : 'deposit';
+        if ($payChoice === 'later') {
+            $amountDue = 0;
+        } elseif ($payChoice === 'custom') {
+            $custom = (int) (isset($guest['custom_amount']) ? $guest['custom_amount'] : 0);
+            $minimum = (int) $quote['deposit_due'];
+            $maximum = (int) $quote['booking_total'];
+            if ($custom < $minimum) {
+                throw new \InvalidArgumentException('Pay at least the '.(int) $settings->deposit_percent.'% deposit ('.number_format($minimum).' FCFA).');
+            }
+            if ($custom > $maximum) {
+                throw new \InvalidArgumentException('That amount is above the total ('.number_format($maximum).' FCFA).');
+            }
+            $amountDue = $custom;
+        } else {
+            $amountDue = $pricing->amountDue($quote, $payChoice);
+        }
+
+        return DB::transaction(function () use ($normalized, $guest, $settings, $quote, $payChoice, $amountDue) {
+            $slots = [];
+            foreach ($normalized as $line) {
+                $table = $line['table'];
+                if (! $table->is_active) {
+                    throw new \InvalidArgumentException($table->code.' is not available on '.Carbon::parse($line['date'])->format('j M Y').'.');
+                }
+                $slot = CothSlot::where('coth_table_id', $table->id)
+                    ->whereDate('event_date', $line['date'])
+                    ->lockForUpdate()
+                    ->first();
+                if (! $slot || ! $slot->is_enabled || $slot->status !== 'open') {
+                    throw new \InvalidArgumentException($table->code.' is not available on '.Carbon::parse($line['date'])->format('j M Y').'.');
+                }
+                $slot->status = 'held';
+                $slot->save();
+                $slots[] = $slot;
+                if ($line['chairs'] > 0) {
+                    $this->reserveChairHold($line['date'], $line['chairs']);
+                }
+            }
+
+            $count = CothReservation::count() + 1;
+            $first = $slots[0];
+            $payload = [
+                'reference' => 'COTH-'.str_pad((string) $count, 4, '0', STR_PAD_LEFT),
+                'public_token' => bin2hex(random_bytes(16)),
+                'coth_slot_id' => $first->id,
+                'coth_table_id' => $normalized[0]['table']->id,
+                'event_date' => $normalized[0]['date'],
+                'customer_name' => $guest['name'],
+                'phone' => WhatsAppPhone::normalize($guest['phone']),
+                'email' => isset($guest['email']) ? $guest['email'] : null,
+                'list_price' => $quote['list_price'],
+                'discount_amount' => $quote['discount_amount'],
+                'final_price' => $quote['final_price'],
+                'deposit_due' => $quote['deposit_due'],
+                'extra_chairs_qty' => $quote['extra_chairs_qty'],
+                'extra_chair_rate' => $quote['extra_chair_rate'] ?: null,
+                'extra_chairs_amount' => $quote['extra_chairs_amount'],
+                'booking_total' => $quote['booking_total'],
+                'pay_choice' => $payChoice,
+                'amount_due' => $amountDue,
+                'amount_paid' => 0,
+                'balance' => $quote['booking_total'],
+                'status' => 'held',
+                'payment_status' => 'unpaid',
+                'hold_expires_at' => now()->addMinutes((int) $settings->hold_minutes),
+                'terms_accepted_at' => now(),
+            ];
+            if (Schema::hasColumn('coth_reservations', 'nights')) {
+                $payload['nights'] = count($normalized);
+                $payload['stay_discount_percent'] = (int) $quote['stay_percent'];
+            }
+            $reservation = CothReservation::create($payload);
+            if (Schema::hasTable('coth_reservation_days')) {
+                $now = now();
+                foreach ($slots as $held) {
+                    DB::table('coth_reservation_days')->insert([
+                        'coth_reservation_id' => $reservation->id,
+                        'coth_slot_id' => $held->id,
+                        'event_date' => $held->event_date->toDateString(),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+
+            return $reservation;
+        });
+    }
+
+    /**
      * The next event dates from $start, in order. Closed days are skipped
      * and are not part of the stay.
      */

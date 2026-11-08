@@ -8,6 +8,8 @@
     $totalGuests = ($table ? (int) $table->capacity : 0) + $extraQty;
     $visuals = app(\App\Services\Coth\CothVisualLibrary::class);
     $chip = $table ? $visuals->chipFor($table) : '';
+    $daySummaries = $reservation->daySummaries();
+    $sameTable = count(array_unique(array_column($daySummaries, 'table_id'))) < 2;
 @endphp
 <div class="text-white min-h-[70vh] py-10 px-4" style="background:#24160F;color:#F6EFE4;">
     <div class="max-w-5xl mx-auto">
@@ -24,23 +26,38 @@
                     <div class="text-white/60">Reference</div><div>{{ $reservation->reference }}</div>
                     <div class="text-white/60">Name</div><div>{{ $reservation->customer_name }}</div>
                     <div class="text-white/60">Phone</div><div>+{{ $reservation->phone }}</div>
-                    <div class="text-white/60">Section</div><div>{{ optional(optional($table)->section)->name }}</div>
-                    <div class="text-white/60">Table</div>
-                    <div>
-                        {{ $table ? $table->code : '' }} · {{ $table ? $table->capacity : '' }} seats
-                        @if ($chip)<span class="text-brand-gold">· {{ $chip }}</span>@endif
-                    </div>
+                    @if (count($daySummaries) > 1)
+                        <div class="text-white/60">Days</div>
+                        <div>
+                            @foreach ($daySummaries as $daySummary)
+                                <div>{{ $daySummary['date'] }} · {{ $daySummary['code'] }} · {{ $daySummary['seats'] }} seats</div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="text-white/60">Section</div><div>{{ optional(optional($table)->section)->name }}</div>
+                        <div class="text-white/60">Table</div>
+                        <div>
+                            {{ $table ? $table->code : '' }} · {{ $table ? $table->capacity : '' }} seats
+                            @if ($chip)<span class="text-brand-gold">· {{ $chip }}</span>@endif
+                        </div>
+                    @endif
 
                     @if ($extraQty > 0)
                         <div class="text-white/60">Extra chairs</div>
                         <div>
-                            {{ $extraQty }} × {{ number_format((int) $reservation->extra_chair_rate) }} FCFA each
-                            @if ($reservation->nightCount() > 1)
-                                per day, for {{ $reservation->nightCount() }} days
+                            @if ((int) $reservation->extra_chair_rate > 0)
+                                {{ $extraQty }} × {{ number_format((int) $reservation->extra_chair_rate) }} FCFA each
+                                @if ($sameTable && $reservation->nightCount() > 1)
+                                    per day, for {{ $reservation->nightCount() }} days
+                                @endif
+                            @else
+                                {{ $extraQty }} extra
                             @endif
                         </div>
-                        <div class="text-white/60">Guests</div>
-                        <div>{{ $totalGuests }} ({{ $table ? $table->capacity : 0 }} included + {{ $extraQty }} extra)</div>
+                        @if ($sameTable)
+                            <div class="text-white/60">Guests</div>
+                            <div>{{ $totalGuests }} ({{ $table ? $table->capacity : 0 }} included + {{ $extraQty }} extra)</div>
+                        @endif
                     @endif
 
                     <div class="text-white/60 border-t border-white/10 pt-2 mt-2">Listed table</div>

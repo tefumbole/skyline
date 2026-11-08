@@ -83,7 +83,7 @@
     <div class="px-5 pt-4 pb-5 space-y-3">
         <div class="flex items-start justify-between gap-3">
             <div>
-                <h3 class="font-serif text-2xl text-white m-0">{{ $t ? $t->code : '—' }}</h3>
+                <h3 class="font-serif text-2xl text-white m-0" id="coth-select-title">{{ $r && count($r->daySummaries()) > 1 ? count($r->daySummaries()).' days' : ($t ? $t->code : '—') }}</h3>
                 <p class="m-0 text-sm text-white/70">
                     <span class="opacity-60">&#128205;</span> {{ $section ? $section->name : '' }}
                     &nbsp;·&nbsp;

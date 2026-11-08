@@ -162,6 +162,13 @@
         3 => ['Table', $section ? 'Active' : ''],
         4 => ['Reserve', ''],
     ];
+    $planDates = $planDates ?? [$date];
+    $planPicks = $planPicks ?? [];
+    $datesQuery = $datesQuery ?? $date;
+    $nightTitles = $nightTitles ?? [];
+    $planCount = count($planDates);
+    $planIndex = array_search($date, $planDates, true);
+    $planIndex = $planIndex === false ? 0 : $planIndex;
 @endphp
 <div class="coth-wrap text-white {{ $section ? 'min-h-[70vh] pb-28' : 'is-fit' }}">
     <div class="coth-exp-hero">
@@ -175,7 +182,25 @@
                 @if (!empty($nightTitle))
                     <p class="text-brand-gold text-sm m-0 mb-1">{{ $nightTitle }}</p>
                 @endif
-                <p class="text-white/60 text-sm m-0">Pick a table for this date. On the next screen you can add more days, from 5% off for 2 days up to 35% off for 8 days.</p>
+                @if ($planCount > 1)
+                    <p class="text-white/60 text-sm m-0">Day {{ $planIndex + 1 }} of {{ $planCount }}. Pick this day's table. Each day can be a different table. You pay once, with {{ $planCount === 2 ? '5' : (($planCount - 1) * 5) }}% off.</p>
+                @else
+                    <p class="text-white/60 text-sm m-0">Pick a table for this day. To book more days, go back and select them together.</p>
+                @endif
+                @if ($planCount > 1)
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        @foreach ($planDates as $planDate)
+                            <a href="{{ route('coth.tables', ['date' => $planDate, 'dates' => $datesQuery, 'section' => $section ? $section->code : null]) }}" class="rounded-full px-3 py-1 text-xs border {{ $planDate === $date ? 'border-brand-gold text-brand-gold' : 'border-white/20 text-white/70' }}">
+                                {{ \Carbon\Carbon::parse($planDate)->format('j M') }}
+                                @if (! empty($planPicks[$planDate]))
+                                    · {{ $planPicks[$planDate] }}
+                                @elseif ($planDate === $date)
+                                    · choose
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             <ol class="coth-flow" aria-label="Reservation progress">
                 @foreach ($flow as $num => $meta)
@@ -208,7 +233,7 @@
                         <button type="button" class="coth-fold" aria-expanded="true" aria-label="Collapse {{ $card['section']->name }}">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 14l6-6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
-                        <a href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}" class="coth-exp-photo">
+                        <a href="{{ route('coth.tables', ['date' => $date, 'dates' => $datesQuery, 'section' => $card['section']->code]) }}" class="coth-exp-photo">
                             @if (! empty($card['image']))
                                 <img src="{{ $card['image'] }}" alt="{{ $card['section']->name }}">
                             @endif
@@ -219,7 +244,7 @@
                                 <span class="coth-exp-from">From {{ number_format($card['from']) }} FCFA</span>
                             @endif
                             <span class="coth-exp-count">{{ $card['open'] }} available</span>
-                            <a class="coth-exp-go" href="{{ route('coth.tables', ['date' => $date, 'section' => $card['section']->code]) }}">View tables &nbsp;&rarr;</a>
+                            <a class="coth-exp-go" href="{{ route('coth.tables', ['date' => $date, 'dates' => $datesQuery, 'section' => $card['section']->code]) }}">View tables &nbsp;&rarr;</a>
                         </span>
                     </article>
                 @endforeach
@@ -227,10 +252,10 @@
         @endif
 
         @if ($section)
-            <a href="{{ route('coth.tables', ['date' => $date]) }}" class="coth-exp-kicker inline-block mt-8">&larr; ALL SECTIONS</a>
+            <a href="{{ route('coth.tables', ['date' => $date, 'dates' => $datesQuery]) }}" class="coth-exp-kicker inline-block mt-8">&larr; ALL SECTIONS</a>
             <div class="flex items-center justify-between mt-3 gap-3">
                 <h2 class="text-xl m-0">{{ $section->code === 'yard' ? 'Premium — Garden' : $section->name }}</h2>
-                <a class="text-sm text-brand-gold underline" href="{{ route('coth.tables', ['date' => $date, 'section' => $section->code, 'view' => $viewMode === 'list' ? 'layout' : 'list']) }}">
+                <a class="text-sm text-brand-gold underline" href="{{ route('coth.tables', ['date' => $date, 'dates' => $datesQuery, 'section' => $section->code, 'view' => $viewMode === 'list' ? 'layout' : 'list']) }}">
                     {{ $viewMode === 'list' ? 'Show 3D layout' : 'Show list' }}
                 </a>
             </div>
@@ -255,7 +280,7 @@
                                 <td>{{ $row['quote']['discounted'] ? '−'.number_format($row['quote']['discount_amount']) : '—' }}</td>
                                 <td>{{ number_format($row['quote']['final_price']) }}</td>
                                 <td>{{ number_format($row['quote']['deposit_due']) }}</td>
-                                <td class="pr-3">@if($row['available'])<a class="text-brand-gold font-semibold" href="{{ route('coth.book', ['date' => $date, 'table' => $row['table']->code]) }}">Reserve</a>@endif</td>
+                                <td class="pr-3">@if($row['available'])<a class="text-brand-gold font-semibold" href="{{ route('coth.assign', ['date' => $date, 'dates' => $datesQuery, 'table' => $row['table']->code]) }}">{{ $planCount > 1 ? 'Use on '.\Carbon\Carbon::parse($date)->format('j M') : 'Reserve' }}</a>@endif</td>
                             </tr>
                         @endforeach
                         </tbody>
@@ -352,7 +377,7 @@
                                             </div>
                                             <div class="text-xs {{ $m['text'] }}"><span class="coth-dot align-middle mr-1" style="background: {{ $m['color'] }}"></span>{{ $m['label'] }}</div>
                                             @if ($row['available'])
-                                                <a class="mt-1 block text-center bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.12em] text-[11px] rounded-full px-3 py-2.5" href="{{ route('coth.book', ['date' => $date, 'table' => $table->code]) }}">Reserve this table</a>
+                                                <a class="mt-1 block text-center bg-brand-gold text-[#24160F] font-bold uppercase tracking-[0.12em] text-[11px] rounded-full px-3 py-2.5" href="{{ route('coth.assign', ['date' => $date, 'dates' => $datesQuery, 'table' => $table->code]) }}">{{ $planCount > 1 ? 'Use on '.\Carbon\Carbon::parse($date)->format('j M') : 'Reserve this table' }}</a>
                                             @endif
                                         </div>
                                     </article>

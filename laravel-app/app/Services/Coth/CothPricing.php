@@ -127,6 +127,68 @@ class CothPricing
         ];
     }
 
+    /**
+     * Price one payment that covers a chosen table on each selected day.
+     * The days do not have to be consecutive, and each day can be a different table.
+     */
+    public function quoteLines(array $lines, CothSetting $settings)
+    {
+        $days = count($lines);
+        if ($days < 1) {
+            return $this->quote(0, null, $settings);
+        }
+        if ($days < 2) {
+            $line = $lines[0];
+            $quote = $this->quote($line['table']->price, $line['date'], $settings, $line['table'], $line['chairs']);
+            $quote['nights'] = 1;
+            $quote['stay_percent'] = 0;
+
+            return $quote;
+        }
+
+        $list = 0;
+        $chairsGross = 0;
+        $chairQty = 0;
+        $rates = [];
+        foreach ($lines as $line) {
+            $list += (int) $line['table']->price;
+            $qty = max(0, (int) $line['chairs']);
+            $chairQty += $qty;
+            if ($qty < 1) {
+                continue;
+            }
+            $rate = $this->extraChairRate($line['table']);
+            if ($rate !== null) {
+                $chairsGross += (int) $rate * $qty;
+                $rates[] = (int) $rate;
+            }
+        }
+        $percent = $this->stayPercent($days);
+        $tableDiscount = intdiv($list * $percent, 100);
+        $tableFinal = $list - $tableDiscount;
+        $chairsDiscount = intdiv($chairsGross * $percent, 100);
+        $chairsAmount = $chairsGross - $chairsDiscount;
+        $bookingTotal = $tableFinal + $chairsAmount;
+        $depositPct = (int) $settings->deposit_percent;
+        $deposit = (int) ceil($bookingTotal * $depositPct / 100);
+        $uniqueRates = array_values(array_unique($rates));
+
+        return [
+            'list_price' => $list,
+            'discount_amount' => $tableDiscount,
+            'final_price' => $tableFinal,
+            'discounted' => $tableDiscount > 0,
+            'extra_chairs_qty' => $chairQty,
+            'extra_chair_rate' => count($uniqueRates) === 1 ? $uniqueRates[0] : 0,
+            'extra_chairs_amount' => $chairsAmount,
+            'extra_chairs_discount' => $chairsDiscount,
+            'booking_total' => $bookingTotal,
+            'deposit_due' => $deposit,
+            'nights' => $days,
+            'stay_percent' => $percent,
+        ];
+    }
+
     public function quote($listPrice, $eventDate, CothSetting $settings, CothTable $table = null, $extraChairs = 0)
     {
         $list = (int) $listPrice;

@@ -72,16 +72,60 @@ class CothReservation extends Model
             return $this->event_date->format('l, j F Y').' · one day';
         }
         $percent = (int) $this->stay_discount_percent;
-        $end = $this->stayEnd();
-        $label = $this->event_date->format('j M').' – '.$end->format('j M Y').' · '.$nights.' open days';
+        $dates = $this->coveredDates();
+        $parts = [];
+        $last = count($dates) - 1;
+        foreach ($dates as $i => $day) {
+            $carbon = \Carbon\Carbon::parse($day);
+            $parts[] = $i === $last ? $carbon->format('j M Y') : $carbon->format('j M');
+        }
+        $label = implode(', ', $parts).' · '.$nights.' open days';
         if ($percent > 0) {
             $label .= ' · '.$percent.'% off';
         }
-        $span = $this->event_date->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1;
-        if ($span > $nights) {
-            $label .= ' · closed days in between are not included';
-        }
 
         return $label;
+    }
+
+    public function coveredDates()
+    {
+        $dates = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('coth_reservation_days')) {
+            $rows = \Illuminate\Support\Facades\DB::table('coth_reservation_days')
+                ->where('coth_reservation_id', $this->id)
+                ->orderBy('event_date')
+                ->pluck('event_date');
+            foreach ($rows as $day) {
+                $dates[] = \Carbon\Carbon::parse($day)->toDateString();
+            }
+        }
+        if (! count($dates) && $this->event_date) {
+            $dates[] = $this->event_date->toDateString();
+        }
+
+        return array_values(array_unique($dates));
+    }
+
+    public function daySummaries()
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('coth_reservation_days')) {
+            return [];
+        }
+        $rows = \Illuminate\Support\Facades\DB::table('coth_reservation_days as d')
+            ->leftJoin('coth_tables as t', 't.id', '=', 'd.coth_table_id')
+            ->where('d.coth_reservation_id', $this->id)
+            ->orderBy('d.event_date')
+            ->get(['d.event_date', 'd.coth_table_id', 't.code', 't.capacity']);
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'date' => \Carbon\Carbon::parse($row->event_date)->format('j M Y'),
+                'code' => (string) $row->code,
+                'seats' => (int) $row->capacity,
+                'table_id' => (int) $row->coth_table_id,
+            ];
+        }
+
+        return $out;
     }
 }

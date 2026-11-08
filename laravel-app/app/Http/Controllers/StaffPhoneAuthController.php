@@ -78,15 +78,6 @@ class StaffPhoneAuthController extends Controller
             $user->save();
         }
 
-        if (\App\Support\StaffOtp::paused()) {
-            $request->session()->put('staff_qr_gate', [
-                'user_id' => (int) $user->id,
-                'next' => 'staff-phone',
-            ]);
-
-            return redirect()->route('login.qr');
-        }
-
         $otp = $this->auth->createOtp($formatted, 'staff_login');
         $send = $this->whatsapp->sendOtp($formatted, $otp['code'], 'login');
         if (empty($send['success'])) {
@@ -127,12 +118,7 @@ class StaffPhoneAuthController extends Controller
             return redirect('/staff-otp-login')->withErrors(['otp' => 'Account not found.']);
         }
 
-        $request->session()->put('staff_qr_gate', [
-            'user_id' => (int) $user->id,
-            'next' => 'staff-phone',
-        ]);
-
-        return redirect()->route('login.qr');
+        return $this->finishAfterQr($request, $user);
     }
 
     public function finishAfterQr(Request $request, User $user)

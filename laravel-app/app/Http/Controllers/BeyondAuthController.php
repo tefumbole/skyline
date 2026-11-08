@@ -301,14 +301,7 @@ class BeyondAuthController extends Controller
 
     protected function completeStaffLogin(Request $request, User $staff)
     {
-        if ((int) $request->session()->pull('staff_qr_passed') !== (int) $staff->id) {
-            $request->session()->put('staff_qr_gate', [
-                'user_id' => (int) $staff->id,
-                'next' => 'staff',
-            ]);
-
-            return redirect()->route('login.qr');
-        }
+        $request->session()->forget(['staff_qr_gate', 'staff_qr_passed']);
 
         app(\App\Services\Cloud\CloudCompanyAccess::class)->ensureRole($staff, true);
         $staff->refresh();

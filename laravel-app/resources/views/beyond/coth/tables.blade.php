@@ -183,21 +183,28 @@
                     <p class="text-brand-gold text-sm m-0 mb-1">{{ $nightTitle }}</p>
                 @endif
                 @if ($planCount > 1)
-                    <p class="text-white/60 text-sm m-0">Day {{ $planIndex + 1 }} of {{ $planCount }}. Pick this day's table. Each day can be a different table. You pay once, with {{ $planCount === 2 ? '5' : (($planCount - 1) * 5) }}% off.</p>
+                    <p class="text-white/60 text-sm m-0">Day {{ $planIndex + 1 }} of {{ $planCount }}. Pick this day's table. Each day can be a different table. You pay once, with {{ ($planCount - 1) * 5 }}% off. Tap × to drop a day that does not have a table yet.</p>
                 @else
                     <p class="text-white/60 text-sm m-0">Pick a table for this day. To book more days, go back and select them together.</p>
                 @endif
                 @if ($planCount > 1)
-                    <div class="flex flex-wrap gap-2 mt-3">
+                    <div class="flex flex-wrap gap-3 mt-4">
                         @foreach ($planDates as $planDate)
-                            <a href="{{ route('coth.tables', ['date' => $planDate, 'dates' => $datesQuery, 'section' => $section ? $section->code : null]) }}" class="rounded-full px-3 py-1 text-xs border {{ $planDate === $date ? 'border-brand-gold text-brand-gold' : 'border-white/20 text-white/70' }}">
-                                {{ \Carbon\Carbon::parse($planDate)->format('j M') }}
-                                @if (! empty($planPicks[$planDate]))
-                                    · {{ $planPicks[$planDate] }}
-                                @elseif ($planDate === $date)
-                                    · choose
+                            @php
+                                $planPicked = ! empty($planPicks[$planDate]);
+                                $planLabel = \Carbon\Carbon::parse($planDate)->format('j M');
+                                if ($planPicked) {
+                                    $planLabel .= ' · '.$planPicks[$planDate];
+                                } elseif ($planDate === $date) {
+                                    $planLabel .= ' · choose';
+                                }
+                            @endphp
+                            <div class="inline-flex items-center rounded-full border {{ $planDate === $date ? 'border-brand-gold text-brand-gold' : 'border-white/30 text-white/85' }}" style="font-size:1.05rem;">
+                                <a href="{{ route('coth.tables', ['date' => $planDate, 'dates' => $datesQuery, 'section' => $section ? $section->code : null]) }}" class="px-4 py-2.5 font-semibold no-underline" style="color:inherit;">{{ $planLabel }}</a>
+                                @if (! $planPicked)
+                                    <a href="{{ route('coth.drop-day', ['drop' => $planDate, 'date' => $date, 'dates' => $datesQuery, 'section' => $section ? $section->code : null]) }}" class="mr-2 inline-flex items-center justify-center rounded-full border border-current font-semibold" style="width:1.85rem;height:1.85rem;line-height:1;" aria-label="Remove {{ \Carbon\Carbon::parse($planDate)->format('j F') }}">×</a>
                                 @endif
-                            </a>
+                            </div>
                         @endforeach
                     </div>
                 @endif

@@ -150,6 +150,64 @@ class CothController extends Controller
         return redirect()->route('coth.book', ['plan' => 1]);
     }
 
+    public function dropDate(Request $request, CothCatalog $catalog)
+    {
+        $dates = $this->selectedDates($request, $catalog);
+        $drop = (string) $request->query('drop');
+        if (! in_array($drop, $dates, true)) {
+            return redirect()->route('coth.index');
+        }
+        $stored = $request->session()->get('coth.plan', []);
+        $storedDates = (isset($stored['dates']) && is_array($stored['dates'])) ? array_values($stored['dates']) : [];
+        sort($storedDates);
+        $picks = (isset($stored['tables']) && is_array($stored['tables']) && $storedDates === $dates) ? $stored['tables'] : [];
+        if (! empty($picks[$drop])) {
+            return redirect()->route('coth.tables', [
+                'date' => $request->query('date') && in_array($request->query('date'), $dates, true) ? $request->query('date') : $drop,
+                'dates' => implode(',', $dates),
+                'section' => $request->query('section'),
+            ])->with('not_permitted', 'That day already has a table. Choose another table for it instead of removing the day.');
+        }
+        $remaining = [];
+        foreach ($dates as $day) {
+            if ($day !== $drop) {
+                $remaining[] = $day;
+            }
+        }
+        if (! count($remaining)) {
+            $request->session()->forget('coth.plan');
+
+            return redirect()->route('coth.index');
+        }
+        $kept = [];
+        foreach ($remaining as $day) {
+            if (! empty($picks[$day])) {
+                $kept[$day] = $picks[$day];
+            }
+        }
+        $request->session()->put('coth.plan', ['dates' => $remaining, 'tables' => $kept]);
+        $nextOpen = null;
+        foreach ($remaining as $day) {
+            if (empty($kept[$day])) {
+                $nextOpen = $day;
+                break;
+            }
+        }
+        if ($nextOpen === null) {
+            return redirect()->route('coth.book', ['plan' => 1]);
+        }
+        $current = (string) $request->query('date');
+        if (! in_array($current, $remaining, true)) {
+            $current = $nextOpen;
+        }
+
+        return redirect()->route('coth.tables', [
+            'date' => $current,
+            'dates' => implode(',', $remaining),
+            'section' => $request->query('section'),
+        ]);
+    }
+
     public function book(Request $request, CothCatalog $catalog, CothReservationService $reservations, CothPricing $pricing)
     {
         if ($request->query('plan') === '1') {

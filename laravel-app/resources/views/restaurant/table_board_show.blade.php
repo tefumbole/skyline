@@ -21,6 +21,7 @@
     .bill-money span { display: block; color: #5c6b82; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .bill-money strong { color: #0c1830; font-size: 16px; }
     .bill-pay { width: 100%; min-height: 48px; margin-top: 12px; border: 0; border-radius: 14px; background: #e1b368; color: #0c1830; font-weight: 700; }
+    .bill-edit { display: block; width: 100%; min-height: 48px; margin-top: 8px; border: 1px solid #0c1830; border-radius: 14px; background: #fff; color: #0c1830; font-weight: 700; line-height: 46px; text-align: center; text-decoration: none; }
     @media (max-width: 640px) {
         .bill-board h1 { font-size: 26px; }
         .bill-summary strong { font-size: 24px; }
@@ -58,6 +59,7 @@
                 <div><span>Due</span><strong>{{ \App\Support\TableBoard::money($bill['due']) }}</strong></div>
             </div>
             <p class="bill-meta" style="margin-top:10px;"><span class="bill-pill {{ strtolower($bill['status']) }}">{{ $bill['status'] }}</span></p>
+            <a class="bill-edit" href="{{ route('tables.order.edit', [$table['id'], $bill['sale_id']]) }}">Modify order</a>
             @if($canPay && $bill['due'] > 0.009)
                 <button type="button" class="bill-pay add-payment" data-id="{{ $bill['sale_id'] }}" data-name="{{ e($bill['customer'] ?: $table['name']) }}" data-phone="{{ e($bill['phone']) }}" data-ref="{{ e($bill['reference']) }}" data-due="{{ $bill['due'] }}" data-toggle="modal" data-target="#add-payment">Add payment</button>
             @endif

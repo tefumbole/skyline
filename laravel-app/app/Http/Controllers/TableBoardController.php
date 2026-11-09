@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Account;
 use App\Support\TableBoard;
+use App\Support\TableOrderEditor;
 
 class TableBoardController extends Controller
 {
@@ -33,6 +34,51 @@ class TableBoardController extends Controller
             'canPay' => TableBoard::canPay(auth()->user()),
             'accounts' => Account::where('is_active', true)->orderBy('name')->get(),
         ]);
+    }
+
+    public function editOrder($table, $sale)
+    {
+        if ($deny = $this->deny()) {
+            return $deny;
+        }
+        $editor = app(TableOrderEditor::class);
+        $order = $editor->orderOnTable($table, $sale);
+        if (! $order) {
+            return redirect()->route('tables.show', $table)->with('not_permitted', 'That order is not on this table.');
+        }
+
+        return view('restaurant.table_order_edit', [
+            'tableId' => (int) $table,
+            'tableName' => $editor->tableName($table),
+            'sale' => $order->sale,
+            'lines' => $editor->lines($order),
+            'products' => $editor->products(),
+        ]);
+    }
+
+    public function updateOrder(\Illuminate\Http\Request $request, $table, $sale)
+    {
+        if ($deny = $this->deny()) {
+            return $deny;
+        }
+        $editor = app(TableOrderEditor::class);
+        $order = $editor->orderOnTable($table, $sale);
+        if (! $order) {
+            return redirect()->route('tables.show', $table)->with('not_permitted', 'That order is not on this table.');
+        }
+        try {
+            $message = $editor->apply(
+                $order,
+                (array) $request->input('qty', []),
+                $request->input('product_id'),
+                $request->input('add_qty'),
+                $request->user()
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('not_permitted', $e->getMessage());
+        }
+
+        return redirect()->route('tables.show', $table)->with('message', $message);
     }
 
     protected function deny()

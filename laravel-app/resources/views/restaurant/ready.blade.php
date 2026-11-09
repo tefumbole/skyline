@@ -15,6 +15,8 @@
         background: #0c1830; color: #e1b368; font-size: 20px; font-weight: 800; letter-spacing: .04em;
         font-variant-numeric: tabular-nums;
     }
+    .ready-card.is-late { border-color: #8a1f1f; background: #fff5f5; }
+    .ready-clock.is-late { background: #8a1f1f; color: #fff; }
     .ready-lines { margin: 14px 0 0; padding: 0; list-style: none; }
     .ready-lines li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #e6ebf2; }
     .ready-lines strong { color: #0c1830; font-size: 17px; }
@@ -33,7 +35,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="ready-kicker">Floor</p>
     <h1>Ready for Delivery</h1>
-    <p class="ready-lead">Each card is one order and the table it should go to.</p>
+    <p class="ready-lead">Each card is one order and the table it should go to. When the kitchen time runs out the card turns red and keeps counting. It stays here until someone taps Delivered.</p>
     @php
         $groups = [];
         foreach ($items as $item) {
@@ -59,6 +61,7 @@
                     'ref' => $sale->reference_no ?? ($order ? $order->id : $item->id),
                     'deliver_by' => optional(optional($order)->placedBy)->name ?: 'Staff',
                     'since' => null,
+                    'due' => null,
                     'items' => [],
                 ];
             }
@@ -68,11 +71,17 @@
                     $groups[$key]['since'] = $marked;
                 }
             }
+            if ($item->expected_ready_at) {
+                $dueAt = $item->expected_ready_at->getTimestamp();
+                if ($groups[$key]['due'] === null || $dueAt < $groups[$key]['due']) {
+                    $groups[$key]['due'] = $dueAt;
+                }
+            }
             $groups[$key]['items'][] = $item;
         }
     @endphp
     @forelse($groups as $group)
-        <article class="ready-card">
+        <article class="ready-card {{ !empty($group['due']) && $group['due'] < time() ? 'is-late' : '' }}">
             <h2 class="ready-where">{{ $group['where'] }}</h2>
             @if(!empty($group['client']))
                 <p class="ready-client">{{ $group['client'] }}</p>
@@ -93,7 +102,9 @@
                 <p class="ready-who">Prepared by: {{ implode(', ', array_keys($preparedNames)) }}</p>
             @endif
             <p class="ready-who">Deliver by: {{ $group['deliver_by'] }}</p>
-            @if($group['since'])
+            @if(!empty($group['due']))
+                <p class="ready-who">Kitchen time <span class="ready-clock {{ $group['due'] < time() ? 'is-late' : '' }}" data-due="{{ $group['due'] }}">--:--</span>@if($group['due'] < time()) <span>Late. Not delivered.</span>@endif</p>
+            @elseif($group['since'])
                 <p class="ready-who">Waiting <span class="ready-clock" data-since="{{ $group['since'] }}">--:--</span></p>
             @endif
             <ul class="ready-lines">
@@ -146,13 +157,27 @@
             var now = Date.now();
             var clocks = document.querySelectorAll('.ready-clock');
             for (var i = 0; i < clocks.length; i++) {
-                var since = parseInt(clocks[i].getAttribute('data-since'), 10) * 1000;
-                if (!since) continue;
-                var abs = Math.max(0, Math.round((now - since) / 1000));
+                var due = parseInt(clocks[i].getAttribute('data-due'), 10);
+                var since = parseInt(clocks[i].getAttribute('data-since'), 10);
+                var late = false;
+                var abs = 0;
+                if (due) {
+                    var diff = Math.round(due - (now / 1000));
+                    late = diff < 0;
+                    abs = Math.abs(diff);
+                } else if (since) {
+                    abs = Math.max(0, Math.round((now / 1000) - since));
+                } else {
+                    continue;
+                }
                 var hours = Math.floor(abs / 3600);
                 var mins = Math.floor((abs % 3600) / 60);
                 var secs = abs % 60;
-                clocks[i].textContent = (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+                clocks[i].textContent = (late ? '-' : '') + (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+                clocks[i].className = late ? 'ready-clock is-late' : 'ready-clock';
+                var card = clocks[i].parentNode;
+                while (card && card.className && String(card.className).indexOf('ready-card') === -1) card = card.parentNode;
+                if (card && late && String(card.className).indexOf('is-late') === -1) card.className += ' is-late';
             }
         }
         paint();

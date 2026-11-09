@@ -583,6 +583,11 @@ class SaleController extends Controller
                 ?: Biller::where('is_active', true)->value('id');
         }
 
+        $duplicateOrder = app(\App\Services\Sales\PosDuplicateGuard::class)->response($request, $data);
+        if ($duplicateOrder) {
+            return $duplicateOrder;
+        }
+
         $lims_sale_data = Sale::create($data);
         if (! empty($data['momo_token'])) {
             $held = \Cache::get('pos:momo:'.$data['momo_token']);
@@ -3467,6 +3472,8 @@ class SaleController extends Controller
         }
         $back = isset($pending['back']) ? $pending['back'] : route('payment.index');
         if (\App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
+            session()->flash('payment_receipt_sale', $sale->id);
+
             return response()->json(['status' => 'paid', 'url' => $back]);
         }
         $campay = app(\App\Services\CampayCollectService::class);
@@ -3485,6 +3492,7 @@ class SaleController extends Controller
                 }
                 \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
                 \Illuminate\Support\Facades\Cache::forget($pending['external']);
+                session()->flash('payment_receipt_sale', $sale->id);
 
                 return response()->json(['status' => 'paid', 'url' => $back]);
             }
@@ -3701,9 +3709,9 @@ class SaleController extends Controller
 
         }
         if ($tableReturn !== '' && preg_match('#^/tables(?:/[0-9]+)?$#', $tableReturn)) {
-            return redirect($tableReturn)->with('message', $message);
+            return redirect($tableReturn)->with('message', $message)->with('payment_receipt_sale', $lims_sale_data->id);
         }
-        return redirect('sales')->with('message', $message);
+        return redirect('sales')->with('message', $message)->with('payment_receipt_sale', $lims_sale_data->id);
     }
 
     public function getPayment($id)

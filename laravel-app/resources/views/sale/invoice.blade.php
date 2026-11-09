@@ -628,6 +628,9 @@
         }, sunmiHooks());
     }
     document.getElementById('invoice-print-btn').addEventListener('click', printSunmiReceipt);
+    if (window.location.search.indexOf('autoprint=1') !== -1) {
+        printSunmiReceipt();
+    }
     document.getElementById('sunmi-test-btn').addEventListener('click', printSunmiTest);
     document.getElementById('sunmi-reprint').addEventListener('click', function () {
         if (sunmiLast === 'test') printSunmiTest();

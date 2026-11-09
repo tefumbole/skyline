@@ -17,6 +17,13 @@
     @if(session()->has('not_permitted'))
         <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
     @endif
+    @if(session('duplicate_order'))
+        <div class="alert alert-warning text-center">
+            This order was already placed as <strong>{{ session('duplicate_order.reference') }}</strong>. It was not placed again.
+            <a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="{{ route('sale.invoice', session('duplicate_order.id')) }}">Open that receipt</a>
+            <button type="button" class="btn btn-primary btn-sm" id="pos-place-again">Place this order again</button>
+        </div>
+    @endif
     @if(session('momo_watch'))
         <script>
             (function () {
@@ -1448,6 +1455,7 @@
                     <div class="card">
                         <div class="card-body" style="padding-bottom: 0">
                             {!! Form::open(['route' => 'sales.store', 'method' => 'post', 'files' => true, 'class' => 'payment-form']) !!}
+                            <input type="hidden" name="confirm_duplicate" value="">
                             @php
                                 if($lims_pos_setting_data)
                                 $keybord_active = $lims_pos_setting_data->keybord_active;
@@ -1862,7 +1870,7 @@
                                                         </div>
                                                     </div>
                                                     <div class="mt-3">
-                                                        <button id="submit-btn" class="btn btn-primary text-white">{{trans('file.submit')}}</button>
+                                                        <button type="button" id="submit-btn" class="btn btn-primary text-white">{{trans('file.submit')}}</button>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-2 qc" data-initial="1">
@@ -3811,10 +3819,22 @@
                 $('.payment-form').submit();
         });
 
+        var posSubmitting = false;
         $("#submit-btn").on("click", function() {
-            $("#submit-btn").prop('disabled', true);  // Use 'disabled' instead of 'readonly'
-            $('.payment-form').submit();
+            if (posSubmitting) return;
+            posSubmitting = true;
+            $("#submit-btn").prop('disabled', true);
+            $('.payment-form').trigger('submit');
         });
+        var placeAgain = document.getElementById('pos-place-again');
+        if (placeAgain) {
+            placeAgain.addEventListener('click', function () {
+                var input = document.querySelector('input[name="confirm_duplicate"]');
+                if (input) input.value = '1';
+                posSubmitting = false;
+                $("#submit-btn").prop('disabled', false).trigger('click');
+            });
+        }
 
         $("#gift-card-btn").on("click",function() {
             $('select[name="paid_by_id_select"]').val(2);
@@ -4817,6 +4837,7 @@
         $(document).on('submit', '.payment-form', function(e) {
             if (waiterMustChooseTable()) {
                 e.preventDefault();
+                posSubmitting = false;
                 $("#submit-btn").prop('disabled', false);
                 return;
             }
@@ -4836,10 +4857,16 @@
             if (rownumber < 0) {
                 alert("Please insert product to order table!")
                 e.preventDefault();
+                posSubmitting = false;
+                $("#submit-btn").prop('disabled', false);
+                return;
             }
             else if( parseFloat( $('input[name="paying_amount"]').val() ) < parseFloat( $('input[name="paid_amount"]').val() ) ){
                 alert('Paying amount cannot be bigger than recieved amount');
                 e.preventDefault();
+                posSubmitting = false;
+                $("#submit-btn").prop('disabled', false);
+                return;
             }
             $('input[name="paid_by_id"]').val($('select[name="paid_by_id_select"]').val());
             $('input[name="debit"]').val($('select[name="debit_select"]').val());

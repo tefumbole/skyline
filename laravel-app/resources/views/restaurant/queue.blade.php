@@ -32,6 +32,7 @@
             font-variant-numeric: tabular-nums;
         }
         .sky-clock.is-late { background:#8a1f1f; color:#fff; }
+        .sky-ticket.is-late { border-color:#8a1f1f; background:#fff5f5; }
         .sky-wait {
             display:inline-block; margin-top:8px; min-width:96px; padding:6px 12px; border-radius:10px;
             background:#0c1830; color:#e1b368; font-size:22px; font-weight:800; letter-spacing:.04em;
@@ -100,9 +101,9 @@
                     $canEdit = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'edit', $item);
                     $canDelete = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'delete', $item);
                     $canDeliver = \App\Services\Restaurant\RestaurantAccess::canDeliver(auth()->user(), $item);
-                    $late = $item->expected_ready_at && $item->expected_ready_at->isPast() && $item->status === 'preparing';
+                    $late = $item->expected_ready_at && $item->expected_ready_at->isPast() && in_array($item->status, ['preparing', 'ready'], true);
                 @endphp
-                <article class="sky-ticket">
+                <article class="sky-ticket {{ $late ? 'is-late' : '' }}">
                     <div>
                         <p class="sky-kicker">{{ $order ? $order->serviceLabel() : 'Order' }}</p>
                         <p class="sky-ref">{{ $sale->reference_no ?? $item->restaurant_order_id }}</p>
@@ -178,14 +179,18 @@
                         @if(optional($order)->customer_comment)<p class="sky-note">Note: {{ $order->customer_comment }}</p>@endif
                         @if($item->customer_comment)<p class="sky-note">Item note: {{ $item->customer_comment }}</p>@endif
                         <p class="sky-meta">
-                            @if($item->status === 'ready' && $item->ready_at)
+                            @if($item->expected_ready_at && in_array($item->status, ['preparing', 'ready'], true))
+                                <span class="sky-clock {{ $late ? 'is-late' : '' }}" data-due="{{ $item->expected_ready_at->getTimestamp() }}">--:--</span>
+                                @if($late)
+                                    <span>Late. Not delivered.</span>
+                                @else
+                                    <span>Due {{ $item->expected_ready_at->format('H:i') }}</span>
+                                @endif
+                            @elseif($item->status === 'ready' && $item->ready_at)
                                 <span class="sky-wait" data-since="{{ $item->ready_at->getTimestamp() }}">--:--</span>
                                 <span>since it was marked ready</span>
                             @elseif($item->ready_at)
                                 Ready {{ $item->ready_at->format('H:i') }}
-                            @elseif($item->expected_ready_at && $item->status === 'preparing')
-                                <span class="sky-clock" data-due="{{ $item->expected_ready_at->getTimestamp() }}">--:--</span>
-                                <span>Due {{ $item->expected_ready_at->format('H:i') }}</span>
                             @elseif($item->expected_ready_at)
                                 Due {{ $item->expected_ready_at->format('H:i') }}
                             @elseif($item->status === 'preparing')
@@ -287,8 +292,10 @@
                     var mins = Math.floor((abs % 3600) / 60);
                     var secs = abs % 60;
                     clocks[i].textContent = (late ? '-' : '') + (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
-                    if (late) clocks[i].className = 'sky-clock is-late';
-                    else clocks[i].className = 'sky-clock';
+                    clocks[i].className = late ? 'sky-clock is-late' : 'sky-clock';
+                    var card = clocks[i].parentNode;
+                    while (card && card.className && card.className.indexOf('sky-ticket') === -1) card = card.parentNode;
+                    if (card && card.className && late && card.className.indexOf('is-late') === -1) card.className += ' is-late';
                 }
                 var waits = document.querySelectorAll('.sky-wait');
                 for (var j = 0; j < waits.length; j++) {

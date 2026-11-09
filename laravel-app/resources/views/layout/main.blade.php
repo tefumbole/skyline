@@ -4020,6 +4020,7 @@
                       <div id="beyond-module-tabs-sub" class="beyond-module-tabs-sub"></div>
                   </div>
               </div>
+              @include('sale.partials.payment_receipt_prompt')
               @yield('content')
           </div>
 

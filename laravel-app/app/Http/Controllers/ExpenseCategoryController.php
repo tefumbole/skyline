@@ -3,15 +3,20 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Expense;
 use App\ExpenseCategory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ExpenseCategoryController extends Controller
 {
     public function index()
     {
-        $lims_expense_category_all = ExpenseCategory::where('is_active', true)->get();
-        return view('expense_category.index', compact('lims_expense_category_all'));
+        $lims_expense_category_all = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+        $spent = Expense::select('expense_category_id', DB::raw('SUM(amount) as spent'))
+            ->groupBy('expense_category_id')
+            ->pluck('spent', 'expense_category_id');
+        return view('expense_category.index', compact('lims_expense_category_all', 'spent'));
     }
 
     public function create()
@@ -65,6 +70,7 @@ class ExpenseCategoryController extends Controller
         if (empty($data['is_active'])) {
             $data['is_active'] = 1;
         }
+        $data['budget_amount'] = $request->filled('budget_amount') ? $request->input('budget_amount') : null;
         ExpenseCategory::create($data);
         return redirect('expense_categories')->with('message', 'Data inserted successfully');
     }
@@ -92,6 +98,7 @@ class ExpenseCategoryController extends Controller
         ]);
 
         $data = $request->all();
+        $data['budget_amount'] = $request->filled('budget_amount') ? $request->input('budget_amount') : null;
         $lims_expense_category_data = ExpenseCategory::find($data['expense_category_id']);
         $lims_expense_category_data->update($data);
         return redirect('expense_categories')->with('message', 'Data updated successfully');

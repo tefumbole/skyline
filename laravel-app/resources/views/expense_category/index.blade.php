@@ -1,331 +1,95 @@
-@extends('layout.main') @section('content')
-@if($errors->has('code'))
-<div class="alert alert-danger alert-dismissible text-center">
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ $errors->first('code') }}</div>
-@endif
-@if(session()->has('message'))
-  <div class="alert alert-success alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('message') }}</div> 
-@endif
-@if(session()->has('not_permitted'))
-  <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div> 
-@endif
-
-<section>
-    <div class="container-fluid">
-        <button class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans('file.Add Expense Category')}}</button>&nbsp;
-        <button class="btn btn-primary" data-toggle="modal" data-target="#importExpenseCategory"><i class="dripicons-copy"></i> {{trans('file.Import Expense Category')}}</button>
+@extends('layout.main')
+@section('content')
+@php
+    $money = function ($amount) {
+        return number_format((float) $amount, 0).' XAF';
+    };
+@endphp
+<style>
+    .ex-page { max-width: 1080px; margin: 0 auto 48px; }
+    .ex-hero { background: #0c1830; color: #fff; border-radius: 22px; padding: 22px 24px; }
+    .ex-kicker { color: #e1b368; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
+    .ex-hero h1 { margin: 0; font-size: 32px; }
+    .ex-hero p { margin: 8px 0 0; color: #d5deea; max-width: 640px; }
+    .ex-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-top: 16px; }
+    .ex-card { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
+    .ex-card h2 { margin: 0 0 12px; font-size: 18px; color: #0c1830; }
+    .ex-field { margin-bottom: 12px; }
+    .ex-field label { display: block; font-size: 12px; font-weight: 700; color: #5c6b80; margin-bottom: 4px; text-transform: uppercase; }
+    .ex-field input { width: 100%; border: 1px solid #d5deea; border-radius: 12px; min-height: 44px; padding: 8px 12px; background: #f8fafc; }
+    .ex-btn { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 16px; border-radius: 12px; font-weight: 700; border: 0; background: #e1b368; color: #0c1830; cursor: pointer; text-decoration: none; }
+    .ex-grid { display: grid; gap: 12px; }
+    .ex-cat { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
+    .ex-cat h3 { margin: 0; color: #0c1830; }
+    .ex-meta { color: #5c6b80; font-size: 13px; }
+    .ex-bar { height: 8px; background: #e7edf5; border-radius: 99px; margin: 10px 0; overflow: hidden; }
+    .ex-bar i { display: block; height: 100%; background: #0c1830; }
+    .ex-bar.over i { background: #8a1f1f; }
+    .ex-inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+    .ex-inline input { border: 1px solid #d5deea; border-radius: 10px; min-height: 40px; padding: 0 10px; }
+    @media (max-width: 860px) { .ex-layout { grid-template-columns: 1fr; } }
+</style>
+<section class="ex-page">
+    @if($errors->has('code') || $errors->has('name'))
+        <div class="alert alert-danger">{{ $errors->first('code') ?: $errors->first('name') }}</div>
+    @endif
+    @if(session()->has('message'))
+        <div class="alert alert-success">{{ session('message') }}</div>
+    @endif
+    <div class="ex-hero">
+        <p class="ex-kicker">Budgets</p>
+        <h1>Expense categories</h1>
+        <p>Create a category and a fixed budget. Every expense in that category counts against it. <a href="{{ route('expenses.index') }}" style="color:#e1b368;">Back to expenses</a></p>
     </div>
-    <div class="table-responsive">
-        <table id="expense_category-table" class="table">
-            <thead>
-                <tr>
-                    <th class="not-exported"></th>
-                    <th>{{trans('file.Code')}}</th>
-                    <th>{{trans('file.name')}}</th>
-                    <th class="not-exported">{{trans('file.action')}}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($lims_expense_category_all as $key=>$expense_category)
-                <tr data-id="{{$expense_category->id}}">
-                    <td>{{$key}}</td>
-                    <td>{{ $expense_category->code }}</td>
-                    <td>{{ $expense_category->name }}</td>
-                    <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{trans('file.action')}}
-                                <span class="caret"></span>
-                                <span class="sr-only">Toggle Dropdown</span>
-                            </button>
-                            <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
-                                <li><button type="button" data-id="{{$expense_category->id}}" class="open-Editexpense_categoryDialog btn btn-link" data-toggle="modal" data-target="#editModal"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</button></li>
-                                <li class="divider"></li>
-                                {{ Form::open(['route' => ['expense_categories.destroy', $expense_category->id], 'method' => 'DELETE'] ) }}
-                                <li>
-                                    <button type="submit" class="btn btn-link" onclick="return confirmDelete()"><i class="dripicons-trash"></i> {{trans('file.delete')}}</button>
-                                </li>
-                                {{ Form::close() }}
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
+    <div class="ex-layout">
+        <form class="ex-card" method="post" action="{{ route('expense_categories.store') }}">
+            @csrf
+            <h2>New category</h2>
+            <input type="hidden" name="is_active" value="1">
+            <div class="ex-field">
+                <label>Name</label>
+                <input type="text" name="name" required placeholder="Sound, transport, food…">
+            </div>
+            <div class="ex-field">
+                <label>Budget (XAF)</label>
+                <input type="number" name="budget_amount" min="0" step="1" placeholder="Optional fixed budget">
+            </div>
+            <button class="ex-btn" type="submit">Save category</button>
+        </form>
+        <div class="ex-grid">
+            @foreach($lims_expense_category_all as $category)
+                @php
+                    $used = isset($spent[$category->id]) ? (float) $spent[$category->id] : 0;
+                    $budget = $category->budget_amount !== null ? (float) $category->budget_amount : null;
+                    $pct = ($budget && $budget > 0) ? min(100, round(($used / $budget) * 100)) : 0;
+                @endphp
+                <article class="ex-cat">
+                    <h3>{{ $category->name }}</h3>
+                    <div class="ex-meta">Code {{ $category->code }}</div>
+                    @if($budget !== null && $budget > 0)
+                        <div class="ex-meta" style="margin-top:6px;">{{ $money($used) }} spent of {{ $money($budget) }}</div>
+                        <div class="ex-bar {{ $used > $budget ? 'over' : '' }}"><i style="width: {{ $pct }}%"></i></div>
+                        <a href="{{ route('expenses.index', ['category' => $category->id]) }}">See expenses</a>
+                    @else
+                        <div class="ex-meta" style="margin-top:6px;">{{ $money($used) }} spent · no fixed budget yet</div>
+                    @endif
+                    <form class="ex-inline" method="post" action="{{ route('expense_categories.update', $category->id) }}">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="expense_category_id" value="{{ $category->id }}">
+                        <input type="hidden" name="code" value="{{ $category->code }}">
+                        <input type="text" name="name" value="{{ $category->name }}" required>
+                        <input type="number" name="budget_amount" min="0" step="1" value="{{ $budget !== null ? $budget : '' }}" placeholder="Budget">
+                        <button class="ex-btn" type="submit">Update</button>
+                    </form>
+                </article>
+            @endforeach
+        </div>
     </div>
 </section>
-
-<div id="createModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
-    <div role="document" class="modal-dialog">
-      <div class="modal-content">
-        {!! Form::open(['route' => 'expense_categories.store', 'method' => 'post', 'files' => true]) !!}
-        <div class="modal-header">
-          <h5 id="exampleModalLabel" class="modal-title">{{trans('file.Add Expense Category')}}</h5>
-          <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
-        </div>
-        <div class="modal-body">
-          <p class="italic"><small>{{trans('file.The field labels marked with * are required input fields')}}.</small></p>
-            <div class="form-group">
-                <label>{{trans('file.Code')}} *</label>
-                <div class="input-group">
-                    {{Form::text('code', null, array('required' => 'required', 'id' => 'create-code', 'class' => 'form-control', 'readonly' => 'readonly', 'placeholder' => '001'))}}
-                    <div class="input-group-append">
-                        <button id="genbutton" type="button" class="btn btn-default">{{trans('file.Generate')}}</button>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>{{trans('file.name')}} *</label>
-                {{Form::text('name',null,array('required' => 'required', 'class' => 'form-control', 'placeholder' => 'Type expense category name...'))}}
-            </div>
-            <input type="hidden" name="is_active" value="1">          
-            <div class="form-group">       
-              <input type="submit" value="{{trans('file.submit')}}" class="btn btn-primary">
-            </div>
-        </div>
-        {{ Form::close() }}
-      </div>
-    </div>
-</div>
-
-<div id="editModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
-  <div role="document" class="modal-dialog">
-    <div class="modal-content">
-        {{ Form::open(['route' => ['expense_categories.update', 1], 'method' => 'PUT', 'files' => true] ) }}
-      <div class="modal-header">
-        <h5 id="exampleModalLabel" class="modal-title"> {{trans('file.Update Expense Category')}}</h5>
-        <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
-      </div>
-      <div class="modal-body">
-        <p class="italic"><small>{{trans('file.The field labels marked with * are required input fields')}}.</small></p>
-            <div class="form-group">
-                <label>{{trans('file.Code')}} *</label>
-                {{Form::text('code',null,array('required' => 'required', 'class' => 'form-control', 'placeholder' => 'Type expense category code...'))}}
-            </div>
-            <div class="form-group">
-                <label>{{trans('file.name')}} *</label>
-                {{Form::text('name',null,array('required' => 'required', 'class' => 'form-control', 'placeholder' => 'Type expense category name...'))}}
-            </div>
-        <input type="hidden" name="expense_category_id">
-        <div class="form-group">       
-            <input type="submit" value="{{trans('file.submit')}}" class="btn btn-primary">
-          </div>
-        </div>
-      {{ Form::close() }}
-    </div>
-  </div>
-</div>
-
-<div id="importExpenseCategory" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
-    <div role="document" class="modal-dialog">
-      <div class="modal-content">
-        {!! Form::open(['route' => 'expense_category.import', 'method' => 'post', 'files' => true]) !!}
-        <div class="modal-header">
-          <h5 id="exampleModalLabel" class="modal-title">{{trans('file.Import Expense Category')}}</h5>
-          <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
-        </div>
-        <div class="modal-body">
-            <p class="italic"><small>{{trans('file.The field labels marked with * are required input fields')}}.</small></p>
-           <p>{{trans('file.The correct column order is')}} (code*, name*) {{trans('file.and you must follow this')}}.</p>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label>{{trans('file.Upload CSV File')}} *</label>
-                        {{Form::file('file', array('class' => 'form-control','required'))}}
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label> {{trans('file.Sample File')}}</label>
-                        <a href="public/sample_file/sample_expense_category.csv" class="btn btn-info btn-block btn-md"><i class="dripicons-download"></i>  {{trans('file.Download')}}</a>
-                    </div>
-                </div>
-            </div>
-            <input type="submit" value="{{trans('file.submit')}}" class="btn btn-primary">
-        </div>
-        {{ Form::close() }}
-      </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-
+<script>
     $("ul#expense").siblings('a').attr('aria-expanded','true');
     $("ul#expense").addClass("show");
     $("ul#expense #exp-cat-menu").addClass("active");
-
-    var expense_category_id = [];
-    var user_verified = <?php echo json_encode(true) ?>;
-    
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    });
-
-    function fillNextExpenseCategoryCode() {
-      $.get('{{ url("expense_categories/gencode") }}', function(data){
-        $('#create-code').val(data);
-      });
-    }
-
-    $('#createModal').on('shown.bs.modal', function () {
-      fillNextExpenseCategoryCode();
-    });
-
-    $('#genbutton').on("click", function(){
-      fillNextExpenseCategoryCode();
-    });
-
-    $(document).ready(function() {
-        $(document).on('click', '.open-Editexpense_categoryDialog', function() {
-            var url = "expense_categories/"
-            var id = $(this).data('id').toString();
-            url = url.concat(id).concat("/edit");
-            $.get(url, function(data) {
-                $("input[name='code']").val(data['code']);
-                $("input[name='name']").val(data['name']);
-                $("input[name='expense_category_id']").val(data['id']);
-            });
-        });
-    })
-
-function confirmDelete() {
-    if (confirm("Are you sure want to delete?")) {
-        return true;
-    }
-    return false;
-}
-
-    $('#expense_category-table').DataTable( {
-        "order": [],
-        'language': {
-            'lengthMenu': '_MENU_ {{trans("file.records per page")}}',
-             "info":      '<small>{{trans("file.Showing")}} _START_ - _END_ (_TOTAL_)</small>',
-            "search":  '{{trans("file.Search")}}',
-            'paginate': {
-                    'previous': '<i class="dripicons-chevron-left"></i>',
-                    'next': '<i class="dripicons-chevron-right"></i>'
-            }
-        },
-        'columnDefs': [
-            {
-                "orderable": false,
-                'targets': [0, 3]
-            },
-            {
-                'render': function(data, type, row, meta){
-                    if(type === 'display'){
-                        data = '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>';
-                    }
-
-                   return data;
-                },
-                'checkboxes': {
-                   'selectRow': true,
-                   'selectAllRender': '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>'
-                },
-                'targets': [0]
-            }
-        ],
-        'select': { style: 'multi',  selector: 'td:first-child'},
-        'lengthMenu': [[10, 25, 50, -1], [10, 25, 50, "All"]],
-        dom: '<"row"lfB>rtip',
-        buttons: [
-            {
-                extend: 'pdf',
-                text: '<i title="export to pdf" class="fa fa-file-pdf-o"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible',
-                    stripHtml: false
-                },
-                customize: function(doc) {
-                    for (var i = 1; i < doc.content[1].table.body.length; i++) {
-                        if (doc.content[1].table.body[i][0].text.indexOf('<img src=') !== -1) {
-                            var imagehtml = doc.content[1].table.body[i][0].text;
-                            var regex = /<img.*?src=['"](.*?)['"]/;
-                            var src = regex.exec(imagehtml)[1];
-                            var tempImage = new Image();
-                            tempImage.src = src;
-                            var canvas = document.createElement("canvas");
-                            canvas.width = tempImage.width;
-                            canvas.height = tempImage.height;
-                            var ctx = canvas.getContext("2d");
-                            ctx.drawImage(tempImage, 0, 0);
-                            var imagedata = canvas.toDataURL("image/png");
-                            delete doc.content[1].table.body[i][0].text;
-                            doc.content[1].table.body[i][0].image = imagedata;
-                            doc.content[1].table.body[i][0].fit = [30, 30];
-                        }
-                    }
-                },
-            },
-            {
-                extend: 'csv',
-                text: '<i title="export to csv" class="fa fa-file-text-o"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible',
-                    format: {
-                        body: function ( data, row, column, node ) {
-                            if (column === 0 && (data.indexOf('<img src=') !== -1)) {
-                                var regex = /<img.*?src=['"](.*?)['"]/;
-                                data = regex.exec(data)[1];                 
-                            }
-                            return data;
-                        }
-                    }
-                },
-            },
-            {
-                extend: 'print',
-                text: '<i title="print" class="fa fa-print"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible',
-                    stripHtml: false
-                },
-            },
-            {
-                text: '<i title="delete" class="dripicons-cross"></i>',
-                className: 'buttons-delete',
-                action: function ( e, dt, node, config ) {
-                    if(true) {
-                        expense_category_id.length = 0;
-                        $(':checkbox:checked').each(function(i){
-                            if(i){
-                                expense_category_id[i-1] = $(this).closest('tr').data('id');
-                            }
-                        });
-                        if(expense_category_id.length && confirm("Are you sure want to delete?")) {
-                            $.ajax({
-                                type:'POST',
-                                url:'expense_categories/deletebyselection',
-                                data:{
-                                    expense_categoryIdArray: expense_category_id
-                                },
-                                success:function(data){
-                                    alert(data);
-                                }
-                            });
-                            dt.rows({ page: 'current', selected: true }).remove().draw(false);
-                        }
-                        else if(!expense_category_id.length)
-                            alert('No expense category is selected!');
-                    }
-                    else
-                        alert('This feature is disable for demo!');
-                }
-            },
-            {
-                extend: 'colvis',
-                text: '<i title="column visibility" class="fa fa-eye"></i>',
-                columns: ':gt(0)'
-            },
-        ],
-    } );
-
 </script>
 @endsection

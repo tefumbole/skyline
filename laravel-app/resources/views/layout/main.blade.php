@@ -2241,6 +2241,18 @@
                                 </ul>
                             </li>
                         @endif
+                        @php
+                            $expenseMenu = \App\Support\ExpenseBoard::canView(Auth::user());
+                        @endphp
+                        @if($expenseMenu)
+                            <li>
+                                <a href="#expense" data-nav-key="expenses" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-wallet"></i><span>Expenses</span></a>
+                                <ul id="expense" class="collapse list-unstyled ">
+                                    <li id="exp-list-menu"><a href="{{ route('expenses.index') }}">Expenses</a></li>
+                                    <li id="exp-cat-menu"><a href="{{ route('expense_categories.index') }}">Categories &amp; budgets</a></li>
+                                </ul>
+                            </li>
+                        @endif
                         <?php
                         $index_permission_letter = DB::table('permissions')->where('name', 'letter_module')->first();
                         $index_permission_letter_active = DB::table('role_has_permissions')->where([

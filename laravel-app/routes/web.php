@@ -1335,6 +1335,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::get('wealth/help', function () { abort(404); })->name('wealth.help');
 
 	Route::post('expenses/deletebyselection', 'ExpenseController@deleteBySelection');
+	Route::get('expenses/link-options', 'ExpenseController@linkOptions')->name('expenses.link-options');
 	Route::resource('expenses', 'ExpenseController');
 	Route::get('/expense/asset', 'ExpenseController@asset')->name('asset.expense');
 	Route::get('/activity/asset', 'ExpenseController@assetActivity')->name('asset.activity');

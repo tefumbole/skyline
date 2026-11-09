@@ -1,378 +1,299 @@
-@extends('layout.main') @section('content')
-@if(session()->has('message'))
-  <div class="alert alert-success alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('message') }}</div>
-@endif
-@if(session()->has('not_permitted'))
-  <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
-@endif
-
-<section>
-    <div class="container-fluid">
-        <div class="card">
-            <div class="card-header mt-2">
-                <h3 class="text-center">{{trans('file.Expense List')}}</h3>
-            </div>
-            {!! Form::open(['route' => 'expenses.index', 'method' => 'get']) !!}
-            <div class="row mb-3">
-                <div class="col-md-4 offset-md-2 mt-3">
-                    <div class="form-group row">
-                        <label class="d-tc mt-2"><strong>{{trans('file.Choose Your Date')}}</strong> &nbsp;</label>
-                        <div class="d-tc">
-                            <div class="input-group">
-                                <input type="text" class="daterangepicker-field form-control" value="{{$start_date}} To {{$end_date}}" required />
-                                <input type="hidden" name="start_date" value="{{$start_date}}" />
-                                <input type="hidden" name="end_date" value="{{$end_date}}" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2 mt-3">
-                    <div class="form-group">
-                        <button class="btn btn-primary" type="submit">{{trans('file.submit')}}</button>
-                    </div>
-                </div>
-            </div>
-            {!! Form::close() !!}
+@extends('layout.main')
+@section('content')
+@php
+    $eventLabels = [];
+    foreach ($events as $event) {
+        $eventLabels[$event['id']] = $event['label'].' · '.$event['when'];
+    }
+    $quoteLabels = [];
+    foreach ($quotations as $quote) {
+        $quoteLabels[$quote['id']] = $quote['label'];
+    }
+    $money = function ($amount) {
+        return number_format((float) $amount, 0).' XAF';
+    };
+@endphp
+<style>
+    .ex-page { max-width: 1080px; margin: 0 auto 48px; }
+    .ex-hero { background: #0c1830; color: #fff; border-radius: 22px; padding: 22px 24px; display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+    .ex-kicker { color: #e1b368; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
+    .ex-hero h1 { margin: 0; font-size: 32px; font-weight: 700; }
+    .ex-hero p { margin: 8px 0 0; color: #d5deea; max-width: 560px; }
+    .ex-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ex-btn { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 16px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; }
+    .ex-btn.gold { background: #e1b368; color: #0c1830; }
+    .ex-btn.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); }
+    .ex-budgets { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+    .ex-budget { background: #fff; border-radius: 16px; padding: 14px 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); text-decoration: none; color: inherit; display: block; }
+    .ex-budget strong { display: block; color: #0c1830; }
+    .ex-budget span { color: #5c6b80; font-size: 13px; }
+    .ex-bar { height: 8px; background: #e7edf5; border-radius: 99px; margin-top: 10px; overflow: hidden; }
+    .ex-bar i { display: block; height: 100%; background: #0c1830; }
+    .ex-bar.over i { background: #8a1f1f; }
+    .ex-layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; margin-top: 16px; }
+    .ex-card { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
+    .ex-card h2 { margin: 0 0 12px; font-size: 18px; color: #0c1830; }
+    .ex-field { margin-bottom: 12px; }
+    .ex-field label { display: block; font-size: 12px; font-weight: 700; color: #5c6b80; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .ex-field input, .ex-field select, .ex-field textarea { width: 100%; border: 1px solid #d5deea; border-radius: 12px; min-height: 44px; padding: 8px 12px; background: #f8fafc; color: #0c1830; }
+    .ex-field textarea { min-height: 72px; }
+    .ex-note { color: #5c6b80; font-size: 13px; margin: 0 0 12px; }
+    .ex-pay, .ex-eng { border: 1px solid #e7edf5; border-radius: 12px; padding: 8px 10px; margin-bottom: 8px; background: #f8fafc; }
+    .ex-pay label { font-weight: 600; color: #0c1830; margin: 0; text-transform: none; letter-spacing: 0; font-size: 14px; }
+    .ex-eng b { color: #0c1830; }
+    .ex-list { display: flex; flex-direction: column; gap: 12px; }
+    .ex-item { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
+    .ex-item header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .ex-item h3 { margin: 0; font-size: 18px; color: #0c1830; }
+    .ex-meta { color: #5c6b80; font-size: 13px; margin-top: 4px; }
+    .ex-amount { font-size: 20px; font-weight: 700; color: #0c1830; }
+    .ex-chip { display: inline-block; margin-top: 8px; margin-right: 6px; background: #f3f6fb; color: #0c1830; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+    .ex-empty { color: #5c6b80; padding: 12px 0; }
+    .ex-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ex-filters select { border: 1px solid #d5deea; border-radius: 12px; min-height: 40px; padding: 0 10px; background: #fff; }
+    @media (max-width: 860px) { .ex-layout { grid-template-columns: 1fr; } }
+</style>
+<section class="ex-page">
+    @if(session()->has('message'))
+        <div class="alert alert-success">{{ session('message') }}</div>
+    @endif
+    @if(session()->has('not_permitted'))
+        <div class="alert alert-danger">{{ session('not_permitted') }}</div>
+    @endif
+    <div class="ex-hero">
+        <div>
+            <p class="ex-kicker">Money out</p>
+            <h1>Expenses</h1>
+            <p>Record a cost, give the category a budget, and optionally tie it to an event or a quotation. Engineer costs for that job show up on their own.</p>
         </div>
-        @if(in_array("asset-expense-add", $all_permission))
-            <button class="btn btn-info" data-toggle="modal" data-target="#expense-modal"><i class="dripicons-plus"></i> {{trans('file.Add Expense')}}</button>
-        @endif
+        <div class="ex-actions">
+            <a class="ex-btn ghost" href="{{ route('expense_categories.index') }}">Categories &amp; budgets</a>
+        </div>
     </div>
-    <div class="table-responsive">
-        <table id="expense-table" class="table">
-            <thead>
-                <tr>
-                    <th class="not-exported"></th>
-                    <th>{{trans('file.Date')}}</th>
-                    <th>{{trans('file.reference')}} No</th>
-                    <th>{{trans('file.Warehouse')}}</th>
-                    <th>{{trans('file.category')}}</th>
-                    <th>{{trans('file.Product Category')}}</th>
-                    <th>{{trans('file.Amount')}}</th>
-                    <th>{{trans('file.Note')}}</th>
-                    <th class="not-exported">{{trans('file.action')}}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($lims_expense_all as $key=>$expense)
-                <?php
-                                                                                                                                                                                                                   
-                    $warehouse = DB::table('warehouses')->find($expense->warehouse_id);
-                    $expense_category = DB::table('expense_categories')->find($expense->expense_category_id);
-                    $category = DB::table('categories')->find($expense->category_id);
-                ?>
-                <tr data-id="{{$expense->id}}">
-                    <td>{{$key}}</td>
-                    <td>{{date($general_setting->date_format, strtotime($expense->created_at->toDateString())) . ' '. $expense->created_at->toTimeString() }}</td>
-                    <td>{{ $expense->reference_no }}</td>
-                    <td>{{ $warehouse->name }}</td>
-                    <td>{{ $expense_category->name }}</td>
-                    <td>{{ @$category->name }}</td>
-                    <td>{{ number_format((float)$expense->amount, 2, '.', '') }}</td>
-                    <td>{{ $expense->note }}</td>
-                    <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{trans('file.action')}}
-                                <span class="caret"></span>
-                                <span class="sr-only">Toggle Dropdown</span>
-                            </button>
-                            <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
-                                @if(in_array("asset-expense-edit", $all_permission))
-                                <li><button type="button" data-id="{{$expense->id}}" class="open-Editexpense_categoryDialog btn btn-link" data-toggle="modal" data-target="#editModal"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</button></li>
-                                @endif
-                                @if(in_array("asset-expense-delete", $all_permission))
-                                <li class="divider"></li>
-                                {{ Form::open(['route' => ['expenses.destroy', $expense->id], 'method' => 'DELETE'] ) }}
-                                <li>
-                                    <button type="submit" class="btn btn-link" onclick="return confirmDelete()"><i class="dripicons-trash"></i> {{trans('file.delete')}}</button>
-                                </li>
-                                {{ Form::close() }}
-                                @endif
-                            </ul>
-                        </div>
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-            <tfoot class="tfoot active">
-                <th></th>
-                <th>{{trans('file.Total')}}</th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-            </tfoot>
-        </table>
-    </div>
-</section>
 
-<div id="editModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
-    <div role="document" class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 id="exampleModalLabel" class="modal-title">{{trans('file.Update Expense')}}</h5>
-                <button type="button" data-dismiss="modal" aria-label="Close" class="close"><span aria-hidden="true"><i class="dripicons-cross"></i></span></button>
+    <div class="ex-budgets">
+        @foreach($categories as $category)
+            @php
+                $used = isset($spent[$category->id]) ? (float) $spent[$category->id] : 0;
+                $budget = $category->budget_amount !== null ? (float) $category->budget_amount : null;
+                $pct = ($budget && $budget > 0) ? min(100, round(($used / $budget) * 100)) : 0;
+            @endphp
+            @if($budget !== null && $budget > 0)
+                <a class="ex-budget" href="{{ route('expenses.index', ['category' => $category->id]) }}">
+                    <strong>{{ $category->name }}</strong>
+                    <span>{{ $money($used) }} of {{ $money($budget) }}</span>
+                    <div class="ex-bar {{ $used > $budget ? 'over' : '' }}"><i style="width: {{ $pct }}%"></i></div>
+                </a>
+            @endif
+        @endforeach
+    </div>
+
+    <div class="ex-layout">
+        @if($canAdd || $editing)
+        <form class="ex-card" method="post" action="{{ $editing ? route('expenses.update', $editing->id) : route('expenses.store') }}">
+            @csrf
+            @if($editing)
+                @method('PUT')
+                <input type="hidden" name="expense_id" value="{{ $editing->id }}">
+            @endif
+            <h2>{{ $editing ? 'Update expense' : 'New expense' }}</h2>
+            <p class="ex-note">Linking an event or a quotation is optional. Past and upcoming events are both listed.</p>
+            <div class="ex-field">
+                <label>Category</label>
+                <select name="expense_category_id" required>
+                    <option value="">Choose a category</option>
+                    @foreach($categories as $category)
+                        <option value="{{ $category->id }}" {{ $editing && (int) $editing->expense_category_id === (int) $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="modal-body">
-              <p class="italic"><small>{{trans('file.The field labels marked with * are required input fields')}}.</small></p>
-                {!! Form::open(['route' => ['expenses.update', 1], 'method' => 'put']) !!}
-                <?php
-                    $lims_expense_category_list = DB::table('expense_categories')->where('is_active', true)->get();
-                    $lims_products_category_list = DB::table('categories')->where('is_active', true)->get();
-                    if(Auth::user()->role_id > 2)
-                        $lims_warehouse_list = DB::table('warehouses')->where([
-                            ['is_active', true],
-                            ['id', Auth::user()->warehouse_id]
-                        ])->get();
-                    else
-                        $lims_warehouse_list = DB::table('warehouses')->where('is_active', true)->get();
-                ?>
-                  <div class="form-group">
-                      <input type="hidden" name="expense_id">
-                      <label>{{trans('file.reference')}}</label>
-                      <p id="reference">{{'er-' . date("Ymd") . '-'. date("his")}}</p>
-                  </div>
-                    <div class="row">
-                        <div class="col-md-6 form-group">
-                            <label>{{trans('file.Expense Category')}} *</label>
-                            <select name="expense_category_id" class="selectpicker form-control" required data-live-search="true"   title="Select Expense Category...">
-                                @foreach($lims_expense_category_list as $expense_category)
-                                <option value="{{$expense_category->id}}">{{$expense_category->name . ' (' . $expense_category->code. ')'}}</option>
-                                @endforeach
-                            </select>
+            <div class="ex-field">
+                <label>Amount (XAF)</label>
+                <input type="number" name="amount" min="0" step="1" required value="{{ $editing ? $editing->amount : '' }}">
+            </div>
+            <div class="ex-field">
+                <label>Warehouse</label>
+                <select name="warehouse_id" required>
+                    @foreach($warehouses as $warehouse)
+                        <option value="{{ $warehouse->id }}" {{ $editing && (int) $editing->warehouse_id === (int) $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="ex-field">
+                <label>Account</label>
+                <select name="account_id">
+                    <option value="">No account</option>
+                    @foreach($accounts as $account)
+                        <option value="{{ $account->id }}" {{ $editing && (int) $editing->account_id === (int) $account->id ? 'selected' : '' }}>{{ $account->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="ex-field">
+                <label>Event, optional</label>
+                <select name="event_id" id="ex-event">
+                    <option value="">No event</option>
+                    @foreach($events as $event)
+                        <option value="{{ $event['id'] }}" {{ (string) ($editing ? $editing->event_id : request('event')) === (string) $event['id'] ? 'selected' : '' }}>{{ $event['when'] }} · {{ $event['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="ex-field">
+                <label>Quotation, optional</label>
+                <select name="quotation_id" id="ex-quote">
+                    <option value="">No quotation</option>
+                    @foreach($quotations as $quote)
+                        <option value="{{ $quote['id'] }}" {{ (int) ($editing ? $editing->quotation_id : request('quotation')) === (int) $quote['id'] ? 'selected' : '' }}>{{ $quote['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="ex-field">
+                <label>Note</label>
+                <textarea name="note">{{ $editing ? $editing->note : '' }}</textarea>
+            </div>
+            <div id="ex-pay-box">
+                <p class="ex-note">Payments for the event or quotation. Tick the ones this expense relates to.</p>
+                <div id="ex-payments">
+                    @forelse($formPayments as $payment)
+                        <div class="ex-pay">
+                            <label><input type="checkbox" name="payment_ids[]" value="{{ $payment['id'] }}" {{ in_array($payment['id'], $checkedPayments) ? 'checked' : '' }}> {{ $payment['label'] }}</label>
                         </div>
-                        <div class="col-md-6 form-group">
-                            <label>{{trans('file.Product Category')}} *</label>
-                            <select name="category_id" class="selectpicker form-control" required data-live-search="true"   title="Select Products Category...">
-                                @foreach($lims_products_category_list as $expense_category)
-                                    <option value="{{$expense_category->id}}">{{$expense_category->name}}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label>{{trans('file.Warehouse')}} *</label>
-                            <select name="warehouse_id" class="selectpicker form-control" required data-live-search="true"   title="Select Warehouse...">
-                                @foreach($lims_warehouse_list as $warehouse)
-                                <option value="{{$warehouse->id}}">{{$warehouse->name}}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label>{{trans('file.Amount')}} *</label>
-                            <input type="number" name="amount" step="any" required class="form-control">
-                        </div>
-                        <div class="col-md-6 form-group">
-                            <label> {{trans('file.Account')}}</label>
-                            <select class="form-control selectpicker" name="account_id">
-                            @foreach($lims_account_list as $account)
-                                @if($account->is_default)
-                                <option selected value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>
-                                @else
-                                <option value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>
+                    @empty
+                        <p class="ex-empty" id="ex-pay-empty">Choose an event or a quotation to see its payments.</p>
+                    @endforelse
+                </div>
+            </div>
+            <div id="ex-eng-box">
+                <p class="ex-note">Engineer expenses for this event or quotation.</p>
+                <div id="ex-engineers">
+                    @forelse($formEngineers as $engineer)
+                        <div class="ex-eng"><b>{{ $engineer['name'] }}</b> · {{ $engineer['role'] }} · {{ $money($engineer['amount']) }} · {{ $engineer['status'] }}</div>
+                    @empty
+                        <p class="ex-empty" id="ex-eng-empty">Engineer costs appear here when the event or quotation has them.</p>
+                    @endforelse
+                </div>
+            </div>
+            <button class="ex-btn gold" type="submit">{{ $editing ? 'Save changes' : 'Save expense' }}</button>
+            @if($editing)
+                <a class="ex-btn" href="{{ route('expenses.index') }}" style="color:#0c1830;">Cancel</a>
+            @endif
+        </form>
+        @endif
+
+        <div>
+            <form class="ex-filters" method="get" action="{{ route('expenses.index') }}">
+                <select name="category" onchange="this.form.submit()">
+                    <option value="">All categories</option>
+                    @foreach($categories as $category)
+                        <option value="{{ $category->id }}" {{ (string) request('category') === (string) $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                    @endforeach
+                </select>
+                <select name="event" onchange="this.form.submit()">
+                    <option value="">All events</option>
+                    @foreach($events as $event)
+                        <option value="{{ $event['id'] }}" {{ (string) request('event') === (string) $event['id'] ? 'selected' : '' }}>{{ $event['label'] }}</option>
+                    @endforeach
+                </select>
+                <select name="quotation" onchange="this.form.submit()">
+                    <option value="">All quotations</option>
+                    @foreach($quotations as $quote)
+                        <option value="{{ $quote['id'] }}" {{ (string) request('quotation') === (string) $quote['id'] ? 'selected' : '' }}>{{ $quote['label'] }}</option>
+                    @endforeach
+                </select>
+            </form>
+            <div class="ex-list">
+                @forelse($expenses as $expense)
+                    <article class="ex-item">
+                        <header>
+                            <div>
+                                <h3>{{ $expense->expenseCategory ? $expense->expenseCategory->name : 'Expense' }}</h3>
+                                <div class="ex-meta">{{ $expense->reference_no }} · {{ $expense->created_at ? $expense->created_at->format('j M Y H:i') : '' }}</div>
+                            </div>
+                            <div class="ex-amount">{{ $money($expense->amount) }}</div>
+                        </header>
+                        @if($expense->note)
+                            <p class="ex-note" style="margin-top:8px;">{{ $expense->note }}</p>
+                        @endif
+                        @if($expense->event_id && isset($eventLabels[$expense->event_id]))
+                            <span class="ex-chip">{{ $eventLabels[$expense->event_id] }}</span>
+                        @endif
+                        @if($expense->quotation_id && isset($quoteLabels[$expense->quotation_id]))
+                            <span class="ex-chip">{{ $quoteLabels[$expense->quotation_id] }}</span>
+                        @endif
+                        @if(isset($linkMap[$expense->id]))
+                            @foreach($linkMap[$expense->id] as $paymentId)
+                                @if(isset($paymentLabels[$paymentId]))
+                                    <span class="ex-chip">{{ $paymentLabels[$paymentId] }}</span>
                                 @endif
                             @endforeach
-                            </select>
-                        </div>
-                    </div>
-                  <div class="form-group">
-                      <label>{{trans('file.Note')}}</label>
-                      <textarea name="note" rows="3" class="form-control"></textarea>
-                  </div>
-                  <div class="form-group">
-                      <button type="submit" class="btn btn-primary">{{trans('file.submit')}}</button>
-                  </div>
-                {{ Form::close() }}
+                        @endif
+                        @if(!empty($engineerMap[$expense->id]))
+                            <div style="margin-top:10px;">
+                                @foreach($engineerMap[$expense->id] as $engineer)
+                                    <div class="ex-eng"><b>{{ $engineer['name'] }}</b> · {{ $engineer['role'] }} · {{ $money($engineer['amount']) }} · {{ $engineer['status'] }}</div>
+                                @endforeach
+                            </div>
+                        @endif
+                        @if($canEdit)
+                            <div style="margin-top:10px;"><a href="{{ route('expenses.index', ['edit' => $expense->id]) }}">Edit</a></div>
+                        @endif
+                    </article>
+                @empty
+                    <div class="ex-card"><p class="ex-empty">No expenses yet.</p></div>
+                @endforelse
             </div>
+            <div style="margin-top:12px;">{{ $expenses->links() }}</div>
         </div>
     </div>
-</div>
-
-<script type="text/javascript">
-
+</section>
+<script>
     $("ul#expense").siblings('a').attr('aria-expanded','true');
     $("ul#expense").addClass("show");
     $("ul#expense #exp-list-menu").addClass("active");
-
-    var expense_id = [];
-    var user_verified = <?php echo json_encode(true) ?>;
-    var all_permission = <?php echo json_encode($all_permission) ?>;
-
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    });
-
-    $(".daterangepicker-field").daterangepicker({
-      callback: function(startDate, endDate, period){
-        var start_date = startDate.format('YYYY-MM-DD');
-        var end_date = endDate.format('YYYY-MM-DD');
-        var title = start_date + ' To ' + end_date;
-        $(this).val(title);
-        $('input[name="start_date"]').val(start_date);
-        $('input[name="end_date"]').val(end_date);
-      }
-    });
-
-    $(document).ready(function() {
-        $(document).on('click', 'button.open-Editexpense_categoryDialog', function() {
-            var url = "expenses/";
-            var id = $(this).data('id').toString();
-            url = url.concat(id).concat("/edit");
-            $.get(url, function(data) {
-                $('#editModal #reference').text(data['reference_no']);
-                $("#editModal select[name='warehouse_id']").val(data['warehouse_id']);
-                $("#editModal select[name='expense_category_id']").val(data['expense_category_id']);
-                $("#editModal select[name='account_id']").val(data['account_id']);
-                $("#editModal input[name='amount']").val(data['amount']);
-                $("#editModal input[name='expense_id']").val(data['id']);
-                $("#editModal textarea[name='note']").val(data['note']);
-                $('.selectpicker').selectpicker('refresh');
-            });
-        });
-    });
-
-function confirmDelete() {
-    if (confirm("Are you sure want to delete?")) {
-        return true;
-    }
-    return false;
-}
-
-    $('#expense-table').DataTable( {
-        "order": [],
-        'language': {
-            'lengthMenu': '_MENU_ {{trans("file.records per page")}}',
-             "info":      '<small>{{trans("file.Showing")}} _START_ - _END_ (_TOTAL_)</small>',
-            "search":  '{{trans("file.Search")}}',
-            'paginate': {
-                    'previous': '<i class="dripicons-chevron-left"></i>',
-                    'next': '<i class="dripicons-chevron-right"></i>'
-            }
-        },
-        'columnDefs': [
-            {
-                "orderable": false,
-                'targets': [0, 7]
-            },
-            {
-                'render': function(data, type, row, meta){
-                    if(type === 'display'){
-                        data = '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>';
-                    }
-
-                   return data;
-                },
-                'checkboxes': {
-                   'selectRow': true,
-                   'selectAllRender': '<div class="checkbox"><input type="checkbox" class="dt-checkboxes"><label></label></div>'
-                },
-                'targets': [0]
-            }
-        ],
-        'select': { style: 'multi',  selector: 'td:first-child'},
-        'lengthMenu': [[10, 25, 50, -1], [10, 25, 50, "All"]],
-        dom: '<"row"lfB>rtip',
-        buttons: [
-            {
-                extend: 'pdf',
-                text: '<i title="export to pdf" class="fa fa-file-pdf-o"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible'
-                },
-                action: function(e, dt, button, config) {
-                    datatable_sum(dt, true);
-                    $.fn.dataTable.ext.buttons.pdfHtml5.action.call(this, e, dt, button, config);
-                    datatable_sum(dt, false);
-                },
-                footer:true
-            },
-            {
-                extend: 'csv',
-                text: '<i title="export to csv" class="fa fa-file-text-o"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible'
-                },
-                action: function(e, dt, button, config) {
-                    datatable_sum(dt, true);
-                    $.fn.dataTable.ext.buttons.csvHtml5.action.call(this, e, dt, button, config);
-                    datatable_sum(dt, false);
-                },
-                footer:true
-            },
-            {
-                extend: 'print',
-                text: '<i title="print" class="fa fa-print"></i>',
-                exportOptions: {
-                    columns: ':visible:Not(.not-exported)',
-                    rows: ':visible'
-                },
-                action: function(e, dt, button, config) {
-                    datatable_sum(dt, true);
-                    $.fn.dataTable.ext.buttons.print.action.call(this, e, dt, button, config);
-                    datatable_sum(dt, false);
-                },
-                footer:true
-            },
-            {
-                text: '<i title="delete" class="dripicons-cross"></i>',
-                className: 'buttons-delete',
-                action: function ( e, dt, node, config ) {
-                    if(true) {
-                        expense_id.length = 0;
-                        $(':checkbox:checked').each(function(i){
-                            if(i){
-                                expense_id[i-1] = $(this).closest('tr').data('id');
-                            }
-                        });
-                        if(expense_id.length && confirm("Are you sure want to delete?")) {
-                            $.ajax({
-                                type:'POST',
-                                url:'expenses/deletebyselection',
-                                data:{
-                                    expenseIdArray: expense_id
-                                },
-                                success:function(data){
-                                    alert(data);
-                                }
-                            });
-                            dt.rows({ page: 'current', selected: true }).remove().draw(false);
-                        }
-                        else if(!expense_id.length)
-                            alert('No expense is selected!');
-                    }
-                    else
-                        alert('This feature is disable for demo!');
+(function () {
+    var eventSel = document.getElementById('ex-event');
+    var quoteSel = document.getElementById('ex-quote');
+    if (!eventSel || !quoteSel) return;
+    var payBox = document.getElementById('ex-payments');
+    var engBox = document.getElementById('ex-engineers');
+    function load() {
+        var params = 'event_id=' + encodeURIComponent(eventSel.value) + '&quotation_id=' + encodeURIComponent(quoteSel.value);
+        fetch('{{ route('expenses.link-options') }}?' + params, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                payBox.innerHTML = '';
+                engBox.innerHTML = '';
+                if (!data.payments || !data.payments.length) {
+                    payBox.innerHTML = '<p class="ex-empty">No payments recorded for this yet.</p>';
+                } else {
+                    data.payments.forEach(function (payment) {
+                        var row = document.createElement('div');
+                        row.className = 'ex-pay';
+                        row.innerHTML = '<label><input type="checkbox" name="payment_ids[]" value="' + payment.id + '"> ' + payment.label + '</label>';
+                        payBox.appendChild(row);
+                    });
                 }
-            },
-            {
-                extend: 'colvis',
-                text: '<i title="column visibility" class="fa fa-eye"></i>',
-                columns: ':gt(0)'
-            },
-        ],
-        drawCallback: function () {
-            var api = this.api();
-            datatable_sum(api, false);
-        }
-    } );
-
-    function datatable_sum(dt_selector, is_calling_first) {
-        if (dt_selector.rows( '.selected' ).any() && is_calling_first) {
-            var rows = dt_selector.rows( '.selected' ).indexes();
-            $( dt_selector.column( 5 ).footer() ).html(dt_selector.cells( rows, 5, { page: 'current' } ).data().sum().toFixed(2));
-        }
-        else {
-            $( dt_selector.column( 5 ).footer() ).html(dt_selector.cells( rows, 5, { page: 'current' } ).data().sum().toFixed(2));
-        }
+                if (!data.engineers || !data.engineers.length) {
+                    engBox.innerHTML = '<p class="ex-empty">No engineer expenses on this event or quotation.</p>';
+                } else {
+                    data.engineers.forEach(function (row) {
+                        var line = document.createElement('div');
+                        line.className = 'ex-eng';
+                        line.innerHTML = '<b></b>';
+                        line.querySelector('b').textContent = row.name;
+                        line.appendChild(document.createTextNode(' · ' + row.role + ' · ' + Number(row.amount).toLocaleString() + ' XAF · ' + row.status));
+                        engBox.appendChild(line);
+                    });
+                }
+            });
     }
-
-    if(all_permission.indexOf("expenses-delete") == -1)
-        $('.buttons-delete').addClass('d-none');
-
+    eventSel.addEventListener('change', function () {
+        if (eventSel.value) quoteSel.value = '';
+        load();
+    });
+    quoteSel.addEventListener('change', function () {
+        if (quoteSel.value) eventSel.value = '';
+        load();
+    });
+})();
 </script>
 @endsection

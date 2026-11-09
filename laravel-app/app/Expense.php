@@ -8,6 +8,7 @@ class Expense extends Model
 {
     protected $fillable =[
         "reference_no", "expense_category_id", "category_id", "warehouse_id", "account_id", "user_id", "cash_register_id", "amount", "note",
+        "event_id", "quotation_id",
         "allocation_bucket_id", "wealth_subcategory_id", "program_id", "biller_id", "employee_id", "entity_type",
         "payee", "payment_method", "document", "title", "created_by", "updated_by"
     ];

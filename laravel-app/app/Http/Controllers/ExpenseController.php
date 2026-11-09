@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use App\Expense;
 use App\Account;
 use App\CashRegister;
+use App\Support\ExpenseBoard;
+use App\Warehouse;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Auth;
@@ -18,32 +20,77 @@ class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('expenses-index')){
-            $permissions = Role::findByName($role->name)->permissions;
-            foreach ($permissions as $permission)
-                $all_permission[] = $permission->name;
-            if(empty($all_permission))
-                $all_permission[] = 'dummy text';
-            $lims_account_list = Account::where('is_active', true)->get();
-
-            if($request->start_date) {
-                $start_date = $request->start_date;
-                $end_date = $request->end_date;
-            }
-            else {
-                $start_date = date('Y-m-01', strtotime('-1 year', strtotime(date('Y-m-d'))));
-                $end_date = date("Y-m-d");
-            }
-
-            if(Auth::user()->role_id > 2 && config('staff_access') == 'own')
-                $lims_expense_all = Expense::where('user_id', Auth::id())->whereDate('created_at', '>=', $start_date)->whereDate('created_at', '<=', $end_date)->orderBy('id', 'desc')->get();
-            else
-                $lims_expense_all = Expense::whereDate('created_at', '>=', $start_date)->whereDate('created_at', '<=', $end_date)->orderBy('id', 'desc')->get();
-            return redirect()->route('wealth.expenses');
-        }
-        else
+        if (! ExpenseBoard::canView(Auth::user())) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $query = Expense::with('expenseCategory')->orderBy('id', 'desc');
+        if ($request->filled('category')) {
+            $query->where('expense_category_id', (int) $request->category);
+        }
+        if ($request->filled('event')) {
+            $query->where('event_id', $request->event);
+        }
+        if ($request->filled('quotation')) {
+            $query->where('quotation_id', (int) $request->quotation);
+        }
+        $expenses = $query->paginate(30)->appends($request->query());
+        $ids = [];
+        foreach ($expenses as $expense) {
+            $ids[] = $expense->id;
+        }
+        $linkMap = ExpenseBoard::linkedPaymentIds($ids);
+        $paymentIds = [];
+        foreach ($linkMap as $list) {
+            foreach ($list as $paymentId) {
+                $paymentIds[] = $paymentId;
+            }
+        }
+        $editing = null;
+        if ($request->filled('edit') && ExpenseBoard::canEdit(Auth::user())) {
+            $editing = Expense::find((int) $request->edit);
+        }
+        $formEvent = $editing ? $editing->event_id : $request->event;
+        $formQuote = $editing ? $editing->quotation_id : $request->quotation;
+        $engineerMap = [];
+        foreach ($expenses as $expense) {
+            if ($expense->event_id || $expense->quotation_id) {
+                $engineerMap[$expense->id] = ExpenseBoard::engineersFor($expense->event_id, $expense->quotation_id);
+            }
+        }
+        $spent = Expense::select('expense_category_id', DB::raw('SUM(amount) as spent'))
+            ->groupBy('expense_category_id')
+            ->pluck('spent', 'expense_category_id');
+
+        return view('expense.index', [
+            'expenses' => $expenses,
+            'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
+            'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(),
+            'accounts' => Account::where('is_active', true)->orderBy('name')->get(),
+            'events' => ExpenseBoard::events(),
+            'quotations' => ExpenseBoard::quotations(),
+            'spent' => $spent,
+            'linkMap' => $linkMap,
+            'paymentLabels' => ExpenseBoard::paymentLabels($paymentIds),
+            'canAdd' => ExpenseBoard::canAdd(Auth::user()),
+            'canEdit' => ExpenseBoard::canEdit(Auth::user()),
+            'editing' => $editing,
+            'formPayments' => ExpenseBoard::paymentsFor($formEvent, $formQuote),
+            'formEngineers' => ExpenseBoard::engineersFor($formEvent, $formQuote),
+            'engineerMap' => $engineerMap,
+            'checkedPayments' => $editing && isset($linkMap[$editing->id]) ? $linkMap[$editing->id] : [],
+        ]);
+    }
+
+    public function linkOptions(Request $request)
+    {
+        if (! ExpenseBoard::canView(Auth::user())) {
+            return response()->json(['payments' => [], 'engineers' => []], 403);
+        }
+
+        return response()->json([
+            'payments' => ExpenseBoard::paymentsFor($request->event_id, $request->quotation_id),
+            'engineers' => ExpenseBoard::engineersFor($request->event_id, $request->quotation_id),
+        ]);
     }
 
     private function role(){
@@ -98,7 +145,10 @@ class ExpenseController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->all();
+        if (! ExpenseBoard::canAdd(Auth::user())) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $data = $this->expensePayload($request);
         $data['reference_no'] = 'er-' . date("Ymd") . '-'. date("his");
         $data['user_id'] = Auth::id();
         $cash_register_data = CashRegister::where([
@@ -108,8 +158,9 @@ class ExpenseController extends Controller
         ])->first();
         if($cash_register_data)
             $data['cash_register_id'] = $cash_register_data->id;
-        Expense::create($data);
-        return redirect()->route('wealth.expenses')->with('message', 'Data inserted successfully');
+        $expense = Expense::create($data);
+        ExpenseBoard::syncPayments($expense->id, (array) $request->input('payment_ids', []));
+        return redirect()->route('expenses.index')->with('message', 'Expense saved.');
     }
 
     public function show($id)
@@ -171,10 +222,39 @@ class ExpenseController extends Controller
 
     public function update(Request $request, $id)
     {
-        $data = $request->all();
-        $lims_expense_data = Expense::find($data['expense_id']);
-        $lims_expense_data->update($data);
-        return redirect()->route('wealth.expenses')->with('message', 'Data updated successfully');
+        if (! ExpenseBoard::canEdit(Auth::user())) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $lims_expense_data = Expense::find($request->input('expense_id', $id));
+        if (! $lims_expense_data) {
+            return redirect()->route('expenses.index')->with('not_permitted', 'That expense was not found.');
+        }
+        $lims_expense_data->update($this->expensePayload($request));
+        ExpenseBoard::syncPayments($lims_expense_data->id, (array) $request->input('payment_ids', []));
+        return redirect()->route('expenses.index')->with('message', 'Expense updated.');
+    }
+
+    protected function expensePayload(Request $request)
+    {
+        $eventId = $request->input('event_id') ?: null;
+        $quotationId = $request->filled('quotation_id') ? (int) $request->input('quotation_id') : null;
+        if ($eventId) {
+            $quotationId = null;
+        }
+        $data = [
+            'expense_category_id' => (int) $request->input('expense_category_id'),
+            'warehouse_id' => (int) $request->input('warehouse_id'),
+            'amount' => $request->input('amount'),
+            'note' => $request->input('note'),
+            'account_id' => $request->input('account_id') ?: null,
+            'event_id' => $eventId,
+            'quotation_id' => $quotationId,
+        ];
+        if ($request->filled('category_id')) {
+            $data['category_id'] = (int) $request->input('category_id');
+        }
+
+        return $data;
     }
 
     public function updateAsset(Request $request, $id)

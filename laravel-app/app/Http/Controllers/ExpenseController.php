@@ -23,7 +23,7 @@ class ExpenseController extends Controller
         if (! ExpenseBoard::canView(Auth::user())) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
-        $query = Expense::with('expenseCategory')->orderBy('id', 'desc');
+        $query = Expense::with('expenseCategory')->orderBy('created_at', 'desc');
         if ($request->filled('category')) {
             $query->where('expense_category_id', (int) $request->category);
         }
@@ -34,29 +34,6 @@ class ExpenseController extends Controller
             $query->where('quotation_id', (int) $request->quotation);
         }
         $expenses = $query->paginate(30)->appends($request->query());
-        $ids = [];
-        foreach ($expenses as $expense) {
-            $ids[] = $expense->id;
-        }
-        $linkMap = ExpenseBoard::linkedPaymentIds($ids);
-        $paymentIds = [];
-        foreach ($linkMap as $list) {
-            foreach ($list as $paymentId) {
-                $paymentIds[] = $paymentId;
-            }
-        }
-        $editing = null;
-        if ($request->filled('edit') && ExpenseBoard::canEdit(Auth::user())) {
-            $editing = Expense::find((int) $request->edit);
-        }
-        $formEvent = $editing ? $editing->event_id : $request->event;
-        $formQuote = $editing ? $editing->quotation_id : $request->quotation;
-        $engineerMap = [];
-        foreach ($expenses as $expense) {
-            if ($expense->event_id || $expense->quotation_id) {
-                $engineerMap[$expense->id] = ExpenseBoard::engineersFor($expense->event_id, $expense->quotation_id);
-            }
-        }
         $spent = Expense::select('expense_category_id', DB::raw('SUM(amount) as spent'))
             ->groupBy('expense_category_id')
             ->pluck('spent', 'expense_category_id');
@@ -64,20 +41,9 @@ class ExpenseController extends Controller
         return view('expense.index', [
             'expenses' => $expenses,
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
-            'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(),
-            'accounts' => Account::where('is_active', true)->orderBy('name')->get(),
-            'events' => ExpenseBoard::events(),
-            'quotations' => ExpenseBoard::quotations(),
             'spent' => $spent,
-            'linkMap' => $linkMap,
-            'paymentLabels' => ExpenseBoard::paymentLabels($paymentIds),
             'canAdd' => ExpenseBoard::canAdd(Auth::user()),
             'canEdit' => ExpenseBoard::canEdit(Auth::user()),
-            'editing' => $editing,
-            'formPayments' => ExpenseBoard::paymentsFor($formEvent, $formQuote),
-            'formEngineers' => ExpenseBoard::engineersFor($formEvent, $formQuote),
-            'engineerMap' => $engineerMap,
-            'checkedPayments' => $editing && isset($linkMap[$editing->id]) ? $linkMap[$editing->id] : [],
         ]);
     }
 
@@ -159,7 +125,10 @@ class ExpenseController extends Controller
         if($cash_register_data)
             $data['cash_register_id'] = $cash_register_data->id;
         $expense = Expense::create($data);
-        ExpenseBoard::syncPayments($expense->id, (array) $request->input('payment_ids', []));
+        $this->applyDate($expense, $request);
+        if ($request->exists('payment_ids')) {
+            ExpenseBoard::syncPayments($expense->id, (array) $request->input('payment_ids', []));
+        }
         return redirect()->route('expenses.index')->with('message', 'Expense saved.');
     }
 
@@ -229,32 +198,59 @@ class ExpenseController extends Controller
         if (! $lims_expense_data) {
             return redirect()->route('expenses.index')->with('not_permitted', 'That expense was not found.');
         }
-        $lims_expense_data->update($this->expensePayload($request));
-        ExpenseBoard::syncPayments($lims_expense_data->id, (array) $request->input('payment_ids', []));
+        $lims_expense_data->update($this->expensePayload($request, $lims_expense_data));
+        $this->applyDate($lims_expense_data, $request);
+        if ($request->exists('payment_ids')) {
+            ExpenseBoard::syncPayments($lims_expense_data->id, (array) $request->input('payment_ids', []));
+        }
         return redirect()->route('expenses.index')->with('message', 'Expense updated.');
     }
 
-    protected function expensePayload(Request $request)
+    protected function expensePayload(Request $request, Expense $existing = null)
     {
-        $eventId = $request->input('event_id') ?: null;
-        $quotationId = $request->filled('quotation_id') ? (int) $request->input('quotation_id') : null;
-        if ($eventId) {
-            $quotationId = null;
+        $warehouseId = (int) $request->input('warehouse_id');
+        if ($warehouseId < 1 && $existing) {
+            $warehouseId = (int) $existing->warehouse_id;
+        }
+        if ($warehouseId < 1) {
+            $warehouseId = (int) Auth::user()->warehouse_id;
+        }
+        if ($warehouseId < 1) {
+            $warehouseId = (int) Warehouse::where('is_active', true)->value('id');
         }
         $data = [
             'expense_category_id' => (int) $request->input('expense_category_id'),
-            'warehouse_id' => (int) $request->input('warehouse_id'),
+            'warehouse_id' => $warehouseId,
             'amount' => $request->input('amount'),
             'note' => $request->input('note'),
-            'account_id' => $request->input('account_id') ?: null,
-            'event_id' => $eventId,
-            'quotation_id' => $quotationId,
         ];
+        if ($request->filled('account_id')) {
+            $data['account_id'] = (int) $request->input('account_id');
+        }
+        if ($request->exists('event_id')) {
+            $eventId = $request->input('event_id') ?: null;
+            $quotationId = $request->filled('quotation_id') ? (int) $request->input('quotation_id') : null;
+            if ($eventId) {
+                $quotationId = null;
+            }
+            $data['event_id'] = $eventId;
+            $data['quotation_id'] = $quotationId;
+        }
         if ($request->filled('category_id')) {
             $data['category_id'] = (int) $request->input('category_id');
         }
 
         return $data;
+    }
+
+    protected function applyDate(Expense $expense, Request $request)
+    {
+        $date = (string) $request->input('spent_on');
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return;
+        }
+        $expense->created_at = $date.' 12:00:00';
+        $expense->save();
     }
 
     public function updateAsset(Request $request, $id)

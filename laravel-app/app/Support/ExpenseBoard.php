@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Event;
 use App\EventAssignment;
 use App\Expense;
+use App\ExpenseCategory;
 use App\Payment;
 use App\Quotation;
 use App\Sale;
@@ -292,5 +293,104 @@ class ExpenseBoard
         }
 
         return array_values(array_unique($ids));
+    }
+
+    public static function frameChoices()
+    {
+        return [
+            1 => '1 month',
+            2 => '2 months',
+            3 => '3 months',
+            6 => '6 months',
+            12 => '12 months',
+        ];
+    }
+
+    public static function categoryStats($categories)
+    {
+        $children = [];
+        $names = [];
+        foreach ($categories as $category) {
+            $parentId = (int) $category->parent_id;
+            $children[$parentId][] = (int) $category->id;
+            $names[(int) $category->id] = $category->name;
+        }
+        $rows = Expense::get(['expense_category_id', 'amount', 'created_at']);
+        $stats = [];
+        foreach ($categories as $category) {
+            $id = (int) $category->id;
+            $seen = [];
+            $family = self::familyIds($id, $children, $seen);
+            $months = (int) $category->budget_months;
+            $start = null;
+            if ($months > 0) {
+                $start = now()->startOfMonth()->subMonths($months - 1);
+            }
+            $used = 0;
+            foreach ($rows as $row) {
+                if (! in_array((int) $row->expense_category_id, $family, true)) {
+                    continue;
+                }
+                if ($start && $row->created_at && $row->created_at->lt($start)) {
+                    continue;
+                }
+                $used += (float) $row->amount;
+            }
+            $budget = $category->budget_amount !== null && $category->budget_amount !== '' ? (float) $category->budget_amount : null;
+            $percent = ($budget && $budget > 0) ? (int) round(($used / $budget) * 100) : null;
+            $remaining = $budget !== null ? $budget - $used : null;
+            $remainingPercent = $percent === null ? null : max(0, 100 - $percent);
+            $frames = self::frameChoices();
+            $stats[$id] = [
+                'name' => $category->name,
+                'parent_id' => $category->parent_id ? (int) $category->parent_id : null,
+                'parent_name' => $category->parent_id && isset($names[(int) $category->parent_id]) ? $names[(int) $category->parent_id] : '',
+                'used' => $used,
+                'budget' => $budget,
+                'percent' => $percent,
+                'remaining' => $remaining,
+                'remaining_percent' => $remainingPercent,
+                'over' => $budget !== null && $budget > 0 && $used > $budget,
+                'frame' => $months && isset($frames[$months]) ? $frames[$months] : '',
+            ];
+        }
+
+        return $stats;
+    }
+
+    public static function overBudgetMessage($categoryId)
+    {
+        $categories = ExpenseCategory::where('is_active', true)->get();
+        $stats = self::categoryStats($categories);
+        $notes = [];
+        $id = (int) $categoryId;
+        $guard = 0;
+        while ($id && $guard < 12 && isset($stats[$id])) {
+            if (! empty($stats[$id]['over'])) {
+                $notes[] = $stats[$id]['name'].' is over its budget ('.$stats[$id]['percent'].'% used).';
+            }
+            $id = (int) $stats[$id]['parent_id'];
+            $guard++;
+        }
+
+        return implode(' ', $notes);
+    }
+
+    protected static function familyIds($id, array $children, array &$seen)
+    {
+        $id = (int) $id;
+        if (isset($seen[$id])) {
+            return [];
+        }
+        $seen[$id] = true;
+        $ids = [$id];
+        $kids = isset($children[$id]) ? $children[$id] : [];
+        foreach ($kids as $kid) {
+            foreach (self::familyIds($kid, $children, $seen) as $next) {
+                $ids[] = $next;
+            }
+        }
+
+        return $ids;
     }
 }

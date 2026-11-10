@@ -3,20 +3,18 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Expense;
 use App\ExpenseCategory;
-use Illuminate\Support\Facades\DB;
+use App\Support\ExpenseBoard;
 use Illuminate\Validation\Rule;
 
 class ExpenseCategoryController extends Controller
 {
     public function index()
     {
-        $lims_expense_category_all = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
-        $spent = Expense::select('expense_category_id', DB::raw('SUM(amount) as spent'))
-            ->groupBy('expense_category_id')
-            ->pluck('spent', 'expense_category_id');
-        return view('expense_category.index', compact('lims_expense_category_all', 'spent'));
+        $lims_expense_category_all = $this->orderedCategories();
+        $stats = ExpenseBoard::categoryStats($lims_expense_category_all);
+        $frames = ExpenseBoard::frameChoices();
+        return view('expense_category.index', compact('lims_expense_category_all', 'stats', 'frames'));
     }
 
     public function create()
@@ -27,6 +25,74 @@ class ExpenseCategoryController extends Controller
     public function generateCode()
     {
         return $this->nextSequentialCode();
+    }
+
+    protected function orderedCategories()
+    {
+        $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+        $byParent = [];
+        foreach ($categories as $category) {
+            $byParent[(int) $category->parent_id][] = $category;
+        }
+        $ordered = [];
+        $seen = [];
+        $walk = function ($parentId, $depth) use (&$walk, &$ordered, &$seen, $byParent) {
+            $kids = isset($byParent[$parentId]) ? $byParent[$parentId] : [];
+            foreach ($kids as $kid) {
+                if (isset($seen[$kid->id])) {
+                    continue;
+                }
+                $seen[$kid->id] = true;
+                $kid->tree_depth = $depth;
+                $ordered[] = $kid;
+                $walk((int) $kid->id, $depth + 1);
+            }
+        };
+        $walk(0, 0);
+        foreach ($categories as $category) {
+            if (! isset($seen[$category->id])) {
+                $category->tree_depth = 0;
+                $ordered[] = $category;
+            }
+        }
+
+        return $ordered;
+    }
+
+    protected function categoryFields(Request $request, $ignoreId = null)
+    {
+        $parent = (int) $request->input('parent_id');
+        if ($parent < 1 || ($ignoreId && $parent === (int) $ignoreId)) {
+            $parent = null;
+        }
+        if ($parent && $ignoreId && $this->createsLoop($parent, (int) $ignoreId)) {
+            $parent = null;
+        }
+        $months = (int) $request->input('budget_months');
+        if (! in_array($months, [1, 2, 3, 6, 12], true)) {
+            $months = null;
+        }
+
+        return [
+            'parent_id' => $parent,
+            'budget_months' => $months,
+            'budget_amount' => $request->filled('budget_amount') ? $request->input('budget_amount') : null,
+        ];
+    }
+
+    protected function createsLoop($parentId, $categoryId)
+    {
+        $id = (int) $parentId;
+        $guard = 0;
+        while ($id && $guard < 12) {
+            if ($id === (int) $categoryId) {
+                return true;
+            }
+            $id = (int) ExpenseCategory::where('id', $id)->value('parent_id');
+            $guard++;
+        }
+
+        return false;
     }
 
     protected function nextSequentialCode()
@@ -70,7 +136,7 @@ class ExpenseCategoryController extends Controller
         if (empty($data['is_active'])) {
             $data['is_active'] = 1;
         }
-        $data['budget_amount'] = $request->filled('budget_amount') ? $request->input('budget_amount') : null;
+        $data = array_merge($data, $this->categoryFields($request));
         ExpenseCategory::create($data);
         return redirect('expense_categories')->with('message', 'Data inserted successfully');
     }
@@ -98,9 +164,11 @@ class ExpenseCategoryController extends Controller
         ]);
 
         $data = $request->all();
-        $data['budget_amount'] = $request->filled('budget_amount') ? $request->input('budget_amount') : null;
         $lims_expense_category_data = ExpenseCategory::find($data['expense_category_id']);
-        $lims_expense_category_data->update($data);
+        $data = array_merge($data, $this->categoryFields($request, $lims_expense_category_data ? $lims_expense_category_data->id : null));
+        if ($lims_expense_category_data) {
+            $lims_expense_category_data->update($data);
+        }
         return redirect('expense_categories')->with('message', 'Data updated successfully');
     }
 

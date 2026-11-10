@@ -34,14 +34,12 @@ class ExpenseController extends Controller
             $query->where('quotation_id', (int) $request->quotation);
         }
         $expenses = $query->paginate(30)->appends($request->query());
-        $spent = Expense::select('expense_category_id', DB::raw('SUM(amount) as spent'))
-            ->groupBy('expense_category_id')
-            ->pluck('spent', 'expense_category_id');
+        $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
 
         return view('expense.index', [
             'expenses' => $expenses,
-            'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
-            'spent' => $spent,
+            'categories' => $categories,
+            'stats' => ExpenseBoard::categoryStats($categories),
             'canAdd' => ExpenseBoard::canAdd(Auth::user()),
             'canEdit' => ExpenseBoard::canEdit(Auth::user()),
         ]);
@@ -129,7 +127,7 @@ class ExpenseController extends Controller
         if ($request->exists('payment_ids')) {
             ExpenseBoard::syncPayments($expense->id, (array) $request->input('payment_ids', []));
         }
-        return redirect()->route('expenses.index')->with('message', 'Expense saved.');
+        return redirect()->route('expenses.index')->with('message', $this->savedMessage('Expense saved.', $expense->expense_category_id));
     }
 
     public function show($id)
@@ -203,7 +201,7 @@ class ExpenseController extends Controller
         if ($request->exists('payment_ids')) {
             ExpenseBoard::syncPayments($lims_expense_data->id, (array) $request->input('payment_ids', []));
         }
-        return redirect()->route('expenses.index')->with('message', 'Expense updated.');
+        return redirect()->route('expenses.index')->with('message', $this->savedMessage('Expense updated.', $lims_expense_data->expense_category_id));
     }
 
     protected function expensePayload(Request $request, Expense $existing = null)
@@ -241,6 +239,16 @@ class ExpenseController extends Controller
         }
 
         return $data;
+    }
+
+    protected function savedMessage($saved, $categoryId)
+    {
+        $warning = ExpenseBoard::overBudgetMessage($categoryId);
+        if ($warning) {
+            return $saved.' '.$warning;
+        }
+
+        return $saved;
     }
 
     protected function applyDate(Expense $expense, Request $request)

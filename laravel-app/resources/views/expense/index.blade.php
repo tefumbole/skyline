@@ -87,16 +87,17 @@
 
     <div class="ex-budgets">
         @foreach($categories as $category)
-            @php
-                $used = isset($spent[$category->id]) ? (float) $spent[$category->id] : 0;
-                $budget = $category->budget_amount !== null ? (float) $category->budget_amount : null;
-                $pct = ($budget && $budget > 0) ? min(100, round(($used / $budget) * 100)) : 0;
-            @endphp
-            @if($budget !== null && $budget > 0)
+            @php $row = isset($stats[$category->id]) ? $stats[$category->id] : null; @endphp
+            @if($row && $row['budget'] !== null && $row['budget'] > 0)
                 <a class="ex-budget" href="{{ route('expenses.index', ['category' => $category->id]) }}">
-                    <strong>{{ $category->name }}</strong>
-                    <span>{{ $money($used) }} of {{ $money($budget) }}</span>
-                    <div class="ex-bar {{ $used > $budget ? 'over' : '' }}"><i style="width: {{ $pct }}%"></i></div>
+                    <strong>{{ $row['parent_name'] ? $row['parent_name'].' / '.$category->name : $category->name }}</strong>
+                    <span>{{ $row['percent'] }}% used · {{ $row['remaining_percent'] }}% remaining</span>
+                    @if($row['over'])
+                        <span style="display:block;color:#8a1f1f;font-weight:700;">Budget exceeded · over by {{ $money(abs($row['remaining'])) }}</span>
+                    @else
+                        <span style="display:block;">{{ $money($row['remaining']) }} left{{ $row['frame'] ? ' · '.$row['frame'] : '' }}</span>
+                    @endif
+                    <div class="ex-bar {{ $row['over'] ? 'over' : '' }}"><i style="width: {{ min(100, $row['percent']) }}%"></i></div>
                 </a>
             @endif
         @endforeach
@@ -107,7 +108,7 @@
             <select class="ex-select ex-native" name="category" data-submit="1" data-placeholder="Search categories">
                 <option value="">All categories</option>
                 @foreach($categories as $category)
-                    <option value="{{ $category->id }}" {{ (string) request('category') === (string) $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                    <option value="{{ $category->id }}" {{ (string) request('category') === (string) $category->id ? 'selected' : '' }}>{{ $category->parent_id && isset($stats[$category->parent_id]) ? $stats[$category->parent_id]['name'].' / ' : '' }}{{ $category->name }}</option>
                 @endforeach
             </select>
         </form>
@@ -159,7 +160,7 @@
             <select class="ex-select ex-native" name="expense_category_id" id="ex-category" data-placeholder="Type to search a category">
                 <option value="">Choose a category</option>
                 @foreach($categories as $category)
-                    <option value="{{ $category->id }}">{{ $category->name }}@if($category->budget_amount) — {{ $money($category->budget_amount) }}@endif</option>
+                    <option value="{{ $category->id }}">{{ $category->parent_id && isset($stats[$category->parent_id]) ? $stats[$category->parent_id]['name'].' / ' : '' }}{{ $category->name }}@if($category->budget_amount) — {{ $money($category->budget_amount) }}@endif</option>
                 @endforeach
             </select>
             @if($categories->isEmpty())

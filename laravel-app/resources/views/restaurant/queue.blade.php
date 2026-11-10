@@ -101,7 +101,7 @@
                     $canEdit = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'edit', $item);
                     $canDelete = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'delete', $item);
                     $canDeliver = \App\Services\Restaurant\RestaurantAccess::canDeliver(auth()->user(), $item);
-                    $late = $item->expected_ready_at && $item->expected_ready_at->isPast() && in_array($item->status, ['preparing', 'ready'], true);
+                    $late = $item->status === 'preparing' && $item->expected_ready_at && $item->expected_ready_at->isPast();
                 @endphp
                 <article class="sky-ticket {{ $late ? 'is-late' : '' }}">
                     <div>
@@ -179,16 +179,16 @@
                         @if(optional($order)->customer_comment)<p class="sky-note">Note: {{ $order->customer_comment }}</p>@endif
                         @if($item->customer_comment)<p class="sky-note">Item note: {{ $item->customer_comment }}</p>@endif
                         <p class="sky-meta">
-                            @if($item->expected_ready_at && in_array($item->status, ['preparing', 'ready'], true))
+                            @if($item->status === 'ready' && $item->ready_at)
+                                <span class="sky-clock is-late" data-since="{{ $item->ready_at->getTimestamp() }}">--:--</span>
+                                <span>Since ready</span>
+                            @elseif($item->expected_ready_at && $item->status === 'preparing')
                                 <span class="sky-clock {{ $late ? 'is-late' : '' }}" data-due="{{ $item->expected_ready_at->getTimestamp() }}">--:--</span>
                                 @if($late)
                                     <span>Late. Not delivered.</span>
                                 @else
                                     <span>Due {{ $item->expected_ready_at->format('H:i') }}</span>
                                 @endif
-                            @elseif($item->status === 'ready' && $item->ready_at)
-                                <span class="sky-wait" data-since="{{ $item->ready_at->getTimestamp() }}">--:--</span>
-                                <span>since it was marked ready</span>
                             @elseif($item->ready_at)
                                 Ready {{ $item->ready_at->format('H:i') }}
                             @elseif($item->expected_ready_at)
@@ -283,6 +283,16 @@
                 var now = Date.now();
                 var clocks = document.querySelectorAll('.sky-clock');
                 for (var i = 0; i < clocks.length; i++) {
+                    var sinceMark = parseInt(clocks[i].getAttribute('data-since'), 10) * 1000;
+                    if (sinceMark) {
+                        var waited = Math.max(0, Math.round((now - sinceMark) / 1000));
+                        var waitHours = Math.floor(waited / 3600);
+                        var waitMins = Math.floor((waited % 3600) / 60);
+                        var waitSecs = waited % 60;
+                        clocks[i].textContent = (waitHours > 0 ? waitHours + ':' : '') + pad(waitMins) + ':' + pad(waitSecs);
+                        clocks[i].className = 'sky-clock is-late';
+                        continue;
+                    }
                     var due = parseInt(clocks[i].getAttribute('data-due'), 10) * 1000;
                     if (!due) continue;
                     var diff = Math.round((due - now) / 1000);

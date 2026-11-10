@@ -24,19 +24,24 @@
     .ex-bar i { display: block; height: 100%; background: #0c1830; }
     .ex-bar.over i { background: #8a1f1f; }
     .ex-tools { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 16px 0; }
-    .ex-page select.ex-select {
-        appearance: menulist;
-        -webkit-appearance: menulist;
-        color: #0c1830 !important;
-        background: #fff !important;
-        border: 1px solid #d5deea;
-        border-radius: 10px;
-        height: 44px;
-        padding: 0 10px;
-        font-size: 15px;
-        width: 100%;
+    .ex-native { position: absolute; left: -9999px; width: 1px; height: 1px; }
+    .ex-combo { position: relative; width: 100%; }
+    .ex-filter { width: 260px; }
+    .ex-combo-input {
+        width: 100%; border: 1px solid #d5deea; border-radius: 10px; height: 44px; padding: 0 12px;
+        background: #fff; color: #0c1830; font-size: 15px;
     }
-    .ex-filter { width: 220px; }
+    .ex-combo-list {
+        position: absolute; left: 0; right: 0; top: 48px; z-index: 30; background: #fff;
+        border: 1px solid #d5deea; border-radius: 12px; max-height: 220px; overflow: auto;
+        box-shadow: 0 12px 30px rgba(12,24,48,.12);
+    }
+    .ex-combo-item, .ex-combo-empty {
+        display: block; width: 100%; text-align: left; border: 0; background: #fff; color: #0c1830;
+        padding: 10px 12px; font-size: 15px; cursor: pointer;
+    }
+    .ex-combo-item:hover { background: #f3f6fb; }
+    .ex-combo-empty { color: #5c6b80; cursor: default; }
     .ex-list { display: flex; flex-direction: column; gap: 12px; }
     .ex-item { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
     .ex-item header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
@@ -99,7 +104,7 @@
 
     <div class="ex-tools">
         <form method="get" action="{{ route('expenses.index') }}">
-            <select class="ex-select ex-filter" name="category" onchange="this.form.submit()">
+            <select class="ex-select ex-native" name="category" data-submit="1" data-placeholder="Search categories">
                 <option value="">All categories</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}" {{ (string) request('category') === (string) $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -151,7 +156,7 @@
         </div>
         <div class="ex-field">
             <label>Category</label>
-            <select class="ex-select" name="expense_category_id" id="ex-category" required>
+            <select class="ex-select ex-native" name="expense_category_id" id="ex-category" data-placeholder="Type to search a category">
                 <option value="">Choose a category</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->name }}@if($category->budget_amount) — {{ $money($category->budget_amount) }}@endif</option>
@@ -194,6 +199,7 @@
             document.getElementById('ex-save').textContent = 'Save expense';
             document.getElementById('ex-date').value = @json(date('Y-m-d'));
             document.getElementById('ex-category').value = '';
+            if (document.getElementById('ex-category').exSync) document.getElementById('ex-category').exSync();
             document.getElementById('ex-amount').value = '';
             document.getElementById('ex-note').value = '';
             shade.className = 'ex-shade is-open';
@@ -206,6 +212,7 @@
             document.getElementById('ex-save').textContent = 'Save changes';
             document.getElementById('ex-date').value = button.getAttribute('data-date');
             document.getElementById('ex-category').value = button.getAttribute('data-category');
+            if (document.getElementById('ex-category').exSync) document.getElementById('ex-category').exSync();
             document.getElementById('ex-amount').value = button.getAttribute('data-amount');
             document.getElementById('ex-note').value = button.getAttribute('data-note');
             shade.className = 'ex-shade is-open';
@@ -221,6 +228,95 @@
         var edits = document.querySelectorAll('.ex-edit');
         for (var i = 0; i < edits.length; i++) {
             edits[i].addEventListener('click', function () { openEdit(this); });
+        }
+        form.addEventListener('submit', function (event) {
+            var category = document.getElementById('ex-category');
+            if (category && !category.value) {
+                event.preventDefault();
+                if (category.exFocus) category.exFocus();
+            }
+        });
+    })();
+    (function () {
+        var selects = document.querySelectorAll('select.ex-select');
+        for (var s = 0; s < selects.length; s++) {
+            bindSearch(selects[s]);
+        }
+        function bindSearch(select) {
+            var box = document.createElement('div');
+            box.className = 'ex-combo' + (select.getAttribute('data-submit') ? ' ex-filter' : '');
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'ex-combo-input';
+            input.autocomplete = 'off';
+            input.placeholder = select.getAttribute('data-placeholder') || 'Search';
+            var list = document.createElement('div');
+            list.className = 'ex-combo-list';
+            list.hidden = true;
+            select.parentNode.insertBefore(box, select);
+            box.appendChild(input);
+            box.appendChild(list);
+            function labelFor(value) {
+                for (var i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === String(value)) return select.options[i].text;
+                }
+                return '';
+            }
+            function paint(term) {
+                var query = (term || '').toLowerCase();
+                list.innerHTML = '';
+                var shown = 0;
+                for (var i = 0; i < select.options.length; i++) {
+                    var option = select.options[i];
+                    if (query && option.text.toLowerCase().indexOf(query) === -1) continue;
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'ex-combo-item';
+                    button.textContent = option.text;
+                    button.setAttribute('data-value', option.value);
+                    list.appendChild(button);
+                    shown++;
+                }
+                if (!shown) {
+                    var empty = document.createElement('div');
+                    empty.className = 'ex-combo-empty';
+                    empty.textContent = 'No match';
+                    list.appendChild(empty);
+                }
+                list.hidden = false;
+            }
+            function choose(value) {
+                select.value = value;
+                input.value = value ? labelFor(value) : '';
+                list.hidden = true;
+                if (select.getAttribute('data-submit') === '1' && select.form) select.form.submit();
+            }
+            input.addEventListener('focus', function () {
+                paint(input.value === labelFor(select.value) ? '' : input.value);
+            });
+            input.addEventListener('input', function () {
+                if (!input.value) select.value = '';
+                paint(input.value);
+            });
+            list.addEventListener('click', function (event) {
+                var button = event.target;
+                if (!button.getAttribute) return;
+                if (!button.getAttribute('data-value') && button.getAttribute('data-value') !== '') return;
+                if (!button.className || button.className.indexOf('ex-combo-item') === -1) return;
+                choose(button.getAttribute('data-value'));
+            });
+            document.addEventListener('click', function (event) {
+                if (!box.contains(event.target)) list.hidden = true;
+            });
+            select.exSync = function () {
+                input.value = select.value ? labelFor(select.value) : '';
+                list.hidden = true;
+            };
+            select.exFocus = function () {
+                input.focus();
+                paint('');
+            };
+            select.exSync();
         }
     })();
 </script>

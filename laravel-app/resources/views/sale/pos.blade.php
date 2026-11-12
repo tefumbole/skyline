@@ -4828,8 +4828,6 @@
         }
 
         function waiterMustChooseTable() {
-            var must = @json(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0);
-            if (!must) return false;
             var service = $('input[name="service_type"]:checked').val() || '';
             if (service !== 'dine_in' && service !== 'take_away') return false;
             if ($('#restaurant_table_id').val()) return false;

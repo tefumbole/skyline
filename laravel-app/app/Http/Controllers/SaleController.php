@@ -451,10 +451,6 @@ class SaleController extends Controller
 
     protected function waiterNeedsTable(Request $request)
     {
-        $user = auth()->user();
-        if (! $user || strcasecmp((string) $user->roleName(), 'Waiter') !== 0) {
-            return false;
-        }
         $service = (string) $request->input('service_type');
         if (! in_array($service, ['dine_in', 'take_away'], true)) {
             return false;
@@ -1123,7 +1119,7 @@ class SaleController extends Controller
                 return redirect()->route('payment.index')->with(! empty($momoHold['failed']) ? 'not_permitted' : 'message', $notice);
             }
             if ((int) $data['paid_by_id'] === 9) {
-                return redirect(route('sale.kitchen-print', $lims_sale_data->id).'?autoprint=1');
+                return redirect(route('sale.kitchen-print', $lims_sale_data->id));
             }
             if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {
                 return redirect()->route('payment.index')->with('message', 'Momo received. The remaining balance is in Payments.');
@@ -2285,7 +2281,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Products ordered on the most bills come first. Quantity breaks a tie.
+     * Best sellers by quantity come first.
      */
     protected function sortByOrderFrequency($products)
     {
@@ -2296,7 +2292,7 @@ class SaleController extends Controller
             $id = (int) (is_object($product) ? $product->id : 0);
             $rank = isset($ranks[$id]) ? $ranks[$id] : ['orders' => 0, 'qty' => 0];
 
-            return sprintf('%08d%012d%08d', (int) $rank['orders'], (int) round($rank['qty']), $id);
+            return sprintf('%012d%08d%08d', (int) round($rank['qty']), (int) $rank['orders'], $id);
         })->values();
     }
 

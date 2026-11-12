@@ -69,36 +69,27 @@
     @endif
     <p class="who">Placed by {{ $placed }}</p>
     <div class="tools" id="kitchen-tools">
-        <button type="button" class="print" id="kitchen-print" onclick="window.print();">Print</button>
-        <a class="back" id="kitchen-back" href="{{ $back }}">Back</a>
+        <button type="button" class="print" id="kitchen-print">Print</button>
+        <a class="back" id="kitchen-close" href="{{ url('pos') }}">Close</a>
     </div>
 </main>
 <script>
-    var kitchenBack = @json($back);
-    function leaveKitchen() {
-        var here = window.location.href;
-        if (window.history.length > 1) {
-            window.history.back();
-            window.setTimeout(function () {
-                if (window.location.href === here) {
-                    window.location.href = kitchenBack;
-                }
-            }, 500);
-            return;
-        }
-        window.location.href = kitchenBack;
-    }
-    document.getElementById('kitchen-back').addEventListener('click', function (event) {
+    var closeUrl = @json(url('pos'));
+    document.getElementById('kitchen-print').addEventListener('click', function () {
+        var closeBtn = document.getElementById('kitchen-close');
+        if (closeBtn) closeBtn.style.display = 'none';
+        window.print();
+    });
+    document.getElementById('kitchen-close').addEventListener('click', function (event) {
         event.preventDefault();
-        leaveKitchen();
+        var printBtn = document.getElementById('kitchen-print');
+        if (printBtn) printBtn.style.display = 'none';
+        window.location.href = closeUrl;
     });
     window.onafterprint = function () {
-        var back = document.getElementById('kitchen-back');
-        if (back) back.focus();
+        var closeBtn = document.getElementById('kitchen-close');
+        if (closeBtn) closeBtn.style.display = '';
     };
-    if (window.location.search.indexOf('autoprint=1') !== -1) {
-        window.setTimeout(function () { window.focus(); window.print(); }, 600);
-    }
 </script>
 </body>
 </html>

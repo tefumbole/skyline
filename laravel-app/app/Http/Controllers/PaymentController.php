@@ -1195,6 +1195,7 @@ class PaymentController extends Controller
             $this->settleWaitingDeposits();
             $this->refreshFrontDeposits();
             $this->importConfirmedCollections();
+            app(\App\Services\Restaurant\MomoBillSettlement::class)->settleNotedDeposits();
             $items = app(CampayPayoutService::class)->confirmedCollections(
                 date('Y-m-d', strtotime('-14 days')),
                 date('Y-m-d')
@@ -1233,12 +1234,6 @@ class PaymentController extends Controller
                 continue;
             }
             $phone = isset($item['phone_number']) ? (string) $item['phone_number'] : '';
-            $customer = null;
-            try {
-                $customer = $this->customerFromPhone($phone);
-            } catch (\Throwable $e) {
-                $customer = null;
-            }
             $when = date('Y-m-d H:i:s');
             if (! empty($item['datetime'])) {
                 $stamp = strtotime((string) $item['datetime']);
@@ -1250,12 +1245,21 @@ class PaymentController extends Controller
             if ($note === '') {
                 $note = 'Campay confirmed';
             }
+            $settled = app(\App\Services\Restaurant\MomoBillSettlement::class)->settleDescribedMoney($note, $reference, $credit, Auth::id() ?: 1);
+            $customer = ($settled && $settled->customer) ? $settled->customer : null;
+            if (! $customer) {
+                try {
+                    $customer = $this->customerFromPhone($phone);
+                } catch (\Throwable $e) {
+                    $customer = null;
+                }
+            }
             Deposit::create([
                 'amount' => $credit,
                 'customer_id' => $customer ? $customer->id : null,
                 'user_id' => Auth::id() ?: 1,
                 'account_id' => $accountId,
-                'mtn_number' => $customer ? $customer->phone_number : $phone,
+                'mtn_number' => $phone,
                 'payment_method' => 3,
                 'status' => 1,
                 'note' => substr($note, 0, 180),
@@ -1372,16 +1376,11 @@ class PaymentController extends Controller
         $customer = Customer::where(function ($query) use ($phone, $tail) {
             $query->where('phone_number', $phone)->orWhere('phone_number', 'like', '%'.$tail);
         })->first();
-        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
-        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
         if ($customer) {
-            if ($name !== '') {
-                $customer->name = $name;
-                $customer->syncOriginal();
-            }
-
             return $customer;
         }
+        $hit = app(MobileMoneyHolderService::class)->lookup($phone, true);
+        $name = ($hit && ! empty($hit['name'])) ? $hit['name'] : $phone;
         $groupId = \App\CustomerGroup::query()->value('id');
         $payload = [
             'customer_group_id' => $groupId ? $groupId : 1,

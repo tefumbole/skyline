@@ -229,13 +229,10 @@ class RestaurantPayController extends Controller
         if (! $collect->collectionDebited($body, $amount, $phone, $pattern)) {
             return null;
         }
-        $landed = isset($body['app_amount']) && is_numeric($body['app_amount']) && (float) $body['app_amount'] > 0
-            ? (float) $body['app_amount']
-            : (float) $amount;
 
         return [
             'status' => 'SUCCESSFUL',
-            'amount' => $landed,
+            'amount' => (float) $amount,
             'reference' => $reference,
             'external' => $external,
         ];

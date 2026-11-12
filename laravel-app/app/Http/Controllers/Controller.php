@@ -574,9 +574,9 @@ class Controller extends BaseController
         }
         $body = $campay->transaction($reference);
         $amount = (float) $expectedAmount;
-        if (is_array($body) && isset($body['app_amount']) && is_numeric($body['app_amount']) && (float) $body['app_amount'] > 0) {
+        if ($amount <= 0 && is_array($body) && isset($body['app_amount']) && is_numeric($body['app_amount']) && (float) $body['app_amount'] > 0) {
             $amount = (float) $body['app_amount'];
-        } elseif (is_array($body) && isset($body['amount']) && is_numeric($body['amount'])) {
+        } elseif ($amount <= 0 && is_array($body) && isset($body['amount']) && is_numeric($body['amount'])) {
             $amount = (float) $body['amount'];
         }
         $external = is_array($body) ? trim((string) (isset($body['external_reference']) ? $body['external_reference'] : '')) : '';

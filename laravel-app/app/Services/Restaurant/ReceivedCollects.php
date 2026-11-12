@@ -97,7 +97,7 @@ class ReceivedCollects
         }
         $record = 0;
         foreach ([$gross, $landed] as $candidate) {
-            if ((float) $candidate > 0 && abs($due - (float) $candidate) <= 1) {
+            if (MomoBillSettlement::covers($due, $candidate)) {
                 $record = $due;
                 break;
             }

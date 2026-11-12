@@ -127,9 +127,8 @@ class CampayCollectService
             return false;
         }
         if ($expectedAmount !== null) {
-            $expected = (int) $expectedAmount;
             $landed = $received !== null && $received > 0 ? $received : $charged;
-            if ($charged !== $expected && $landed !== $expected) {
+            if (! \App\Services\Restaurant\MomoBillSettlement::coversEither($expectedAmount, $charged, $landed)) {
                 return false;
             }
         }

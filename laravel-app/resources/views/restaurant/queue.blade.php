@@ -33,7 +33,17 @@
         }
         .sky-clock.is-late { background:#8a1f1f; color:#fff; }
         .sky-ticket.is-late { border-color:#8a1f1f; background:#fff5f5; }
-        .sky-ticket.sky-ticket-brief { grid-template-columns:minmax(220px,1fr) minmax(200px,280px); }
+        .sky-ticket.sky-ticket-brief { grid-template-columns:minmax(0,1fr); padding:10px 14px; gap:8px; }
+        .sky-ticket-brief .sky-kicker { font-size:16px; }
+        .sky-ticket-brief .sky-item { font-size:16px; }
+        .sky-ticket-brief .sky-meta { margin-top:2px; }
+        .sky-ticket-brief .sky-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+        .sky-ticket-brief .sky-actions .btn,
+        .sky-ticket-brief .sky-actions .btn-block { width:auto; }
+        .sky-ticket-brief .sky-actions form,
+        .sky-ticket-brief .sky-actions > div { margin:0 !important; }
+        .sky-ticket-brief .sky-accept { margin:0; }
+        .sky-ticket-brief .sky-accept input { width:88px; }
         @keyframes skyAwaitBlink {
             0%, 49% { background:#fff; border-color:#d7deea; }
             50%, 100% { background:#fff4d6; border-color:#e1b368; }
@@ -130,7 +140,7 @@
                     @if($brief)
                     <div>
                         <p class="sky-kicker">{{ $place }}</p>
-                        <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span></p>
+                        <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span>@if($item->productSale && (float) $item->productSale->total > 0.009)<span class="sky-price">{{ number_format((float) $item->productSale->total, 0) }} XAF</span>@endif</p>
                         @foreach($notes as $note)
                             <p class="sky-note">{{ $note }}</p>
                         @endforeach

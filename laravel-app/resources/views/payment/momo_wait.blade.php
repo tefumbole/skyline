@@ -13,7 +13,7 @@
     .momo-wait .pay-parts { margin: 14px 0 0; padding: 0; list-style: none; }
     .momo-wait .pay-parts li { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; padding: 10px 12px; border-radius: 12px; background: #fff; }
     .momo-wait .pay-parts em { font-style: normal; font-weight: 700; color: #8a6230; }
-    .momo-wait .pay-back { display: none; margin-top: 12px; }
+    .momo-wait .pay-close { display: block; width: 100%; margin-top: 14px; min-height: 46px; border-radius: 14px; background: #0c1830; color: #fff; font-weight: 700; line-height: 46px; text-align: center; text-decoration: none; }
 </style>
 <section class="momo-wait">
     <div class="card">
@@ -37,8 +37,8 @@
                 @endforeach
             </ul>
             @endif
-            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints.</p>
-            <a id="momo-back" class="btn btn-default pay-back" href="{{ $backUrl }}">Back</a>
+            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints. If it is not approved, close this page. The bill stays unpaid.</p>
+            <a id="momo-back" class="pay-close" href="{{ $backUrl }}">Close</a>
         </div>
     </div>
 </section>
@@ -47,7 +47,6 @@
 <script>
 (function () {
     var hint = document.getElementById('momo-hint');
-    var back = document.getElementById('momo-back');
     var started = Date.now();
     var stopped = false;
     function tick() {
@@ -74,12 +73,10 @@
                 if (data.status === 'failed') {
                     stopped = true;
                     hint.textContent = data.message || 'The payment was not approved. The bill was not marked paid.';
-                    back.style.display = 'inline-block';
                     return;
                 }
-                if (Date.now() - started > {{ !empty($parts) ? 480000 : 180000 }}) {
-                    hint.textContent = 'Still waiting. If the prompt expired, go back and send it again. The bill is not paid yet.';
-                    back.style.display = 'inline-block';
+                if (Date.now() - started > {{ !empty($parts) ? 480000 : 30000 }}) {
+                    hint.textContent = 'Still waiting. Close this page if the phone does not approve. The bill is not paid yet.';
                 }
                 window.setTimeout(tick, 1000);
             })

@@ -9,7 +9,7 @@
     .momo-wait .pay-body { padding: 16px; background: #f3f6fb; }
     .momo-wait .pay-due { padding: 12px 14px; border-radius: 14px; background: #fff; }
     .momo-wait .pay-due strong { display: block; margin-top: 2px; color: #0c1830; font-size: 28px; }
-    .momo-wait #momo-back { display: none; margin-top: 12px; }
+    .momo-wait .pay-close { display: block; width: 100%; margin-top: 14px; min-height: 46px; border-radius: 14px; background: #0c1830; color: #fff; font-weight: 700; line-height: 46px; text-align: center; text-decoration: none; }
 </style>
 <section class="momo-wait">
     <div class="card">
@@ -22,8 +22,8 @@
                 <div class="pay-kicker" style="color:#8a6230">Waiting for</div>
                 <strong>{{ number_format($amount, 0, '.', ' ') }} XAF</strong>
             </div>
-            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints.</p>
-            <a id="momo-back" class="btn btn-default" href="{{ url('pos') }}">Back to POS</a>
+            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints. If it is not approved, close this page. The order stays unpaid.</p>
+            <a id="momo-back" class="pay-close" href="{{ url('pos') }}">Close</a>
         </div>
     </div>
 </section>
@@ -32,7 +32,6 @@
 <script>
 (function () {
     var hint = document.getElementById('momo-hint');
-    var back = document.getElementById('momo-back');
     var started = Date.now();
     var stopped = false;
     function tick() {
@@ -49,12 +48,10 @@
                 if (data.status === 'failed') {
                     stopped = true;
                     hint.textContent = data.message || 'The payment was not approved. The order was not placed.';
-                    back.style.display = '';
                     return;
                 }
-                if (Date.now() - started > 180000) {
-                    hint.textContent = 'Still waiting. If the prompt expired, go back and send it again.';
-                    back.style.display = '';
+                if (Date.now() - started > 30000) {
+                    hint.textContent = 'Still waiting. Close this page if the phone does not approve. The order is not paid yet.';
                 }
                 window.setTimeout(tick, 1000);
             })

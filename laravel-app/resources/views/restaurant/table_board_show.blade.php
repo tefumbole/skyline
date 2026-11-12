@@ -23,6 +23,9 @@
     .bill-dish { margin: 2px 0 0; font-weight: 700; }
     .bill-note, .bill-status { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
     .bill-status { color: #0c1830; font-weight: 700; }
+    .bill-status .state-awaiting { color: #8a5a1f; }
+    .bill-status .state-ready, .bill-status .state-hold { color: #8a1f1f; }
+    .bill-status .state-delivered { color: #178a45; }
     .bill-money { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
     .bill-money div { padding: 10px; border-radius: 12px; background: #f3f6fb; }
     .bill-money span { display: block; color: #5c6b82; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -63,7 +66,7 @@
                             <p class="bill-kind">{{ $line['kind'] }}</p>
                             <p class="bill-dish">{{ $line['name'] }} × {{ $line['qty'] }}</p>
                             @if($line['note'] !== '')<p class="bill-note">Comment: {{ $line['note'] }}</p>@endif
-                            <p class="bill-status">{{ $line['label'] }}@if($line['clock'] === 'down') <span class="food-clock" data-due="{{ (int) $line['due_at'] }}">--:--</span>@elseif($line['clock'] === 'up') <span class="food-clock is-late" data-since="{{ (int) $line['ready_at'] }}">--:--</span>@endif</p>
+                            <p class="bill-status"><span class="state-{{ $line['state'] }}">{{ $line['label'] }}</span>@if($line['clock'] === 'down') <span class="food-clock" data-due="{{ (int) $line['due_at'] }}">--:--</span>@elseif($line['clock'] === 'up') <span class="food-clock is-late" data-since="{{ (int) $line['ready_at'] }}">--:--</span>@endif</p>
                         </li>
                     @endforeach
                 </ul>

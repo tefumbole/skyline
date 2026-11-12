@@ -97,7 +97,7 @@ class TableBoard
                 $grouped[$id]['open']++;
             }
             foreach ($bill['menu'] as $line) {
-                if (in_array($line['state'], ['delivered', 'cancelled', 'rejected'], true)) {
+                if (in_array($line['state'], ['cancelled', 'rejected'], true)) {
                     continue;
                 }
                 $grouped[$id]['food'][] = $line;

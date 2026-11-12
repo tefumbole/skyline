@@ -20,6 +20,10 @@
     .table-food { margin: 10px 0 0; padding: 0; list-style: none; }
     .table-food li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; color: #243044; font-size: 13px; font-weight: 700; }
     .table-food .dish { font-weight: 600; color: #5c6b82; }
+    .state-awaiting { color: #8a5a1f; }
+    .state-preparing { color: #0c1830; }
+    .state-ready, .state-hold { color: #8a1f1f; }
+    .state-delivered { color: #178a45; }
     .food-clock { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0c1830; color: #e1b368; font-variant-numeric: tabular-nums; }
     .food-clock.is-late { background: #8a1f1f; color: #fff; }
     .table-pill.pending, .table-pill.open { background: #fff4e5; color: #8a5a1f; }
@@ -55,7 +59,7 @@
                                 @foreach($row['food'] as $line)
                                     <li>
                                         <span class="dish">{{ $line['name'] }} × {{ $line['qty'] }}</span>
-                                        <span>{{ $line['label'] }}</span>
+                                        <span class="state-{{ $line['state'] }}">{{ $line['label'] }}</span>
                                         @if($line['clock'] === 'down')
                                             <span class="food-clock" data-due="{{ (int) $line['due_at'] }}">--:--</span>
                                         @elseif($line['clock'] === 'up')

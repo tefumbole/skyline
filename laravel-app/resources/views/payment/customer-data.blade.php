@@ -36,23 +36,19 @@
                 </tr>
                 </thead>
                 <tbody>
-                @foreach($sales as $key=>$sale)
-                    @php
-                        $settlement = isset($sale->settlement) ? $sale->settlement : null;
-                        $due = $settlement ? $sale->settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
-                    @endphp
-                    <tr data-id="{{$sale->id}}">
+                @foreach($bills as $key=>$bill)
+                    <tr data-id="{{ $bill['sale_ids'][0] }}" data-sale-ids="{{ implode(',', $bill['sale_ids']) }}">
                         <td>{{$key}}</td>
-                        <td>{{ $sale->customer->name }}</td>
-                        <td>{{ $sale->customer->unique_id }}</td>
-                        <td>{{ $sale->reference_no }}</td>
-                        <td>{{ $sale->customer->phone_number }}</td>
-                        <td>{{ number_format($sale->grand_total, 2) }}</td>
-                        <td>{{ number_format($sale->paid_amount, 2) ?? 0 }}</td>
-                        <td>{{ number_format($due, 2) }}</td>
+                        <td>{{ $bill['name'] }}</td>
+                        <td>{{ $bill['unique_id'] }}</td>
+                        <td>{{ $bill['orders'] > 1 ? $bill['orders'].' orders' : $bill['references'][0] }}</td>
+                        <td>{{ $bill['phone'] }}</td>
+                        <td>{{ number_format($bill['total'], 2) }}</td>
+                        <td>{{ number_format($bill['paid'], 2) }}</td>
+                        <td>{{ number_format($bill['due'], 2) }}</td>
                         <td>
-                            @if($settlement && !empty($settlement['undelivered']))
-                                @foreach($settlement['undelivered'] as $openItem)
+                            @if(count($bill['undelivered']))
+                                @foreach($bill['undelivered'] as $openItem)
                                     <div>
                                         <strong>{{ $openItem['name'] }}</strong> × {{ $openItem['qty'] }}
                                         <span class="text-muted">{{ number_format($openItem['amount'], 2) }}</span>
@@ -72,15 +68,22 @@
                             @endif
                         </td>
                         <td>
-                            <span class="badge badge-warning">{{ $due <= 0.009 ? 'Paid' : ($sale->payment_status == 1 ? 'Pending' : ($sale->payment_status == 3 ? 'Partial' : 'Due')) }}</span>
+                            <span class="badge badge-warning">{{ $bill['status'] }}</span>
                         </td>
-                        <td>{{ $sale->created_at }}</td>
+                        <td>{{ $bill['latest_label'] }}</td>
                         <td>
-                            @if($due > 0.009)
-                            <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $sale->id }}" data-name="{{ e(optional($sale->customer)->name) }}" data-phone="{{ e(optional($sale->customer)->phone_number) }}" data-ref="{{ e($sale->reference_no) }}" data-due="{{ $due }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
+                            @if($bill['due'] > 0.009)
+                            <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $bill['sale_ids'][0] }}" data-sale-ids="{{ implode(',', $bill['sale_ids']) }}" data-name="{{ e($bill['name']) }}" data-phone="{{ e($bill['phone']) }}" data-ref="{{ $bill['orders'] > 1 ? $bill['orders'].' orders' : e($bill['references'][0]) }}" data-due="{{ $bill['due'] }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
                             @endif
-                            <button type="button" class="get-payment btn btn-info btn-sm" data-id = "{{ $sale->id }}"><i class="fa fa-money"></i>{{ trans('file.View') }}</button>
-                            <a class="get-payment btn btn-warning btn-sm" href="{{ route('sales.edit',$sale->id ) }}"><i class="fa fa-pencil"></i> Edit Sale</a>
+                            @if($bill['shared'])
+                                <a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="{{ route('sale.invoice', $bill['print_sale_id']) }}">Print</a>
+                            @else
+                                <a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="{{ route('payment.client-bill', $bill['customer_id']) }}">Print</a>
+                            @endif
+                            @if($bill['orders'] === 1)
+                            <button type="button" class="get-payment btn btn-info btn-sm" data-id="{{ $bill['print_sale_id'] }}"><i class="fa fa-money"></i>{{ trans('file.View') }}</button>
+                            <a class="btn btn-warning btn-sm" href="{{ route('sales.edit', $bill['print_sale_id']) }}"><i class="fa fa-pencil"></i> Edit Sale</a>
+                            @endif
                         </td>
                     </tr>
                 @endforeach
@@ -161,11 +164,12 @@
                     <button type="button" data-dismiss="modal" aria-label="Close" class="pay-x">&times;</button>
                 </div>
                 <div class="pay-body">
-                    {!! Form::open(['route' => 'sale.add-payment', 'method' => 'post', 'class' => 'payment-form' ]) !!}
+                    {!! Form::open(['route' => 'payment.client-pay', 'method' => 'post', 'class' => 'payment-form' ]) !!}
                     <input type="hidden" name="balance">
                     <input type="hidden" name="paying_amount">
                     <input type="hidden" name="paid_by_id" value="1">
                     <input type="hidden" name="sale_id">
+                    <input type="hidden" name="sale_ids">
                     <input type="hidden" name="account_id" value="{{ optional($defaultPayAccount)->id }}">
 
                     <div class="pay-due">
@@ -327,6 +331,7 @@
             $('#payHolder').text('');
             $('#add-payment input[name="balance"]').val(payDue);
             $('#add-payment input[name="sale_id"]').val(button.data('id'));
+            $('#add-payment input[name="sale_ids"]').val(button.attr('data-sale-ids') || button.data('id'));
             $('#payDueLabel').text(payMoney(payDue));
             $('#payError').hide().text('');
             setPayMethod(1);
@@ -483,10 +488,11 @@
                     action: function ( e, dt, node, config ) {
                         var saleIds = [];
                         dt.rows({ selected: true }).every(function () {
-                            var id = $(this.node()).data('id');
-                            if (id) {
-                                saleIds.push(id);
-                            }
+                            var raw = $(this.node()).attr('data-sale-ids') || $(this.node()).attr('data-id') || '';
+                            raw.split(',').forEach(function (part) {
+                                var id = parseInt(part, 10);
+                                if (id) saleIds.push(id);
+                            });
                         });
                         if (!saleIds.length) {
                             alert('Select at least one payment.');

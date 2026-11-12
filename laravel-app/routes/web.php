@@ -1631,6 +1631,10 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
     Route::get('/shops/orders/{id}', 'OrderController@shopOrders')->name('shop.orders');
 
     Route::get('payment/index', 'PaymentController@index')->name('payment.index');
+    Route::get('payment/client/{customer}/bill', 'PaymentController@clientBill')->where('customer', '[0-9]+')->name('payment.client-bill');
+    Route::post('payment/client-pay', 'PaymentController@payClient')->name('payment.client-pay');
+    Route::get('payment/client-momo/{token}', 'PaymentController@clientMomoWait')->where('token', '[A-Fa-f0-9]{32}')->name('payment.client-momo');
+    Route::get('payment/client-momo/{token}/status', 'PaymentController@clientMomoStatus')->where('token', '[A-Fa-f0-9]{32}')->name('payment.client-momo.status');
     Route::get('payment/desposits/live', 'PaymentController@depositLive')->name('deposit.live');
     Route::get('payment/desposits', 'PaymentController@Desposit')->name('deposit.index');
     Route::post('payment/desposits', 'PaymentController@storeDeposit')->name('deposit.store');

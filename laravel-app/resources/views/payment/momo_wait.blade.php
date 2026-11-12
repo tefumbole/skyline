@@ -17,7 +17,7 @@
         <div class="pay-head">
             <div class="pay-kicker">Mobile Money</div>
             <h1>{{ optional($sale->customer)->name ?: 'Client' }}</h1>
-            <div>{{ $sale->reference_no }}</div>
+            <div>{{ isset($referenceLabel) ? $referenceLabel : $sale->reference_no }}</div>
         </div>
         <div class="pay-body">
             <div class="pay-due">

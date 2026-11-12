@@ -26,8 +26,9 @@ class PaymentController extends Controller
     {
         $this->applyReceivedMomo();
         $sales = $this->awaitingSales();
+        $bills = $this->clientBills($sales);
         $lims_account_list = Account::orderByDesc('id')->get();
-        return view('payment.customer-data', compact('sales', 'lims_account_list'));
+        return view('payment.customer-data', compact('sales', 'bills', 'lims_account_list'));
     }
 
 
@@ -35,8 +36,130 @@ class PaymentController extends Controller
     {
         $this->applyReceivedMomo();
         $sales = $this->awaitingSales($id);
+        $bills = $this->clientBills($sales);
         $lims_account_list = Account::orderByDesc('id')->get();
-        return view('payment.customer-data', compact('sales', 'lims_account_list'));
+        return view('payment.customer-data', compact('sales', 'bills', 'lims_account_list'));
+    }
+
+    public function clientBill($customer)
+    {
+        $customer = Customer::find($customer);
+        if (! $customer || $this->isSharedCustomer($customer)) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Open that walk-in bill and print it on its own.');
+        }
+        $sales = $this->awaitingSales($customer->id)->sortBy(function ($sale) {
+            return $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '';
+        })->values();
+        if ($sales->isEmpty()) {
+            return redirect()->route('payment.index')->with('message', 'This client has nothing left to pay.');
+        }
+        $lines = \App\Product_Sale::with('product')->whereIn('sale_id', $sales->pluck('id')->all())->get()->groupBy('sale_id');
+
+        return view('payment.client_bill', compact('customer', 'sales', 'lines'));
+    }
+
+    public function payClient(Request $request)
+    {
+        $requested = $this->requestedSaleIds($request);
+        $sales = $this->awaitingSales()->filter(function ($sale) use ($requested) {
+            return in_array((int) $sale->id, $requested, true);
+        })->values();
+        if ($sales->isEmpty()) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Those bills are no longer open.');
+        }
+        $customerId = (int) $sales->first()->customer_id;
+        foreach ($sales as $sale) {
+            if ((int) $sale->customer_id !== $customerId) {
+                return redirect()->route('payment.index')->with('not_permitted', 'Choose bills for one client.');
+            }
+        }
+        $customer = $sales->first()->customer;
+        if ($sales->count() > 1 && $this->isSharedCustomer($customer)) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Walk-in bills stay separate.');
+        }
+        $amount = round((float) $request->input('amount'), 2);
+        $slices = $this->paymentSlices($sales, $amount);
+        if ($slices === null) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Enter an amount up to the amount still due.');
+        }
+        $paidBy = (int) $request->input('paid_by_id');
+        if ($paidBy === 8) {
+            return $this->askClientMomo($customer, $slices, $amount, $request);
+        }
+
+        foreach ($slices as $saleId => $slice) {
+            $sale = Sale::find($saleId);
+            if ($sale) {
+                $this->recordCashSlice($sale, $slice, $request->input('account_id'));
+            }
+        }
+
+        return redirect()->route('payment.index')->with('message', 'Payment created successfully');
+    }
+
+    public function clientMomoWait($token)
+    {
+        $pending = \Illuminate\Support\Facades\Cache::get('client-momo:'.$token);
+        if (! is_array($pending)) {
+            return redirect()->route('payment.index')->with('not_permitted', 'This Mobile Money request has expired. The bill was not marked paid.');
+        }
+        $sale = Sale::with('customer')->find(isset($pending['sale_id']) ? $pending['sale_id'] : 0);
+
+        return view('payment.momo_wait', [
+            'sale' => $sale,
+            'amount' => $pending['amount'],
+            'phone' => $pending['phone'],
+            'referenceLabel' => isset($pending['label']) ? $pending['label'] : optional(optional($sale)->customer)->name,
+            'statusUrl' => route('payment.client-momo.status', ['token' => $token]),
+            'backUrl' => route('payment.index'),
+        ]);
+    }
+
+    public function clientMomoStatus($token)
+    {
+        $pending = \Illuminate\Support\Facades\Cache::get('client-momo:'.$token);
+        if (! is_array($pending) || empty($pending['slices']) || empty($pending['reference'])) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'This Mobile Money request has expired. The bill was not marked paid.',
+            ]);
+        }
+        $reference = (string) $pending['reference'];
+        if ($this->groupMomoRecorded($pending)) {
+            \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
+
+            return response()->json(['status' => 'paid', 'url' => route('payment.index')]);
+        }
+        $campay = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
+        $outcome = $campay->collectionOutcome($reference, $pending['amount'], $pending['phone'], $pattern);
+        if ($outcome['state'] === 'paid' && ! empty($outcome['confirmed'])) {
+            foreach ($pending['slices'] as $saleId => $slice) {
+                $sale = Sale::find($saleId);
+                if (! $sale || \App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $reference)) {
+                    continue;
+                }
+                \App\Services\Restaurant\RestaurantPayments::recordGateway(
+                    $sale,
+                    $slice,
+                    $reference,
+                    isset($pending['user_id']) ? $pending['user_id'] : null
+                );
+            }
+            \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
+
+            return response()->json(['status' => 'paid', 'url' => route('payment.index')]);
+        }
+        if ($outcome['state'] === 'failed') {
+            \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $campay->payerFailure(isset($outcome['reason']) ? $outcome['reason'] : '', $pending['amount']),
+            ]);
+        }
+
+        return response()->json(['status' => 'pending']);
     }
 
     protected function awaitingSales($customerId = null)
@@ -58,6 +181,243 @@ class PaymentController extends Controller
 
             return $due > 0.009;
         })->values();
+    }
+
+    protected function clientBills($sales)
+    {
+        $buckets = [];
+        $loose = [];
+        foreach ($sales as $sale) {
+            $customer = $sale->customer;
+            if (! $customer || $this->isSharedCustomer($customer)) {
+                $loose[] = $this->makeBill(collect([$sale]));
+                continue;
+            }
+            $id = (int) $customer->id;
+            if (! isset($buckets[$id])) {
+                $buckets[$id] = [];
+            }
+            $buckets[$id][] = $sale;
+        }
+        $bills = $loose;
+        foreach ($buckets as $rows) {
+            $bills[] = $this->makeBill(collect($rows));
+        }
+        usort($bills, function ($a, $b) {
+            return strcmp($b['latest'], $a['latest']);
+        });
+
+        return $bills;
+    }
+
+    protected function makeBill($sales)
+    {
+        $sales = $sales->sortByDesc(function ($sale) {
+            return $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '';
+        })->values();
+        $first = $sales->first();
+        $customer = $first->customer;
+        $total = 0;
+        $paid = 0;
+        $due = 0;
+        $ids = [];
+        $refs = [];
+        $undelivered = [];
+        $pending = true;
+        $latest = '';
+        foreach ($sales as $sale) {
+            $settlement = isset($sale->settlement) ? $sale->settlement : null;
+            $saleDue = $settlement ? (float) $settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+            $total += (float) $sale->grand_total;
+            $paid += (float) $sale->paid_amount;
+            $due += $saleDue;
+            $ids[] = (int) $sale->id;
+            $refs[] = (string) $sale->reference_no;
+            if ((int) $sale->payment_status !== 1 || (float) $sale->paid_amount > 0.009) {
+                $pending = false;
+            }
+            if ($settlement && ! empty($settlement['undelivered'])) {
+                foreach ($settlement['undelivered'] as $item) {
+                    $undelivered[] = $item;
+                }
+            }
+            $when = $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '';
+            if ($when > $latest) {
+                $latest = $when;
+            }
+        }
+        if ($due <= 0.009) {
+            $status = 'Paid';
+        } elseif ($pending) {
+            $status = 'Pending';
+        } else {
+            $status = 'Due';
+        }
+
+        return [
+            'customer_id' => $customer ? (int) $customer->id : 0,
+            'name' => $customer ? (string) $customer->name : 'Client',
+            'unique_id' => $customer ? (string) $customer->unique_id : '',
+            'phone' => $customer ? (string) $customer->phone_number : '',
+            'shared' => ! $customer || $this->isSharedCustomer($customer),
+            'sale_ids' => $ids,
+            'references' => $refs,
+            'orders' => count($ids),
+            'total' => $total,
+            'paid' => $paid,
+            'due' => $due,
+            'status' => $status,
+            'undelivered' => $undelivered,
+            'latest' => $latest,
+            'latest_label' => $latest,
+            'print_sale_id' => (int) $first->id,
+        ];
+    }
+
+    protected function isSharedCustomer($customer)
+    {
+        $name = trim((string) $customer->name);
+
+        return $name === '' || strcasecmp($name, 'Walk-in') === 0 || strcasecmp($name, 'WALKIN') === 0;
+    }
+
+    protected function requestedSaleIds(Request $request)
+    {
+        $raw = (string) $request->input('sale_ids');
+        if ($raw === '') {
+            $raw = (string) $request->input('sale_id');
+        }
+        $ids = [];
+        foreach (explode(',', $raw) as $part) {
+            $id = (int) $part;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    protected function paymentSlices($sales, $amount)
+    {
+        if ($amount <= 0) {
+            return null;
+        }
+        $ordered = $sales->sortBy(function ($sale) {
+            return $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '';
+        })->values();
+        $left = $amount;
+        $slices = [];
+        $totalDue = 0;
+        foreach ($ordered as $sale) {
+            $settlement = isset($sale->settlement) ? $sale->settlement : null;
+            $due = $settlement ? (float) $settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+            $totalDue += $due;
+            if ($left <= 0.009 || $due <= 0.009) {
+                continue;
+            }
+            $slice = min($left, $due);
+            $slices[(int) $sale->id] = round($slice, 2);
+            $left = round($left - $slice, 2);
+        }
+        if ($amount > $totalDue + 0.009 || count($slices) < 1) {
+            return null;
+        }
+
+        return $slices;
+    }
+
+    protected function recordCashSlice(Sale $sale, $amount, $accountId)
+    {
+        $amount = round((float) $amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+        \App\Support\TableBoard::releaseToCashier($sale);
+        $sale->paid_amount = (float) $sale->paid_amount + $amount;
+        $balance = (float) $sale->grand_total - (float) $sale->paid_amount;
+        if ($balance <= 0.009) {
+            $sale->payment_status = 4;
+        } elseif ((float) $sale->paid_amount > 0.009) {
+            $sale->payment_status = 3;
+        } else {
+            $sale->payment_status = 2;
+        }
+        $sale->save();
+        $register = \App\CashRegister::where([
+            ['user_id', Auth::id()],
+            ['warehouse_id', $sale->warehouse_id],
+            ['status', true],
+        ])->first();
+        $payment = new \App\Payment();
+        $payment->user_id = Auth::id();
+        $payment->sale_id = $sale->id;
+        if ($register) {
+            $payment->cash_register_id = $register->id;
+        }
+        $payment->account_id = $accountId ?: null;
+        $payment->payment_reference = 'spr-'.date('Ymd-His').'-'.$sale->id;
+        $payment->amount = $amount;
+        $payment->change = 0;
+        $payment->paying_method = 'Cash';
+        $payment->payment_note = 'Combined client bill';
+        $payment->save();
+    }
+
+    protected function askClientMomo($customer, array $slices, $amount, Request $request)
+    {
+        $phone = trim((string) $request->input('momo_phone'));
+        if ($phone === '' && $customer) {
+            $phone = (string) $customer->phone_number;
+        }
+        if ($phone === '') {
+            return redirect()->route('payment.index')->with('not_permitted', 'This client has no phone number, so they cannot confirm. The bill was not marked paid.');
+        }
+        $collect = app(\App\Services\CampayCollectService::class);
+        $momo = $collect->momoNumber($phone);
+        if (! $momo) {
+            return redirect()->route('payment.index')->with('not_permitted', 'The client number is not an MTN or Orange number. The bill was not marked paid.');
+        }
+        $external = 'client-momo-'.(int) $customer->id.'-'.date('His');
+        $body = $collect->collect($momo, (int) round($amount), $external, 'Skyline '.$customer->name);
+        $reference = is_array($body) && ! empty($body['reference']) ? (string) $body['reference'] : '';
+        $campayStatus = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+        if ($reference === '' || $campayStatus === 'FAILED') {
+            return redirect()->route('payment.index')->with('not_permitted', 'Mobile Money did not send a prompt. The bill was not marked paid.');
+        }
+        foreach (array_keys($slices) as $saleId) {
+            $sale = Sale::find($saleId);
+            if ($sale) {
+                \App\Support\TableBoard::releaseToCashier($sale);
+            }
+        }
+        $token = bin2hex(random_bytes(16));
+        $count = count($slices);
+        \Illuminate\Support\Facades\Cache::put('client-momo:'.$token, [
+            'amount' => (int) round($amount),
+            'slices' => $slices,
+            'sale_id' => (int) array_keys($slices)[0],
+            'user_id' => Auth::id(),
+            'reference' => $reference,
+            'phone' => $momo,
+            'external' => $external,
+            'label' => $customer->name.($count > 1 ? ' · '.$count.' orders' : ''),
+        ], now()->addMinutes(30));
+
+        return redirect()->route('payment.client-momo', ['token' => $token]);
+    }
+
+    protected function groupMomoRecorded(array $pending)
+    {
+        $reference = (string) $pending['reference'];
+        $seen = 0;
+        foreach ($pending['slices'] as $saleId => $slice) {
+            if (\App\Services\Restaurant\RestaurantPayments::hasReference((int) $saleId, $reference)) {
+                $seen += (float) $slice;
+            }
+        }
+
+        return $seen + 0.009 >= (float) $pending['amount'];
     }
 
     protected function applyReceivedMomo()

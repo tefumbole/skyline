@@ -146,6 +146,12 @@
         #add-payment .pay-choice button.is-on { border-color: #0c1830; background: #0c1830; color: #fff; }
         #add-payment .pay-choice button.is-on small { color: #e1b368; }
         #add-payment .pay-amount { margin-bottom: 8px; }
+        #add-payment .pay-split { margin-bottom: 8px; }
+        #add-payment .pay-split-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        #add-payment .pay-split-row .split-phone { flex: 1; }
+        #add-payment .pay-split-row .split-amount { width: 120px; }
+        #add-payment .split-remove { border: 0; background: transparent; color: #8a1f1f; font-weight: 700; }
+        #add-payment .pay-split-add { width: 100%; min-height: 42px; border: 1px dashed #d7deea; border-radius: 12px; background: #fff; color: #0c1830; font-weight: 700; }
         #add-payment .pay-left { margin-top: 6px; color: #5c6b82; font-size: 13px; }
         #add-payment .pay-error { display: none; margin-bottom: 10px; color: #9b1c1c; font-size: 13px; font-weight: 700; }
         #add-payment .pay-send { width: 100%; min-height: 48px; border: 0; border-radius: 14px; background: #e1b368; color: #0c1830; font-weight: 700; }
@@ -188,6 +194,14 @@
                     <div class="pay-choice" id="payModes">
                         <button type="button" class="pay-mode is-on" data-mode="full">Full amount<small>Pay everything due</small></button>
                         <button type="button" class="pay-mode" data-mode="part">Partial<small>Pay part now</small></button>
+                    </div>
+                    <div id="paySplitToggle" hidden style="margin-bottom:8px">
+                        <button type="button" class="pay-mode" data-mode="split" id="paySplitBtn" style="width:100%">Split payment<small>Several Mobile Money numbers</small></button>
+                    </div>
+                    <div id="paySplitRows" class="pay-split" hidden>
+                        <div id="paySplitList"></div>
+                        <button type="button" id="paySplitAdd" class="pay-split-add">Add a number</button>
+                        <div class="pay-left" id="paySplitSum"></div>
                     </div>
                     <div class="pay-amount">
                         <label for="amount">Amount (XAF)</label>
@@ -236,8 +250,15 @@
             $('#add-payment .pay-method').removeClass('is-on');
             $('#add-payment .pay-method[data-id="' + id + '"]').addClass('is-on');
             var momo = String(id) === '8';
+            $('#paySplitToggle').prop('hidden', !momo);
+            if (!momo && $('#paySplitRows').is(':visible')) {
+                setPayMode('full');
+            }
+            var split = momo && $('#paySplitRows').is(':visible');
             $('#add-payment .pay-send').text(momo ? 'Send prompt and wait' : 'Submit');
-            $('#payHint').text(momo ? 'The bill is confirmed only after the client approves on their phone.' : 'This records the cash payment.');
+            $('#payHint').text(split
+                ? 'Each person gets their own prompt. A share is recorded only after that phone approves it.'
+                : (momo ? 'The bill is confirmed only after the client approves on their phone.' : 'This records the cash payment.'));
         }
         function lookupPayPhone() {
             var phone = $.trim($('#payPhone').val());
@@ -261,19 +282,62 @@
                 box.text('');
             });
         }
+        function splitRow() {
+            return $('<div class="pay-split-row">' +
+                '<input type="text" name="split_phones[]" class="form-control split-phone" placeholder="Phone" inputmode="tel" autocomplete="off">' +
+                '<input type="number" name="split_amounts[]" class="form-control split-amount" min="100" step="1" placeholder="Amount">' +
+                '<button type="button" class="split-remove">Remove</button>' +
+                '</div>');
+        }
+        function syncSplit() {
+            var sum = 0;
+            var count = 0;
+            $('#paySplitList .split-amount').each(function () {
+                var value = parseFloat($(this).val());
+                if (value > 0) {
+                    sum += value;
+                    count++;
+                }
+            });
+            var left = Math.round(payDue) - Math.round(sum);
+            $('#paySplitSum').text(count
+                ? ('Shares ' + payMoney(sum) + ' · still to assign ' + payMoney(Math.max(0, left)))
+                : 'Add each person\'s Mobile Money number and their share.');
+            $('#add-payment input[name="amount"]').val(Math.round(sum));
+            syncPayAmount();
+        }
         function setPayMode(mode) {
             $('#add-payment .pay-mode').removeClass('is-on');
             $('#add-payment .pay-mode[data-mode="' + mode + '"]').addClass('is-on');
             var input = $('#add-payment input[name="amount"]');
+            var split = mode === 'split';
+            $('#paySplitRows').prop('hidden', !split);
+            $('#payPhone').closest('div').prop('hidden', split);
+            $('#add-payment .pay-amount').prop('hidden', split);
+            $('#paySplitList input').prop('disabled', !split);
+            if (split && $('#paySplitList .pay-split-row').length < 2) {
+                $('#paySplitList').empty().append(splitRow()).append(splitRow());
+                var knownPhone = $.trim($('#payPhone').val());
+                if (knownPhone) {
+                    $('#paySplitList .split-phone').first().val(knownPhone);
+                }
+            }
             if (mode === 'full') {
                 input.val(Math.round(payDue)).prop('readonly', true);
-            } else {
+            } else if (mode === 'part') {
                 input.prop('readonly', false);
                 if (!input.val() || parseFloat(input.val()) >= payDue) {
                     input.val('');
                 }
             }
-            syncPayAmount();
+            if (split) {
+                syncSplit();
+                $('#payHint').text('Each person gets their own prompt. A share is recorded only after that phone approves it.');
+            } else {
+                syncPayAmount();
+                var payingByPhone = String($('#add-payment input[name="paid_by_id"]').val()) === '8';
+                $('#payHint').text(payingByPhone ? 'The bill is confirmed only after the client approves on their phone.' : 'This records the cash payment.');
+            }
         }
         $('#add-payment').on('click', '.pay-method', function () {
             setPayMethod($(this).data('id'));
@@ -291,16 +355,63 @@
             }
             syncPayAmount();
         });
+        $('#paySplitAdd').on('click', function () {
+            $('#paySplitList').append(splitRow());
+            syncSplit();
+        });
+        $('#paySplitList').on('click', '.split-remove', function () {
+            var rows = $('#paySplitList .pay-split-row');
+            if (rows.length <= 2) {
+                $(this).closest('.pay-split-row').find('input').val('');
+            } else {
+                $(this).closest('.pay-split-row').remove();
+            }
+            syncSplit();
+        });
+        $('#paySplitList').on('input', '.split-amount, .split-phone', syncSplit);
         $('#payPhone').on('input', function () {
             clearTimeout(payLookupTimer);
             payLookupTimer = setTimeout(lookupPayPhone, 450);
         });
         $('#add-payment form.payment-form').on('submit', function (event) {
+            var split = $('#paySplitRows').is(':visible');
             var amount = parseFloat($('#add-payment input[name="amount"]').val());
             var phone = $.trim($('#payPhone').val());
             var momo = String($('#add-payment input[name="paid_by_id"]').val()) === '8';
             var error = $('#payError');
             error.hide().text('');
+            if (split) {
+                if (!momo) {
+                    event.preventDefault();
+                    error.text('Split payment is only for Mobile Money.').show();
+                    return;
+                }
+                var shares = [];
+                var seen = {};
+                var bad = '';
+                $('#paySplitList .pay-split-row').each(function () {
+                    var rowPhone = $.trim($(this).find('.split-phone').val());
+                    var rowAmount = parseFloat($(this).find('.split-amount').val());
+                    if (!rowPhone && !(rowAmount > 0)) return;
+                    var digits = rowPhone.replace(/\D/g, '');
+                    if (digits.indexOf('237') === 0) digits = digits.slice(3);
+                    if (digits.length !== 9) bad = 'Each share needs an MTN or Orange Mobile Money number.';
+                    if (!(rowAmount >= 100)) bad = 'Each Mobile Money share must be at least 100 XAF.';
+                    if (seen[digits]) bad = 'Use a different Mobile Money number for each person.';
+                    seen[digits] = true;
+                    shares.push(Math.round(rowAmount));
+                });
+                var sum = shares.reduce(function (total, value) { return total + value; }, 0);
+                if (!bad && shares.length < 2) bad = 'Split payment needs at least two Mobile Money numbers.';
+                if (!bad && sum !== Math.round(payDue)) bad = 'The shares must add up to the amount still due.';
+                if (bad) {
+                    event.preventDefault();
+                    error.text(bad).show();
+                    return;
+                }
+                $('#add-payment input[name="amount"]').val(sum);
+                return;
+            }
             if (!(amount > 0) || amount > payDue + 0.009) {
                 event.preventDefault();
                 error.text('Enter an amount up to the amount still due.').show();
@@ -334,6 +445,7 @@
             $('#add-payment input[name="sale_ids"]').val(button.attr('data-sale-ids') || button.data('id'));
             $('#payDueLabel').text(payMoney(payDue));
             $('#payError').hide().text('');
+            $('#paySplitList').empty();
             setPayMethod(1);
             setPayMode('full');
             if (phone) {

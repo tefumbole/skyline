@@ -84,6 +84,14 @@ class PaymentController extends Controller
         }
         $paidBy = (int) $request->input('paid_by_id');
         if ($paidBy === 8) {
+            $split = $this->splitShares($request, $amount);
+            if (is_string($split)) {
+                return redirect()->route('payment.index')->with('not_permitted', $split);
+            }
+            if (is_array($split)) {
+                return $this->askSplitMomo($customer, $sales, $split);
+            }
+
             return $this->askClientMomo($customer, $slices, $amount, $request);
         }
 
@@ -108,7 +116,8 @@ class PaymentController extends Controller
         return view('payment.momo_wait', [
             'sale' => $sale,
             'amount' => $pending['amount'],
-            'phone' => $pending['phone'],
+            'phone' => isset($pending['phone']) ? $pending['phone'] : '',
+            'parts' => isset($pending['parts']) ? $pending['parts'] : [],
             'referenceLabel' => isset($pending['label']) ? $pending['label'] : optional(optional($sale)->customer)->name,
             'statusUrl' => route('payment.client-momo.status', ['token' => $token]),
             'backUrl' => route('payment.index'),
@@ -118,7 +127,16 @@ class PaymentController extends Controller
     public function clientMomoStatus($token)
     {
         $pending = \Illuminate\Support\Facades\Cache::get('client-momo:'.$token);
-        if (! is_array($pending) || empty($pending['slices']) || empty($pending['reference'])) {
+        if (! is_array($pending)) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => 'This Mobile Money request has expired. The bill was not marked paid.',
+            ]);
+        }
+        if (! empty($pending['parts']) && is_array($pending['parts'])) {
+            return $this->splitMomoStatus($token, $pending);
+        }
+        if (empty($pending['slices']) || empty($pending['reference'])) {
             return response()->json([
                 'status' => 'failed',
                 'message' => 'This Mobile Money request has expired. The bill was not marked paid.',
@@ -405,6 +423,209 @@ class PaymentController extends Controller
         ], now()->addMinutes(30));
 
         return redirect()->route('payment.client-momo', ['token' => $token]);
+    }
+
+    protected function splitShares(Request $request, $amount)
+    {
+        $phones = $request->input('split_phones', []);
+        $amounts = $request->input('split_amounts', []);
+        if (! is_array($phones) || ! is_array($amounts)) {
+            return null;
+        }
+        $collect = app(\App\Services\CampayCollectService::class);
+        $shares = [];
+        $seen = [];
+        $count = max(count($phones), count($amounts));
+        for ($i = 0; $i < $count; $i++) {
+            $phone = trim((string) (isset($phones[$i]) ? $phones[$i] : ''));
+            $share = isset($amounts[$i]) ? (int) round((float) $amounts[$i]) : 0;
+            if ($phone === '' && $share <= 0) {
+                continue;
+            }
+            $momo = $collect->momoNumber($phone);
+            if (! $momo) {
+                return 'Each share needs an MTN or Orange Mobile Money number.';
+            }
+            if ($share < 100) {
+                return 'Each Mobile Money share must be at least 100 XAF.';
+            }
+            if (isset($seen[$momo])) {
+                return 'Use a different Mobile Money number for each person.';
+            }
+            $seen[$momo] = true;
+            $shares[] = ['phone' => $momo, 'amount' => $share];
+        }
+        if (count($shares) === 0) {
+            return null;
+        }
+        if (count($shares) < 2) {
+            return 'Split payment needs at least two Mobile Money numbers.';
+        }
+        $sum = 0;
+        foreach ($shares as $share) {
+            $sum += $share['amount'];
+        }
+        if (abs($sum - (int) round($amount)) > 0) {
+            return 'The shares must add up to the amount still due.';
+        }
+
+        return $shares;
+    }
+
+    protected function askSplitMomo($customer, $sales, array $shares)
+    {
+        $total = 0;
+        foreach ($shares as $share) {
+            $total += $share['amount'];
+        }
+        $due = 0;
+        foreach ($sales as $sale) {
+            $settlement = isset($sale->settlement) ? $sale->settlement : null;
+            $due += $settlement ? (float) $settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+        }
+        if (abs($total - round($due)) > 0.9) {
+            return redirect()->route('payment.index')->with('not_permitted', 'The shares must add up to the amount still due.');
+        }
+        if ($this->paymentSlices($sales, $total) === null) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Enter an amount up to the amount still due.');
+        }
+        $collect = app(\App\Services\CampayCollectService::class);
+        $parts = [];
+        $failed = 0;
+        foreach ($shares as $index => $share) {
+            $external = 'client-momo-'.(int) $customer->id.'-'.date('His').'-'.$index;
+            $body = $collect->collect($share['phone'], $share['amount'], $external, 'Skyline '.$customer->name);
+            $reference = is_array($body) && ! empty($body['reference']) ? (string) $body['reference'] : '';
+            $campayStatus = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
+            $sent = $reference !== '' && $campayStatus !== 'FAILED';
+            if (! $sent) {
+                $failed++;
+            }
+            $parts[] = [
+                'phone' => $share['phone'],
+                'amount' => $share['amount'],
+                'reference' => $reference,
+                'external' => $external,
+                'state' => $sent ? 'pending' : 'failed',
+                'recorded' => false,
+            ];
+        }
+        $sentCount = count($parts) - $failed;
+        if ($sentCount < 1) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Mobile Money did not send a prompt. The bill was not marked paid.');
+        }
+        $saleIds = [];
+        foreach ($sales as $sale) {
+            $saleIds[] = (int) $sale->id;
+            \App\Support\TableBoard::releaseToCashier($sale);
+        }
+        $token = bin2hex(random_bytes(16));
+        \Illuminate\Support\Facades\Cache::put('client-momo:'.$token, [
+            'parts' => $parts,
+            'sale_ids' => $saleIds,
+            'sale_id' => $saleIds[0],
+            'amount' => $total,
+            'user_id' => Auth::id(),
+            'label' => $customer->name.' · '.count($parts).' numbers',
+        ], now()->addMinutes(30));
+
+        return redirect()->route('payment.client-momo', ['token' => $token]);
+    }
+
+    protected function splitMomoStatus($token, array $pending)
+    {
+        $collect = app(\App\Services\CampayCollectService::class);
+        $parts = $pending['parts'];
+        $changed = false;
+        foreach ($parts as $index => $part) {
+            if (! empty($part['recorded']) || (isset($part['state']) && $part['state'] === 'failed')) {
+                continue;
+            }
+            if (empty($part['reference'])) {
+                $parts[$index]['state'] = 'failed';
+                $changed = true;
+                continue;
+            }
+            $pattern = '/^'.preg_quote($part['external'], '/').'$/';
+            $outcome = $collect->collectionOutcome($part['reference'], $part['amount'], $part['phone'], $pattern);
+            if ($outcome['state'] === 'paid' && ! empty($outcome['confirmed'])) {
+                $this->recordSplitPart($pending, $parts[$index]);
+                $parts[$index]['state'] = 'paid';
+                $parts[$index]['recorded'] = true;
+                $changed = true;
+            } elseif ($outcome['state'] === 'failed') {
+                $parts[$index]['state'] = 'failed';
+                $parts[$index]['reason'] = isset($outcome['reason']) ? $outcome['reason'] : '';
+                $changed = true;
+            }
+        }
+        $pending['parts'] = $parts;
+        if ($changed) {
+            \Illuminate\Support\Facades\Cache::put('client-momo:'.$token, $pending, now()->addMinutes(30));
+        }
+        $waiting = 0;
+        $paid = 0;
+        $failedAmount = 0;
+        $states = [];
+        foreach ($parts as $part) {
+            $state = isset($part['state']) ? $part['state'] : 'pending';
+            $states[] = ['state' => $state];
+            if ($state === 'paid') {
+                $paid += (int) $part['amount'];
+            } elseif ($state === 'failed') {
+                $failedAmount += (int) $part['amount'];
+            } else {
+                $waiting++;
+            }
+        }
+        if ($waiting > 0) {
+            return response()->json([
+                'status' => 'pending',
+                'message' => $paid > 0
+                    ? number_format($paid).' XAF is approved. Still waiting for the other numbers.'
+                    : 'Each person approves their own share. The bill is paid when every share is approved.',
+                'parts' => $states,
+            ]);
+        }
+        \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
+        if ($failedAmount > 0) {
+            $message = $paid > 0
+                ? number_format($paid).' XAF was received. '.number_format($failedAmount).' XAF was not approved, so that part is still due.'
+                : 'The Mobile Money shares were not approved. The bill was not marked paid.';
+
+            return response()->json([
+                'status' => 'failed',
+                'message' => $message,
+                'parts' => $states,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'paid',
+            'url' => route('payment.index'),
+            'parts' => $states,
+        ]);
+    }
+
+    protected function recordSplitPart(array $pending, array $part)
+    {
+        $sales = Sale::whereIn('id', isset($pending['sale_ids']) ? $pending['sale_ids'] : [])->get();
+        $slices = $this->paymentSlices($sales, $part['amount']);
+        if ($slices === null) {
+            return;
+        }
+        foreach ($slices as $saleId => $slice) {
+            $sale = Sale::find($saleId);
+            if (! $sale || \App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $part['reference'])) {
+                continue;
+            }
+            \App\Services\Restaurant\RestaurantPayments::recordGateway(
+                $sale,
+                $slice,
+                $part['reference'],
+                isset($pending['user_id']) ? $pending['user_id'] : null
+            );
+        }
     }
 
     protected function groupMomoRecorded(array $pending)

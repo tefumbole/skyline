@@ -4,6 +4,13 @@
     <link rel="stylesheet" href="<?php echo asset('public/vendor/keyboard/css/keyboard.css') ?>" type="text/css">
     <script type="text/javascript" src="<?php echo asset('public/vendor/keyboard/js/jquery.keyboard.js') ?>"></script>
     <script type="text/javascript" src="<?php echo asset('public/vendor/keyboard/js/jquery.keyboard.extension-autocomplete.js') ?>"></script>
+    @if(session()->pull('pos_cart_clear'))
+        <script>
+            ['tbody-id','localStorageProductId','localStorageQty','localStorageSaleUnit','localStorageProductCode','localStorageProductDiscount','localStorageTaxRate','localStorageTaxName','localStorageTaxMethod','localStorageTempUnitName','localStorageSaleUnitOperator','localStorageSaleUnitOperationValue','localStorageNetUnitPrice','localStorageTaxValue','localStorageSubTotalUnit','localStorageSubTotal'].forEach(function (key) {
+                localStorage.removeItem(key);
+            });
+        </script>
+    @endif
     @if($errors->has('phone_number'))
         <div class="alert alert-danger alert-dismissible text-center">
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ $errors->first('phone_number') }}</div>

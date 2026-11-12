@@ -1080,6 +1080,10 @@ class SaleController extends Controller
         $role = Role::find(Auth::user()->role_id);
         $role->revokePermissionTo('search_all_products');
 
+        if (! empty($data['pos']) && (string) (isset($data['sale_status']) ? $data['sale_status'] : '') !== '3') {
+            session(['pos_cart_clear' => 1]);
+        }
+
         if($data['paid_by_id'] == 9 && (string) $lims_sale_data->sale_status !== '1') {
             return back()->with('message', $message);
         }

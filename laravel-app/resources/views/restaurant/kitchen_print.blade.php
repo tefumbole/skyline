@@ -15,7 +15,12 @@
         .note, .who { margin: 6px 0 0; color: #243044; font-size: 15px; }
         .tools { margin-top: 16px; }
         button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: #0c1830; color: #fff; font-weight: 700; }
-        #kitchen-status { min-height: 20px; margin: 10px 0 0; font-size: 14px; }
+        @page { size: 88mm auto; margin: 4mm; }
+        @media print {
+            body { background: #fff; }
+            main { max-width: none; margin: 0; padding: 0; border-radius: 0; }
+            .tools { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -41,65 +46,12 @@
     @endif
     <p class="who">Placed by {{ $placed }}</p>
     <div class="tools">
-        <button type="button" id="kitchen-print">Print</button>
-        <p id="kitchen-status"></p>
+        <button type="button" id="kitchen-print" onclick="window.print();">Print</button>
     </div>
 </main>
-<script src="{{ asset('public/vendor/sunmi/bundle.umd.js') }}"></script>
-<script src="{{ asset('public/js/sunmi-receipt.js') }}"></script>
-@php
-    $printItems = [];
-    $printNotes = [];
-    foreach ($lines as $line) {
-        $printItems[] = ['name' => $line['kind'].'  '.$line['name'].' x '.($line['qty'] + 0)];
-        if ($line['note'] !== '') {
-            $printNotes[] = 'Comment: '.$line['note'];
-        }
-    }
-    foreach ($comments as $comment) {
-        if (! in_array('Comment: '.$comment, $printNotes, true) && ! in_array($comment, $printNotes, true)) {
-            $printNotes[] = 'Comment: '.$comment;
-        }
-    }
-    $kitchenReceipt = [
-        'paperMm' => $paper,
-        'hotel' => $hotel,
-        'title' => 'Kitchen',
-        'table' => $table,
-        'placed' => $placed,
-        'items' => $printItems,
-        'notes' => $printNotes,
-    ];
-@endphp
 <script>
-    var kitchenReceipt = @json($kitchenReceipt);
-    var kitchenBusy = false;
-    function kitchenHooks() {
-        return {
-            onBusy: function (isBusy) {
-                kitchenBusy = isBusy;
-                var button = document.getElementById('kitchen-print');
-                if (button) button.disabled = isBusy;
-            },
-            onStatus: function (message, tone) {
-                var status = document.getElementById('kitchen-status');
-                if (!status) return;
-                status.textContent = message;
-                status.style.color = tone === 'error' ? '#a32020' : '#1a2744';
-            }
-        };
-    }
-    function printKitchen() {
-        if (kitchenBusy) return;
-        if (!window.SkylineSunmi) {
-            kitchenHooks().onStatus('The printer script did not load.', 'error');
-            return;
-        }
-        window.SkylineSunmi.printReceipt(kitchenReceipt, kitchenHooks());
-    }
-    document.getElementById('kitchen-print').addEventListener('click', printKitchen);
     if (window.location.search.indexOf('autoprint=1') !== -1) {
-        printKitchen();
+        window.setTimeout(function () { window.focus(); window.print(); }, 600);
     }
 </script>
 </body>

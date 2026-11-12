@@ -33,6 +33,12 @@
         }
         .sky-clock.is-late { background:#8a1f1f; color:#fff; }
         .sky-ticket.is-late { border-color:#8a1f1f; background:#fff5f5; }
+        .sky-ticket.sky-ticket-brief { grid-template-columns:minmax(220px,1fr) minmax(200px,280px); }
+        @keyframes skyAwaitBlink {
+            0%, 49% { background:#fff; border-color:#d7deea; }
+            50%, 100% { background:#fff4d6; border-color:#e1b368; }
+        }
+        .sky-ticket.is-awaiting { animation:skyAwaitBlink .7s steps(1, end) infinite; }
         .sky-wait {
             display:inline-block; margin-top:8px; min-width:96px; padding:6px 12px; border-radius:10px;
             background:#0c1830; color:#e1b368; font-size:22px; font-weight:800; letter-spacing:.04em;
@@ -102,8 +108,35 @@
                     $canDelete = \App\Services\Restaurant\RestaurantAccess::canOrder(auth()->user(), 'delete', $item);
                     $canDeliver = \App\Services\Restaurant\RestaurantAccess::canDeliver(auth()->user(), $item);
                     $late = $item->status === 'preparing' && $item->expected_ready_at && $item->expected_ready_at->isPast();
+                    $brief = ($lane ?? '') === 'restaurant' && in_array($tab ?? '', ['awaiting', 'accepted'], true);
+                    $place = 'Order';
+                    if ($order && $order->service_type === 'dine_in') {
+                        $tableName = optional($order->diningTable)->name;
+                        $place = $tableName ? 'Dine In. '.$tableName : 'Dine In';
+                    } elseif ($order) {
+                        $place = 'Take Away';
+                    }
+                    $notes = [];
+                    if ($order && trim((string) $order->customer_comment) !== '') {
+                        $notes[] = trim((string) $order->customer_comment);
+                    }
+                    $itemNote = trim((string) $item->customer_comment);
+                    if ($itemNote !== '' && ! in_array($itemNote, $notes, true)) {
+                        $notes[] = $itemNote;
+                    }
+                    $placedBy = optional(optional($order)->placedBy)->name ?: 'Staff';
                 @endphp
-                <article class="sky-ticket {{ $late ? 'is-late' : '' }}">
+                <article class="sky-ticket {{ $brief ? 'sky-ticket-brief' : '' }} {{ $late ? 'is-late' : '' }} {{ ($brief && $item->status === 'awaiting') ? 'is-awaiting' : '' }}">
+                    @if($brief)
+                    <div>
+                        <p class="sky-kicker">{{ $place }}</p>
+                        <p class="sky-item">{{ $item->product_name }} <span style="color:#8a7350;">× {{ $item->qty }}</span></p>
+                        @foreach($notes as $note)
+                            <p class="sky-note">{{ $note }}</p>
+                        @endforeach
+                        <p class="sky-meta">Placed by {{ $placedBy }}</p>
+                    </div>
+                    @else
                     <div>
                         <p class="sky-kicker">{{ $order ? $order->serviceLabel() : 'Order' }}</p>
                         <p class="sky-ref">{{ $sale->reference_no ?? $item->restaurant_order_id }}</p>
@@ -198,6 +231,7 @@
                             @endif
                         </p>
                     </div>
+                    @endif
                     <div class="sky-actions">
                         @if($item->status === 'awaiting' && ($canAdd || $canDelete))
                             <div style="margin-bottom:8px;">

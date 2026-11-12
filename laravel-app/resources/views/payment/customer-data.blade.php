@@ -8,7 +8,13 @@
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ $errors->first('image') }}</div>
     @endif
     @if(session()->has('message'))
-        <div class="alert alert-success alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('message') }}</div>
+        <div class="alert alert-success alert-dismissible text-center">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            {{ session()->get('message') }}
+            @if(session('payment_receipt_url'))
+                <a class="btn btn-sm" style="margin-left:10px;background:#0c1830;color:#e1b368;font-weight:700;" target="_blank" rel="noopener" href="{{ session('payment_receipt_url') }}">Print full receipt</a>
+            @endif
+        </div>
     @endif
     @if(session()->has('not_permitted'))
         <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
@@ -19,7 +25,12 @@
         <p style="margin:0 0 12px"><a class="btn btn-default btn-sm" href="{{ route('payment.collected') }}">Collected payments</a></p>
 
         <style>
-            #biller-table .pay-client { min-width: 240px; width: 28%; }
+            #biller-table .pay-client { width: 12%; min-width: 96px; max-width: 150px; white-space: normal; }
+            #biller-table .pay-shift { white-space: nowrap; }
+            #biller-table .pay-delivery { width: 16%; min-width: 148px; }
+            .pay-deliver { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+            .pay-deliver.is-yes { background: #d9f5e5; color: #178a45; }
+            .pay-deliver.is-no { background: #fff4e5; color: #8a5a1f; }
         </style>
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">
@@ -27,12 +38,12 @@
                 <tr>
                     <th class="not-exported"></th>
                     <th class="pay-client">{{trans('file.Customer Name')}}</th>
-                    <th>Table Number</th>
-                    <th>{{trans('file.Phone Number')}}</th>
-                    <th>{{trans('file.Amount')}}</th>
-                    <th>{{trans('file.Paid Amount')}}</th>
+                    <th class="pay-shift">Table Number</th>
+                    <th class="pay-shift">{{trans('file.Phone Number')}}</th>
+                    <th class="pay-shift">{{trans('file.Amount')}}</th>
+                    <th class="pay-shift">{{trans('file.Paid Amount')}}</th>
                     <th>{{trans('file.Due')}}</th>
-                    <th>Delivery</th>
+                    <th class="pay-delivery">Delivered</th>
                     <th>{{trans('file.Payment Status')}}</th>
                     <th>{{trans('file.Date')}}</th>
                     <th>{{trans('file.Add Payment')}}</th>
@@ -43,30 +54,16 @@
                     <tr data-id="{{ $bill['sale_ids'][0] }}" data-sale-ids="{{ implode(',', $bill['sale_ids']) }}">
                         <td>{{$key}}</td>
                         <td class="pay-client">{{ $bill['name'] }}</td>
-                        <td>{{ $bill['tables'] }}</td>
-                        <td>{{ $bill['phone'] }}</td>
-                        <td>{{ number_format($bill['total'], 2) }}</td>
-                        <td>{{ number_format($bill['paid'], 2) }}</td>
+                        <td class="pay-shift">{{ $bill['tables'] }}</td>
+                        <td class="pay-shift">{{ $bill['phone'] }}</td>
+                        <td class="pay-shift">{{ number_format($bill['total'], 2) }}</td>
+                        <td class="pay-shift">{{ number_format($bill['paid'], 2) }}</td>
                         <td>{{ number_format($bill['due'], 2) }}</td>
-                        <td>
+                        <td class="pay-delivery">
                             @if(count($bill['undelivered']))
-                                @foreach($bill['undelivered'] as $openItem)
-                                    <div>
-                                        <strong>{{ $openItem['name'] }}</strong> × {{ $openItem['qty'] }}
-                                        <span class="text-muted">{{ number_format($openItem['amount'], 2) }}</span>
-                                        <div class="text-muted">
-                                            @if($openItem['minutes_left'] === null)
-                                                Waiting to accept
-                                            @elseif($openItem['minutes_left'] >= 0)
-                                                {{ $openItem['minutes_left'] }} min left
-                                            @else
-                                                {{ abs($openItem['minutes_left']) }} min over
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
+                                <span class="pay-deliver is-no">Not Delivered</span>
                             @else
-                                —
+                                <span class="pay-deliver is-yes">Delivered</span>
                             @endif
                         </td>
                         <td>
@@ -594,6 +591,9 @@
                     "orderable": false,
                     'targets': [0, 1, 2]
                 },
+                { 'targets': 1, 'width': '12%' },
+                { 'targets': [2, 3, 4, 5], 'width': '9%' },
+                { 'targets': 7, 'width': '16%' },
                 {
                     'render': function(data, type, row, meta){
                         if(type === 'display'){

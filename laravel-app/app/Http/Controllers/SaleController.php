@@ -1119,6 +1119,12 @@ class SaleController extends Controller
                 return redirect()->route('payment.index')->with(! empty($momoHold['failed']) ? 'not_permitted' : 'message', $notice);
             }
             if ((int) $data['paid_by_id'] === 9) {
+                $placer = Auth::user();
+                $isWaiter = $placer && ((int) $placer->role_id === 7 || strcasecmp($placer->roleName(), 'Waiter') === 0);
+                if ($isWaiter) {
+                    return redirect('pos')->with('message', 'Order placed.');
+                }
+
                 return redirect(route('sale.kitchen-print', $lims_sale_data->id));
             }
             if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {

@@ -1101,7 +1101,7 @@
                     $.each(data[0] || [], function (index) {
                         var qty = parseSaleAmt(data[1][index]);
                         var total = parseSaleAmt(data[6][index]);
-                        if (Math.abs(qty) < 0.001 && Math.abs(total) < 0.001) return;
+                        if (Math.abs(total) < 0.001) return;
                         var unit = qty ? (total / qty) : 0;
                         var name = String(data[0][index] || '').replace(/\s*\[[^\]]*\]\s*$/, '');
                         var qtyText = Math.abs(qty - Math.round(qty)) < 0.001 ? String(Math.round(qty)) : String(qty);

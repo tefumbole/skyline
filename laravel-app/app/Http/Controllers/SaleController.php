@@ -2596,7 +2596,7 @@ class SaleController extends Controller
             app(\App\Services\Restaurant\RestaurantOrderService::class)->releaseRejectedCharges($chargedSale);
         }
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get()->filter(function ($row) {
-            return (float) $row->total > 0.009 || (float) $row->qty > 0.009;
+            return (float) $row->total > 0.009;
         })->values();
         foreach ($lims_product_sale_data as $key => $product_sale_data) {
             $product = Product::find($product_sale_data->product_id);

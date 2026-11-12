@@ -783,6 +783,7 @@ class RestaurantOrderService
             return;
         }
         $amount = (float) $line->total;
+        $line->qty = 0;
         $line->total = 0;
         $line->net_unit_price = 0;
         $line->tax = 0;

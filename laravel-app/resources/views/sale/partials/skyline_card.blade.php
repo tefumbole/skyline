@@ -46,7 +46,7 @@
         }
         $lineTotal = (float) ($product_sale_data->total ?? 0);
         $qty = (float) ($product_sale_data->qty ?: 0);
-        if ($lineTotal <= 0.009 && $qty <= 0.009) {
+        if ($lineTotal <= 0.009) {
             continue;
         }
         $unit = $qty ? ($lineTotal / $qty) : 0;

@@ -46,7 +46,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="table-kicker">Sales</p>
     <h1>Tables</h1>
-    <p class="table-lead">Each dish shows Awaiting, Cooking with the time left, or Ready for delivery with the time since it was marked ready. The bill is Paid, Due, or Pending.</p>
+    <p class="table-lead">A table stays while a dish is still Awaiting, Cooking, or Ready for delivery. A delivered order leaves the table. A table with nothing left disappears.</p>
     @if(count($tables))
         <div class="table-grid">
             @foreach($tables as $row)
@@ -78,7 +78,7 @@
             @endforeach
         </div>
     @else
-        <div class="table-empty">No table has an unpaid bill.</div>
+        <div class="table-empty">No table has an open order.</div>
     @endif
 </section>
 <script>

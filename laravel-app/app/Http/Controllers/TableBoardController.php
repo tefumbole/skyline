@@ -26,7 +26,7 @@ class TableBoardController extends Controller
         }
         $row = TableBoard::table($table);
         if (! $row) {
-            return redirect()->route('tables.index')->with('not_permitted', 'That table has no bill to show.');
+            return redirect()->route('tables.index')->with('not_permitted', 'That table has no open order.');
         }
 
         return view('restaurant.table_board_show', [

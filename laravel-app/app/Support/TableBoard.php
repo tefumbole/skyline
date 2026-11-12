@@ -97,9 +97,6 @@ class TableBoard
                 $grouped[$id]['open']++;
             }
             foreach ($bill['menu'] as $line) {
-                if (in_array($line['state'], ['cancelled', 'rejected'], true)) {
-                    continue;
-                }
                 $grouped[$id]['food'][] = $line;
             }
             if ($bill['today']) {
@@ -112,7 +109,7 @@ class TableBoard
 
         $rows = [];
         foreach ($grouped as $row) {
-            if ($row['open'] < 1 && count($row['food']) < 1) {
+            if (count($row['food']) < 1) {
                 continue;
             }
             $row['status'] = self::rollupStatus($row['states']);
@@ -207,11 +204,14 @@ class TableBoard
             $names = [];
             $menu = [];
             foreach ($order->items as $item) {
-                if (in_array($item->status, ['cancelled', 'rejected'], true)) {
+                if (in_array($item->status, ['cancelled', 'rejected', 'delivered'], true)) {
                     continue;
                 }
                 $names[] = trim($item->product_name.' × '.($item->qty + 0));
                 $menu[] = self::menuLine($item);
+            }
+            if (count($menu) < 1) {
+                continue;
             }
             $bills[$sale->id] = [
                 'sale_id' => $sale->id,

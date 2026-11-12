@@ -80,6 +80,20 @@
             .sky-actions .btn { min-height:44px; }
             .sky-item { font-size:18px; }
         }
+        .sky-ticket-brief .sky-actions form,
+        .sky-ticket-brief .sky-actions > div {
+            display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+            width:auto !important; max-width:100%; margin:0 !important; flex:0 0 auto;
+        }
+        .sky-ticket-brief .sky-actions .btn,
+        .sky-ticket-brief .sky-actions .btn-block,
+        .sky-ticket-brief .sky-actions .btn-primary,
+        .sky-ticket-brief .sky-actions .btn-default,
+        .sky-ticket-brief .sky-actions .btn-danger { width:auto !important; }
+        .sky-ticket-brief .sky-actions .input-group { width:auto; display:flex; }
+        @media (min-width:720px) {
+            .sky-ticket.sky-ticket-brief { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+        }
     </style>
     <section class="container-fluid">
         @if(session('message'))<div class="alert alert-success">{{ session('message') }}</div>@endif

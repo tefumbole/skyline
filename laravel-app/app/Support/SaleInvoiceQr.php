@@ -26,9 +26,9 @@ class SaleInvoiceQr
         return hash_equals(self::token($sale), (string) $token);
     }
 
-    public static function dataUri(Sale $sale, $withLogo = false)
+    public static function dataUri(Sale $sale, $withLogo = false, $url = null)
     {
-        return 'data:image/png;base64,'.base64_encode(self::png($sale, $withLogo));
+        return 'data:image/png;base64,'.base64_encode(self::png($sale, $withLogo, $url));
     }
 
     public static function png(Sale $sale, $withLogo = false, $url = null)

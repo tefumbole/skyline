@@ -46,6 +46,9 @@
                 <p class="muted">Date {{ $sale->created_at ? $sale->created_at->format('d-m-Y H:i') : '' }}</p>
                 <table>
                     @forelse($saleLines as $line)
+                        @if((float) $line->total <= 0.009 && (float) $line->qty <= 0.009)
+                            @continue
+                        @endif
                         <tr>
                             <td>{{ optional($line->product)->name ?: 'Item' }} × {{ $line->qty + 0 }}</td>
                             <td class="amt">{{ number_format((float) $line->total, 0) }}</td>

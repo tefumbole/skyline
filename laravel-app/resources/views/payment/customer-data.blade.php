@@ -153,8 +153,9 @@
         #add-payment .pay-amount { margin-bottom: 8px; }
         #add-payment .pay-split { margin-bottom: 8px; }
         #add-payment .pay-split-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        #add-payment .pay-split-row .split-method { width: 92px; flex: 0 0 92px; }
         #add-payment .pay-split-row .split-phone { flex: 1; }
-        #add-payment .pay-split-row .split-amount { width: 120px; }
+        #add-payment .pay-split-row .split-amount { width: 108px; flex: 0 0 108px; }
         #add-payment .split-remove { border: 0; background: transparent; color: #8a1f1f; font-weight: 700; }
         #add-payment .pay-split-add { width: 100%; min-height: 42px; border: 1px dashed #d7deea; border-radius: 12px; background: #fff; color: #0c1830; font-weight: 700; }
         #add-payment .pay-left { margin-top: 6px; color: #5c6b82; font-size: 13px; }
@@ -201,7 +202,7 @@
                         <button type="button" class="pay-mode" data-mode="part">Partial<small>Pay part now</small></button>
                     </div>
                     <div id="paySplitToggle" hidden style="margin-bottom:8px">
-                        <button type="button" class="pay-mode" data-mode="split" id="paySplitBtn">Split payment<small>Several Mobile Money numbers</small></button>
+                        <button type="button" class="pay-mode" data-mode="split" id="paySplitBtn">Split payment<small>Cash and Mobile Money shares</small></button>
                     </div>
                     <div id="paySplitRows" class="pay-split" hidden>
                         <div id="paySplitList"></div>
@@ -255,14 +256,11 @@
             $('#add-payment .pay-method').removeClass('is-on');
             $('#add-payment .pay-method[data-id="' + id + '"]').addClass('is-on');
             var momo = String(id) === '8';
-            $('#paySplitToggle').prop('hidden', !momo);
-            if (!momo && $('#paySplitRows').is(':visible')) {
-                setPayMode('full');
-            }
-            var split = momo && $('#paySplitRows').is(':visible');
-            $('#add-payment .pay-send').text(momo ? 'Send prompt and wait' : 'Submit');
+            $('#paySplitToggle').prop('hidden', false);
+            var split = $('#paySplitRows').is(':visible');
+            $('#add-payment .pay-send').text(split ? 'Submit split' : (momo ? 'Send prompt and wait' : 'Submit'));
             $('#payHint').text(split
-                ? 'Each person gets their own prompt. A share is recorded only after that phone approves it.'
+                ? 'Cash is recorded now. A Mobile Money share is recorded only after that phone approves it.'
                 : (momo ? 'The bill is confirmed only after the client approves on their phone.' : 'This records the cash payment.'));
         }
         function lookupPayPhone() {
@@ -287,12 +285,26 @@
                 box.text('');
             });
         }
-        function splitRow() {
-            return $('<div class="pay-split-row">' +
-                '<input type="text" name="split_phones[]" class="form-control split-phone" placeholder="Phone" inputmode="tel" autocomplete="off">' +
-                '<input type="number" name="split_amounts[]" class="form-control split-amount" min="100" step="1" placeholder="Amount">' +
+        function splitRow(method) {
+            var row = $('<div class="pay-split-row">' +
+                '<select name="split_methods[]" class="form-control split-method">' +
+                    '<option value="cash">Cash</option>' +
+                    '<option value="momo">MoMo</option>' +
+                '</select>' +
+                '<input type="text" name="split_phones[]" class="form-control split-phone" placeholder="MoMo number" inputmode="tel" autocomplete="off">' +
+                '<input type="number" name="split_amounts[]" class="form-control split-amount" min="1" step="1" placeholder="Amount">' +
                 '<button type="button" class="split-remove">Remove</button>' +
                 '</div>');
+            row.find('.split-method').val(method === 'momo' ? 'momo' : 'cash');
+            paintSplitRow(row);
+            return row;
+        }
+        function paintSplitRow(row) {
+            var cash = row.find('.split-method').val() === 'cash';
+            row.find('.split-phone').prop('hidden', cash);
+            if (cash) {
+                row.find('.split-phone').val('');
+            }
         }
         function syncSplit() {
             var sum = 0;
@@ -321,10 +333,10 @@
             $('#add-payment .pay-amount').prop('hidden', split);
             $('#paySplitList input').prop('disabled', !split);
             if (split && $('#paySplitList .pay-split-row').length < 2) {
-                $('#paySplitList').empty().append(splitRow()).append(splitRow());
+                $('#paySplitList').empty().append(splitRow('cash')).append(splitRow('momo'));
                 var knownPhone = $.trim($('#payPhone').val());
                 if (knownPhone) {
-                    $('#paySplitList .split-phone').first().val(knownPhone);
+                    $('#paySplitList .split-phone').last().val(knownPhone).prop('hidden', false);
                 }
             }
             if (mode === 'full') {
@@ -337,7 +349,8 @@
             }
             if (split) {
                 syncSplit();
-                $('#payHint').text('Each person gets their own prompt. A share is recorded only after that phone approves it.');
+                $('#payHint').text('Cash is recorded now. A Mobile Money share is recorded only after that phone approves it.');
+                $('#add-payment .pay-send').text('Submit split');
             } else {
                 syncPayAmount();
                 var payingByPhone = String($('#add-payment input[name="paid_by_id"]').val()) === '8';
@@ -361,7 +374,11 @@
             syncPayAmount();
         });
         $('#paySplitAdd').on('click', function () {
-            $('#paySplitList').append(splitRow());
+            $('#paySplitList').append(splitRow('momo'));
+            syncSplit();
+        });
+        $('#paySplitList').on('change', '.split-method', function () {
+            paintSplitRow($(this).closest('.pay-split-row'));
             syncSplit();
         });
         $('#paySplitList').on('click', '.split-remove', function () {
@@ -386,34 +403,38 @@
             var error = $('#payError');
             error.hide().text('');
             if (split) {
-                if (!momo) {
-                    event.preventDefault();
-                    error.text('Split payment is only for Mobile Money.').show();
-                    return;
-                }
                 var shares = [];
                 var seen = {};
                 var bad = '';
+                var hasMomo = false;
                 $('#paySplitList .pay-split-row').each(function () {
+                    var method = $(this).find('.split-method').val() === 'cash' ? 'cash' : 'momo';
                     var rowPhone = $.trim($(this).find('.split-phone').val());
                     var rowAmount = parseFloat($(this).find('.split-amount').val());
-                    if (!rowPhone && !(rowAmount > 0)) return;
-                    var digits = rowPhone.replace(/\D/g, '');
-                    if (digits.indexOf('237') === 0) digits = digits.slice(3);
-                    if (digits.length !== 9) bad = 'Each share needs an MTN or Orange Mobile Money number.';
-                    if (!(rowAmount >= 100)) bad = 'Each Mobile Money share must be at least 100 XAF.';
-                    if (seen[digits]) bad = 'Use a different Mobile Money number for each person.';
-                    seen[digits] = true;
+                    if (method === 'cash' && !(rowAmount > 0)) return;
+                    if (method === 'momo' && !rowPhone && !(rowAmount > 0)) return;
+                    if (method === 'cash') {
+                        if (!(rowAmount >= 1)) bad = 'Each cash share needs an amount.';
+                    } else {
+                        hasMomo = true;
+                        var digits = rowPhone.replace(/\D/g, '');
+                        if (digits.indexOf('237') === 0) digits = digits.slice(3);
+                        if (digits.length !== 9) bad = 'Each Mobile Money share needs an MTN or Orange number.';
+                        if (!(rowAmount >= 100)) bad = 'Each Mobile Money share must be at least 100 XAF.';
+                        if (seen[digits]) bad = 'Use a different Mobile Money number for each person.';
+                        seen[digits] = true;
+                    }
                     shares.push(Math.round(rowAmount));
                 });
                 var sum = shares.reduce(function (total, value) { return total + value; }, 0);
-                if (!bad && shares.length < 2) bad = 'Split payment needs at least two Mobile Money numbers.';
+                if (!bad && shares.length < 2) bad = 'Split payment needs at least two shares.';
                 if (!bad && sum !== Math.round(payDue)) bad = 'The shares must add up to the amount still due.';
                 if (bad) {
                     event.preventDefault();
                     error.text(bad).show();
                     return;
                 }
+                $('#add-payment input[name="paid_by_id"]').val(hasMomo ? '8' : '1');
                 $('#add-payment input[name="amount"]').val(sum);
                 return;
             }

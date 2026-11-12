@@ -23,14 +23,11 @@ class SaleInvoiceVerifyController extends Controller
             $paid = (float) ($sale->paid_amount ?? 0);
             $grand = (float) ($sale->grand_total ?? 0);
             $pending = max(0, $grand - $paid);
-            $paymentStatus = 'Pending';
-            if ((int) $sale->payment_status === 4 || ($grand > 0 && $pending <= 0.0001)) {
-                $paymentStatus = 'Paid';
-            } elseif ((int) $sale->payment_status === 3) {
-                $paymentStatus = 'Partial';
-            } elseif ((int) $sale->payment_status === 2) {
-                $paymentStatus = 'Due';
+            $settled = (int) $sale->payment_status === 4 || ($grand > 0 && $pending <= 0.009) || ($grand <= 0.009 && $paid <= 0.009);
+            if (! $settled && $pending > 0.009) {
+                return redirect(\App\Support\SalePayQr::payUrl($sale));
             }
+            $paymentStatus = $settled ? 'Paid' : 'Due';
 
             $setting = GeneralSetting::first();
             $currency = 'CFA';
@@ -42,7 +39,8 @@ class SaleInvoiceVerifyController extends Controller
             }
 
             $payload = [
-                'valid' => true,
+                'valid' => false,
+                'settled' => true,
                 'reference' => $sale->reference_no,
                 'created_at' => optional($sale->created_at)->format('d-m-Y H:i'),
                 'client' => $customer->name ?? '—',

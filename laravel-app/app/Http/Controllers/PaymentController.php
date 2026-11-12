@@ -78,20 +78,19 @@ class PaymentController extends Controller
             return redirect()->route('payment.index')->with('not_permitted', 'Walk-in bills stay separate.');
         }
         $amount = round((float) $request->input('amount'), 2);
+        $split = $this->splitShares($request, $amount);
+        if (is_string($split)) {
+            return redirect()->route('payment.index')->with('not_permitted', $split);
+        }
+        if (is_array($split)) {
+            return $this->takeSplitPayment($customer, $sales, $split, $request);
+        }
         $slices = $this->paymentSlices($sales, $amount);
         if ($slices === null) {
             return redirect()->route('payment.index')->with('not_permitted', 'Enter an amount up to the amount still due.');
         }
         $paidBy = (int) $request->input('paid_by_id');
         if ($paidBy === 8) {
-            $split = $this->splitShares($request, $amount);
-            if (is_string($split)) {
-                return redirect()->route('payment.index')->with('not_permitted', $split);
-            }
-            if (is_array($split)) {
-                return $this->askSplitMomo($customer, $sales, $split);
-            }
-
             return $this->askClientMomo($customer, $slices, $amount, $request);
         }
 
@@ -220,6 +219,18 @@ class PaymentController extends Controller
         $open = $query->where('payment_status', '!=', 4)
             ->whereRaw('COALESCE(grand_total, 0) - COALESCE(paid_amount, 0) > 0.009')
             ->get();
+        $orders = app(\App\Services\Restaurant\RestaurantOrderService::class);
+        $ids = [];
+        foreach ($open as $sale) {
+            $orders->releaseRejectedCharges($sale);
+            $ids[] = (int) $sale->id;
+        }
+        if ($ids) {
+            $open = Sale::with('customer')->whereIn('id', $ids)->orderByDesc('id')->get();
+        }
+        $open = $open->filter(function ($sale) {
+            return max(0, (float) $sale->grand_total - (float) $sale->paid_amount) > 0.009;
+        })->values();
         if (! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('restaurant_order_items')) {
             return $open;
         }
@@ -355,13 +366,24 @@ class PaymentController extends Controller
         $ordered = $sales->sortBy(function ($sale) {
             return $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : '';
         })->values();
-        $left = $amount;
-        $slices = [];
         $totalDue = 0;
+        $dues = [];
         foreach ($ordered as $sale) {
             $settlement = isset($sale->settlement) ? $sale->settlement : null;
             $due = $settlement ? (float) $settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+            $dues[(int) $sale->id] = $due;
             $totalDue += $due;
+        }
+        if ($amount > $totalDue + 1.01) {
+            return null;
+        }
+        if ($amount > $totalDue) {
+            $amount = $totalDue;
+        }
+        $left = $amount;
+        $slices = [];
+        foreach ($ordered as $sale) {
+            $due = $dues[(int) $sale->id];
             if ($left <= 0.009 || $due <= 0.009) {
                 continue;
             }
@@ -369,7 +391,7 @@ class PaymentController extends Controller
             $slices[(int) $sale->id] = round($slice, 2);
             $left = round($left - $slice, 2);
         }
-        if ($amount > $totalDue + 0.009 || count($slices) < 1) {
+        if (count($slices) < 1) {
             return null;
         }
 
@@ -461,22 +483,31 @@ class PaymentController extends Controller
     {
         $phones = $request->input('split_phones', []);
         $amounts = $request->input('split_amounts', []);
+        $methods = $request->input('split_methods', []);
         if (! is_array($phones) || ! is_array($amounts)) {
             return null;
         }
         $collect = app(\App\Services\CampayCollectService::class);
         $shares = [];
         $seen = [];
-        $count = max(count($phones), count($amounts));
+        $count = max(count($phones), count($amounts), is_array($methods) ? count($methods) : 0);
         for ($i = 0; $i < $count; $i++) {
             $phone = trim((string) (isset($phones[$i]) ? $phones[$i] : ''));
             $share = isset($amounts[$i]) ? (int) round((float) $amounts[$i]) : 0;
+            $method = (is_array($methods) && isset($methods[$i]) && $methods[$i] === 'cash') ? 'cash' : 'momo';
             if ($phone === '' && $share <= 0) {
+                continue;
+            }
+            if ($method === 'cash') {
+                if ($share < 1) {
+                    return 'Each cash share needs an amount.';
+                }
+                $shares[] = ['type' => 'cash', 'amount' => $share];
                 continue;
             }
             $momo = $collect->momoNumber($phone);
             if (! $momo) {
-                return 'Each share needs an MTN or Orange Mobile Money number.';
+                return 'Each Mobile Money share needs an MTN or Orange number.';
             }
             if ($share < 100) {
                 return 'Each Mobile Money share must be at least 100 XAF.';
@@ -485,23 +516,68 @@ class PaymentController extends Controller
                 return 'Use a different Mobile Money number for each person.';
             }
             $seen[$momo] = true;
-            $shares[] = ['phone' => $momo, 'amount' => $share];
+            $shares[] = ['type' => 'momo', 'phone' => $momo, 'amount' => $share];
         }
         if (count($shares) === 0) {
             return null;
         }
         if (count($shares) < 2) {
-            return 'Split payment needs at least two Mobile Money numbers.';
+            return 'Split payment needs at least two shares.';
         }
         $sum = 0;
         foreach ($shares as $share) {
             $sum += $share['amount'];
         }
-        if (abs($sum - (int) round($amount)) > 0) {
+        if (abs($sum - (int) round($amount)) > 1) {
             return 'The shares must add up to the amount still due.';
         }
 
         return $shares;
+    }
+
+    protected function takeSplitPayment($customer, $sales, array $shares, Request $request)
+    {
+        $cash = 0;
+        $momo = [];
+        foreach ($shares as $share) {
+            if (isset($share['type']) && $share['type'] === 'cash') {
+                $cash += (int) $share['amount'];
+            } else {
+                $momo[] = $share;
+            }
+        }
+        $saleIds = [];
+        foreach ($sales as $sale) {
+            $saleIds[] = (int) $sale->id;
+        }
+        if ($cash > 0) {
+            $slices = $this->paymentSlices($sales, $cash);
+            if ($slices === null) {
+                return redirect()->route('payment.index')->with('not_permitted', 'The cash shares are more than the amount still due.');
+            }
+            foreach ($slices as $saleId => $slice) {
+                $sale = Sale::find($saleId);
+                if ($sale) {
+                    $this->recordCashSlice($sale, $slice, $request->input('account_id'));
+                }
+            }
+            $sales = $this->awaitingSales()->filter(function ($sale) use ($saleIds) {
+                return in_array((int) $sale->id, $saleIds, true);
+            })->values();
+        }
+        if (count($momo) > 0) {
+            if ($sales->isEmpty()) {
+                return redirect()->route('payment.index')
+                    ->with('message', 'Payment created successfully')
+                    ->with('payment_receipt_url', $this->receiptLink($saleIds));
+            }
+
+            return $this->askSplitMomo($customer, $sales, $momo);
+        }
+
+        return redirect()->route('payment.index')
+            ->with('message', 'Payment created successfully')
+            ->with('payment_receipt_url', $this->receiptLink($saleIds));
     }
 
     protected function askSplitMomo($customer, $sales, array $shares)
@@ -515,7 +591,7 @@ class PaymentController extends Controller
             $settlement = isset($sale->settlement) ? $sale->settlement : null;
             $due += $settlement ? (float) $settlement['due'] : max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
         }
-        if (abs($total - round($due)) > 0.9) {
+        if (abs($total - round($due)) > 1.01) {
             return redirect()->route('payment.index')->with('not_permitted', 'The shares must add up to the amount still due.');
         }
         if ($this->paymentSlices($sales, $total) === null) {
@@ -1430,7 +1506,7 @@ class PaymentController extends Controller
         if (! $user) {
             abort(403);
         }
-        if ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true)) {
+        if ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8, 10], true)) {
             return;
         }
         abort(403);

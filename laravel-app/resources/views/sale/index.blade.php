@@ -87,18 +87,19 @@
     <style>
         .w2k-mini-invoice{max-width:340px;margin:1rem auto;}
         .w2k-mini-invoice .mini-chrome{display:none !important;}
-        .sky-slip{width:60.69mm;zoom:1.45;margin:0 auto 8px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:2px 4px 3px;}
+        .sky-slip{width:72mm;max-width:100%;margin:0 auto 8px;zoom:1;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:2px 3px 4px;}
         .sky-slip *{box-sizing:border-box;}
         .sky-slip .sky-logo{display:block;height:14mm;width:auto;max-width:28mm;margin:0 auto .5mm;object-fit:contain;}
         .sky-slip .sky-phone{margin:0 0 1mm;text-align:center;font-weight:800;font-size:12px;line-height:1.1;}
         .sky-slip .sky-rule{border:0;border-top:2px solid #111;margin:0;}
         .sky-slip .sky-title{margin:.6mm 0;text-align:center;font-weight:900;font-size:18px;letter-spacing:-.4px;line-height:1.05;}
         .sky-slip .sky-box{background:#ececec;border-radius:6px;padding:4px 6px;margin:1.5mm 0;font-size:11px;line-height:1.3;}
-        .sky-slip table.sky-grid{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;margin:0 0 1mm;}
-        .sky-slip table.sky-grid th{background:#e6e6e6;font-weight:800;padding:3px;text-align:left;}
-        .sky-slip table.sky-grid th:first-child{border-radius:8px 0 0 8px;}
-        .sky-slip table.sky-grid th:last-child{border-radius:0 8px 8px 0;}
-        .sky-slip table.sky-grid td{padding:3px;vertical-align:top;}
+        .sky-slip table.sky-grid{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px;margin:0 0 1mm;}
+        .sky-slip table.sky-grid th{background:#e6e6e6;font-weight:800;padding:3px 2px;}
+        .sky-slip table.sky-grid td{padding:3px 2px;vertical-align:top;}
+        .sky-slip table.sky-grid th:nth-child(1),.sky-slip table.sky-grid td:nth-child(1){width:46%;text-align:left;}
+        .sky-slip table.sky-grid th:nth-child(2),.sky-slip table.sky-grid td:nth-child(2){width:14%;text-align:center;}
+        .sky-slip table.sky-grid th:nth-child(3),.sky-slip table.sky-grid td:nth-child(3),.sky-slip table.sky-grid th:nth-child(4),.sky-slip table.sky-grid td:nth-child(4){width:20%;text-align:right;}
         .sky-slip .c{text-align:center;}
         .sky-slip .r{text-align:right;white-space:nowrap;}
         .sky-slip table.sky-extra{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 1.5mm;}
@@ -531,9 +532,9 @@
             if (!printRoot) return;
             var isMini = {{ ($general_setting->invoice_format ?? '') === 'mini' ? 'true' : 'false' }};
             var css = '<style>' +
-                '@page{size:' + (isMini ? '88mm auto' : 'A4 portrait') + ';margin:' + (isMini ? '0' : '8mm') + '}' +
-                'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:12px' + (isMini ? ';width:88mm' : '') + '}' +
-                (isMini ? '.thermal-print{width:88mm;max-width:88mm}.mini-chrome{display:none!important}.sky-slip{width:60.69mm;zoom:1.45;font-family:Arial,Helvetica,sans-serif;color:#111;padding:2px 4px 3px}.sky-slip .sky-logo{display:block;height:14mm;margin:0 auto}.sky-slip .sky-phone,.sky-slip .sky-title,.sky-slip .sky-sign,.sky-slip .sky-qr,.sky-slip .sky-bar{text-align:center}.sky-slip .sky-phone{font-weight:800;font-size:12px}.sky-slip .sky-title{font-weight:900;font-size:18px;line-height:1.05}.sky-slip .sky-rule{border:0;border-top:2px solid #111;margin:0}.sky-slip .sky-box{background:#ececec;border-radius:6px;padding:4px 6px;font-size:11px}.sky-slip table.sky-grid{width:100%;border-collapse:separate;font-size:11px}.sky-slip table.sky-grid th,.sky-slip table.sky-grid td{padding:3px}.sky-slip table.sky-grid th,.sky-slip table.sky-total td{background:#e6e6e6;font-weight:800}.sky-slip .sky-badge{display:block;width:52px;margin:1mm 0 0;background:#111;color:#fff;text-align:center;font-weight:800;border-radius:6px;font-size:11px}.sky-slip .sky-sign{margin:2mm 6mm 1mm}.sky-slip .sky-sign img{display:block;height:10mm;max-width:36mm;margin:0 auto -4mm}.sky-slip .sky-sign-line{border-bottom:1px solid #111;margin-bottom:1mm}.sky-slip .r{text-align:right}.sky-slip .c{text-align:center}.sky-slip .sky-qr img{width:14mm;height:14mm}.sky-slip .sky-bar img{width:62%;height:6mm}' : '') +
+                '@page{size:' + (isMini ? '80mm auto' : 'A4 portrait') + ';margin:' + (isMini ? '2mm' : '8mm') + '}' +
+                'html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:12px' + (isMini ? ';width:80mm' : '') + '}' +
+                (isMini ? '.thermal-print{width:80mm;max-width:80mm}.mini-chrome{display:none!important}.sky-slip{width:72mm;max-width:72mm;margin:0 auto;zoom:1;font-family:Arial,Helvetica,sans-serif;color:#111;padding:2px 3px 4px}.sky-slip .sky-logo{display:block;height:14mm;margin:0 auto}.sky-slip .sky-phone,.sky-slip .sky-title,.sky-slip .sky-sign,.sky-slip .sky-qr,.sky-slip .sky-bar{text-align:center}.sky-slip .sky-phone{font-weight:800;font-size:12px}.sky-slip .sky-title{font-weight:900;font-size:18px;line-height:1.05}.sky-slip .sky-rule{border:0;border-top:2px solid #111;margin:0}.sky-slip .sky-box{background:#ececec;border-radius:6px;padding:4px 6px;font-size:11px}.sky-slip table.sky-grid{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}.sky-slip table.sky-grid th,.sky-slip table.sky-grid td{padding:3px 2px}.sky-slip table.sky-grid th:nth-child(1),.sky-slip table.sky-grid td:nth-child(1){width:46%;text-align:left}.sky-slip table.sky-grid th:nth-child(2),.sky-slip table.sky-grid td:nth-child(2){width:14%;text-align:center}.sky-slip table.sky-grid th:nth-child(3),.sky-slip table.sky-grid td:nth-child(3),.sky-slip table.sky-grid th:nth-child(4),.sky-slip table.sky-grid td:nth-child(4){width:20%;text-align:right}.sky-slip table.sky-grid th,.sky-slip table.sky-total td{background:#e6e6e6;font-weight:800}.sky-slip .sky-badge{display:block;width:52px;margin:1mm 0 0;background:#111;color:#fff;text-align:center;font-weight:800;border-radius:6px;font-size:11px}.sky-slip .sky-sign{margin:2mm auto 1mm;text-align:center}.sky-slip .sky-sign img{display:block;height:10mm;max-width:36mm;margin:0 auto -4mm}.sky-slip .sky-sign-line{border-bottom:1px solid #111;margin-bottom:1mm}.sky-slip .r{text-align:right}.sky-slip .c{text-align:center}.sky-slip .sky-qr img{width:22mm;height:22mm}.sky-slip .sky-bar img{width:70%;height:8mm}' : '') +
                 '.d-print-none{display:none!important}' +
                 'img{max-width:100%}' +
                 '</style>';
@@ -1100,6 +1101,7 @@
                     $.each(data[0] || [], function (index) {
                         var qty = parseSaleAmt(data[1][index]);
                         var total = parseSaleAmt(data[6][index]);
+                        if (Math.abs(qty) < 0.001 && Math.abs(total) < 0.001) return;
                         var unit = qty ? (total / qty) : 0;
                         var name = String(data[0][index] || '').replace(/\s*\[[^\]]*\]\s*$/, '');
                         var qtyText = Math.abs(qty - Math.round(qty)) < 0.001 ? String(Math.round(qty)) : String(qty);

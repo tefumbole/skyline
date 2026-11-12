@@ -38,35 +38,36 @@
     </div>
     <div class="pay-body">
         <div class="pay-due">
-            <div class="pay-kicker" style="color:#8a6230">Still due</div>
-            <strong id="due-label">{{ number_format((float) $due, 0) }} XAF</strong>
+            @if(!empty($paid))
+                <div class="pay-kicker" style="color:#176b3a">Paid</div>
+                <strong>Invoice closed</strong>
+            @else
+                <div class="pay-kicker" style="color:#8a6230">Still due</div>
+                <strong id="due-label">{{ number_format((float) $due, 0) }} XAF</strong>
+            @endif
         </div>
         @if(session('message'))<p class="ok">{{ session('message') }}</p>@endif
         @if(session('not_permitted'))<p class="bad">{{ session('not_permitted') }}</p>@endif
         @if(!empty($empty))
             <p>There is nothing left to pay on this order.</p>
         @elseif(!empty($paid))
-            <p class="ok">This invoice is paid. Scanning the code again will not charge you a second time.</p>
+            <p class="ok">This invoice is paid. It is no longer valid for a new payment.</p>
         @elseif(!empty($waiting))
-            <p id="momo-hint">A MoMo prompt was sent for {{ number_format((float) $amount, 0) }} XAF. This page waits until the phone approves it. Nothing is confirmed before that.</p>
+            <p id="momo-hint">A MoMo prompt was sent for {{ number_format((float) $amount, 0) }} XAF. Keep this page open until the phone approves it.</p>
         @else
             <form method="post" action="{{ route('restaurant.pay.start', [$sale->id, \App\Support\SalePayQr::token($sale)]) }}" id="pay-form">
                 @csrf
-                <label for="momo_phone">Phone number</label>
+                <label for="momo_phone">Mobile Money number</label>
                 <input id="momo_phone" name="momo_phone" inputmode="tel" autocomplete="tel" value="{{ old('momo_phone', optional($sale->customer)->phone_number) }}" required>
-                <p class="pay-hint" id="phone-note">{{ optional($sale->customer)->name }}</p>
-                <div class="pay-choice">
-                    <button type="button" id="method-cash">Cash<small>Pay at the counter</small></button>
-                    <button type="button" class="is-on" id="method-momo">MoMo / OM<small>Wait for the phone</small></button>
-                </div>
+                <p class="pay-hint" id="phone-note"></p>
                 <div class="pay-choice">
                     <button type="button" class="is-on" id="mode-full">Full amount<small>Pay everything due</small></button>
-                    <button type="button" id="mode-part">Partial<small>Split the bill</small></button>
+                    <button type="button" id="mode-part">Partial<small>Pay part now</small></button>
                 </div>
                 <label for="amount">Amount (XAF)</label>
                 <input id="amount" name="amount" type="number" min="100" step="1" value="{{ (int) round((float) $due) }}" readonly>
                 <p class="pay-left" id="left-after">Left after this payment: 0 XAF</p>
-                <p><button class="pay-send" id="pay-send" type="submit">Send prompt and wait</button></p>
+                <p><button class="pay-send" id="pay-send" type="submit">Send MoMo prompt</button></p>
             </form>
         @endif
     </div>
@@ -111,14 +112,10 @@
     var amount = document.getElementById('amount');
     var full = document.getElementById('mode-full');
     var part = document.getElementById('mode-part');
-    var cash = document.getElementById('method-cash');
-    var momo = document.getElementById('method-momo');
     var note = document.getElementById('phone-note');
     var phone = document.getElementById('momo_phone');
-    var send = document.getElementById('pay-send');
     var left = document.getElementById('left-after');
     var form = document.getElementById('pay-form');
-    var method = 'momo';
     if (!amount || !full || !form) return;
     function money(value) {
         return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -137,31 +134,10 @@
         if (isFull) amount.value = due;
         paintLeft();
     }
-    function setMethod(next) {
-        method = next;
-        cash.classList.toggle('is-on', next === 'cash');
-        momo.classList.toggle('is-on', next === 'momo');
-        phone.required = next === 'momo';
-        send.textContent = next === 'cash' ? 'Pay this at the counter' : 'Send prompt and wait';
-        if (next === 'cash') {
-            note.textContent = 'Cash is taken by the cashier. This page does not mark the bill paid.';
-        } else {
-            localNote();
-        }
-    }
     full.addEventListener('click', function () { setMode('full'); });
     part.addEventListener('click', function () { setMode('part'); amount.focus(); });
-    cash.addEventListener('click', function () { setMethod('cash'); });
-    momo.addEventListener('click', function () { setMethod('momo'); });
     amount.addEventListener('input', paintLeft);
-    form.addEventListener('submit', function (event) {
-        if (method === 'cash') {
-            event.preventDefault();
-            note.textContent = 'Hand ' + money(parseInt(amount.value || '0', 10) || 0) + ' XAF to the cashier. This phone does not record cash.';
-        }
-    });
     function localNote() {
-        if (method === 'cash') return;
         var digits = (phone.value || '').replace(/\D/g, '');
         if (digits.indexOf('237') === 0) digits = digits.slice(3);
         if (digits.length < 9) { note.textContent = ''; return; }

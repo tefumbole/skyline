@@ -7,16 +7,15 @@
 <div class="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4 py-16">
     <div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         <div class="text-center px-6 pt-8 pb-4">
-            @if ($data && !empty($data['valid']))
+            @if ($data && !empty($data['settled']))
                 <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
                     <i data-lucide="check-circle" class="w-9 h-9 text-green-600"></i>
                 </div>
                 <h1 class="text-xl font-bold text-brand-blue">Sales Invoice</h1>
                 <p class="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
-                    Status: Valid
+                    Paid
                 </p>
-                <p class="mt-4 text-sm text-gray-500">Date of sale</p>
-                <p class="text-base font-semibold text-gray-900">{{ $data['created_at'] }}</p>
+                <p class="mt-3 text-sm text-gray-600">This invoice is paid. It is no longer valid for a new payment.</p>
                 <p class="mt-3 text-sm text-gray-500">Amount</p>
                 <p class="text-2xl font-extrabold text-gray-900">{{ \App\Support\Money::format($data['amount']) }} {{ $data['currency'] }}</p>
             @else

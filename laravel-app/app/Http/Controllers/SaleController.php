@@ -2591,7 +2591,13 @@ class SaleController extends Controller
 
     public function productSaleData($id)
     {
-        $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
+        $chargedSale = Sale::find($id);
+        if ($chargedSale) {
+            app(\App\Services\Restaurant\RestaurantOrderService::class)->releaseRejectedCharges($chargedSale);
+        }
+        $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get()->filter(function ($row) {
+            return (float) $row->total > 0.009 || (float) $row->qty > 0.009;
+        })->values();
         foreach ($lims_product_sale_data as $key => $product_sale_data) {
             $product = Product::find($product_sale_data->product_id);
             if($product_sale_data->variant_id) {
@@ -3294,6 +3300,8 @@ class SaleController extends Controller
         if (!$lims_sale_data) {
             return redirect()->route('sales.index')->with('not_permitted', 'Sale not found.');
         }
+        app(\App\Services\Restaurant\RestaurantOrderService::class)->releaseRejectedCharges($lims_sale_data);
+        $lims_sale_data = $lims_sale_data->fresh() ?: $lims_sale_data;
         $lims_product_sale_data = Product_Sale::where('sale_id', $id)->get();
         $lims_biller_data = Biller::find($lims_sale_data->biller_id);
         $lims_warehouse_data = Warehouse::find($lims_sale_data->warehouse_id);

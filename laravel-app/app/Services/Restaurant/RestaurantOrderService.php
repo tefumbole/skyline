@@ -737,6 +737,37 @@ class RestaurantOrderService
         return $due;
     }
 
+    /**
+     * A declined or cancelled dish must leave the amount the client still owes.
+     */
+    public function releaseRejectedCharges(Sale $sale)
+    {
+        if (! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('restaurant_order_items')) {
+            return $sale;
+        }
+        $order = RestaurantOrder::with('items')->where('sale_id', $sale->id)->first();
+        if (! $order) {
+            return $sale;
+        }
+        $stillServed = [];
+        foreach ($order->items as $item) {
+            if (! in_array($item->status, ['rejected', 'cancelled'], true) && $item->product_sale_id) {
+                $stillServed[(int) $item->product_sale_id] = true;
+            }
+        }
+        foreach ($order->items as $item) {
+            if (! in_array($item->status, ['rejected', 'cancelled'], true)) {
+                continue;
+            }
+            if ($item->product_sale_id && isset($stillServed[(int) $item->product_sale_id])) {
+                continue;
+            }
+            $this->dropLineFromBill($item);
+        }
+
+        return $sale->fresh() ?: $sale;
+    }
+
     protected function dropLineFromBill(RestaurantOrderItem $item)
     {
         $order = $item->order ?: RestaurantOrder::find($item->restaurant_order_id);

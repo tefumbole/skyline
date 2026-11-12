@@ -7,7 +7,7 @@
     .table-lead { margin: 8px 0 0; color: #5c6b82; font-size: 15px; }
     .table-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 18px; }
     .table-card {
-        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
         min-height: 92px; padding: 16px; border-radius: 18px; background: #fff;
         border: 1px solid #d7deea; box-shadow: 0 10px 28px rgba(12,24,48,.05);
         text-decoration: none; color: inherit;
@@ -17,7 +17,13 @@
     .table-sub { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
     .table-due { margin: 0; color: #0c1830; font-size: 20px; font-weight: 800; letter-spacing: -.03em; text-align: right; }
     .table-pill { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .table-food { margin: 10px 0 0; padding: 0; list-style: none; }
+    .table-food li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; color: #243044; font-size: 13px; font-weight: 700; }
+    .table-food .dish { font-weight: 600; color: #5c6b82; }
+    .food-clock { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0c1830; color: #e1b368; font-variant-numeric: tabular-nums; }
+    .food-clock.is-late { background: #8a1f1f; color: #fff; }
     .table-pill.pending, .table-pill.open { background: #fff4e5; color: #8a5a1f; }
+    .table-pill.due { background: #fde8e8; color: #8a1f1f; }
     .table-pill.paid { background: #d9f5e5; color: #178a45; }
     .table-empty { margin-top: 18px; padding: 28px 18px; border: 1px dashed #d7deea; border-radius: 18px; background: #fff; color: #5c6b82; text-align: center; }
     @media (min-width: 700px) {
@@ -36,7 +42,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="table-kicker">Sales</p>
     <h1>Tables</h1>
-    <p class="table-lead">Only tables that still have an unpaid bill.</p>
+    <p class="table-lead">Each dish shows Awaiting, Cooking with the time left, or Ready for delivery with the time since it was marked ready. The bill is Paid, Due, or Pending.</p>
     @if(count($tables))
         <div class="table-grid">
             @foreach($tables as $row)
@@ -44,6 +50,21 @@
                     <div>
                         <p class="table-name">{{ $row['name'] }}</p>
                         <p class="table-sub">{{ $row['bills'].' order'.($row['bills'] === 1 ? '' : 's') }}</p>
+                        @if(!empty($row['food']))
+                            <ul class="table-food">
+                                @foreach($row['food'] as $line)
+                                    <li>
+                                        <span class="dish">{{ $line['name'] }} × {{ $line['qty'] }}</span>
+                                        <span>{{ $line['label'] }}</span>
+                                        @if($line['clock'] === 'down')
+                                            <span class="food-clock" data-due="{{ (int) $line['due_at'] }}">--:--</span>
+                                        @elseif($line['clock'] === 'up')
+                                            <span class="food-clock is-late" data-since="{{ (int) $line['ready_at'] }}">--:--</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
                     </div>
                     <div>
                         <p class="table-due">{{ \App\Support\TableBoard::money(isset($row['total']) ? $row['total'] : $row['due']) }} XAF</p>
@@ -59,5 +80,33 @@
 <script>
     var tablesMenu = document.getElementById('tables-menu');
     if (tablesMenu) tablesMenu.classList.add('active');
+    (function () {
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        function text(abs) {
+            var hours = Math.floor(abs / 3600);
+            var mins = Math.floor((abs % 3600) / 60);
+            var secs = abs % 60;
+            return (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+        }
+        function paint() {
+            var now = Date.now();
+            var clocks = document.querySelectorAll('.food-clock');
+            for (var i = 0; i < clocks.length; i++) {
+                var since = parseInt(clocks[i].getAttribute('data-since'), 10);
+                if (since) {
+                    clocks[i].textContent = text(Math.max(0, Math.round(now / 1000 - since)));
+                    clocks[i].className = 'food-clock is-late';
+                    continue;
+                }
+                var due = parseInt(clocks[i].getAttribute('data-due'), 10);
+                if (!due) continue;
+                var diff = Math.round(due - now / 1000);
+                clocks[i].textContent = (diff < 0 ? '-' : '') + text(Math.abs(diff));
+                clocks[i].className = diff < 0 ? 'food-clock is-late' : 'food-clock';
+            }
+        }
+        paint();
+        setInterval(paint, 1000);
+    })();
 </script>
 @endsection

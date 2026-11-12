@@ -10,7 +10,10 @@
     .bill-summary span { color: #e1b368; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .bill-pill { padding: 6px 12px; border-radius: 999px; font-weight: 700; }
     .bill-pill.pending { background: #fff4e5; color: #8a5a1f; }
+    .bill-pill.due { background: #fde8e8; color: #8a1f1f; }
     .bill-pill.paid { background: #d9f5e5; color: #178a45; }
+    .food-clock { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #0c1830; color: #e1b368; font-variant-numeric: tabular-nums; }
+    .food-clock.is-late { background: #8a1f1f; color: #fff; }
     .bill-card { margin-top: 12px; padding: 16px; border: 1px solid #d7deea; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgba(12,24,48,.05); }
     .bill-card h2 { margin: 0; color: #0c1830; font-size: 18px; font-weight: 700; }
     .bill-meta { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
@@ -56,11 +59,11 @@
             @if(!empty($bill['menu']))
                 <ul class="bill-lines">
                     @foreach($bill['menu'] as $line)
-                        <li class="bill-menu" data-state="{{ $line['state'] }}" data-due="{{ (int) $line['due_at'] }}" data-ready="{{ (int) $line['ready_at'] }}">
+                        <li>
                             <p class="bill-kind">{{ $line['kind'] }}</p>
                             <p class="bill-dish">{{ $line['name'] }} × {{ $line['qty'] }}</p>
                             @if($line['note'] !== '')<p class="bill-note">Comment: {{ $line['note'] }}</p>@endif
-                            <p class="bill-status">{{ $line['label'] }}</p>
+                            <p class="bill-status">{{ $line['label'] }}@if($line['clock'] === 'down') <span class="food-clock" data-due="{{ (int) $line['due_at'] }}">--:--</span>@elseif($line['clock'] === 'up') <span class="food-clock is-late" data-since="{{ (int) $line['ready_at'] }}">--:--</span>@endif</p>
                         </li>
                     @endforeach
                 </ul>
@@ -84,30 +87,33 @@
 <script>
     var tablesMenu = document.getElementById('tables-menu');
     if (tablesMenu) tablesMenu.classList.add('active');
-    function paintKitchenTimes() {
-        var now = Math.floor(Date.now() / 1000);
-        var rows = document.querySelectorAll('.bill-menu');
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            var status = row.querySelector('.bill-status');
-            if (!status) continue;
-            var state = row.getAttribute('data-state');
-            if (state === 'preparing') {
-                var due = parseInt(row.getAttribute('data-due') || '0', 10);
-                if (!due) {
-                    status.textContent = 'Accepted';
-                } else {
-                    var left = Math.ceil((due - now) / 60);
-                    status.textContent = left > 0 ? ('Accepted. ' + left + ' min before delivery') : 'Accepted. Due now';
+    (function () {
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        function text(abs) {
+            var hours = Math.floor(abs / 3600);
+            var mins = Math.floor((abs % 3600) / 60);
+            var secs = abs % 60;
+            return (hours > 0 ? hours + ':' : '') + pad(mins) + ':' + pad(secs);
+        }
+        function paint() {
+            var now = Date.now();
+            var clocks = document.querySelectorAll('.food-clock');
+            for (var i = 0; i < clocks.length; i++) {
+                var since = parseInt(clocks[i].getAttribute('data-since'), 10);
+                if (since) {
+                    clocks[i].textContent = text(Math.max(0, Math.round(now / 1000 - since)));
+                    clocks[i].className = 'food-clock is-late';
+                    continue;
                 }
-            } else if (state === 'ready') {
-                var ready = parseInt(row.getAttribute('data-ready') || '0', 10);
-                var waited = ready ? Math.max(0, Math.floor((now - ready) / 60)) : 0;
-                status.textContent = 'Marked for delivery. ' + (waited < 1 ? 'Just now' : waited + ' min');
+                var due = parseInt(clocks[i].getAttribute('data-due'), 10);
+                if (!due) continue;
+                var diff = Math.round(due - now / 1000);
+                clocks[i].textContent = (diff < 0 ? '-' : '') + text(Math.abs(diff));
+                clocks[i].className = diff < 0 ? 'food-clock is-late' : 'food-clock';
             }
         }
-    }
-    paintKitchenTimes();
-    window.setInterval(paintKitchenTimes, 15000);
+        paint();
+        setInterval(paint, 1000);
+    })();
 </script>
 @endsection

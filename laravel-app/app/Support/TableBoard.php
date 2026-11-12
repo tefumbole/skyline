@@ -85,13 +85,22 @@ class TableBoard
                     'open' => 0,
                     'latest' => $bill['when'],
                     'today' => false,
+                    'states' => [],
+                    'food' => [],
                 ];
             }
             $grouped[$id]['bills']++;
             $grouped[$id]['due'] += $bill['due'];
             $grouped[$id]['total'] = (isset($grouped[$id]['total']) ? $grouped[$id]['total'] : 0) + $bill['total'];
+            $grouped[$id]['states'][] = $bill['status'];
             if ($bill['due'] > 0.009) {
                 $grouped[$id]['open']++;
+            }
+            foreach ($bill['menu'] as $line) {
+                if (in_array($line['state'], ['delivered', 'cancelled', 'rejected'], true)) {
+                    continue;
+                }
+                $grouped[$id]['food'][] = $line;
             }
             if ($bill['today']) {
                 $grouped[$id]['today'] = true;
@@ -103,16 +112,20 @@ class TableBoard
 
         $rows = [];
         foreach ($grouped as $row) {
-            if ($row['open'] < 1) {
+            if ($row['open'] < 1 && count($row['food']) < 1) {
                 continue;
             }
-            $row['status'] = 'Pending';
+            $row['status'] = self::rollupStatus($row['states']);
+            unset($row['states']);
             $rows[] = $row;
         }
 
         usort($rows, function ($a, $b) {
-            if ($a['status'] !== $b['status']) {
-                return $a['status'] === 'Pending' ? -1 : 1;
+            $rank = ['Due' => 0, 'Pending' => 1, 'Paid' => 2];
+            $left = isset($rank[$a['status']]) ? $rank[$a['status']] : 3;
+            $right = isset($rank[$b['status']]) ? $rank[$b['status']] : 3;
+            if ($left !== $right) {
+                return $left < $right ? -1 : 1;
             }
             if (abs($a['due'] - $b['due']) > 0.009) {
                 return $a['due'] < $b['due'] ? 1 : -1;
@@ -142,8 +155,10 @@ class TableBoard
             return null;
         }
         $due = 0;
+        $states = [];
         foreach ($bills as $bill) {
             $due += $bill['due'];
+            $states[] = $bill['status'];
         }
         usort($bills, function ($a, $b) {
             return strcmp($b['when'], $a['when']);
@@ -154,7 +169,7 @@ class TableBoard
             'name' => $name,
             'description' => $description,
             'due' => $due,
-            'status' => $due > 0.009 ? 'Pending' : 'Paid',
+            'status' => self::rollupStatus($states),
             'bills' => $bills,
         ];
     }
@@ -206,7 +221,7 @@ class TableBoard
                 'total' => (float) $sale->grand_total,
                 'paid' => (float) $sale->paid_amount,
                 'due' => $due,
-                'status' => $due > 0.009 ? 'Pending' : 'Paid',
+                'status' => self::paymentLabel($sale, $due),
                 'when' => $when,
                 'when_label' => $sale->created_at ? $sale->created_at->format('j M Y H:i') : '',
                 'today' => substr($when, 0, 10) === $today,
@@ -228,23 +243,20 @@ class TableBoard
         $state = (string) $item->status;
         $dueAt = $item->expected_ready_at ? $item->expected_ready_at->getTimestamp() : 0;
         $readyAt = $item->ready_at ? $item->ready_at->getTimestamp() : 0;
-        $now = time();
+        $clock = '';
         if ($state === 'preparing') {
-            if ($dueAt) {
-                $mins = (int) ceil(($dueAt - $now) / 60);
-                $label = $mins > 0 ? 'Accepted. '.$mins.' min before delivery' : 'Accepted. Due now';
-            } else {
-                $label = 'Accepted';
-            }
+            $label = 'Cooking';
+            $clock = $dueAt ? 'down' : '';
         } elseif ($state === 'ready') {
-            $mins = $readyAt ? (int) floor(max(0, $now - $readyAt) / 60) : 0;
-            $label = 'Marked for delivery. '.($mins < 1 ? 'Just now' : $mins.' min');
+            $label = 'Ready for delivery';
+            $clock = $readyAt ? 'up' : '';
         } elseif ($state === 'delivered') {
             $label = 'Delivered';
         } elseif ($state === 'hold') {
             $label = 'On hold';
         } else {
-            $label = 'Waiting to be accepted';
+            $label = 'Awaiting';
+            $state = $state === '' ? 'awaiting' : $state;
         }
 
         return [
@@ -254,9 +266,34 @@ class TableBoard
             'note' => trim((string) $item->customer_comment),
             'state' => $state,
             'label' => $label,
+            'clock' => $clock,
             'due_at' => $dueAt,
             'ready_at' => $readyAt,
         ];
+    }
+
+    protected static function paymentLabel($sale, $due)
+    {
+        if ($due <= 0.009 || (int) $sale->payment_status === 4) {
+            return 'Paid';
+        }
+        if ((int) $sale->payment_status === 1) {
+            return 'Pending';
+        }
+
+        return 'Due';
+    }
+
+    protected static function rollupStatus(array $statuses)
+    {
+        if (in_array('Due', $statuses, true)) {
+            return 'Due';
+        }
+        if (in_array('Pending', $statuses, true)) {
+            return 'Pending';
+        }
+
+        return 'Paid';
     }
 
     /**

@@ -102,7 +102,38 @@ class PaymentController extends Controller
             }
         }
 
-        return redirect()->route('payment.index')->with('message', 'Payment created successfully');
+        return redirect()->route('payment.index')
+            ->with('message', 'Payment created successfully')
+            ->with('payment_receipt_url', $this->receiptLink($sales->pluck('id')->all()));
+    }
+
+    public function collected()
+    {
+        $this->assertCanReadPayments();
+        $sales = Sale::with('customer')
+            ->where('paid_amount', '>', 0)
+            ->orderByDesc('updated_at')
+            ->limit(200)
+            ->get();
+
+        return view('payment.collected', compact('sales'));
+    }
+
+    public function receipt($token)
+    {
+        $this->assertCanReadPayments();
+        $ids = \Illuminate\Support\Facades\Cache::get('payment-receipt:'.$token);
+        if (! is_array($ids) || count($ids) < 1) {
+            return redirect()->route('payment.collected')->with('not_permitted', 'That receipt has expired. Print it from Collected.');
+        }
+        $sales = Sale::with('customer')->whereIn('id', $ids)->orderBy('created_at')->get();
+        if ($sales->isEmpty()) {
+            return redirect()->route('payment.collected')->with('not_permitted', 'That receipt has expired. Print it from Collected.');
+        }
+        $customer = $sales->first()->customer ?: (object) ['name' => 'Client'];
+        $lines = \App\Product_Sale::with('product')->whereIn('sale_id', $sales->pluck('id')->all())->get()->groupBy('sale_id');
+
+        return view('payment.client_bill', compact('customer', 'sales', 'lines'));
     }
 
     public function clientMomoWait($token)
@@ -146,7 +177,7 @@ class PaymentController extends Controller
         if ($this->groupMomoRecorded($pending)) {
             \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
 
-            return response()->json(['status' => 'paid', 'url' => route('payment.index')]);
+            return $this->paidHome(array_keys($pending['slices']));
         }
         $campay = app(\App\Services\CampayCollectService::class);
         $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
@@ -166,7 +197,7 @@ class PaymentController extends Controller
             }
             \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
 
-            return response()->json(['status' => 'paid', 'url' => route('payment.index')]);
+            return $this->paidHome(array_keys($pending['slices']));
         }
         if ($outcome['state'] === 'failed') {
             \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
@@ -588,6 +619,12 @@ class PaymentController extends Controller
             ]);
         }
         \Illuminate\Support\Facades\Cache::forget('client-momo:'.$token);
+        if ($paid > 0) {
+            $link = $this->receiptLink(isset($pending['sale_ids']) ? $pending['sale_ids'] : []);
+            if ($link) {
+                session()->flash('payment_receipt_url', $link);
+            }
+        }
         if ($failedAmount > 0) {
             $message = $paid > 0
                 ? number_format($paid).' XAF was received. '.number_format($failedAmount).' XAF was not approved, so that part is still due.'
@@ -600,11 +637,7 @@ class PaymentController extends Controller
             ]);
         }
 
-        return response()->json([
-            'status' => 'paid',
-            'url' => route('payment.index'),
-            'parts' => $states,
-        ]);
+        return $this->paidHome(isset($pending['sale_ids']) ? $pending['sale_ids'] : []);
     }
 
     protected function recordSplitPart(array $pending, array $part)
@@ -1263,6 +1296,60 @@ class PaymentController extends Controller
         }
 
         return $fallback;
+    }
+
+    protected function paidHome(array $saleIds)
+    {
+        $link = $this->receiptLink($saleIds);
+        if ($link) {
+            session()->flash('payment_receipt_url', $link);
+        }
+
+        return response()->json([
+            'status' => 'paid',
+            'url' => route('payment.index'),
+        ]);
+    }
+
+    protected function receiptLink(array $saleIds)
+    {
+        $ids = [];
+        foreach ($saleIds as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        $ids = array_values($ids);
+        if (count($ids) < 1) {
+            return null;
+        }
+        if (count($ids) === 1) {
+            return route('sale.invoice', $ids[0]).'?autoprint=1';
+        }
+        $token = bin2hex(random_bytes(8));
+        \Illuminate\Support\Facades\Cache::put('payment-receipt:'.$token, $ids, now()->addHours(12));
+
+        return route('payment.receipt', ['token' => $token]);
+    }
+
+    protected function assertCanReadPayments()
+    {
+        $user = Auth::user();
+        if (! $user) {
+            abort(403);
+        }
+        if ($user->hasFullAdminAccess()) {
+            return;
+        }
+        try {
+            $role = \Spatie\Permission\Models\Role::find($user->role_id);
+            if ($role && $role->hasPermissionTo('payments-index')) {
+                return;
+            }
+        } catch (\Throwable $e) {
+        }
+        abort(403);
     }
 
     protected function paymentsAdmin()

@@ -16,6 +16,7 @@
 
     <section>
         @include('payout.partials.style')
+        <p style="margin:0 0 12px"><a class="btn btn-default btn-sm" href="{{ route('payment.collected') }}">Collected payments</a></p>
 
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">

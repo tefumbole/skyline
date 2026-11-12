@@ -1,5 +1,10 @@
-@if(session('payment_receipt_sale'))
-    @php $receiptSaleId = (int) session('payment_receipt_sale'); @endphp
+@if(session('payment_receipt_sale') || session('payment_receipt_url'))
+    @php
+        $receiptUrl = session('payment_receipt_url');
+        if (! $receiptUrl && session('payment_receipt_sale')) {
+            $receiptUrl = route('sale.invoice', (int) session('payment_receipt_sale')).'?autoprint=1';
+        }
+    @endphp
     <div id="payment-receipt-choice" tabindex="-1" role="dialog" aria-labelledby="paymentReceiptTitle" class="modal fade" data-backdrop="static" data-keyboard="false">
         <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:420px;">
             <div class="modal-content" style="border:0;border-radius:20px;overflow:hidden;">
@@ -9,7 +14,7 @@
                 </div>
                 <div style="padding:16px 18px 18px;background:#f3f6fb;">
                     <p style="margin:0 0 14px;color:#243044;">The payment is already recorded. Print the receipt now, or close this and keep working.</p>
-                    <a class="btn btn-block" style="min-height:48px;border-radius:14px;background:#0c1830;color:#e1b368;font-weight:800;line-height:32px;" target="_blank" rel="noopener" href="{{ route('sale.invoice', $receiptSaleId) }}?autoprint=1">Print receipt</a>
+                    <a class="btn btn-block" style="min-height:48px;border-radius:14px;background:#0c1830;color:#e1b368;font-weight:800;line-height:32px;" target="_blank" rel="noopener" href="{{ $receiptUrl }}">Print receipt</a>
                     <button type="button" class="btn btn-block" data-dismiss="modal" style="min-height:48px;margin-top:8px;border-radius:14px;background:#fff;border:1px solid #d7deea;color:#0c1830;font-weight:800;">Cancel</button>
                 </div>
             </div>

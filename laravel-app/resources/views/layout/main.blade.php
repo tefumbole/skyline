@@ -2235,6 +2235,7 @@
                                 <a href="#payments" data-nav-key="payments" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-dollar"></i><span>Payments</span></a>
                                 <ul id="payments" class="collapse list-unstyled ">
                                     <li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>
+                                    <li id="payment-collected-menu"><a href="{{route('payment.collected')}}">Collected</a></li>
                                     <li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Payments</a></li>
                                     <li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>
                                     <li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>

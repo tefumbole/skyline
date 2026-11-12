@@ -176,12 +176,12 @@
                     <button type="button" data-dismiss="modal" aria-label="Close" class="pay-x">&times;</button>
                 </div>
                 <div class="pay-body">
-                    {!! Form::open(['route' => 'payment.client-pay', 'method' => 'post', 'class' => 'payment-form' ]) !!}
+                    {!! Form::open(['route' => 'payment.client-pay', 'method' => 'post', 'class' => 'payment-form', 'id' => 'client-pay-form']) !!}
                     <input type="hidden" name="balance">
                     <input type="hidden" name="paying_amount">
                     <input type="hidden" name="paid_by_id" value="1">
                     <input type="hidden" name="sale_id">
-                    <input type="hidden" name="sale_ids">
+                    <div data-sale-id-fields></div>
                     <input type="hidden" name="account_id" value="{{ optional($defaultPayAccount)->id }}">
 
                     <div class="pay-due">
@@ -395,7 +395,53 @@
             clearTimeout(payLookupTimer);
             payLookupTimer = setTimeout(lookupPayPhone, 450);
         });
+        function applyPaySaleIds(ids) {
+            var form = document.getElementById('client-pay-form');
+            if (!form) return;
+            var base = form.getAttribute('data-pay-action');
+            if (!base) {
+                base = (form.getAttribute('action') || '').split('?')[0];
+                form.setAttribute('data-pay-action', base);
+            }
+            var parts = String(ids || '').split(',');
+            var query = [];
+            var clean = [];
+            var box = form.querySelector('[data-sale-id-fields]');
+            if (!box) {
+                box = document.createElement('div');
+                box.setAttribute('data-sale-id-fields', '1');
+                form.appendChild(box);
+            }
+            box.innerHTML = '';
+            for (var i = 0; i < parts.length; i++) {
+                var id = parseInt(parts[i], 10);
+                if (!id) continue;
+                clean.push(String(id));
+                query.push('sale_ids[]=' + encodeURIComponent(String(id)));
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'sale_ids[]';
+                input.value = String(id);
+                box.appendChild(input);
+            }
+            var joined = clean.join(',');
+            var single = form.querySelector('input[name="sale_id"]');
+            var list = form.querySelector('input[name="sale_ids"]');
+            if (single) {
+                single.value = clean.length ? clean[0] : '';
+                single.setAttribute('value', single.value);
+            }
+            if (list) {
+                list.value = joined;
+                list.setAttribute('value', joined);
+            }
+            var action = base + (query.length ? ('?' + query.join('&')) : '');
+            form.setAttribute('action', action);
+            var send = form.querySelector('button[type="submit"]');
+            if (send) send.setAttribute('formaction', action);
+        }
         $('#add-payment form.payment-form').on('submit', function (event) {
+            applyPaySaleIds($('#client-pay-form').attr('data-pay-sale-ids') || '');
             var split = $('#paySplitRows').is(':visible');
             var amount = parseFloat($('#add-payment input[name="amount"]').val());
             var phone = $.trim($('#payPhone').val());
@@ -459,16 +505,17 @@
         });
 
         $(document).on("click", "table.sale-list tbody .add-payment", function() {
-            var button = $(this);
-            var phone = $.trim(button.attr('data-phone') || '');
-            payDue = parseFloat(button.attr('data-due')) || 0;
-            $('#addPaymentTitle').text(button.attr('data-name') || 'Client');
-            $('#payRef').text(button.attr('data-ref') || '');
+            var button = this;
+            var phone = $.trim(button.getAttribute('data-phone') || '');
+            var saleIds = button.getAttribute('data-sale-ids') || button.getAttribute('data-id') || '';
+            payDue = parseFloat(button.getAttribute('data-due')) || 0;
+            $('#addPaymentTitle').text(button.getAttribute('data-name') || 'Client');
+            $('#payRef').text(button.getAttribute('data-ref') || '');
             $('#payPhone').val(phone);
             $('#payHolder').text('');
             $('#add-payment input[name="balance"]').val(payDue);
-            $('#add-payment input[name="sale_id"]').val(button.data('id'));
-            $('#add-payment input[name="sale_ids"]').val(button.attr('data-sale-ids') || button.data('id'));
+            $('#client-pay-form').attr('data-pay-sale-ids', saleIds);
+            applyPaySaleIds(saleIds);
             $('#payDueLabel').text(payMoney(payDue));
             $('#payError').hide().text('');
             $('#paySplitList').empty();

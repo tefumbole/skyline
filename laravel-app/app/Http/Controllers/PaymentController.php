@@ -61,9 +61,10 @@ class PaymentController extends Controller
     public function payClient(Request $request)
     {
         $requested = $this->requestedSaleIds($request);
-        $sales = $this->awaitingSales()->filter(function ($sale) use ($requested) {
-            return in_array((int) $sale->id, $requested, true);
-        })->values();
+        if (! $requested) {
+            return redirect()->route('payment.index')->with('not_permitted', 'Choose the bill again.');
+        }
+        $sales = $this->openSalesForPayment($requested);
         if ($sales->isEmpty()) {
             return redirect()->route('payment.index')->with('not_permitted', 'Those bills are no longer open.');
         }
@@ -343,19 +344,75 @@ class PaymentController extends Controller
 
     protected function requestedSaleIds(Request $request)
     {
-        $raw = (string) $request->input('sale_ids');
-        if ($raw === '') {
-            $raw = (string) $request->input('sale_id');
-        }
         $ids = [];
-        foreach (explode(',', $raw) as $part) {
-            $id = (int) $part;
-            if ($id > 0) {
-                $ids[$id] = $id;
-            }
+        $chunks = array(
+            $request->query('sale_ids'),
+            $request->query('sale_id'),
+            $request->request->get('sale_ids'),
+            $request->request->get('sale_id'),
+        );
+        foreach ($chunks as $chunk) {
+            $this->collectSaleIds($chunk, $ids);
         }
 
         return array_values($ids);
+    }
+
+    protected function collectSaleIds($value, array &$ids)
+    {
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                $this->collectSaleIds($item, $ids);
+            }
+
+            return;
+        }
+        $text = trim((string) $value);
+        if ($text === '' || strcasecmp($text, 'Array') === 0) {
+            return;
+        }
+        foreach (explode(',', $text) as $part) {
+            $part = trim($part);
+            if ($part !== '' && ctype_digit($part)) {
+                $id = (int) $part;
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+        }
+    }
+
+    protected function openSalesForPayment(array $ids)
+    {
+        $sales = Sale::with('customer')->whereIn('id', $ids)->get();
+        if ($sales->isEmpty()) {
+            return $sales;
+        }
+        $orders = app(\App\Services\Restaurant\RestaurantOrderService::class);
+        foreach ($sales as $sale) {
+            $orders->releaseRejectedCharges($sale);
+        }
+        $sales = Sale::with('customer')->whereIn('id', $ids)->get()->filter(function ($sale) {
+            if ((int) $sale->payment_status === 4) {
+                return false;
+            }
+
+            return max(0, (float) $sale->grand_total - (float) $sale->paid_amount) > 0.009;
+        })->values();
+        if ($sales->isEmpty() || ! Schema::hasTable('restaurant_orders') || ! Schema::hasTable('restaurant_order_items')) {
+            return $sales;
+        }
+        RestaurantSettlement::attach($sales);
+
+        return $sales->filter(function ($sale) {
+            $plain = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
+            $due = isset($sale->settlement['due']) ? (float) $sale->settlement['due'] : $plain;
+            if ($due <= 0.009) {
+                $due = $plain;
+            }
+
+            return $due > 0.009;
+        })->values();
     }
 
     protected function paymentSlices($sales, $amount)
@@ -561,9 +618,7 @@ class PaymentController extends Controller
                     $this->recordCashSlice($sale, $slice, $request->input('account_id'));
                 }
             }
-            $sales = $this->awaitingSales()->filter(function ($sale) use ($saleIds) {
-                return in_array((int) $sale->id, $saleIds, true);
-            })->values();
+            $sales = $this->openSalesForPayment($saleIds);
         }
         if (count($momo) > 0) {
             if ($sales->isEmpty()) {

@@ -213,7 +213,7 @@ class PaymentController extends Controller
 
     protected function awaitingSales($customerId = null)
     {
-        $query = Sale::with('customer')->orderByDesc('id');
+        $query = Sale::with(['customer', 'restaurantOrder.diningTable'])->orderByDesc('id');
         if ($customerId) {
             $query->where('customer_id', $customerId);
         }
@@ -227,7 +227,7 @@ class PaymentController extends Controller
             $ids[] = (int) $sale->id;
         }
         if ($ids) {
-            $open = Sale::with('customer')->whereIn('id', $ids)->orderByDesc('id')->get();
+            $open = Sale::with(['customer', 'restaurantOrder.diningTable'])->whereIn('id', $ids)->orderByDesc('id')->get();
         }
         $open = $open->filter(function ($sale) {
             return max(0, (float) $sale->grand_total - (float) $sale->paid_amount) > 0.009;
@@ -285,6 +285,7 @@ class PaymentController extends Controller
         $refs = [];
         $undelivered = [];
         $pending = true;
+        $tables = [];
         $latest = '';
         foreach ($sales as $sale) {
             $settlement = isset($sale->settlement) ? $sale->settlement : null;
@@ -294,6 +295,10 @@ class PaymentController extends Controller
             $due += $saleDue;
             $ids[] = (int) $sale->id;
             $refs[] = (string) $sale->reference_no;
+            $tableName = trim((string) optional(optional($sale->restaurantOrder)->diningTable)->name);
+            if ($tableName !== '' && ! in_array($tableName, $tables, true)) {
+                $tables[] = $tableName;
+            }
             if ((int) $sale->payment_status !== 1 || (float) $sale->paid_amount > 0.009) {
                 $pending = false;
             }
@@ -318,11 +323,11 @@ class PaymentController extends Controller
         return [
             'customer_id' => $customer ? (int) $customer->id : 0,
             'name' => $customer ? (string) $customer->name : 'Client',
-            'unique_id' => $customer ? (string) $customer->unique_id : '',
             'phone' => $customer ? (string) $customer->phone_number : '',
             'shared' => ! $customer || $this->isSharedCustomer($customer),
             'sale_ids' => $ids,
             'references' => $refs,
+            'tables' => $tables ? implode(', ', $tables) : '—',
             'orders' => count($ids),
             'total' => $total,
             'paid' => $paid,

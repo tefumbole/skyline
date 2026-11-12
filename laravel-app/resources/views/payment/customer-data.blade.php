@@ -18,14 +18,16 @@
         @include('payout.partials.style')
         <p style="margin:0 0 12px"><a class="btn btn-default btn-sm" href="{{ route('payment.collected') }}">Collected payments</a></p>
 
+        <style>
+            #biller-table .pay-client { min-width: 240px; width: 28%; }
+        </style>
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">
                 <thead>
                 <tr>
                     <th class="not-exported"></th>
-                    <th>{{trans('file.Customer Name')}}</th>
-                    <th>Unique ID</th>
-                    <th>Order Id</th>
+                    <th class="pay-client">{{trans('file.Customer Name')}}</th>
+                    <th>Table Number</th>
                     <th>{{trans('file.Phone Number')}}</th>
                     <th>{{trans('file.Amount')}}</th>
                     <th>{{trans('file.Paid Amount')}}</th>
@@ -40,9 +42,8 @@
                 @foreach($bills as $key=>$bill)
                     <tr data-id="{{ $bill['sale_ids'][0] }}" data-sale-ids="{{ implode(',', $bill['sale_ids']) }}">
                         <td>{{$key}}</td>
-                        <td>{{ $bill['name'] }}</td>
-                        <td>{{ $bill['unique_id'] }}</td>
-                        <td>{{ $bill['orders'] > 1 ? $bill['orders'].' orders' : $bill['references'][0] }}</td>
+                        <td class="pay-client">{{ $bill['name'] }}</td>
+                        <td>{{ $bill['tables'] }}</td>
                         <td>{{ $bill['phone'] }}</td>
                         <td>{{ number_format($bill['total'], 2) }}</td>
                         <td>{{ number_format($bill['paid'], 2) }}</td>
@@ -591,7 +592,7 @@
             'columnDefs': [
                 {
                     "orderable": false,
-                    'targets': [0, 1, 3]
+                    'targets': [0, 1, 2]
                 },
                 {
                     'render': function(data, type, row, meta){

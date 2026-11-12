@@ -15,7 +15,11 @@
     .bill-card h2 { margin: 0; color: #0c1830; font-size: 18px; font-weight: 700; }
     .bill-meta { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
     .bill-lines { margin: 12px 0 0; padding: 0; list-style: none; }
-    .bill-lines li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid #e6ebf2; color: #243044; }
+    .bill-lines li { display: block; padding: 10px 0; border-top: 1px solid #e6ebf2; color: #243044; }
+    .bill-kind { margin: 0; color: #8a6230; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .bill-dish { margin: 2px 0 0; font-weight: 700; }
+    .bill-note, .bill-status { margin: 4px 0 0; color: #5c6b82; font-size: 13px; }
+    .bill-status { color: #0c1830; font-weight: 700; }
     .bill-money { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
     .bill-money div { padding: 10px; border-radius: 12px; background: #f3f6fb; }
     .bill-money span { display: block; color: #5c6b82; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -45,11 +49,19 @@
     @foreach($table['bills'] as $bill)
         <article class="bill-card">
             <h2>{{ $bill['reference'] }}</h2>
-            <p class="bill-meta">{{ $bill['when_label'] }}@if($bill['customer'] !== '') · {{ $bill['customer'] }}@endif</p>
-            @if(count($bill['items']))
+            <p class="bill-meta">{{ $bill['when_label'] }}@if($bill['customer'] !== '') · {{ $bill['customer'] }}@endif @if(!empty($bill['placed'])) · Placed by {{ $bill['placed'] }}@endif</p>
+            @if(!empty($bill['comment']))
+                <p class="bill-note">Comment: {{ $bill['comment'] }}</p>
+            @endif
+            @if(!empty($bill['menu']))
                 <ul class="bill-lines">
-                    @foreach($bill['items'] as $line)
-                        <li><span>{{ $line }}</span></li>
+                    @foreach($bill['menu'] as $line)
+                        <li class="bill-menu" data-state="{{ $line['state'] }}" data-due="{{ (int) $line['due_at'] }}" data-ready="{{ (int) $line['ready_at'] }}">
+                            <p class="bill-kind">{{ $line['kind'] }}</p>
+                            <p class="bill-dish">{{ $line['name'] }} × {{ $line['qty'] }}</p>
+                            @if($line['note'] !== '')<p class="bill-note">Comment: {{ $line['note'] }}</p>@endif
+                            <p class="bill-status">{{ $line['label'] }}</p>
+                        </li>
                     @endforeach
                 </ul>
             @endif
@@ -72,5 +84,30 @@
 <script>
     var tablesMenu = document.getElementById('tables-menu');
     if (tablesMenu) tablesMenu.classList.add('active');
+    function paintKitchenTimes() {
+        var now = Math.floor(Date.now() / 1000);
+        var rows = document.querySelectorAll('.bill-menu');
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var status = row.querySelector('.bill-status');
+            if (!status) continue;
+            var state = row.getAttribute('data-state');
+            if (state === 'preparing') {
+                var due = parseInt(row.getAttribute('data-due') || '0', 10);
+                if (!due) {
+                    status.textContent = 'Accepted';
+                } else {
+                    var left = Math.ceil((due - now) / 60);
+                    status.textContent = left > 0 ? ('Accepted. ' + left + ' min before delivery') : 'Accepted. Due now';
+                }
+            } else if (state === 'ready') {
+                var ready = parseInt(row.getAttribute('data-ready') || '0', 10);
+                var waited = ready ? Math.max(0, Math.floor((now - ready) / 60)) : 0;
+                status.textContent = 'Marked for delivery. ' + (waited < 1 ? 'Just now' : waited + ' min');
+            }
+        }
+    }
+    paintKitchenTimes();
+    window.setInterval(paintKitchenTimes, 15000);
 </script>
 @endsection

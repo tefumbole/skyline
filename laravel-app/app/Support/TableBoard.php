@@ -52,6 +52,7 @@ class TableBoard
                     'name' => $bill['table_name'],
                     'description' => $bill['table_description'],
                     'due' => 0,
+                    'total' => 0,
                     'bills' => 0,
                     'open' => 0,
                     'latest' => $bill['when'],
@@ -60,6 +61,7 @@ class TableBoard
             }
             $grouped[$id]['bills']++;
             $grouped[$id]['due'] += $bill['due'];
+            $grouped[$id]['total'] = (isset($grouped[$id]['total']) ? $grouped[$id]['total'] : 0) + $bill['total'];
             if ($bill['due'] > 0.009) {
                 $grouped[$id]['open']++;
             }
@@ -135,7 +137,7 @@ class TableBoard
             return [];
         }
         $today = date('Y-m-d');
-        $orders = RestaurantOrder::with(['sale.customer', 'diningTable', 'items'])
+        $orders = RestaurantOrder::with(['sale.customer', 'diningTable', 'items', 'placedBy'])
             ->whereNotNull('restaurant_table_id')
             ->whereNotNull('sale_id')
             ->where(function ($query) use ($today) {
@@ -157,11 +159,13 @@ class TableBoard
             $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
             $when = $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : (string) $order->created_at;
             $names = [];
+            $menu = [];
             foreach ($order->items as $item) {
                 if (in_array($item->status, ['cancelled', 'rejected'], true)) {
                     continue;
                 }
                 $names[] = trim($item->product_name.' × '.($item->qty + 0));
+                $menu[] = self::menuLine($item);
             }
             $bills[$sale->id] = [
                 'sale_id' => $sale->id,
@@ -176,6 +180,9 @@ class TableBoard
                 'when_label' => $sale->created_at ? $sale->created_at->format('j M Y H:i') : '',
                 'today' => substr($when, 0, 10) === $today,
                 'items' => $names,
+                'menu' => $menu,
+                'comment' => trim((string) $order->customer_comment),
+                'placed' => $order->placedBy ? (string) $order->placedBy->name : '',
                 'table_id' => $table->id,
                 'table_name' => $table->name,
                 'table_description' => $table->description ?: '',
@@ -183,6 +190,42 @@ class TableBoard
         }
 
         return array_values($bills);
+    }
+
+    protected static function menuLine($item)
+    {
+        $state = (string) $item->status;
+        $dueAt = $item->expected_ready_at ? $item->expected_ready_at->getTimestamp() : 0;
+        $readyAt = $item->ready_at ? $item->ready_at->getTimestamp() : 0;
+        $now = time();
+        if ($state === 'preparing') {
+            if ($dueAt) {
+                $mins = (int) ceil(($dueAt - $now) / 60);
+                $label = $mins > 0 ? 'Accepted. '.$mins.' min before delivery' : 'Accepted. Due now';
+            } else {
+                $label = 'Accepted';
+            }
+        } elseif ($state === 'ready') {
+            $mins = $readyAt ? (int) floor(max(0, $now - $readyAt) / 60) : 0;
+            $label = 'Marked for delivery. '.($mins < 1 ? 'Just now' : $mins.' min');
+        } elseif ($state === 'delivered') {
+            $label = 'Delivered';
+        } elseif ($state === 'hold') {
+            $label = 'On hold';
+        } else {
+            $label = 'Waiting to be accepted';
+        }
+
+        return [
+            'kind' => $item->department === 'drinks' ? 'Drink' : 'Food',
+            'name' => $item->product_name,
+            'qty' => $item->qty + 0,
+            'note' => trim((string) $item->customer_comment),
+            'state' => $state,
+            'label' => $label,
+            'due_at' => $dueAt,
+            'ready_at' => $readyAt,
+        ];
     }
 
     /**

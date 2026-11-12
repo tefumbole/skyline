@@ -43,10 +43,10 @@
                 <a class="table-card" href="{{ route('tables.show', $row['id']) }}">
                     <div>
                         <p class="table-name">{{ $row['name'] }}</p>
-                        <p class="table-sub">{{ $row['open'].' open bill'.($row['open'] === 1 ? '' : 's') }}</p>
+                        <p class="table-sub">{{ $row['bills'].' order'.($row['bills'] === 1 ? '' : 's') }}</p>
                     </div>
                     <div>
-                        <p class="table-due">{{ \App\Support\TableBoard::money($row['due']) }} XAF</p>
+                        <p class="table-due">{{ \App\Support\TableBoard::money(isset($row['total']) ? $row['total'] : $row['due']) }} XAF</p>
                         <div style="text-align:right"><span class="table-pill {{ strtolower($row['status']) }}">{{ $row['status'] }}</span></div>
                     </div>
                 </a>

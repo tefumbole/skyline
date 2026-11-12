@@ -139,14 +139,25 @@
         if (receipt.customer) {
             add(receipt.customer);
         }
+        if (receipt.table) {
+            add(receipt.table);
+        }
         if (receipt.status) {
             add('Status ' + receipt.status);
         }
         lines.push(' ');
         (receipt.items || []).forEach(function (item) {
             add(item.name || 'Item');
-            add(padLine((item.qty || '') + ' x ' + (item.unit || ''), item.total || '', width));
+            if (item.unit || item.total) {
+                add(padLine((item.qty || '') + ' x ' + (item.unit || ''), item.total || '', width));
+            }
         });
+        (receipt.notes || []).forEach(function (note) {
+            add(note);
+        });
+        if (receipt.placed) {
+            add('Placed by ' + receipt.placed);
+        }
         (receipt.totals || []).forEach(function (row) {
             add(padLine(row.label || '', row.value || '', width));
         });

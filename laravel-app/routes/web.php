@@ -1128,6 +1128,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::get('sales/paypalSuccess', 'SaleController@paypalSuccess');
 	Route::get('sales/paypalPaymentSuccess/{id}', 'SaleController@paypalPaymentSuccess');
 	Route::get('sales/gen_invoice/{id}', 'SaleController@genInvoice')->name('sale.invoice');
+	Route::get('sales/kitchen-print/{id}', 'KitchenPrintController@show')->name('sale.kitchen-print');
 	Route::get('sales/barcode/{ref}', 'SaleController@barcodePng')->name('sale.barcode');
 	Route::get('sales/qrcode/{id}', 'SaleController@qrcodePng')->name('sale.qrcode');
 	Route::post('sales/add_payment', 'SaleController@addPayment')->name('sale.add-payment');

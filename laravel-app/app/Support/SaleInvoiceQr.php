@@ -31,9 +31,9 @@ class SaleInvoiceQr
         return 'data:image/png;base64,'.base64_encode(self::png($sale, $withLogo));
     }
 
-    public static function png(Sale $sale, $withLogo = false)
+    public static function png(Sale $sale, $withLogo = false, $url = null)
     {
-        $raw = QrPng::make(self::scanUrl($sale), $withLogo ? 'H' : 'M', 8);
+        $raw = QrPng::make($url ? (string) $url : self::scanUrl($sale), $withLogo ? 'H' : 'M', 8);
         if (! $withLogo || ! function_exists('imagecreatefromstring') || ! function_exists('imagepng')) {
             return $raw;
         }

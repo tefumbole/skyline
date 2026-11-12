@@ -326,6 +326,7 @@ class SaleController extends Controller
                             </button>
                             <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
                                 <li><a href="'.route('sale.invoice', $sale->id).'" class="btn btn-link"><i class="fa fa-copy"></i> '.trans('file.Generate Invoice').'</a></li>
+                                <li><a href="'.route('sale.kitchen-print', $sale->id).'?autoprint=1" class="btn btn-link" target="_blank"><i class="fa fa-cutlery"></i> Kitchen Print</a></li>
                                 <li>
                                     <button type="button" class="btn btn-link view"><i class="fa fa-eye"></i> '.trans('file.View').'</button>
                                 </li>';
@@ -1093,7 +1094,7 @@ class SaleController extends Controller
 
         if($data['pos'] == 1) {
             if ((int) $data['paid_by_id'] === 9) {
-                return redirect('sales/gen_invoice/' . $lims_sale_data->id . '?autoprint=1');
+                return redirect(route('sale.kitchen-print', $lims_sale_data->id).'?autoprint=1');
             }
             if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {
                 return redirect()->route('payment.index')->with('message', 'Momo received. The remaining balance is in Payments.');
@@ -3229,7 +3230,7 @@ class SaleController extends Controller
         if (! $sale) {
             abort(404);
         }
-        $png = \App\Support\SaleInvoiceQr::png($sale, true);
+        $png = \App\Support\SaleInvoiceQr::png($sale, true, \App\Support\SalePayQr::payUrl($sale));
 
         return response($png, 200)->header('Content-Type', 'image/png')->header('Cache-Control', 'public, max-age=3600');
     }

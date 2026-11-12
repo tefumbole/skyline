@@ -1039,8 +1039,8 @@
                     $('#sale-site-phone').text('').hide();
                 }
                 $('#sale-ref-line').html(
-                    '<strong>{{trans("file.reference")}}:</strong> ' + (sale[1] || '') + '<br>' +
-                    '<strong>{{trans("file.Date")}}:</strong> ' + (sale[0] || '') + '<br>' +
+                    '<strong>Invoice number:</strong> ' + (sale[1] || '') + '<br>' +
+                    '<strong>Date:</strong> ' + (sale[0] || '') + '<br>' +
                     '<strong>{{trans("file.Sale Status")}}:</strong> ' + (sale[2] || '') + '<br>' +
                     '<strong>{{trans("file.customer")}}:</strong> ' + (sale[9] || '') + '<br>' +
                     '<strong>{{trans("file.Phone Number")}}:</strong> ' + (sale[10] || '') + '<br>' +
@@ -1050,8 +1050,8 @@
                 $('table.product-sale-list').show();
                 $('#sale-site-phone').text('').hide();
                 $('#sale-ref-line').html(
-                    '<strong>{{trans("file.reference")}}:</strong> ' + (sale[1] || '') + '<br>' +
-                    '<strong>{{trans("file.Date")}}:</strong> ' + (sale[0] || '')
+                    '<strong>Invoice number:</strong> ' + (sale[1] || '') + '<br>' +
+                    '<strong>Date:</strong> ' + (sale[0] || '')
                 );
             }
 
@@ -1068,8 +1068,8 @@
                 htmltext = '<table class="table table-sm table-bordered mb-2" style="font-size:12px;">' +
                     '<tr>' +
                     '<td style="width:50%;vertical-align:top;background:#f8f9fc;">' +
-                    '<strong>{{trans("file.reference")}}:</strong> ' + sale[1] + '<br>' +
-                    '<strong>{{trans("file.Date")}}:</strong> ' + sale[0] + '<br>' +
+                    '<strong>Invoice number:</strong> ' + sale[1] + '<br>' +
+                    '<strong>Date:</strong> ' + sale[0] + '<br>' +
                     '<strong>{{trans("file.Warehouse")}}:</strong> ' + sale[27] + '<br>' +
                     '<strong>{{trans("file.Sale Status")}}:</strong> ' + sale[2] +
                     '</td>' +
@@ -1125,7 +1125,7 @@
                         (logo ? '<img class="sky-logo" src="' + esc(logo) + '" alt="">' : '') +
                         (phone ? '<div class="sky-phone">' + esc(phone) + '</div>' : '') +
                         '<hr class="sky-rule"><div class="sky-title">SALES INVOICE</div><hr class="sky-rule">' +
-                        '<div class="sky-box"><div><strong>Customer:</strong> ' + esc(sale[9] || '') + '</div><div><strong>Phone:</strong> ' + esc(customerPhone) + '</div></div>' +
+                        '<div class="sky-box"><div><strong>Invoice number:</strong> ' + esc(sale[1] || '') + '</div><div><strong>Date:</strong> ' + esc(sale[0] || '') + '</div><div><strong>Customer:</strong> ' + esc(sale[9] || '') + '</div><div><strong>Phone:</strong> ' + esc(customerPhone) + '</div></div>' +
                         '<table class="sky-grid"><thead><tr><th>Product</th><th class="c">Qty</th><th class="r">Price</th><th class="r">Total</th></tr></thead><tbody>' + rows + '</tbody></table>' +
                         (extra ? '<table class="sky-extra">' + extra + '</table>' : '') +
                         '<table class="sky-total"><tr><td>TOTAL (XAF)</td><td>' + money(sale[21]) + '</td></tr></table>' +

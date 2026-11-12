@@ -276,15 +276,15 @@
 
         <div class="title">Sales Invoice</div>
         <div class="ref-line">
-            <strong>{{ trans('file.reference') }}:</strong> {{ $lims_sale_data->reference_no }}<br>
-            <strong>{{ trans('file.Date') }}:</strong> {{ $lims_sale_data->created_at->format('d-m-Y') }}
+            <strong>Invoice number:</strong> {{ $lims_sale_data->reference_no }}<br>
+            <strong>Date:</strong> {{ $lims_sale_data->created_at->format('d-m-Y H:i') }}
         </div>
 
         <table class="meta">
             <tr>
                 <td>
-                    <strong>{{ trans('file.reference') }}:</strong> {{ $lims_sale_data->reference_no }}<br>
-                    <strong>{{ trans('file.Date') }}:</strong> {{ $lims_sale_data->created_at->format('d-m-Y') }}<br>
+                    <strong>Invoice number:</strong> {{ $lims_sale_data->reference_no }}<br>
+                    <strong>Date:</strong> {{ $lims_sale_data->created_at->format('d-m-Y H:i') }}<br>
                     @if(@$lims_warehouse_data->name)
                         <strong>{{ trans('file.Warehouse') }}:</strong> {{ $lims_warehouse_data->name }}<br>
                     @endif

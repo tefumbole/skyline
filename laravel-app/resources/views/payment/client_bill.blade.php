@@ -42,8 +42,8 @@
                 $saleLines = isset($lines[$sale->id]) ? $lines[$sale->id] : collect();
             @endphp
             <section class="order">
-                <h2>{{ $sale->reference_no }}</h2>
-                <p class="muted">{{ $sale->created_at ? $sale->created_at->format('j M Y H:i') : '' }}</p>
+                <h2>Invoice number {{ $sale->reference_no }}</h2>
+                <p class="muted">Date {{ $sale->created_at ? $sale->created_at->format('d-m-Y H:i') : '' }}</p>
                 <table>
                     @forelse($saleLines as $line)
                         <tr>

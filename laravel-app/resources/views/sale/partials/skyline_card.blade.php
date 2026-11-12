@@ -100,6 +100,8 @@
     <div class="sky-title">SALES INVOICE</div>
     <hr class="sky-rule">
     <div class="sky-box">
+        <div><strong>Invoice number:</strong> {{ $lims_sale_data->reference_no }}</div>
+        <div><strong>Date:</strong> {{ $lims_sale_data->created_at ? $lims_sale_data->created_at->format('d-m-Y H:i') : '' }}</div>
         <div><strong>Customer:</strong> {{ @$lims_customer_data->name }}</div>
         <div><strong>Phone:</strong> {{ $customerPhone }}</div>
     </div>

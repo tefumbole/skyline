@@ -65,5 +65,8 @@
             <tr><td>Due</td><td class="amt">{{ number_format(max(0, $grand - $paid), 0) }} XAF</td></tr>
         </table>
     </article>
+@if(request()->boolean('print'))
+<script>window.addEventListener('load', function () { window.print(); });</script>
+@endif
 </body>
 </html>

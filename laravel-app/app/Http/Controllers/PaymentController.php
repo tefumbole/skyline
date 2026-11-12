@@ -452,6 +452,7 @@ class PaymentController extends Controller
             'external' => $external,
             'label' => $customer->name.($count > 1 ? ' · '.$count.' orders' : ''),
         ], now()->addMinutes(30));
+        \Illuminate\Support\Facades\Cache::put($external, ['token' => $token], now()->addMinutes(30));
 
         return redirect()->route('payment.client-momo', ['token' => $token]);
     }
@@ -559,6 +560,11 @@ class PaymentController extends Controller
             'user_id' => Auth::id(),
             'label' => $customer->name.' · '.count($parts).' numbers',
         ], now()->addMinutes(30));
+        foreach ($parts as $part) {
+            if (! empty($part['external']) && $part['state'] !== 'failed') {
+                \Illuminate\Support\Facades\Cache::put($part['external'], ['token' => $token], now()->addMinutes(30));
+            }
+        }
 
         return redirect()->route('payment.client-momo', ['token' => $token]);
     }
@@ -1307,8 +1313,74 @@ class PaymentController extends Controller
 
         return response()->json([
             'status' => 'paid',
-            'url' => route('payment.index'),
+            'url' => $link ?: route('payment.index'),
+            'print' => $link,
         ]);
+    }
+
+    public function applyClientMomoWebhook(Request $request, $reference, $external)
+    {
+        $pointer = \Illuminate\Support\Facades\Cache::get($external);
+        if (! is_array($pointer) || empty($pointer['token'])) {
+            return;
+        }
+        $token = (string) $pointer['token'];
+        $pending = \Illuminate\Support\Facades\Cache::get('client-momo:'.$token);
+        if (! is_array($pending)) {
+            return;
+        }
+        $body = $request->all();
+        if (empty($body['external_reference'])) {
+            $body['external_reference'] = $external;
+        }
+        if (empty($body['currency'])) {
+            $body['currency'] = 'XAF';
+        }
+        if (strtoupper(trim((string) (isset($body['status']) ? $body['status'] : ''))) !== 'SUCCESSFUL') {
+            return;
+        }
+        $collect = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote((string) $external, '/').'$/';
+        if (! empty($pending['parts']) && is_array($pending['parts'])) {
+            foreach ($pending['parts'] as $index => $part) {
+                if ((string) $part['external'] !== (string) $external || ! empty($part['recorded'])) {
+                    continue;
+                }
+                if (! $collect->collectionDebited($body, $part['amount'], $part['phone'], $pattern)) {
+                    return;
+                }
+                $part['reference'] = $reference;
+                $this->recordSplitPart($pending, $part);
+                $pending['parts'][$index]['reference'] = $reference;
+                $pending['parts'][$index]['state'] = 'paid';
+                $pending['parts'][$index]['recorded'] = true;
+                \Illuminate\Support\Facades\Cache::put('client-momo:'.$token, $pending, now()->addMinutes(30));
+
+                return;
+            }
+
+            return;
+        }
+        if ((string) (isset($pending['external']) ? $pending['external'] : '') !== (string) $external) {
+            return;
+        }
+        if (! $collect->collectionDebited($body, $pending['amount'], $pending['phone'], $pattern)) {
+            return;
+        }
+        foreach ($pending['slices'] as $saleId => $slice) {
+            $sale = Sale::find($saleId);
+            if (! $sale || \App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $reference)) {
+                continue;
+            }
+            \App\Services\Restaurant\RestaurantPayments::recordGateway(
+                $sale,
+                $slice,
+                $reference,
+                isset($pending['user_id']) ? $pending['user_id'] : null
+            );
+        }
+        $pending['reference'] = $reference;
+        \Illuminate\Support\Facades\Cache::put('client-momo:'.$token, $pending, now()->addMinutes(30));
     }
 
     protected function receiptLink(array $saleIds)
@@ -1325,12 +1397,12 @@ class PaymentController extends Controller
             return null;
         }
         if (count($ids) === 1) {
-            return route('sale.invoice', $ids[0]).'?autoprint=1';
+            return route('sale.invoice', $ids[0]).'?print=1';
         }
         $token = bin2hex(random_bytes(8));
         \Illuminate\Support\Facades\Cache::put('payment-receipt:'.$token, $ids, now()->addHours(12));
 
-        return route('payment.receipt', ['token' => $token]);
+        return route('payment.receipt', ['token' => $token]).'?print=1';
     }
 
     protected function assertCanReadPayments()

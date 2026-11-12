@@ -22,7 +22,7 @@
                 <div class="pay-kicker" style="color:#8a6230">Waiting for</div>
                 <strong>{{ number_format($amount, 0, '.', ' ') }} XAF</strong>
             </div>
-            <p id="momo-hint" style="margin-top:14px">A prompt was sent. The order is placed only after the client approves it on their phone.</p>
+            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints.</p>
             <a id="momo-back" class="btn btn-default" href="{{ url('pos') }}">Back to POS</a>
         </div>
     </div>
@@ -40,10 +40,10 @@
         fetch(@json($statusUrl), {headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
             .then(function (response) { return response.json(); })
             .then(function (data) {
-                if (data.status === 'paid' && data.url) {
+                if (data.status === 'paid' && (data.print || data.url)) {
                     stopped = true;
-                    hint.textContent = 'Payment received. Opening the sale.';
-                    window.location = data.url;
+                    hint.textContent = 'Payment received. Printing the invoice.';
+                    window.location = data.print || data.url;
                     return;
                 }
                 if (data.status === 'failed') {
@@ -56,7 +56,7 @@
                     hint.textContent = 'Still waiting. If the prompt expired, go back and send it again.';
                     back.style.display = '';
                 }
-                window.setTimeout(tick, 1500);
+                window.setTimeout(tick, 1000);
             })
             .catch(function () { window.setTimeout(tick, 1500); });
     }

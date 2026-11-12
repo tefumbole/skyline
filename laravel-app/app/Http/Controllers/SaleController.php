@@ -366,7 +366,7 @@ class SaleController extends Controller
                 else
                     $coupon_code = null;
 
-                $nestedData['sale'] = array( '[ "'.date(config('date_format'), strtotime($sale->created_at->toDateString())).'"', ' "'.$sale->reference_no.'"', ' "'.$sale_status.'"', ' "'.($biller ? $biller->name : '').'"', ' "'.($biller ? $biller->company_name : '').'"', ' "'.($biller ? $biller->email : '').'"', ' "'.($biller ? $biller->phone_number : '').'"', ' "'.($biller ? $biller->address : '').'"', ' "'.($biller ? $biller->city : '').'"', ' "'.($customer ? $customer->name : '').'"', ' "'.($customer ? $customer->phone_number : '').'"', ' "'.($customer ? $customer->address : '').'"', ' "'.($customer ? $customer->city : '').'"', ' "'.$sale->id.'"', ' "'.$sale->total_tax.'"', ' "'.$sale->total_discount.'"', ' "'.$sale->total_price.'"', ' "'.$sale->order_tax.'"', ' "'.$sale->order_tax_rate.'"', ' "'.$sale->order_discount.'"', ' "'.$sale->shipping_cost.'"', ' "'.$sale->grand_total.'"', ' "'.$sale->paid_amount.'"', ' "'.preg_replace('/[\n\r]/', "<br>", $sale->sale_note).'"', ' "'.preg_replace('/[\n\r]/', "<br>", $sale->staff_note).'"', ' "'.($staff ? $staff->name : '').'"', ' "'.($staff ? $staff->email : '').'"', ' "'.($warehouse ? $warehouse->name : '').'"', ' "'.$coupon_code.'"', ' "'.$sale->coupon_discount.'"]'
+                $nestedData['sale'] = array( '[ "'.date(config('date_format').' H:i', strtotime($sale->created_at)).'"', ' "'.$sale->reference_no.'"', ' "'.$sale_status.'"', ' "'.($biller ? $biller->name : '').'"', ' "'.($biller ? $biller->company_name : '').'"', ' "'.($biller ? $biller->email : '').'"', ' "'.($biller ? $biller->phone_number : '').'"', ' "'.($biller ? $biller->address : '').'"', ' "'.($biller ? $biller->city : '').'"', ' "'.($customer ? $customer->name : '').'"', ' "'.($customer ? $customer->phone_number : '').'"', ' "'.($customer ? $customer->address : '').'"', ' "'.($customer ? $customer->city : '').'"', ' "'.$sale->id.'"', ' "'.$sale->total_tax.'"', ' "'.$sale->total_discount.'"', ' "'.$sale->total_price.'"', ' "'.$sale->order_tax.'"', ' "'.$sale->order_tax_rate.'"', ' "'.$sale->order_discount.'"', ' "'.$sale->shipping_cost.'"', ' "'.$sale->grand_total.'"', ' "'.$sale->paid_amount.'"', ' "'.preg_replace('/[\n\r]/', "<br>", $sale->sale_note).'"', ' "'.preg_replace('/[\n\r]/', "<br>", $sale->staff_note).'"', ' "'.($staff ? $staff->name : '').'"', ' "'.($staff ? $staff->email : '').'"', ' "'.($warehouse ? $warehouse->name : '').'"', ' "'.$coupon_code.'"', ' "'.$sale->coupon_discount.'"]'
                 );
                 $data[] = $nestedData;
             }
@@ -3518,9 +3518,9 @@ class SaleController extends Controller
         }
         $back = isset($pending['back']) ? $pending['back'] : route('payment.index');
         if (\App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
-            session()->flash('payment_receipt_sale', $sale->id);
+            $print = route('sale.invoice', $sale->id).'?print=1';
 
-            return response()->json(['status' => 'paid', 'url' => $back]);
+            return response()->json(['status' => 'paid', 'url' => $print, 'print' => $print]);
         }
         $campay = app(\App\Services\CampayCollectService::class);
         $pattern = '/^'.preg_quote($pending['external'], '/').'$/';
@@ -3538,9 +3538,9 @@ class SaleController extends Controller
                 }
                 \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
                 \Illuminate\Support\Facades\Cache::forget($pending['external']);
-                session()->flash('payment_receipt_sale', $sale->id);
+                $print = route('sale.invoice', $sale->id).'?print=1';
 
-                return response()->json(['status' => 'paid', 'url' => $back]);
+                return response()->json(['status' => 'paid', 'url' => $print, 'print' => $print]);
             }
 
             return response()->json(['status' => 'pending']);

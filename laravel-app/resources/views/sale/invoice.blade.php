@@ -24,7 +24,8 @@
         $dueAmount = (float) $lims_sale_data->grand_total - $paidAmount;
         $saleNote = trim(strip_tags((string) ($lims_sale_data->sale_note ?? '')));
         $staffNote = trim(strip_tags((string) ($lims_sale_data->staff_note ?? '')));
-        $sunmiPrint = ! empty($sunmiPrint) || request()->boolean('autoprint');
+        $printNow = request()->boolean('autoprint') || request()->boolean('print');
+        $sunmiPrint = ! empty($sunmiPrint);
         $sunmiPaperMm = (int) ($sunmiPaperMm ?? 80) === 58 ? 58 : 80;
     @endphp
     <style type="text/css">
@@ -638,7 +639,7 @@
         }, sunmiHooks());
     }
     document.getElementById('invoice-print-btn').addEventListener('click', printSunmiReceipt);
-    if (window.location.search.indexOf('autoprint=1') !== -1) {
+    if (window.location.search.indexOf('autoprint=1') !== -1 || window.location.search.indexOf('print=1') !== -1) {
         printSunmiReceipt();
     }
     document.getElementById('sunmi-test-btn').addEventListener('click', printSunmiTest);
@@ -647,9 +648,9 @@
         else printSunmiReceipt();
     });
 </script>
-@elseif(session()->has('message') || request()->boolean('autoprint'))
+@elseif($printNow || session()->has('message'))
 <script>
-    setTimeout(function () { window.print(); }, 600);
+    window.addEventListener('load', function () { window.print(); });
 </script>
 @endif
 </body>

@@ -169,7 +169,7 @@ class CampayCollectService
             'Content-Type: application/json',
             'Accept: application/json',
         ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 40);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $method === 'GET' ? 8 : 20);
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));

@@ -162,6 +162,11 @@ class RestaurantPayController extends Controller
 
             return response('ok', 200);
         }
+        if (strpos($external, 'client-momo-') === 0) {
+            app(PaymentController::class)->applyClientMomoWebhook($request, $reference, $external);
+
+            return response('ok', 200);
+        }
         if ($this->settleIncomingCollect($reference, $external)) {
             return response('ok', 200);
         }
@@ -176,7 +181,13 @@ class RestaurantPayController extends Controller
             $sale = Sale::find((int) $external);
         }
         if ($sale) {
-            $verified = $this->verifyCampayTransaction($reference, null, null, $external);
+            $verified = null;
+            if (is_array($pending)) {
+                $verified = $this->webhookDebit($request, $reference, $external, $pending['amount'], isset($pending['phone']) ? $pending['phone'] : null);
+            }
+            if (! $verified) {
+                $verified = $this->verifyCampayTransaction($reference, null, null, $external);
+            }
             if ($verified) {
                 $result = RestaurantPayments::recordGateway(
                     $sale,
@@ -199,6 +210,35 @@ class RestaurantPayController extends Controller
         }
 
         return response('ok', 200);
+    }
+
+    protected function webhookDebit(Request $request, $reference, $external, $amount, $phone)
+    {
+        $body = $request->all();
+        if (strtoupper(trim((string) (isset($body['status']) ? $body['status'] : ''))) !== 'SUCCESSFUL') {
+            return null;
+        }
+        if (empty($body['external_reference'])) {
+            $body['external_reference'] = $external;
+        }
+        if (empty($body['currency'])) {
+            $body['currency'] = 'XAF';
+        }
+        $collect = app(\App\Services\CampayCollectService::class);
+        $pattern = '/^'.preg_quote((string) $external, '/').'$/';
+        if (! $collect->collectionDebited($body, $amount, $phone, $pattern)) {
+            return null;
+        }
+        $landed = isset($body['app_amount']) && is_numeric($body['app_amount']) && (float) $body['app_amount'] > 0
+            ? (float) $body['app_amount']
+            : (float) $amount;
+
+        return [
+            'status' => 'SUCCESSFUL',
+            'amount' => $landed,
+            'reference' => $reference,
+            'external' => $external,
+        ];
     }
 
     protected function settleIncomingCollect($reference, $external)

@@ -37,7 +37,7 @@
                 @endforeach
             </ul>
             @endif
-            <p id="momo-hint" style="margin-top:14px">{{ !empty($parts) ? 'Each person approves their own share. A share is recorded only after that phone approves it.' : 'A prompt was sent. This bill is confirmed only after the client approves it on their phone.' }}</p>
+            <p id="momo-hint" style="margin-top:14px">Keep this page open. As soon as the phone approves, this page closes and the invoice prints.</p>
             <a id="momo-back" class="btn btn-default pay-back" href="{{ $backUrl }}">Back</a>
         </div>
     </div>
@@ -65,10 +65,10 @@
                 if (data.message && data.status !== 'paid') {
                     hint.textContent = data.message;
                 }
-                if (data.status === 'paid' && data.url) {
+                if (data.status === 'paid' && (data.print || data.url)) {
                     stopped = true;
-                    hint.textContent = 'Payment received. The bill is confirmed.';
-                    window.location = data.url;
+                    hint.textContent = 'Payment received. Printing the invoice.';
+                    window.location = data.print || data.url;
                     return;
                 }
                 if (data.status === 'failed') {
@@ -81,7 +81,7 @@
                     hint.textContent = 'Still waiting. If the prompt expired, go back and send it again. The bill is not paid yet.';
                     back.style.display = 'inline-block';
                 }
-                window.setTimeout(tick, 1500);
+                window.setTimeout(tick, 1000);
             })
             .catch(function () { window.setTimeout(tick, 1500); });
     }

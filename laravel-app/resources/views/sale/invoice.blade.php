@@ -24,7 +24,7 @@
         $dueAmount = (float) $lims_sale_data->grand_total - $paidAmount;
         $saleNote = trim(strip_tags((string) ($lims_sale_data->sale_note ?? '')));
         $staffNote = trim(strip_tags((string) ($lims_sale_data->staff_note ?? '')));
-        $sunmiPrint = ! empty($sunmiPrint);
+        $sunmiPrint = ! empty($sunmiPrint) || request()->boolean('autoprint');
         $sunmiPaperMm = (int) ($sunmiPaperMm ?? 80) === 58 ? 58 : 80;
     @endphp
     <style type="text/css">
@@ -439,7 +439,7 @@
                             <td>{{ number_format($paidAmount, 2) }}</td>
                         </tr>
                         <tr>
-                            <th>Amount Pending</th>
+                            <th>{{ (int) $lims_sale_data->payment_status === 2 ? 'Amount Due' : 'Amount Pending' }}</th>
                             <td>{{ number_format(max(0, $dueAmount), 2) }}</td>
                         </tr>
                         <tr>
@@ -544,7 +544,16 @@
     $sunmiTotals[] = ['label' => 'Total', 'value' => $sunmiMoney($lims_sale_data->grand_total)];
     $sunmiTotals[] = ['label' => 'Paid', 'value' => $sunmiMoney($paidAmount)];
     if ($dueAmount > 0.009) {
-        $sunmiTotals[] = ['label' => 'Pending', 'value' => $sunmiMoney($dueAmount)];
+        $sunmiTotals[] = ['label' => (int) $lims_sale_data->payment_status === 2 ? 'Due' : 'Pending', 'value' => $sunmiMoney($dueAmount)];
+    }
+    if ((int) $lims_sale_data->payment_status === 2) {
+        $sunmiStatus = 'Due';
+    } elseif ((int) $lims_sale_data->payment_status === 3) {
+        $sunmiStatus = 'Partial';
+    } elseif ((int) $lims_sale_data->payment_status === 4) {
+        $sunmiStatus = 'Paid';
+    } else {
+        $sunmiStatus = 'Pending';
     }
     $sunmiPayments = [];
     foreach ($lims_payment_data as $payment_data) {
@@ -572,6 +581,7 @@
         'date' => $sunmiWhenText,
         'cashier' => $cashierName,
         'customer' => optional($lims_customer_data)->name ?: '',
+        'status' => $sunmiStatus,
         'items' => $sunmiItems,
         'totals' => $sunmiTotals,
         'payments' => $sunmiPayments,

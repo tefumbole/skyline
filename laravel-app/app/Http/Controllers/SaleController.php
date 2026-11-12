@@ -505,12 +505,13 @@ class SaleController extends Controller
             $balance = $data['grand_total'] - $data['paid_amount'];
             $data['payment_status'] = $this->paymentStatusForBalance($data['paid_amount'], $balance);
 
-            if ((int) $data['paid_by_id'] === 9 || ((int) $data['paid_by_id'] === 8 && empty($data['momo_verified']))) {
+            if ((int) $data['paid_by_id'] === 9) {
+                $data['payment_status'] = 2;
+                $data['paid_amount'] = 0;
+                $paying_method = 'Pay Later';
+            } elseif ((int) $data['paid_by_id'] === 8 && empty($data['momo_verified'])) {
                 $data['payment_status'] = 1;
                 $data['paid_amount'] = 0;
-                if ((int) $data['paid_by_id'] === 9) {
-                    $paying_method = 'Pay Later';
-                }
             }
             if($data['draft']) {
                 $lims_sale_data = Sale::find($data['sale_id']);
@@ -1092,7 +1093,7 @@ class SaleController extends Controller
 
         if($data['pos'] == 1) {
             if ((int) $data['paid_by_id'] === 9) {
-                return redirect()->route('sale.pos')->with('message', 'Order sent.');
+                return redirect('sales/gen_invoice/' . $lims_sale_data->id . '?autoprint=1');
             }
             if ((int) $data['paid_by_id'] === 8 && (int) $lims_sale_data->payment_status === 3) {
                 return redirect()->route('payment.index')->with('message', 'Momo received. The remaining balance is in Payments.');

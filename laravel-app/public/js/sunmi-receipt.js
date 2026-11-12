@@ -139,6 +139,9 @@
         if (receipt.customer) {
             add(receipt.customer);
         }
+        if (receipt.status) {
+            add('Status ' + receipt.status);
+        }
         lines.push(' ');
         (receipt.items || []).forEach(function (item) {
             add(item.name || 'Item');

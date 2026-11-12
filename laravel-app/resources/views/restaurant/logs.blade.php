@@ -6,15 +6,16 @@
     .log-page h1 { margin: 4px 0 0; color: #0c1830; font-size: 32px; font-weight: 700; letter-spacing: -.03em; }
     .log-lead { margin: 8px 0 0; color: #5c6b82; }
     .log-card { margin-top: 16px; border: 0; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(12,24,48,.06); overflow: hidden; }
-    .log-sheet { overflow: visible; }
+    .log-sheet { overflow: hidden; }
     .log-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px; }
     .log-filters .form-control { height: 42px; border: 1px solid #d7deea; border-radius: 12px; color: #0c1830; box-shadow: none; }
     .log-filters .form-control:focus { border-color: #e1b368; }
     .log-filters .grow { flex: 1 1 150px; min-width: 140px; }
     .log-go { height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: #0c1830; color: #e1b368; font-weight: 700; }
-    .log-scroll { overflow: visible; }
+    .log-scroll { overflow-x: auto; overflow-y: hidden; }
     .log-table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 0; }
-    .log-table th { position: sticky; top: 0; z-index: 6; padding: 13px 14px; background: #0c1830; color: #e1b368; border: 0; box-shadow: inset 0 -3px 0 #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .log-table thead { position: relative; z-index: 6; }
+    .log-table th { position: relative; z-index: 6; padding: 13px 14px; background: #0c1830; color: #e1b368; border: 0; box-shadow: inset 0 -3px 0 #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
     .log-sheet > .log-scroll:first-child .log-table thead th:first-child { border-top-left-radius: 18px; }
     .log-sheet > .log-scroll:first-child .log-table thead th:last-child { border-top-right-radius: 18px; }
     .log-table td { padding: 14px; border-top: 1px solid #eef1f6; color: #1c2434; vertical-align: top; }
@@ -47,9 +48,6 @@
         .log-page h1 { font-size: 26px; }
         .log-filters .grow { flex-basis: 100%; }
         .log-go { width: 100%; }
-    }
-    @media (max-width: 1199.98px) {
-        .log-table th { top: 63px; }
     }
 </style>
 <section class="container-fluid log-page">
@@ -187,4 +185,32 @@
         </form>
     </div>
 </section>
+<script>
+(function () {
+    var tables = document.querySelectorAll('.log-page .log-sheet .log-table');
+    if (!tables.length) return;
+    var ticking = false;
+    function pin() {
+        var bar = window.matchMedia('(max-width: 1199.98px)').matches ? 63 : 0;
+        for (var t = 0; t < tables.length; t++) {
+            var table = tables[t];
+            var cells = table.tHead ? table.tHead.rows[0].cells : [];
+            if (!cells.length) continue;
+            var rect = table.getBoundingClientRect();
+            var headH = cells[0].offsetHeight;
+            var shift = rect.top < bar ? Math.min(bar - rect.top, Math.max(0, rect.height - headH)) : 0;
+            var transform = shift ? 'translateY(' + shift + 'px)' : '';
+            for (var i = 0; i < cells.length; i++) cells[i].style.transform = transform;
+        }
+    }
+    function requestPin() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () { ticking = false; pin(); });
+    }
+    window.addEventListener('scroll', requestPin, { passive: true });
+    window.addEventListener('resize', requestPin);
+    pin();
+})();
+</script>
 @endsection

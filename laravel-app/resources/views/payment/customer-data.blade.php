@@ -145,6 +145,10 @@
         #add-payment .pay-choice button small { display: block; color: #5c6b82; font-weight: 600; }
         #add-payment .pay-choice button.is-on { border-color: #0c1830; background: #0c1830; color: #fff; }
         #add-payment .pay-choice button.is-on small { color: #e1b368; }
+        #add-payment #paySplitBtn { width: 100%; min-height: 46px; border: 1px solid #d7deea; border-radius: 14px; background: #fff; color: #0c1830; font-weight: 700; }
+        #add-payment #paySplitBtn small { display: block; color: #5c6b82; font-weight: 600; }
+        #add-payment #paySplitBtn.is-on { border-color: #0c1830; background: #0c1830; color: #fff; }
+        #add-payment #paySplitBtn.is-on small { color: #e1b368; }
         #add-payment .pay-amount { margin-bottom: 8px; }
         #add-payment .pay-split { margin-bottom: 8px; }
         #add-payment .pay-split-row { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -196,7 +200,7 @@
                         <button type="button" class="pay-mode" data-mode="part">Partial<small>Pay part now</small></button>
                     </div>
                     <div id="paySplitToggle" hidden style="margin-bottom:8px">
-                        <button type="button" class="pay-mode" data-mode="split" id="paySplitBtn" style="width:100%">Split payment<small>Several Mobile Money numbers</small></button>
+                        <button type="button" class="pay-mode" data-mode="split" id="paySplitBtn">Split payment<small>Several Mobile Money numbers</small></button>
                     </div>
                     <div id="paySplitRows" class="pay-split" hidden>
                         <div id="paySplitList"></div>

@@ -26,9 +26,9 @@
     .state-delivered { color: #178a45; }
     .food-clock { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0c1830; color: #e1b368; font-variant-numeric: tabular-nums; }
     .food-clock.is-late { background: #8a1f1f; color: #fff; }
-    .table-pill.pending, .table-pill.open { background: #fff4e5; color: #8a5a1f; }
-    .table-pill.due { background: #fde8e8; color: #8a1f1f; }
-    .table-pill.paid { background: #d9f5e5; color: #178a45; }
+    .table-pill.pending, .table-pill.open, .table-pill.waiting, .table-pill.accepted { background: #fff4e5; color: #8a5a1f; }
+    .table-pill.due, .table-pill.ready { background: #fde8e8; color: #8a1f1f; }
+    .table-pill.paid, .table-pill.delivered { background: #d9f5e5; color: #178a45; }
     .table-empty { margin-top: 18px; padding: 28px 18px; border: 1px dashed #d7deea; border-radius: 18px; background: #fff; color: #5c6b82; text-align: center; }
     @media (min-width: 700px) {
         .table-grid { grid-template-columns: 1fr 1fr; }
@@ -46,7 +46,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="table-kicker">Sales</p>
     <h1>Tables</h1>
-    <p class="table-lead">A table stays while a dish is still Awaiting, Cooking, or Ready for delivery. A delivered order leaves the table. A table with nothing left disappears.</p>
+    <p class="table-lead">Each table lists today's orders. Open a table to see every dish and whether it is Waiting, Accepted, Ready for delivery, or Delivered.</p>
     @if(count($tables))
         <div class="table-grid">
             @foreach($tables as $row)
@@ -72,7 +72,7 @@
                     </div>
                     <div>
                         <p class="table-due">{{ \App\Support\TableBoard::money(isset($row['total']) ? $row['total'] : $row['due']) }} XAF</p>
-                        <div style="text-align:right"><span class="table-pill {{ strtolower($row['status']) }}">{{ $row['status'] }}</span></div>
+                        <div style="text-align:right"><span class="table-pill {{ $row['status_class'] }}">{{ $row['status'] }}</span></div>
                     </div>
                 </a>
             @endforeach

@@ -92,7 +92,7 @@ class TableBoard
             $grouped[$id]['bills']++;
             $grouped[$id]['due'] += $bill['due'];
             $grouped[$id]['total'] = (isset($grouped[$id]['total']) ? $grouped[$id]['total'] : 0) + $bill['total'];
-            $grouped[$id]['states'][] = $bill['status'];
+            $grouped[$id]['states'][] = $bill['order_status'];
             if ($bill['due'] > 0.009) {
                 $grouped[$id]['open']++;
             }
@@ -112,20 +112,17 @@ class TableBoard
             if (count($row['food']) < 1) {
                 continue;
             }
-            $row['status'] = self::rollupStatus($row['states']);
+            $status = self::orderStatus($row['food']);
+            $row['status'] = $status['label'];
+            $row['status_class'] = $status['class'];
+            $row['rank'] = $status['rank'];
             unset($row['states']);
             $rows[] = $row;
         }
 
         usort($rows, function ($a, $b) {
-            $rank = ['Due' => 0, 'Pending' => 1, 'Paid' => 2];
-            $left = isset($rank[$a['status']]) ? $rank[$a['status']] : 3;
-            $right = isset($rank[$b['status']]) ? $rank[$b['status']] : 3;
-            if ($left !== $right) {
-                return $left < $right ? -1 : 1;
-            }
-            if (abs($a['due'] - $b['due']) > 0.009) {
-                return $a['due'] < $b['due'] ? 1 : -1;
+            if ($a['rank'] !== $b['rank']) {
+                return $a['rank'] < $b['rank'] ? -1 : 1;
             }
 
             return strnatcasecmp($a['name'], $b['name']);
@@ -152,11 +149,14 @@ class TableBoard
             return null;
         }
         $due = 0;
-        $states = [];
+        $menu = [];
         foreach ($bills as $bill) {
             $due += $bill['due'];
-            $states[] = $bill['status'];
+            foreach ($bill['menu'] as $line) {
+                $menu[] = $line;
+            }
         }
+        $status = self::orderStatus($menu);
         usort($bills, function ($a, $b) {
             return strcmp($b['when'], $a['when']);
         });
@@ -166,7 +166,8 @@ class TableBoard
             'name' => $name,
             'description' => $description,
             'due' => $due,
-            'status' => self::rollupStatus($states),
+            'status' => $status['label'],
+            'status_class' => $status['class'],
             'bills' => $bills,
         ];
     }
@@ -182,8 +183,8 @@ class TableBoard
             ->whereNotNull('sale_id')
             ->where(function ($query) use ($today) {
                 $query->whereDate('created_at', $today)
-                    ->orWhereHas('sale', function ($sale) {
-                        $sale->where('sale_status', 1)->where('payment_status', '!=', 4);
+                    ->orWhereHas('items', function ($items) {
+                        $items->whereNotIn('status', ['delivered', 'cancelled', 'rejected']);
                     });
             })
             ->orderByDesc('id')
@@ -196,15 +197,12 @@ class TableBoard
             if (! $sale || ! $table || (int) $sale->sale_status === 3 || isset($bills[$sale->id])) {
                 continue;
             }
-            if (Schema::hasColumn('restaurant_orders', 'cashier_at') && ! empty($order->cashier_at)) {
-                continue;
-            }
             $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
             $when = $sale->created_at ? $sale->created_at->format('Y-m-d H:i:s') : (string) $order->created_at;
             $names = [];
             $menu = [];
             foreach ($order->items as $item) {
-                if (in_array($item->status, ['cancelled', 'rejected', 'delivered'], true)) {
+                if ((string) $item->status === 'cancelled') {
                     continue;
                 }
                 $names[] = trim($item->product_name.' × '.($item->qty + 0));
@@ -227,6 +225,7 @@ class TableBoard
                 'today' => substr($when, 0, 10) === $today,
                 'items' => $names,
                 'menu' => $menu,
+                'order_status' => self::orderStatus($menu)['label'],
                 'comment' => trim((string) $order->customer_comment),
                 'placed' => $order->placedBy ? (string) $order->placedBy->name : '',
                 'table_id' => $table->id,
@@ -245,17 +244,19 @@ class TableBoard
         $readyAt = $item->ready_at ? $item->ready_at->getTimestamp() : 0;
         $clock = '';
         if ($state === 'preparing') {
-            $label = 'Cooking';
+            $label = 'Accepted';
             $clock = $dueAt ? 'down' : '';
         } elseif ($state === 'ready') {
             $label = 'Ready for delivery';
             $clock = $readyAt ? 'up' : '';
         } elseif ($state === 'delivered') {
             $label = 'Delivered';
+        } elseif ($state === 'rejected') {
+            $label = 'Rejected';
         } elseif ($state === 'hold') {
             $label = 'On hold';
         } else {
-            $label = 'Awaiting';
+            $label = 'Waiting';
             $state = $state === '' ? 'awaiting' : $state;
         }
 
@@ -282,6 +283,34 @@ class TableBoard
         }
 
         return 'Due';
+    }
+
+    protected static function orderStatus(array $menu)
+    {
+        $rank = [
+            'ready' => ['Ready for delivery', 'ready', 0],
+            'awaiting' => ['Waiting', 'waiting', 1],
+            'preparing' => ['Accepted', 'accepted', 2],
+            'hold' => ['On hold', 'hold', 3],
+            'delivered' => ['Delivered', 'delivered', 4],
+            'rejected' => ['Rejected', 'rejected', 5],
+        ];
+        $best = null;
+        foreach ($menu as $line) {
+            $state = isset($line['state']) ? (string) $line['state'] : '';
+            if (! isset($rank[$state])) {
+                continue;
+            }
+            if ($best === null || $rank[$state][2] < $best[2]) {
+                $best = $rank[$state];
+            }
+        }
+
+        return [
+            'label' => $best ? $best[0] : 'Waiting',
+            'class' => $best ? $best[1] : 'waiting',
+            'rank' => $best ? $best[2] : 1,
+        ];
     }
 
     protected static function rollupStatus(array $statuses)

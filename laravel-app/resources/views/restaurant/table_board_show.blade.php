@@ -9,9 +9,9 @@
     .bill-summary strong { display: block; margin-top: 4px; font-size: 28px; letter-spacing: -.03em; }
     .bill-summary span { color: #e1b368; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .bill-pill { padding: 6px 12px; border-radius: 999px; font-weight: 700; }
-    .bill-pill.pending { background: #fff4e5; color: #8a5a1f; }
-    .bill-pill.due { background: #fde8e8; color: #8a1f1f; }
-    .bill-pill.paid { background: #d9f5e5; color: #178a45; }
+    .bill-pill.pending, .bill-pill.waiting, .bill-pill.accepted { background: #fff4e5; color: #8a5a1f; }
+    .bill-pill.due, .bill-pill.ready { background: #fde8e8; color: #8a1f1f; }
+    .bill-pill.paid, .bill-pill.delivered { background: #d9f5e5; color: #178a45; }
     .food-clock { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #0c1830; color: #e1b368; font-variant-numeric: tabular-nums; }
     .food-clock.is-late { background: #8a1f1f; color: #fff; }
     .bill-card { margin-top: 12px; padding: 16px; border: 1px solid #d7deea; border-radius: 18px; background: #fff; box-shadow: 0 10px 28px rgba(12,24,48,.05); }
@@ -50,11 +50,12 @@
             <span>Amount due</span>
             <strong>{{ \App\Support\TableBoard::money($table['due']) }} XAF</strong>
         </div>
-        <div class="bill-pill {{ strtolower($table['status']) }}">{{ $table['status'] }}</div>
+        <div class="bill-pill {{ $table['status_class'] }}">{{ $table['status'] }}</div>
     </div>
     @foreach($table['bills'] as $bill)
         <article class="bill-card">
             <h2>{{ $bill['reference'] }}</h2>
+            <p class="bill-status">{{ $bill['order_status'] }}</p>
             <p class="bill-meta">{{ $bill['when_label'] }}@if($bill['customer'] !== '') · {{ $bill['customer'] }}@endif @if(!empty($bill['placed'])) · Placed by {{ $bill['placed'] }}@endif</p>
             @if(!empty($bill['comment']))
                 <p class="bill-note">Comment: {{ $bill['comment'] }}</p>

@@ -36,6 +36,7 @@ class RestaurantPayController extends Controller
         if ($due <= 0) {
             return back()->with('message', 'This invoice is already paid.');
         }
+        \App\Support\TableBoard::releaseToCashier($sale);
         $amount = (int) round((float) $request->input('amount', $due));
         if ($amount < 100 || $amount > (int) round($due) + 1) {
             return back()->with('not_permitted', 'Enter a whole amount of at least 100 XAF, up to the amount still due. Nothing was charged.');

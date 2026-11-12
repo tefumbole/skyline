@@ -478,8 +478,15 @@ class SaleController extends Controller
         if (! empty($data['pos']) && $this->waiterNeedsTable($request)) {
             return back()->with('not_permitted', 'Select a table before placing this order.');
         }
+        $momoHold = null;
         if (! empty($data['pos']) && (int) (isset($data['paid_by_id']) ? $data['paid_by_id'] : 0) === 8 && empty($data['momo_verified'])) {
-            return $this->beginPosMomo($request, $data);
+            $momoHold = $this->beginPosMomo($request, $data);
+            if ($momoHold instanceof \Symfony\Component\HttpFoundation\Response) {
+                return $momoHold;
+            }
+            $data['paid_by_id'] = 9;
+            $data['paid_amount'] = 0;
+            $data['paying_amount'] = 0;
         }
         if(isset($request->reference_no)) {
             $this->validate($request, [
@@ -1092,7 +1099,25 @@ class SaleController extends Controller
             }
         }
 
+        if (! empty($data['pos']) && (int) $data['sale_status'] !== 3) {
+            \App\Support\TableBoard::releaseToCashier($lims_sale_data);
+            if (is_array($momoHold) && ! empty($momoHold['pending'])) {
+                $pending = \Cache::get('pos:momo:'.$momoHold['pending']);
+                if (is_array($pending)) {
+                    $pending['sale_id'] = $lims_sale_data->id;
+                    \Cache::put('pos:momo:'.$momoHold['pending'], $pending, now()->addMinutes(30));
+                }
+            }
+        }
+
         if($data['pos'] == 1) {
+            if (is_array($momoHold)) {
+                $notice = ! empty($momoHold['failed'])
+                    ? $momoHold['failed'].' The order is under Sales as due and in Payments.'
+                    : 'Mobile Money was requested. The order stays under Sales as due and in Payments until the phone confirms.';
+
+                return redirect()->route('payment.index')->with(! empty($momoHold['failed']) ? 'not_permitted' : 'message', $notice);
+            }
             if ((int) $data['paid_by_id'] === 9) {
                 return redirect(route('sale.kitchen-print', $lims_sale_data->id).'?autoprint=1');
             }
@@ -1240,17 +1265,17 @@ class SaleController extends Controller
         }
         $amount = (int) round($charge);
         if ($amount < 100 || $amount > (int) round($grand) + 1) {
-            return back()->with('not_permitted', 'Mobile Money needs a whole amount of at least 100 XAF.');
+            return ['failed' => 'Mobile Money needs a whole amount of at least 100 XAF.'];
         }
         $phone = $campay->momoNumber(! empty($data['momo_phone']) ? $data['momo_phone'] : '');
         if (! $phone) {
-            return back()->with('not_permitted', 'Enter an MTN or Orange Cameroon number for Mobile Money.');
+            return ['failed' => 'Enter an MTN or Orange Cameroon number for Mobile Money.'];
         }
         $pendingToken = bin2hex(random_bytes(10));
         $body = $campay->collect($phone, $amount, $pendingToken, 'POS sale');
         $campayStatus = strtoupper((string) (is_array($body) && isset($body['status']) ? $body['status'] : ''));
         if (! is_array($body) || empty($body['reference']) || $campayStatus === 'FAILED') {
-            return back()->with('not_permitted', $campay->collectError($body));
+            return ['failed' => $campay->collectError($body)];
         }
         $payload = $data;
         unset($payload['_token'], $payload['momo_verified']);
@@ -1270,9 +1295,7 @@ class SaleController extends Controller
             'user_id' => Auth::id(),
         ], now()->addMinutes(30));
 
-        return redirect()->route('sale.pos')
-            ->with('message', 'A Mobile Money prompt was sent. The order is placed when the client approves it on their phone.')
-            ->with('momo_watch', $pendingToken);
+        return ['pending' => $pendingToken];
     }
 
     public function posMomoWait($token)
@@ -1310,14 +1333,12 @@ class SaleController extends Controller
         $note = 'Campay '.$pending['reference'];
         if (! empty($pending['sale_id'])) {
             $sale = Sale::find($pending['sale_id']);
-            if ($sale && Payment::where('sale_id', $sale->id)->where('payment_note', $note)->exists()) {
+            if ($sale && \App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
                 return response()->json([
                     'status' => 'paid',
                     'url' => $this->posMomoDoneUrl($sale),
                 ]);
             }
-
-            return response()->json(['status' => 'pending']);
         }
         $existing = Payment::where('payment_note', $note)->first();
         if ($existing && $existing->sale_id) {
@@ -1343,11 +1364,17 @@ class SaleController extends Controller
             ]);
         }
         if ($outcome['state'] === 'failed') {
+            if (! empty($pending['sale_id'])) {
+                $failedSale = Sale::find($pending['sale_id']);
+                if ($failedSale) {
+                    \App\Support\TableBoard::releaseToCashier($failedSale);
+                }
+            }
             \Cache::forget('pos:momo:'.$token);
 
             return response()->json([
                 'status' => 'failed',
-                'message' => $campay->payerFailure(isset($outcome['reason']) ? $outcome['reason'] : '', $pending['amount']),
+                'message' => $campay->payerFailure(isset($outcome['reason']) ? $outcome['reason'] : '', $pending['amount']).' The order is under Sales as due and in Payments.',
             ]);
         }
 
@@ -1363,7 +1390,7 @@ class SaleController extends Controller
         $note = 'Campay '.$pending['reference'];
         if (! empty($pending['sale_id'])) {
             $sale = Sale::find($pending['sale_id']);
-            if ($sale && Payment::where('sale_id', $sale->id)->where('payment_note', $note)->exists()) {
+            if ($sale && \App\Services\Restaurant\RestaurantPayments::hasReference($sale->id, $pending['reference'])) {
                 return $sale;
             }
         }
@@ -1376,6 +1403,22 @@ class SaleController extends Controller
         $outcome = $campay->collectionOutcome($pending['reference'], $pending['amount'], $pending['phone'], $pattern);
         if ($outcome['state'] !== 'paid' || empty($outcome['confirmed'])) {
             return null;
+        }
+        if (! empty($pending['sale_id'])) {
+            $existingSale = Sale::find($pending['sale_id']);
+            if ($existingSale) {
+                $result = \App\Services\Restaurant\RestaurantPayments::recordGateway(
+                    $existingSale,
+                    $pending['amount'],
+                    $pending['reference'],
+                    isset($pending['user_id']) ? $pending['user_id'] : null
+                );
+                if (in_array($result, ['recorded', 'duplicate', 'paid'], true)) {
+                    return $existingSale->fresh();
+                }
+
+                return null;
+            }
         }
         if (! \Cache::add('pos_momo_lock:'.$token, 1, now()->addSeconds(60))) {
             return null;
@@ -3380,6 +3423,7 @@ class SaleController extends Controller
 
     protected function askClientToConfirmPayment(Sale $sale, $customer, array $data, $paidBy, $backPath = '')
     {
+        \App\Support\TableBoard::releaseToCashier($sale);
         $amount = (float) $data['amount'];
         $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);
         if ($amount <= 0 || $amount > $due + 0.009) {
@@ -3502,6 +3546,7 @@ class SaleController extends Controller
             return response()->json(['status' => 'pending']);
         }
         if ($outcome['state'] === 'failed') {
+            \App\Support\TableBoard::releaseToCashier($sale);
             \Illuminate\Support\Facades\Cache::forget('sale-add-momo:'.$token);
 
             return response()->json([
@@ -3528,6 +3573,7 @@ class SaleController extends Controller
 
         $lims_sale_data = Sale::find($data['sale_id']);
         $lims_customer_data = Customer::find($lims_sale_data->customer_id);
+        \App\Support\TableBoard::releaseToCashier($lims_sale_data);
         $paidBy = (int) ($data['paid_by_id'] ?? 0);
         if ($paidBy === 8) {
             return $this->askClientToConfirmPayment($lims_sale_data, $lims_customer_data, $data, $paidBy, $tableReturn);

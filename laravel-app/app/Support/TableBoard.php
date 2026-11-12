@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\RestaurantOrder;
+use App\Sale;
 use Illuminate\Support\Facades\Schema;
 
 class TableBoard
@@ -39,6 +40,33 @@ class TableBoard
         }
 
         return number_format($amount, 2);
+    }
+
+    /**
+     * A payment was chosen. The bill leaves the table and stays due in Sales and Payments
+     * until money is actually recorded.
+     */
+    public static function releaseToCashier(Sale $sale)
+    {
+        if (Schema::hasTable('restaurant_orders') && Schema::hasColumn('restaurant_orders', 'cashier_at')) {
+            RestaurantOrder::where('sale_id', $sale->id)
+                ->whereNull('cashier_at')
+                ->update(['cashier_at' => date('Y-m-d H:i:s')]);
+        }
+        $paid = (float) $sale->paid_amount;
+        $due = (float) $sale->grand_total - $paid;
+        if ($due <= 0.009 || (int) $sale->payment_status === 4) {
+            return $sale;
+        }
+        $sale->sale_status = 1;
+        if ($paid <= 0.009) {
+            $sale->payment_status = 2;
+        } elseif ((int) $sale->payment_status === 1) {
+            $sale->payment_status = 3;
+        }
+        $sale->save();
+
+        return $sale;
     }
 
     public static function rows()
@@ -154,6 +182,9 @@ class TableBoard
             $sale = $order->sale;
             $table = $order->diningTable;
             if (! $sale || ! $table || (int) $sale->sale_status === 3 || isset($bills[$sale->id])) {
+                continue;
+            }
+            if (Schema::hasColumn('restaurant_orders', 'cashier_at') && ! empty($order->cashier_at)) {
                 continue;
             }
             $due = max(0, (float) $sale->grand_total - (float) $sale->paid_amount);

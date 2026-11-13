@@ -94,9 +94,9 @@
     .sky-slip .sky-bar { text-align: center; }
     .sky-slip .sky-bar img { width: 70%; height: 8mm; }
     @media print {
-        .sky-roll { width: 80mm; margin: 0; }
-        .sky-slip { width: 72mm; margin: 0 auto; zoom: 1; }
-        .sky-pdf .sky-slip { width: 88mm; zoom: 1; }
+        .sky-roll { width: 72mm; margin: 0; }
+        .sky-slip { width: 72mm; max-width: 72mm; margin: 0; zoom: 1; padding: 0 0 2mm; }
+        .sky-pdf .sky-slip { width: 72mm; zoom: 1; }
     }
 </style>
 <div class="sky-roll">

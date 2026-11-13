@@ -54,7 +54,11 @@
         .btn-info { background: #6c757d; }
         .btn-primary { background: #6449e7; }
         .btn-danger { background: #c0392b; }
-        @page { size: A4 portrait; margin: {{ $isMini ? '0' : '8mm' }}; }
+        @if($isMini)
+        @page { size: 80mm auto; margin: 2mm 4mm 2mm 4mm; }
+        @else
+        @page { size: A4 portrait; margin: 8mm; }
+        @endif
         .sheet { position: relative; margin: 0 auto; padding: {{ $isBeyond ? '0' : '10px' }}; max-width: {{ $isMini ? '460px' : ($isBeyond ? '210mm' : '400px') }}; }
         @if($isMini)
         body { background: #f6f3ee; }
@@ -83,14 +87,6 @@
         .thermal-sign-row .thermal-qr { flex: 0 0 auto; }
         .thermal-qr img { width: 24mm; height: 24mm; }
         .thermal-bar img { width: 62mm; height: 11mm; }
-        @media print {
-            .hidden-print { display: none !important; }
-            html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
-            .sheet.thermal-sheet {
-                width: 72mm !important; max-width: 72mm !important; margin: 0 !important;
-                padding: 2mm 2.5mm 4mm !important; box-shadow: none !important;
-            }
-        }
         @endif
         .letter-header {
             display: block;
@@ -202,6 +198,7 @@
         .codes .code-media img { display: block; margin: 0 auto; }
         .thanks { text-align: center; color: #6b7386; margin: 6px 0; }
         .centered { text-align: center; }
+        @if(! $isMini)
         @media print {
             .hidden-print { display: none !important; }
             @page { size: A4; margin: 0; }
@@ -225,11 +222,27 @@
             .content-pad { padding: 8px 12mm 78px; }
             .watermark { opacity: 0.06; }
         }
+        @endif
         @if($isMini)
         @media print {
-            @page { size: 88mm auto; margin: 0; }
-            html, body { width: 88mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
-            .sheet { width: 88mm !important; max-width: 88mm !important; margin: 0 !important; padding: 0 !important; }
+            @page { size: 80mm auto; margin: 2mm 4mm 2mm 4mm; }
+            .hidden-print, .toolbar { display: none !important; }
+            html, body {
+                width: 72mm !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+            .sheet, .sky-roll, .sky-slip {
+                width: 72mm !important;
+                max-width: 72mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                zoom: 1 !important;
+                box-shadow: none !important;
+            }
         }
         @endif
     </style>

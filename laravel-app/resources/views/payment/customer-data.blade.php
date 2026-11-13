@@ -23,20 +23,23 @@
     <section>
         @include('payout.partials.style')
         <style>
-            .pay-board { margin-top: 8px; padding: 6px 6px 12px; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(12,24,48,.06); }
-            .pay-board .table-responsive { overflow: visible; }
-            #biller-table { margin-bottom: 0; }
+            .pay-board { margin-top: 8px; padding: 0 0 12px; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(12,24,48,.06); overflow: hidden; }
+            .pay-board .table-responsive { overflow-x: auto; overflow-y: hidden; }
+            #biller-table { width: 100%; margin: 0; border-collapse: separate; border-spacing: 0; }
             #biller-table thead { position: relative; z-index: 6; }
             #biller-table thead th,
             #biller-table thead th.sorting,
             #biller-table thead th.sorting_asc,
             #biller-table thead th.sorting_desc {
-                position: relative; z-index: 6; padding: 12px 10px; background-color: #0c1830 !important; color: #e1b368 !important;
+                position: relative; z-index: 6; padding: 13px 14px; background-color: #0c1830 !important; color: #e1b368 !important;
                 border: 0; box-shadow: inset 0 -3px 0 #e1b368; font-size: 11px; font-weight: 700;
-                letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+                letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
             }
-            #biller-table tbody td { padding: 10px; vertical-align: middle; border-top: 1px solid #eef1f6; color: #1c2434; }
-            #biller-table tbody tr:hover td { background: #f8fafc; }
+            #biller-table thead th:first-child { border-top-left-radius: 18px; }
+            #biller-table thead th:last-child { border-top-right-radius: 18px; }
+            #biller-table tbody td { padding: 10px 14px; vertical-align: middle; border-top: 1px solid #eef1f6; color: #1c2434; background: #fff; }
+            #biller-table tbody tr:nth-child(odd) td { background: #f3f6fb; }
+            #biller-table tbody tr:hover td { background: #e7eef8; }
             #biller-table .pay-client { width: 14%; min-width: 110px; max-width: 170px; white-space: normal; }
             #biller-table .pay-shift { white-space: nowrap; }
             #biller-table .pay-money { width: 7%; white-space: nowrap; }

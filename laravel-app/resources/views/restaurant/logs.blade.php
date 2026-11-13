@@ -18,8 +18,9 @@
     .log-table th { position: relative; z-index: 6; padding: 13px 14px; background: #0c1830; color: #e1b368; border: 0; box-shadow: inset 0 -3px 0 #e1b368; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
     .log-sheet > .log-scroll:first-child .log-table thead th:first-child { border-top-left-radius: 18px; }
     .log-sheet > .log-scroll:first-child .log-table thead th:last-child { border-top-right-radius: 18px; }
-    .log-table td { padding: 14px; border-top: 1px solid #eef1f6; color: #1c2434; vertical-align: top; }
-    .log-table tbody tr:hover td { background: #f8fafc; }
+    .log-table td { padding: 14px; border-top: 1px solid #eef1f6; color: #1c2434; vertical-align: top; background: #fff; }
+    .log-table tbody tr:nth-child(odd) td { background: #f3f6fb; }
+    .log-table tbody tr:hover td { background: #e7eef8; }
     .log-ref { color: #0c1830; font-weight: 800; letter-spacing: -.02em; }
     .log-muted { margin-top: 3px; color: #5c6b82; font-size: 12px; }
     .log-name { color: #0c1830; font-weight: 750; }

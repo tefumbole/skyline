@@ -22,16 +22,37 @@
 
     <section>
         @include('payout.partials.style')
-        <p style="margin:0 0 12px"><a class="btn btn-default btn-sm" href="{{ route('payment.collected') }}">Collected payments</a></p>
-
         <style>
-            #biller-table .pay-client { width: 12%; min-width: 96px; max-width: 150px; white-space: normal; }
+            .pay-board { margin-top: 8px; padding: 6px 6px 12px; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(12,24,48,.06); }
+            .pay-board .table-responsive { overflow: visible; }
+            #biller-table { margin-bottom: 0; }
+            #biller-table thead { position: relative; z-index: 6; }
+            #biller-table thead th,
+            #biller-table thead th.sorting,
+            #biller-table thead th.sorting_asc,
+            #biller-table thead th.sorting_desc {
+                position: relative; z-index: 6; padding: 12px 10px; background-color: #0c1830 !important; color: #e1b368 !important;
+                border: 0; box-shadow: inset 0 -3px 0 #e1b368; font-size: 11px; font-weight: 700;
+                letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+            }
+            #biller-table tbody td { padding: 10px; vertical-align: middle; border-top: 1px solid #eef1f6; color: #1c2434; }
+            #biller-table tbody tr:hover td { background: #f8fafc; }
+            #biller-table .pay-client { width: 14%; min-width: 110px; max-width: 170px; white-space: normal; }
             #biller-table .pay-shift { white-space: nowrap; }
-            #biller-table .pay-delivery { width: 16%; min-width: 148px; }
-            .pay-deliver { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+            #biller-table .pay-money { width: 7%; white-space: nowrap; }
+            #biller-table .pay-delivery { width: 8%; min-width: 0; }
+            #biller-table .pay-date { width: 11%; white-space: nowrap; }
+            #biller-table .pay-actions { width: 22%; min-width: 220px; }
+            .pay-deliver { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
             .pay-deliver.is-yes { background: #d9f5e5; color: #178a45; }
             .pay-deliver.is-no { background: #fff4e5; color: #8a5a1f; }
+            .pay-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+            .pay-tools .btn { margin: 0; }
+            .pay-collected { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: #0c1830; color: #e1b368; font-weight: 700; text-decoration: none; }
+            .pay-collected:hover { color: #e1b368; }
         </style>
+        <p style="margin:0 0 12px"><a class="pay-collected" href="{{ route('payment.collected') }}">Collected payments</a></p>
+        <div class="pay-board">
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">
                 <thead>
@@ -41,11 +62,11 @@
                     <th class="pay-shift">Table Number</th>
                     <th class="pay-shift">{{trans('file.Phone Number')}}</th>
                     <th class="pay-shift">{{trans('file.Amount')}}</th>
-                    <th class="pay-shift">{{trans('file.Paid Amount')}}</th>
-                    <th>{{trans('file.Due')}}</th>
+                    <th class="pay-money">{{trans('file.Paid Amount')}}</th>
+                    <th class="pay-money">{{trans('file.Due')}}</th>
                     <th class="pay-delivery">Delivered</th>
                     <th>{{trans('file.Payment Status')}}</th>
-                    <th>{{trans('file.Date')}}</th>
+                    <th class="pay-date">{{trans('file.Date')}}</th>
                     <th>{{trans('file.Add Payment')}}</th>
                 </tr>
                 </thead>
@@ -56,9 +77,9 @@
                         <td class="pay-client">{{ $bill['name'] }}</td>
                         <td class="pay-shift">{{ $bill['tables'] }}</td>
                         <td class="pay-shift">{{ $bill['phone'] }}</td>
-                        <td class="pay-shift">{{ number_format($bill['total'], 2) }}</td>
-                        <td class="pay-shift">{{ number_format($bill['paid'], 2) }}</td>
-                        <td>{{ number_format($bill['due'], 2) }}</td>
+                        <td class="pay-shift">{{ number_format($bill['total'], 0) }}</td>
+                        <td class="pay-money">{{ number_format($bill['paid'], 0) }}</td>
+                        <td class="pay-money">{{ number_format($bill['due'], 0) }}</td>
                         <td class="pay-delivery">
                             @if(count($bill['undelivered']))
                                 <span class="pay-deliver is-no">Not Delivered</span>
@@ -69,8 +90,9 @@
                         <td>
                             <span class="badge badge-warning">{{ $bill['status'] }}</span>
                         </td>
-                        <td>{{ $bill['latest_label'] }}</td>
-                        <td>
+                        <td class="pay-date">{{ $bill['latest'] ? date('Y-m-d', strtotime($bill['latest'])) : '' }}</td>
+                        <td class="pay-actions">
+                            <div class="pay-tools">
                             @if($bill['due'] > 0.009)
                             <button type="button" class="add-payment btn btn-sm btn-success" data-id="{{ $bill['sale_ids'][0] }}" data-sale-ids="{{ implode(',', $bill['sale_ids']) }}" data-name="{{ e($bill['name']) }}" data-phone="{{ e($bill['phone']) }}" data-ref="{{ $bill['orders'] > 1 ? $bill['orders'].' orders' : e($bill['references'][0]) }}" data-due="{{ $bill['due'] }}" data-toggle="modal" data-target="#add-payment"><i class="fa fa-plus"></i>{{ trans('file.Add Payment') }}</button>
                             @endif
@@ -80,14 +102,15 @@
                                 <a class="btn btn-default btn-sm" target="_blank" rel="noopener" href="{{ route('payment.client-bill', $bill['customer_id']) }}">Print</a>
                             @endif
                             @if($bill['orders'] === 1)
-                            <button type="button" class="get-payment btn btn-info btn-sm" data-id="{{ $bill['print_sale_id'] }}"><i class="fa fa-money"></i>{{ trans('file.View') }}</button>
-                            <a class="btn btn-warning btn-sm" href="{{ route('sales.edit', $bill['print_sale_id']) }}"><i class="fa fa-pencil"></i> Edit Sale</a>
+                            <a class="btn btn-warning btn-sm" href="{{ route('sales.edit', $bill['print_sale_id']) }}">Edit</a>
                             @endif
+                            </div>
                         </td>
                     </tr>
                 @endforeach
                 </tbody>
             </table>
+        </div>
         </div>
     </section>
 
@@ -591,9 +614,12 @@
                     "orderable": false,
                     'targets': [0, 1, 2]
                 },
-                { 'targets': 1, 'width': '12%' },
-                { 'targets': [2, 3, 4, 5], 'width': '9%' },
-                { 'targets': 7, 'width': '16%' },
+                { 'targets': 1, 'width': '14%' },
+                { 'targets': [2, 3, 4], 'width': '10%' },
+                { 'targets': [5, 6], 'width': '7%' },
+                { 'targets': 7, 'width': '8%' },
+                { 'targets': 9, 'width': '11%' },
+                { 'targets': 10, 'width': '22%' },
                 {
                     'render': function(data, type, row, meta){
                         if(type === 'display'){
@@ -707,6 +733,29 @@
                 },
             ],
         } );
+        (function () {
+            var table = document.getElementById('biller-table');
+            if (!table || !table.tHead) return;
+            var ticking = false;
+            function pin() {
+                var bar = window.matchMedia('(max-width: 1199.98px)').matches ? 63 : 0;
+                var cells = table.tHead.rows[0].cells;
+                if (!cells.length) return;
+                var rect = table.getBoundingClientRect();
+                var headH = cells[0].offsetHeight;
+                var shift = rect.top < bar ? Math.min(bar - rect.top, Math.max(0, rect.height - headH)) : 0;
+                var transform = shift ? 'translateY(' + shift + 'px)' : '';
+                for (var i = 0; i < cells.length; i++) cells[i].style.transform = transform;
+            }
+            function requestPin() {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(function () { ticking = false; pin(); });
+            }
+            window.addEventListener('scroll', requestPin, { passive: true });
+            window.addEventListener('resize', requestPin);
+            pin();
+        })();
 
     </script>
 @endsection

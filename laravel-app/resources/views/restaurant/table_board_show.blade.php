@@ -52,7 +52,7 @@
         </div>
         <div class="bill-pill {{ $table['status_class'] }}">{{ $table['status'] }}</div>
     </div>
-    @foreach($table['bills'] as $bill)
+    @forelse($table['bills'] as $bill)
         <article class="bill-card">
             <h2>{{ $bill['reference'] }}</h2>
             <p class="bill-status">{{ $bill['order_status'] }}</p>
@@ -83,7 +83,9 @@
                 <button type="button" class="bill-pay add-payment" data-id="{{ $bill['sale_id'] }}" data-name="{{ e($bill['customer'] ?: $table['name']) }}" data-phone="{{ e($bill['phone']) }}" data-ref="{{ e($bill['reference']) }}" data-due="{{ $bill['due'] }}" data-toggle="modal" data-target="#add-payment">Add payment</button>
             @endif
         </article>
-    @endforeach
+    @empty
+        <p class="bill-meta" style="margin-top:16px;">No orders on this table.</p>
+    @endforelse
 </section>
 @if($canPay)
     @include('restaurant.partials.table_payment')

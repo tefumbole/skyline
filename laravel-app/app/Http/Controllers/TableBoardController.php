@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Account;
+use App\RestaurantTable;
 use App\Support\TableBoard;
 use App\Support\TableOrderEditor;
 
@@ -14,8 +15,34 @@ class TableBoardController extends Controller
             return $deny;
         }
 
+        $open = [];
+        foreach (TableBoard::rows() as $row) {
+            $open[(int) $row['id']] = $row;
+        }
+        $tables = [];
+        foreach (RestaurantTable::numbered() as $table) {
+            $id = (int) $table->id;
+            if (isset($open[$id])) {
+                $tables[] = $open[$id];
+                unset($open[$id]);
+                continue;
+            }
+            $tables[] = [
+                'id' => $id,
+                'name' => $table->name,
+                'bills' => 0,
+                'due' => 0,
+                'total' => 0,
+                'status' => 'Clear',
+                'status_class' => 'delivered',
+            ];
+        }
+        foreach ($open as $row) {
+            $tables[] = $row;
+        }
+
         return view('restaurant.table_board', [
-            'tables' => TableBoard::rows(),
+            'tables' => $tables,
         ]);
     }
 
@@ -26,7 +53,19 @@ class TableBoardController extends Controller
         }
         $row = TableBoard::table($table);
         if (! $row) {
-            return redirect()->route('tables.index')->with('not_permitted', 'That table has no open order.');
+            $record = RestaurantTable::where('id', $table)->where('is_active', 1)->first();
+            if (! $record) {
+                return redirect()->route('tables.index')->with('not_permitted', 'That table has no open order.');
+            }
+            $row = [
+                'id' => (int) $record->id,
+                'name' => $record->name,
+                'description' => (string) $record->description,
+                'due' => 0,
+                'status' => 'Clear',
+                'status_class' => 'delivered',
+                'bills' => [],
+            ];
         }
 
         return view('restaurant.table_board_show', [

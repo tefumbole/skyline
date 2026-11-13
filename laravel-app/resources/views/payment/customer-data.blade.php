@@ -62,7 +62,7 @@
                     <th class="pay-shift">Table Number</th>
                     <th class="pay-shift">{{trans('file.Phone Number')}}</th>
                     <th class="pay-shift">{{trans('file.Amount')}}</th>
-                    <th class="pay-money">{{trans('file.Paid Amount')}}</th>
+                    <th class="pay-money">Paid</th>
                     <th class="pay-money">{{trans('file.Due')}}</th>
                     <th class="pay-delivery">Delivered</th>
                     <th>{{trans('file.Payment Status')}}</th>

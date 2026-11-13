@@ -7,17 +7,18 @@
     .table-lead { margin: 8px 0 0; color: #5c6b82; font-size: 15px; }
     .table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; margin-top: 18px; }
     .table-card {
-        display: block; min-height: 0; padding: 14px 12px; border-radius: 16px; background: #fff;
-        border: 1px solid #d7deea; box-shadow: 0 8px 20px rgba(12,24,48,.05);
-        text-decoration: none; color: inherit;
+        display: block; min-height: 0; padding: 14px 12px; border-radius: 16px; background: #e1b368;
+        border: 0; box-shadow: 0 8px 20px rgba(12,24,48,.08);
+        text-decoration: none; color: #0c1830;
     }
+    .table-card:hover { background: #d7a45a; color: #0c1830; }
     .table-card:active { transform: scale(.99); }
     .table-name { margin: 0; color: #0c1830; font-size: 18px; font-weight: 800; }
-    .table-sub { margin: 4px 0 0; color: #5c6b82; font-size: 12px; }
+    .table-sub { margin: 4px 0 0; color: #3d2e16; font-size: 12px; }
     .table-pill { display: inline-block; margin-top: 8px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-    .table-pill.pending, .table-pill.open, .table-pill.waiting, .table-pill.accepted { background: #fff4e5; color: #8a5a1f; }
+    .table-pill.pending, .table-pill.open, .table-pill.waiting, .table-pill.accepted, .table-pill.hold { background: #0c1830; color: #e1b368; }
     .table-pill.due, .table-pill.ready { background: #fde8e8; color: #8a1f1f; }
-    .table-pill.paid, .table-pill.delivered { background: #d9f5e5; color: #178a45; }
+    .table-pill.paid, .table-pill.delivered { background: #0c1830; color: #e1b368; }
     .table-empty { margin-top: 18px; padding: 28px 18px; border: 1px dashed #d7deea; border-radius: 18px; background: #fff; color: #5c6b82; text-align: center; }
     @media (max-width: 640px) {
         .table-board h1 { font-size: 26px; }
@@ -29,7 +30,7 @@
     @if(session('not_permitted'))<div class="alert alert-danger">{{ session('not_permitted') }}</div>@endif
     <p class="table-kicker">Sales</p>
     <h1>Tables</h1>
-    <p class="table-lead">Every table is listed here. Open one to see its orders and whether each dish is Waiting, Accepted, Ready for delivery, or Delivered.</p>
+    <p class="table-lead">Only tables with an open order are listed. A table leaves this list once every dish is delivered.</p>
     @if(count($tables))
         <div class="table-grid">
             @foreach($tables as $row)
@@ -41,7 +42,7 @@
             @endforeach
         </div>
     @else
-        <div class="table-empty">No tables yet.</div>
+        <div class="table-empty">No table has an open order.</div>
     @endif
 </section>
 <script>

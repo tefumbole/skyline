@@ -15,31 +15,19 @@ class TableBoardController extends Controller
             return $deny;
         }
 
-        $open = [];
-        foreach (TableBoard::rows() as $row) {
-            $open[(int) $row['id']] = $row;
-        }
         $tables = [];
-        foreach (RestaurantTable::numbered() as $table) {
-            $id = (int) $table->id;
-            if (isset($open[$id])) {
-                $tables[] = $open[$id];
-                unset($open[$id]);
+        foreach (TableBoard::rows() as $row) {
+            if ((int) $row['bills'] < 1) {
                 continue;
             }
-            $tables[] = [
-                'id' => $id,
-                'name' => $table->name,
-                'bills' => 0,
-                'due' => 0,
-                'total' => 0,
-                'status' => 'Clear',
-                'status_class' => 'delivered',
-            ];
-        }
-        foreach ($open as $row) {
+            if (in_array($row['status_class'], ['delivered', 'rejected'], true)) {
+                continue;
+            }
             $tables[] = $row;
         }
+        usort($tables, function ($a, $b) {
+            return strnatcasecmp($a['name'], $b['name']);
+        });
 
         return view('restaurant.table_board', [
             'tables' => $tables,

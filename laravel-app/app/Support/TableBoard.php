@@ -16,6 +16,9 @@ class TableBoard
         if ($user->hasFullAdminAccess()) {
             return true;
         }
+        if (\App\Services\Restaurant\RestaurantAccess::can($user, 'tables')) {
+            return true;
+        }
 
         return in_array(strtolower((string) $user->roleName()), ['waiter', 'accountant', 'manager'], true);
     }

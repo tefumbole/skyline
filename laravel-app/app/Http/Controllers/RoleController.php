@@ -106,7 +106,14 @@ class RoleController extends Controller
             return $deny;
         }
 
-        $role = Role::firstOrCreate(['id' => $request['role_id']]);
+        $role = Role::find($request['role_id']);
+        if (! $role) {
+            return redirect('role')->with('not_permitted', 'That role was not found.');
+        }
+        \App\Support\RolePermissionMenu::apply($role, $request);
+        \App\Support\AdminPermissions::sync(true);
+
+        return redirect('role')->with('message', 'Permission updated successfully');
 
         if($request->has('products-index')){
             $permission = Permission::firstOrCreate(['name' => 'products-index']);

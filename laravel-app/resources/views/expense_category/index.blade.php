@@ -6,18 +6,22 @@
     };
 @endphp
 <style>
-    .ex-page { max-width: 1080px; margin: 0 auto 48px; }
-    .ex-hero { background: #0c1830; color: #fff; border-radius: 22px; padding: 22px 24px; }
+    .ex-page { max-width: 1080px; margin: 0 auto 32px; padding: 0 12px; }
+    .ex-hero { background: #0c1830; color: #fff; border-radius: 16px; padding: 16px; }
     .ex-kicker { color: #e1b368; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
-    .ex-hero h1 { margin: 0; font-size: 32px; }
+    .ex-hero h1 { margin: 0; font-size: 26px; }
     .ex-hero p { margin: 8px 0 0; color: #d5deea; max-width: 640px; }
     .ex-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-top: 16px; }
     .ex-card { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
     .ex-card h2 { margin: 0 0 12px; font-size: 18px; color: #0c1830; }
     .ex-field { margin-bottom: 12px; position: relative; }
     .ex-field label { display: block; font-size: 12px; font-weight: 700; color: #5c6b80; margin-bottom: 4px; text-transform: uppercase; }
-    .ex-field input { width: 100%; border: 1px solid #d5deea; border-radius: 12px; min-height: 44px; padding: 8px 12px; background: #fff; color: #0c1830; }
-    .ex-btn { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 16px; border-radius: 12px; font-weight: 700; border: 0; background: #e1b368; color: #0c1830; cursor: pointer; text-decoration: none; }
+    .ex-field input, .ex-field select { width: 100%; border: 1px solid #d5deea; border-radius: 12px; min-height: 48px; padding: 10px 12px; background: #fff; color: #0c1830; font-size: 16px; box-sizing: border-box; }
+    .ex-btn { display: block; width: 100%; min-height: 48px; line-height: 48px; padding: 0 16px; border-radius: 12px; font-weight: 700; border: 0; background: #e1b368; color: #0c1830; cursor: pointer; text-decoration: none; text-align: center; font-size: 16px; box-sizing: border-box; }
+    .ex-edit { display: none; margin-top: 12px; }
+    .ex-cat.is-editing .ex-edit { display: block; }
+    .ex-open { background: #f3f6fb; margin-top: 10px; }
+    @media (max-width: 640px) { .ex-cat { margin-left: 0 !important; } }
     .ex-grid { display: grid; gap: 12px; }
     .ex-cat { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
     .ex-cat.is-over { border: 1px solid #8a1f1f; background: #fff5f5; }
@@ -29,12 +33,18 @@
     .ex-bar.over i { background: #8a1f1f; }
     .ex-native { position: absolute; left: -9999px; width: 1px; height: 1px; }
     .ex-combo { position: relative; }
-    .ex-combo-input { width: 100%; border: 1px solid #d5deea; border-radius: 10px; height: 44px; padding: 0 12px; background: #fff; color: #0c1830; }
+    .ex-combo-input { width: 100%; border: 1px solid #d5deea; border-radius: 12px; height: 48px; padding: 0 12px; background: #fff; color: #0c1830; font-size: 16px; box-sizing: border-box; }
     .ex-combo-list { position: absolute; left: 0; right: 0; top: 48px; z-index: 30; background: #fff; border: 1px solid #d5deea; border-radius: 12px; max-height: 200px; overflow: auto; box-shadow: 0 12px 30px rgba(12,24,48,.12); }
     .ex-combo-item, .ex-combo-empty { display: block; width: 100%; text-align: left; border: 0; background: #fff; color: #0c1830; padding: 10px 12px; cursor: pointer; }
     .ex-combo-item:hover { background: #f3f6fb; }
     .ex-combo-empty { color: #5c6b80; cursor: default; }
     @media (max-width: 860px) { .ex-layout { grid-template-columns: 1fr; } }
+    @media (min-width: 768px) {
+        .ex-page { padding: 0; }
+        .ex-hero { padding: 22px 24px; border-radius: 22px; }
+        .ex-hero h1 { font-size: 32px; }
+        .ex-btn { width: auto; display: inline-block; }
+    }
 </style>
 <section class="ex-page">
     @if($errors->has('code') || $errors->has('name'))
@@ -103,7 +113,8 @@
                     @else
                         <div class="ex-meta" style="margin-top:6px;">{{ $money($row ? $row['used'] : 0) }} spent · no fixed budget yet</div>
                     @endif
-                    <form method="post" action="{{ route('expense_categories.update', $category->id) }}" style="margin-top:12px;">
+                    <button type="button" class="ex-btn ex-open">Edit</button>
+                    <form class="ex-edit" method="post" action="{{ route('expense_categories.update', $category->id) }}">
                         @csrf
                         @method('PUT')
                         <input type="hidden" name="expense_category_id" value="{{ $category->id }}">
@@ -146,6 +157,16 @@
     $("ul#expense").siblings('a').attr('aria-expanded','true');
     $("ul#expense").addClass("show");
     $("ul#expense #exp-cat-menu").addClass("active");
+    var editButtons = document.querySelectorAll('.ex-open');
+    for (var b = 0; b < editButtons.length; b++) {
+        editButtons[b].addEventListener('click', function () {
+            var card = this.parentNode;
+            var open = card.className.indexOf('is-editing') !== -1;
+            card.className = card.className.replace(' is-editing', '');
+            if (!open) card.className += ' is-editing';
+            this.textContent = open ? 'Edit' : 'Close';
+        });
+    }
     (function () {
         var selects = document.querySelectorAll('select.ex-select');
         for (var s = 0; s < selects.length; s++) bindSearch(selects[s]);

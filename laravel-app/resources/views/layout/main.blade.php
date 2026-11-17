@@ -1634,20 +1634,55 @@
               </div>
                 <div class="main-menu">
                     <ul id="side-main-menu" class="side-menu list-unstyled">
-                        @if(!Auth::user()->isAssetStaff())
+                        @php
+                            $role = \Spatie\Permission\Models\Role::find(Auth::user()->role_id);
+                            if (! $role) {
+                                $role = (object) ['id' => Auth::user()->role_id, 'name' => '', 'permissions' => collect()];
+                            }
+                            if (!isset($all_permission) || !is_array($all_permission)) {
+                                $all_permission = [];
+                            }
+                            if (empty($all_permission) && $role && isset($role->permissions)) {
+                                foreach ($role->permissions as $permission) {
+                                    $all_permission[] = $permission->name;
+                                }
+                            }
+                            $skyCan = function ($name) use ($all_permission) {
+                                return in_array($name, $all_permission, true);
+                            };
+                            $skyAny = function ($names) use ($skyCan) {
+                                foreach ($names as $name) {
+                                    if ($skyCan($name)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            };
+                        @endphp
+                        @if((!Auth::user()->isAssetStaff()) && ($skyCan('dashboard') || Auth::user()->hasFullAdminAccess()))
                             <li id="sidebar-dashboard"><a href="{{ \App\Support\InternCompliance::dashboardUrl(Auth::user()) }}" data-nav-key="dashboard"> <i class="dripicons-meter"></i><span>{{ __('file.dashboard') }}</span></a></li>
                         @endif
-                        @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2)
+                        @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('site-content') || $skyCan('gallery') || $skyCan('menu-photos') || $skyCan('guest-reviews') || $skyCan('leaders'))
+                            @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('site-content'))
                             <li><a href="{{ url('/admin/site-content') }}" data-nav-key="site-content"> <i class="dripicons-web"></i><span>Site Content</span></a></li>
+                            @endif
+                            @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('gallery'))
                             <li><a href="{{ url('/admin/gallery') }}" data-nav-key="gallery"> <i class="dripicons-photo-group"></i><span>Gallery</span></a></li>
+                            @endif
+                            @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('menu-photos'))
                             <li><a href="{{ url('/admin/menu') }}" data-nav-key="menu-photos"> <i class="dripicons-menu"></i><span>Menu</span></a></li>
+                            @endif
+                            @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('guest-reviews'))
                             <li><a href="{{ url('/admin/guest-reviews') }}" data-nav-key="guest-reviews"> <i class="dripicons-message"></i><span>Guest Reviews</span></a></li>
+                            @endif
                             {{-- Membership disabled for now --}}
                             {{-- <li><a href="{{ url('/admin/membership') }}" data-nav-key="membership"> <i class="dripicons-card"></i><span>Membership</span></a></li> --}}
+                            @if(Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2 || $skyCan('leaders'))
                             <li><a href="{{ url('/admin/leaders') }}" data-nav-key="leaders"> <i class="dripicons-user-group"></i><span>About Us Leaders</span></a></li>
+                            @endif
                         @endif
                         @php
-                            $canCothDesk = Auth::user()->hasFullAdminAccess() || in_array((int) Auth::user()->role_id, [2, 4], true);
+                            $canCothDesk = Auth::user()->hasFullAdminAccess() || in_array((int) Auth::user()->role_id, [2, 4], true) || $skyCan('coth-reservations');
                             if (! $canCothDesk) {
                                 try {
                                     $canCothDesk = Auth::user()->hasPermissionTo('coth-reservations');
@@ -1659,22 +1694,10 @@
                         @if($canCothDesk)
                             <li id="coth-reservations-menu"><a href="{{ route('coth.admin', ['tab' => 'tables']) }}" data-nav-key="coth"> <i class="dripicons-calendar"></i><span>COTH Reservations</span></a></li>
                         @endif
-                        @if(!in_array(strtolower((string) Auth::user()->roleName()), ['restaurant', 'kitchen'], true))
+                        @if($skyCan('help') || Auth::user()->hasFullAdminAccess())
                         <li><a href="{{ route('admin.help') }}" data-nav-key="help"> <i class="dripicons-question"></i><span>Help</span></a></li>
                         @endif
                         <?php
-                        $role = \Spatie\Permission\Models\Role::find(Auth::user()->role_id);
-                        if (! $role) {
-                            $role = (object) ['id' => Auth::user()->role_id, 'name' => '', 'permissions' => collect()];
-                        }
-                        if (!isset($all_permission) || !is_array($all_permission)) {
-                            $all_permission = [];
-                        }
-                        if (empty($all_permission) && $role) {
-                            foreach ($role->permissions as $permission) {
-                                $all_permission[] = $permission->name;
-                            }
-                        }
                         $category_permission_active = DB::table('permissions')
                             ->join('role_has_permissions', 'permissions.id', '=', 'role_has_permissions.permission_id')
                             ->where([
@@ -1745,7 +1768,7 @@
                             ['role_id', $role->id]
                         ])->first();
                         ?>
-                        @if($index_permission_active)
+                        @if($index_permission_active || $skyCan('purchases-add') || $skyCan('purchases-import'))
                             <li><a href="#purchase" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-card"></i><span>{{trans('file.Purchase')}}</span></a>
                                 <ul id="purchase" class="collapse list-unstyled ">
                                     <li id="purchase-list-menu"><a href="{{route('purchases.index')}}">{{trans('file.Purchase List')}}</a></li>
@@ -1758,6 +1781,8 @@
                                         ?>
                                     @if($add_permission_active)
                                         <li id="purchase-create-menu"><a href="{{route('purchases.create')}}">{{trans('file.Add Purchase')}}</a></li>
+                                    @endif
+                                    @if($skyCan('purchases-import'))
                                         <li id="purchase-import-menu"><a href="{{url('purchases/purchase_by_csv')}}">{{trans('file.Import Purchase By CSV')}}</a></li>
                                     @endif
                                 </ul>
@@ -1808,7 +1833,7 @@
                         @endphp
                         @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0 && $sale_pos_permission_active)
                             <li id="sale-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="sale"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
-                        @elseif($sale_index_permission_active || $sale_pos_permission_active || $sale_add_permission_active || $sale_import_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
+                        @elseif($sale_index_permission_active || $sale_pos_permission_active || $sale_add_permission_active || $sale_import_permission_active || $gift_card_permission_active || $coupon_permission_active || $skyCan('delivery-list') || $skyCan('delivery-pending') || $skyCan('delivery-signed'))
                             <li><a href="#sale" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-cart"></i><span>{{trans('file.Sale')}}</span></a>
                                 <ul id="sale" class="collapse list-unstyled ">
                                     @if($sale_index_permission_active)
@@ -1830,9 +1855,13 @@
                                     @if($coupon_permission_active)
                                         <li id="coupon-menu"><a href="{{route('coupons.index')}}">{{trans('file.Coupon List')}}</a> </li>
                                     @endif
-                                    @if($delivery_permission_active)
+                                    @if($skyCan('delivery-list'))
                                         <li id="delivery-menu"><a href="{{route('delivery.index')}}">{{trans('file.Delivery List')}}</a></li>
+                                    @endif
+                                    @if($skyCan('delivery-pending'))
                                         <li id="delivery-pending-menu"><a href="{{route('delivery.index', ['filter' => 'pending'])}}">Delivery Sign.. Pending</a></li>
+                                    @endif
+                                    @if($skyCan('delivery-signed'))
                                         <li id="delivery-signed-menu"><a href="{{route('delivery.index', ['filter' => 'signed'])}}">Signed Delivery</a></li>
                                     @endif
                                 </ul>
@@ -1905,7 +1934,7 @@
                             ['role_id', $role->id]
                         ])->first();
                         ?>
-                        @if($index_permission_booking_active)
+                        @if($index_permission_booking_active || $skyAny(['booking_create', 'booking-list', 'booking-request', 'booking-products', 'booking-reminder', 'booking_awaiting_signature', 'booking_pending_review', 'booking_signed_contracts', 'booking_report']))
                             <?php
                                 $booking_list_count = \App\Booking::query()->count();
                                 $booking_request_count = \App\Booking::where('is_frontend', 1)->where('booking_status', 2)->count();
@@ -1947,16 +1976,22 @@
                                             ['role_id', $role->id]
                                         ])->first();
                                         ?>
-                                    @if($create_permission_booking_active)
+                                    @if($skyCan('booking-list'))
                                         <li id="booking-index-menu"><a href="{{route('booking.index')}}">Booking List
                                                 @if($booking_list_count > 0)<span class="beyond-attention-badge" data-count="{{ $booking_list_count }}">{{ $booking_list_count > 99 ? '99+' : $booking_list_count }}</span>@endif
                                             </a></li>
+                                    @endif
+                                    @if($skyCan('booking-request'))
                                         <li id="booking-requests-menu">
                                             <a href="{{route('booking.requests')}}">Booking Request
                                                 @if($booking_request_count > 0)<span class="beyond-attention-badge" data-count="{{ $booking_request_count }}">{{ $booking_request_count > 99 ? '99+' : $booking_request_count }}</span>@endif
                                             </a>
                                         </li>
+                                    @endif
+                                    @if($skyCan('booking-products'))
                                         <li id="booking-product-menu"><a href="{{route('booking.product')}}">Booked Products</a></li>
+                                    @endif
+                                    @if($skyCan('booking-reminder'))
                                         <li id="booking-reminders-menu">
                                             <a href="{{route('booking.reminders')}}">Booking Reminder
                                                 @if($booking_reminder_count > 0)<span class="beyond-attention-badge" data-count="{{ $booking_reminder_count }}">{{ $booking_reminder_count > 99 ? '99+' : $booking_reminder_count }}</span>@endif
@@ -2017,26 +2052,38 @@
                             ['role_id', $role->id]
                         ])->first() : null;
                         ?>
-                        @if($permissions_module_active || $hrm_for_perms_active)
+                        @if($permissions_module_active || $hrm_for_perms_active || $skyAny(['permissions-awaiting', 'permissions-approved', 'permissions-denied', 'permissions-list']))
                             <li><a href="#staff-permissions" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-checkmark"></i><span>Permissions</span></a>
                                 <ul id="staff-permissions" class="collapse list-unstyled ">
+                                    @if($skyCan('permissions-awaiting'))
                                     <li id="perm-requests-menu">
                                         <a href="{{ route('permissions.requests') }}">Awaiting Approval
                                             @if($perm_pending_count > 0)<span class="beyond-attention-badge" data-count="{{ $perm_pending_count }}">{{ $perm_pending_count > 99 ? '99+' : $perm_pending_count }}</span>@endif
                                         </a>
                                     </li>
+                                    @endif
+                                    @if($skyCan('permissions-approved'))
                                     <li id="perm-approved-menu"><a href="{{ route('permissions.approved') }}">Approved Permissions</a></li>
+                                    @endif
+                                    @if($skyCan('permissions-denied'))
                                     <li id="perm-denied-menu"><a href="{{ route('permissions.denied') }}">Denied Permissions</a></li>
+                                    @endif
+                                    @if($skyCan('permissions-list'))
                                     <li id="perm-list-menu"><a href="{{ route('permissions.index') }}">Permissions Listings</a></li>
+                                    @endif
                                 </ul>
                             </li>
                         @endif
-                        @if($events_module_active)
+                        @if($events_module_active || $skyAny(['events-dashboard', 'events-all', 'events-calendar', 'events.create', 'events.manage_workforce', 'events-timesheets', 'events-payments', 'events-reminders', 'event_contracts.view', 'events.settings']))
                             <li><a href="#events-module" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-calendar"></i><span>Events</span></a>
                                 <ul id="events-module" class="collapse list-unstyled ">
-                                    @if(in_array('events.view', $all_permission))
+                                    @if($skyCan('events-dashboard'))
                                         <li id="events-dashboard-menu"><a href="{{ route('events.dashboard') }}">Events Dashboard</a></li>
+                                    @endif
+                                    @if($skyCan('events-all'))
                                         <li id="events-list-menu"><a href="{{ route('events.index') }}">All Events</a></li>
+                                    @endif
+                                    @if($skyCan('events-calendar'))
                                         <li id="events-calendar-menu"><a href="{{ route('events.calendar') }}">Event Calendar</a></li>
                                     @endif
                                     @if(in_array('events.create', $all_permission))
@@ -2045,9 +2092,13 @@
                                     @if(in_array('events.manage_workforce', $all_permission) || in_array('event_workers.view', $all_permission))
                                         <li id="events-workforce-menu"><a href="{{ route('events.workforce.profiles') }}">Event Workforce</a></li>
                                     @endif
-                                    @if(in_array('events.view', $all_permission))
+                                    @if($skyCan('events-timesheets'))
                                         <li id="events-timesheets-menu"><a href="{{ route('events.timesheets.index') }}">Event Timesheets</a></li>
+                                    @endif
+                                    @if($skyCan('events-payments'))
                                         <li id="events-payments-menu"><a href="{{ route('events.payments.index') }}">Labour Payments</a></li>
+                                    @endif
+                                    @if($skyCan('events-reminders'))
                                         <li id="events-reminders-menu"><a href="{{ route('events.reminders.index') }}">Event Reminders</a></li>
                                     @endif
                                     @if(in_array('event_contracts.view', $all_permission))
@@ -2069,7 +2120,7 @@
                             $invitations_module_active = true;
                         }
                         if (! $invitations_module_active) {
-                            foreach (['online_invitation_category','online_invitation_template','online_invitation_event','online_invitation_send_invitation'] as $oiPerm) {
+                            foreach (['online_invitation_category','online_invitation_template','online_invitation_event','online_invitation_send_invitation','invitations-all','invitations-awaiting','invitations-sent','invitations-used','invitations-failed','invitations-attending','invitations-request-links','invitations-reminders','invitations-queued','invitations-create'] as $oiPerm) {
                                 if (in_array($oiPerm, $all_permission ?? [])) {
                                     $invitations_module_active = true;
                                     break;
@@ -2089,7 +2140,7 @@
                                     || in_array('invitations.view', $all_permission ?? [])
                                     || in_array($role->id ?? 0, [1, 2]);
                             @endphp
-                            @if($oi_cat || $oi_tpl || $oi_evt || $oi_send)
+                            @if($oi_cat || $oi_tpl || $oi_evt || $oi_send || $skyAny(['invitations-all','invitations-awaiting','invitations-sent','invitations-used','invitations-failed','invitations-attending','invitations-request-links','invitations-reminders','invitations-queued','invitations-create']))
                             <li><a href="#online_invitation" data-nav-key="invitations" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-ticket"></i><span>Digital Invitations</span></a>
                                 <ul id="online_invitation" class="collapse list-unstyled ">
                                     @if($oi_cat)
@@ -2101,18 +2152,16 @@
                                     @if($oi_evt)
                                         <li id="online-invitation-event-menu"><a href="{{ route('online_invitation.events.index') }}">Events</a></li>
                                     @endif
-                                    @if($oi_send)
-                                        <li id="online-invitation-invitation-menu"><a href="{{ route('online_invitation.invitations.index') }}">All Invitations</a></li>
-                                        <li id="online-invitation-invitation-awaiting-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=awaiting_sending">Awaiting Sending</a></li>
-                                        <li id="online-invitation-invitation-sent-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=sent">Sent</a></li>
-                                        <li id="online-invitation-invitation-used-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=used">Used</a></li>
-                                        <li id="online-invitation-invitation-failed-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=failed">Failed</a></li>
-                                        <li id="online-invitation-attending-menu"><a href="{{ route('online_invitation.invitations.attending') }}">Attending</a></li>
-                                        <li id="online-invitation-request-links-menu"><a href="{{ route('online_invitation.request_links.index') }}">Request Links</a></li>
-                                        <li id="online-invitation-reminders-menu"><a href="{{ route('online_invitation.reminders.index') }}">Reminders</a></li>
-                                        <li id="online-invitation-queued-menu"><a href="{{ route('online_invitation.queued') }}">Queued Messages</a></li>
-                                        <li id="online-invitation-create-menu"><a href="{{ route('online_invitation.invitations.create') }}">Create Invitation</a></li>
-                                    @endif
+                                    @if($skyCan('invitations-all'))<li id="online-invitation-invitation-menu"><a href="{{ route('online_invitation.invitations.index') }}">All Invitations</a></li>@endif
+                                    @if($skyCan('invitations-awaiting'))<li id="online-invitation-invitation-awaiting-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=awaiting_sending">Awaiting Sending</a></li>@endif
+                                    @if($skyCan('invitations-sent'))<li id="online-invitation-invitation-sent-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=sent">Sent</a></li>@endif
+                                    @if($skyCan('invitations-used'))<li id="online-invitation-invitation-used-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=used">Used</a></li>@endif
+                                    @if($skyCan('invitations-failed'))<li id="online-invitation-invitation-failed-menu"><a href="{{ route('online_invitation.invitations.index') }}?status=failed">Failed</a></li>@endif
+                                    @if($skyCan('invitations-attending'))<li id="online-invitation-attending-menu"><a href="{{ route('online_invitation.invitations.attending') }}">Attending</a></li>@endif
+                                    @if($skyCan('invitations-request-links'))<li id="online-invitation-request-links-menu"><a href="{{ route('online_invitation.request_links.index') }}">Request Links</a></li>@endif
+                                    @if($skyCan('invitations-reminders'))<li id="online-invitation-reminders-menu"><a href="{{ route('online_invitation.reminders.index') }}">Reminders</a></li>@endif
+                                    @if($skyCan('invitations-queued'))<li id="online-invitation-queued-menu"><a href="{{ route('online_invitation.queued') }}">Queued Messages</a></li>@endif
+                                    @if($skyCan('invitations-create'))<li id="online-invitation-create-menu"><a href="{{ route('online_invitation.invitations.create') }}">Create Invitation</a></li>@endif
                                 </ul>
                             </li>
                             @endif
@@ -2124,14 +2173,22 @@
                             ['role_id', $role->id]
                         ])->first() : null;
                         ?>
-                        @if($tasks_module_active)
+                        @if($tasks_module_active || $skyAny(['tasks-dashboard', 'tasks-all', 'tasks-scheduled', 'tasks-reminders', 'tasks-pending', 'tasks.create', 'tasks.settings']))
                             <li><a href="#tasks-module" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-checklist"></i><span>Task Manager</span></a>
                                 <ul id="tasks-module" class="collapse list-unstyled ">
-                                    @if(in_array('tasks.view', $all_permission))
+                                    @if($skyCan('tasks-dashboard'))
                                         <li id="tasks-dashboard-menu"><a href="{{ route('tasks.dashboard') }}">Task Dashboard</a></li>
+                                    @endif
+                                    @if($skyCan('tasks-all'))
                                         <li id="tasks-list-menu"><a href="{{ route('tasks.index') }}">All Tasks</a></li>
+                                    @endif
+                                    @if($skyCan('tasks-scheduled'))
                                         <li id="tasks-scheduled-menu"><a href="{{ route('tasks.scheduled') }}">Scheduled</a></li>
+                                    @endif
+                                    @if($skyCan('tasks-reminders'))
                                         <li id="tasks-reminders-menu"><a href="{{ route('tasks.reminders') }}">Reminders</a></li>
+                                    @endif
+                                    @if($skyCan('tasks-pending'))
                                         <li id="tasks-pending-menu"><a href="{{ route('tasks.pending') }}">Pending Acceptances</a></li>
                                     @endif
                                     @if(in_array('tasks.create', $all_permission))
@@ -2150,16 +2207,16 @@
                                 ['role_id', $role->id]
                             ])->first() : null;
                         @endphp
-                        @if($jobs_module_active)
+                        @if($jobs_module_active || $skyAny(['jobs-applicants', 'jobs-postings', 'jobs.create', 'jobs-applications', 'jobs-awaiting', 'jobs-selected', 'jobs-rejected']))
                             <li><a href="#jobs-module" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-briefcase"></i><span>Job Board</span></a>
                                 <ul id="jobs-module" class="collapse list-unstyled ">
-                                    <li id="jobs-applicants-menu"><a href="{{ route('jobs.applicants') }}">Applicants</a></li>
-                                    <li id="jobs-list-menu"><a href="{{ route('jobs.index') }}">Job Postings</a></li>
-                                    <li id="jobs-create-menu"><a href="{{ route('jobs.create') }}">Add Job</a></li>
-                                    <li id="jobs-apps-menu"><a href="{{ route('jobs.applications') }}">All Applications</a></li>
-                                    <li id="jobs-awaiting-menu"><a href="{{ route('jobs.awaiting') }}">Awaiting Approval</a></li>
-                                    <li id="jobs-selected-menu"><a href="{{ route('jobs.selected') }}">Selected</a></li>
-                                    <li id="jobs-rejected-menu"><a href="{{ route('jobs.rejected') }}">Rejected</a></li>
+                                    @if($skyCan('jobs-applicants'))<li id="jobs-applicants-menu"><a href="{{ route('jobs.applicants') }}">Applicants</a></li>@endif
+                                    @if($skyCan('jobs-postings'))<li id="jobs-list-menu"><a href="{{ route('jobs.index') }}">Job Postings</a></li>@endif
+                                    @if($skyCan('jobs.create'))<li id="jobs-create-menu"><a href="{{ route('jobs.create') }}">Add Job</a></li>@endif
+                                    @if($skyCan('jobs-applications'))<li id="jobs-apps-menu"><a href="{{ route('jobs.applications') }}">All Applications</a></li>@endif
+                                    @if($skyCan('jobs-awaiting'))<li id="jobs-awaiting-menu"><a href="{{ route('jobs.awaiting') }}">Awaiting Approval</a></li>@endif
+                                    @if($skyCan('jobs-selected'))<li id="jobs-selected-menu"><a href="{{ route('jobs.selected') }}">Selected</a></li>@endif
+                                    @if($skyCan('jobs-rejected'))<li id="jobs-rejected-menu"><a href="{{ route('jobs.rejected') }}">Rejected</a></li>@endif
                                 </ul>
                             </li>
                         @endif
@@ -2170,19 +2227,19 @@
                                 ['role_id', $role->id]
                             ])->first() : null;
                         @endphp
-                        @if($contracts_module_active)
+                        @if($contracts_module_active || $skyAny(['contracts-dashboard', 'contracts-list', 'contracts-client-sign', 'contracts-admin-sign', 'contracts-signed', 'contracts.create', 'contracts.templates', 'contracts.clauses', 'contracts.report', 'contracts.settings']))
                             <li><a href="#contracts-module" data-nav-key="contracts" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-document-edit"></i><span>Contracts</span></a>
                                 <ul id="contracts-module" class="collapse list-unstyled ">
-                                    <li id="contracts-dashboard-menu"><a href="{{ route('contracts.dashboard') }}">Dashboard</a></li>
-                                    <li id="contracts-list-menu"><a href="{{ route('contracts.index') }}">Contract List</a></li>
-                                    <li id="contracts-awaiting-client-menu"><a href="{{ route('contracts.awaiting_client') }}">Awaiting Client Signature</a></li>
-                                    <li id="contracts-awaiting-admin-menu"><a href="{{ route('contracts.awaiting_admin') }}">Awaiting Admin Signature</a></li>
-                                    <li id="contracts-signed-menu"><a href="{{ route('contracts.signed') }}">Signed</a></li>
-                                    <li id="contracts-create-menu"><a href="{{ route('contracts.create') }}">Create Contract</a></li>
-                                    <li id="contracts-templates-menu"><a href="{{ route('contracts.templates') }}">Templates</a></li>
-                                    <li id="contracts-clauses-menu"><a href="{{ route('contracts.clauses') }}">Clause Library</a></li>
-                                    <li id="contracts-report-menu"><a href="{{ route('contracts.report') }}">Reports</a></li>
-                                    <li id="contracts-settings-menu"><a href="{{ route('contracts.settings') }}">Settings</a></li>
+                                    @if($skyCan('contracts-dashboard'))<li id="contracts-dashboard-menu"><a href="{{ route('contracts.dashboard') }}">Dashboard</a></li>@endif
+                                    @if($skyCan('contracts-list'))<li id="contracts-list-menu"><a href="{{ route('contracts.index') }}">Contract List</a></li>@endif
+                                    @if($skyCan('contracts-client-sign'))<li id="contracts-awaiting-client-menu"><a href="{{ route('contracts.awaiting_client') }}">Awaiting Client Signature</a></li>@endif
+                                    @if($skyCan('contracts-admin-sign'))<li id="contracts-awaiting-admin-menu"><a href="{{ route('contracts.awaiting_admin') }}">Awaiting Admin Signature</a></li>@endif
+                                    @if($skyCan('contracts-signed'))<li id="contracts-signed-menu"><a href="{{ route('contracts.signed') }}">Signed</a></li>@endif
+                                    @if($skyCan('contracts.create'))<li id="contracts-create-menu"><a href="{{ route('contracts.create') }}">Create Contract</a></li>@endif
+                                    @if($skyCan('contracts.templates'))<li id="contracts-templates-menu"><a href="{{ route('contracts.templates') }}">Templates</a></li>@endif
+                                    @if($skyCan('contracts.clauses'))<li id="contracts-clauses-menu"><a href="{{ route('contracts.clauses') }}">Clause Library</a></li>@endif
+                                    @if($skyCan('contracts.report'))<li id="contracts-report-menu"><a href="{{ route('contracts.report') }}">Reports</a></li>@endif
+                                    @if($skyCan('contracts.settings'))<li id="contracts-settings-menu"><a href="{{ route('contracts.settings') }}">Settings</a></li>@endif
                                 </ul>
                             </li>
                         @endif
@@ -2193,24 +2250,24 @@
                                 ['role_id', $role->id]
                             ])->first() : null;
                         @endphp
-                        @if($timesheets_module_active)
+                        @if($timesheets_module_active || $skyAny(['timesheets-activity', 'timesheets-fill', 'timesheets-week']))
                             <li><a href="#timesheets-module" data-nav-key="timesheets" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-clock"></i><span>TimeSheets (Employee)</span></a>
                                 <ul id="timesheets-module" class="collapse list-unstyled ">
-                                    <li id="ts-activities-menu"><a href="{{ route('timesheet.activities') }}">Create Activity</a></li>
-                                    <li id="ts-fill-menu"><a href="{{ route('timesheet.fill') }}">Fill Time Sheet</a></li>
-                                    <li id="ts-week-menu"><a href="{{ route('timesheet.working-week') }}">Working Week</a></li>
+                                    @if($skyCan('timesheets-activity'))<li id="ts-activities-menu"><a href="{{ route('timesheet.activities') }}">Create Activity</a></li>@endif
+                                    @if($skyCan('timesheets-fill'))<li id="ts-fill-menu"><a href="{{ route('timesheet.fill') }}">Fill Time Sheet</a></li>@endif
+                                    @if($skyCan('timesheets-week'))<li id="ts-week-menu"><a href="{{ route('timesheet.working-week') }}">Working Week</a></li>@endif
                                 </ul>
                             </li>
-                            @if(in_array($role->id, [1, 2]) || in_array('timesheets.admin', $all_permission ?? []) || in_array('timesheets.manage', $all_permission ?? []))
+                        @endif
+                        @if($skyAny(['timesheets-admin-report', 'timesheets-admin-overtime', 'timesheets-admin-manage', 'timesheets-admin-categories']) || Auth::user()->hasFullAdminAccess())
                             <li><a href="#timesheet-admin-module" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-graph-bar"></i><span>TimeSheet Admin</span></a>
                                 <ul id="timesheet-admin-module" class="collapse list-unstyled ">
-                                    <li id="tsa-report-menu"><a href="{{ route('timesheet.admin.report') }}">Reports</a></li>
-                                    <li id="tsa-ot-menu"><a href="{{ route('timesheet.admin.overtime') }}">Overtime Report</a></li>
-                                    <li id="tsa-manage-menu"><a href="{{ route('timesheet.admin.manage') }}">Manage All</a></li>
-                                    <li id="tsa-cat-menu"><a href="{{ route('timesheet.admin.categories') }}">Categories</a></li>
+                                    @if($skyCan('timesheets-admin-report') || Auth::user()->hasFullAdminAccess())<li id="tsa-report-menu"><a href="{{ route('timesheet.admin.report') }}">Reports</a></li>@endif
+                                    @if($skyCan('timesheets-admin-overtime') || Auth::user()->hasFullAdminAccess())<li id="tsa-ot-menu"><a href="{{ route('timesheet.admin.overtime') }}">Overtime Report</a></li>@endif
+                                    @if($skyCan('timesheets-admin-manage') || Auth::user()->hasFullAdminAccess())<li id="tsa-manage-menu"><a href="{{ route('timesheet.admin.manage') }}">Manage All</a></li>@endif
+                                    @if($skyCan('timesheets-admin-categories') || Auth::user()->hasFullAdminAccess())<li id="tsa-cat-menu"><a href="{{ route('timesheet.admin.categories') }}">Categories</a></li>@endif
                                 </ul>
                             </li>
-                            @endif
                         @endif
                         @if(in_array('shops-index', $all_permission))
                             <li>
@@ -2231,7 +2288,7 @@
                                         @if(in_array('services-index', $all_permission))<li id="service-list-menu"><a href="{{route('services.list')}}">Service List</a></li>@endif
                                     @endif
                                     @if(Auth::user()->role_id != 12 || Auth::user()->can_booking == 1)
-                                        @if(in_array('booking_index', $all_permission))
+                                        @if($skyCan('online-booking-index') || in_array('booking_index', $all_permission))
                                             <li id="online-booking-index-menu"><a href="{{route('online.booking.index')}}">Online Booking List</a></li>
                                         @endif
                                     @endif
@@ -2246,27 +2303,31 @@
                         {{--                            </ul>--}}
                         {{--                        </li>--}}
                         {{--                        @endif--}}
-                        @if(in_array('payments-index', $all_permission))
+                        @if($skyAny(['payments-awaiting', 'payments-collected', 'payments-list', 'payments-payout-tab', 'payments-request', 'payments-index']))
                             <li>
                                 <a href="#payments" data-nav-key="payments" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-dollar"></i><span>Payments</span></a>
                                 <ul id="payments" class="collapse list-unstyled ">
-                                    <li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>
-                                    <li id="payment-collected-menu"><a href="{{route('payment.collected')}}">Collected</a></li>
-                                    <li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Payments</a></li>
-                                    <li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>
-                                    <li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>
+                                    @if($skyCan('payments-awaiting'))<li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>@endif
+                                    @if($skyCan('payments-collected'))<li id="payment-collected-menu"><a href="{{route('payment.collected')}}">Collected</a></li>@endif
+                                    @if($skyCan('payments-list'))<li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Payments</a></li>@endif
+                                    @if($skyCan('payments-payout-tab'))<li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>@endif
+                                    @if($skyCan('payments-request'))<li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>@endif
                                 </ul>
                             </li>
                         @endif
                         @php
                             $expenseMenu = \App\Support\ExpenseBoard::canView(Auth::user());
                         @endphp
-                        @if($expenseMenu)
+                        @if($expenseMenu || $skyCan('expense_categories'))
                             <li>
                                 <a href="#expense" data-nav-key="expenses" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-wallet"></i><span>Expenses</span></a>
                                 <ul id="expense" class="collapse list-unstyled ">
+                                    @if($skyCan('expenses-index') || Auth::user()->hasFullAdminAccess())
                                     <li id="exp-list-menu"><a href="{{ route('expenses.index') }}">Expenses</a></li>
+                                    @endif
+                                    @if($skyCan('expense_categories') || Auth::user()->hasFullAdminAccess())
                                     <li id="exp-cat-menu"><a href="{{ route('expense_categories.index') }}">Categories &amp; budgets</a></li>
+                                    @endif
                                 </ul>
                             </li>
                         @endif
@@ -2451,22 +2512,22 @@
                                 ['role_id', $role->id]
                             ])->first() : null;
                         @endphp
-                        @if($announcements_module_active)
+                        @if($announcements_module_active || $skyAny(['announcements.compose', 'announcements-all', 'announcements-scheduled', 'announcements-reminders', 'announcements.templates', 'announcements.categories', 'create_sms', 'sms_setting', 'announcements.settings']))
                             <li><a href="#announcements-module" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-bullhorn"></i><span>Announcements</span></a>
                                 <ul id="announcements-module" class="collapse list-unstyled ">
-                                    <li id="announcements-compose-menu"><a href="{{ route('announcements.compose') }}">Compose</a></li>
-                                    <li id="announcements-list-menu"><a href="{{ route('announcements.index') }}">All Announcements</a></li>
-                                    <li id="announcements-scheduled-menu"><a href="{{ route('announcements.scheduled') }}">Scheduled</a></li>
-                                    <li id="announcements-reminders-menu"><a href="{{ route('announcements.reminders') }}">Reminders</a></li>
-                                    <li id="announcements-templates-menu"><a href="{{ route('announcements.templates') }}">Templates</a></li>
-                                    <li id="announcements-categories-menu"><a href="{{ route('announcements.categories') }}">Categories</a></li>
+                                    @if($skyCan('announcements.compose'))<li id="announcements-compose-menu"><a href="{{ route('announcements.compose') }}">Compose</a></li>@endif
+                                    @if($skyCan('announcements-all'))<li id="announcements-list-menu"><a href="{{ route('announcements.index') }}">All Announcements</a></li>@endif
+                                    @if($skyCan('announcements-scheduled'))<li id="announcements-scheduled-menu"><a href="{{ route('announcements.scheduled') }}">Scheduled</a></li>@endif
+                                    @if($skyCan('announcements-reminders'))<li id="announcements-reminders-menu"><a href="{{ route('announcements.reminders') }}">Reminders</a></li>@endif
+                                    @if($skyCan('announcements.templates'))<li id="announcements-templates-menu"><a href="{{ route('announcements.templates') }}">Templates</a></li>@endif
+                                    @if($skyCan('announcements.categories'))<li id="announcements-categories-menu"><a href="{{ route('announcements.categories') }}">Categories</a></li>@endif
                                     @if($create_sms_permission_active)
                                         <li id="create-sms-menu"><a href="{{route('setting.createSms')}}">{{trans('file.Create SMS')}}</a></li>
                                     @endif
                                     @if($sms_setting_permission_active)
                                         <li id="sms-setting-menu"><a href="{{route('setting.messaging')}}">{{trans('file.SMS Setting')}}</a></li>
                                     @endif
-                                    <li id="announcements-settings-menu"><a href="{{ route('announcements.settings') }}">Settings</a></li>
+                                    @if($skyCan('announcements.settings'))<li id="announcements-settings-menu"><a href="{{ route('announcements.settings') }}">Settings</a></li>@endif
                                     @if(in_array('announcement_index', $all_permission ?? []))
                                         <li id="announcement-legacy-menu"><a href="{{ route('announcement.index') }}">Legacy Letters</a></li>
                                     @endif
@@ -2477,7 +2538,9 @@
                                 <a href="{{ route('announcement.index') }}"> <i class="fa fa-bullhorn"></i><span>{{trans('file.Announcement')}}</span></a>
                             </li>
                         @endif
+                        @if($skyCan('call-center') || Auth::user()->hasFullAdminAccess())
                         <li id="call-center-menu"><a href="{{ route('calls.index') }}" data-nav-key="calls"><i class="fa fa-phone"></i><span>Call Center</span></a></li>
+                        @endif
                         @php
                             $whatsapp_module_permission = \Spatie\Permission\Models\Permission::where('name', 'whatsapp_module')->first();
                             $whatsapp_module_active = $role && $whatsapp_module_permission ? \DB::table('role_has_permissions')->where([
@@ -2497,23 +2560,23 @@
                                 }
                             }
                         @endphp
-                        @if(Auth::check() && Auth::user()->isSuperAdmin())
+                        @if((Auth::check() && Auth::user()->isSuperAdmin()) || $skyCan('mai-voice'))
                             <li id="mai-voice-menu"><a href="{{ route('mai.voice') }}" data-nav-key="mai-voice"><i class="fa fa-phone"></i><span>MAI Voice</span></a></li>
                         @endif
-                        @if($whatsapp_module_active)
+                        @if($whatsapp_module_active || $skyAny(['whatsapp-command', 'whatsapp-conversations', 'whatsapp-leads', 'whatsapp-groups', 'whatsapp-rentals', 'whatsapp-attendance', 'whatsapp-calls', 'whatsapp-assistant', 'whatsapp-brief', 'whatsapp-people', 'whatsapp-settings']))
                             <li><a href="#whatsapp-module" data-nav-key="whatsapp" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-whatsapp"></i><span>WhatsApp Hub</span></a>
                                 <ul id="whatsapp-module" class="collapse list-unstyled ">
-                                    <li id="whatsapp-command-menu"><a href="{{ route('whatsapp.index') }}">Command Center</a></li>
-                                    <li id="whatsapp-conversations-menu"><a href="{{ route('whatsapp.conversations') }}">Conversations</a></li>
-                                    <li id="whatsapp-leads-menu"><a href="{{ route('whatsapp.leads') }}">Leads</a></li>
-                                    <li id="whatsapp-groups-menu"><a href="{{ route('whatsapp.groups') }}">Groups</a></li>
-                                    <li id="whatsapp-rentals-menu"><a href="{{ route('whatsapp.rentals') }}">Rentals</a></li>
-                                    <li id="whatsapp-attendance-menu"><a href="{{ route('whatsapp.attendance') }}">Attendance</a></li>
-                                    <li id="whatsapp-calls-menu"><a href="{{ route('whatsapp.calls') }}">Calls</a></li>
-                                    <li id="whatsapp-assistant-menu"><a href="{{ route('whatsapp.assistant') }}">AI Assistant</a></li>
-                                    <li id="whatsapp-brief-menu"><a href="{{ route('whatsapp.brief') }}">AI brief</a></li>
-                                    <li id="whatsapp-people-menu"><a href="{{ route('whatsapp.people') }}">People I know</a></li>
-                                    <li id="whatsapp-settings-menu"><a href="{{ route('whatsapp.settings') }}">Settings</a></li>
+                                    @if($skyCan('whatsapp-command'))<li id="whatsapp-command-menu"><a href="{{ route('whatsapp.index') }}">Command Center</a></li>@endif
+                                    @if($skyCan('whatsapp-conversations'))<li id="whatsapp-conversations-menu"><a href="{{ route('whatsapp.conversations') }}">Conversations</a></li>@endif
+                                    @if($skyCan('whatsapp-leads'))<li id="whatsapp-leads-menu"><a href="{{ route('whatsapp.leads') }}">Leads</a></li>@endif
+                                    @if($skyCan('whatsapp-groups'))<li id="whatsapp-groups-menu"><a href="{{ route('whatsapp.groups') }}">Groups</a></li>@endif
+                                    @if($skyCan('whatsapp-rentals'))<li id="whatsapp-rentals-menu"><a href="{{ route('whatsapp.rentals') }}">Rentals</a></li>@endif
+                                    @if($skyCan('whatsapp-attendance'))<li id="whatsapp-attendance-menu"><a href="{{ route('whatsapp.attendance') }}">Attendance</a></li>@endif
+                                    @if($skyCan('whatsapp-calls'))<li id="whatsapp-calls-menu"><a href="{{ route('whatsapp.calls') }}">Calls</a></li>@endif
+                                    @if($skyCan('whatsapp-assistant'))<li id="whatsapp-assistant-menu"><a href="{{ route('whatsapp.assistant') }}">AI Assistant</a></li>@endif
+                                    @if($skyCan('whatsapp-brief'))<li id="whatsapp-brief-menu"><a href="{{ route('whatsapp.brief') }}">AI brief</a></li>@endif
+                                    @if($skyCan('whatsapp-people'))<li id="whatsapp-people-menu"><a href="{{ route('whatsapp.people') }}">People I know</a></li>@endif
+                                    @if($skyCan('whatsapp-settings'))<li id="whatsapp-settings-menu"><a href="{{ route('whatsapp.settings') }}">Settings</a></li>@endif
                                 </ul>
                             </li>
                         @endif
@@ -2623,15 +2686,15 @@
                         @if($index_permission_active)
                             <li><a href="#assets" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-home"></i><span>{{trans('file.Fixed Assets')}}</span><span></a>
                                 <ul id="assets" class="collapse list-unstyled ">
-                                    @if($asset_index_active)<li id="assets-dashboard-menu"><a href="{{route('asset.dashboard')}}">{{trans('file.Assets Dashboard')}}</a></li>@endif
+                                    @if($skyCan('asset-dashboard'))<li id="assets-dashboard-menu"><a href="{{route('asset.dashboard')}}">{{trans('file.Assets Dashboard')}}</a></li>@endif
                                     @if($region_index_active)<li id="region-menu"><a href="{{route('region.index')}}">{{trans('file.Assets Region')}}</a></li>@endif
                                     @if($station_index_active)<li id="station-menu"><a href="{{route('station.index')}}">{{trans('file.Assets Station')}}</a></li>@endif
                                     @if($donor_index_active)<li id="donor-menu"><a href="{{route('donor.index')}}">{{trans('file.Assets Donor')}}</a></li>@endif
                                     @if($asset_type_index_active)<li id="assets-category-menu"><a href="{{route('assetCategory.index')}}">{{trans('file.Assets Type')}}</a></li>@endif
                                     @if($asset_add_active)<li id="assets-add-menu"><a href="{{route('asset.create')}}">{{trans('file.Add Assets')}}</a></li>@endif
                                     @if($asset_index_active)<li id="assets-list-menu"><a href="{{route('asset.index')}}">{{trans('file.Assets List')}}</a></li>@endif
-                                    @if($activity_index_active)<li id="assets-activity-menu-repair"><a href="{{ route('asset.activity.repair') }}"> Repair Activity</a></li>@endif
-                                    @if($activity_index_active)<li id="assets-activity-menu"><a href="{{ route('asset.activity') }}"> Asset Activity</a></li>@endif
+                                    @if($skyCan('asset-repair'))<li id="assets-activity-menu-repair"><a href="{{ route('asset.activity.repair') }}"> Repair Activity</a></li>@endif
+                                    @if($skyCan('asset-activity'))<li id="assets-activity-menu"><a href="{{ route('asset.activity') }}"> Asset Activity</a></li>@endif
                                     @if($asset_expense_index_active)<li id="assets-expense-menu"><a href="{{ route('asset.expense') }}"> Asset Expense</a></li>@endif
                                     @if($asset_disppose_active)<li id="assets-dispose-menu"><a href="{{ route('asset.dispose.list') }}"> Dispose Assets</a></li>@endif
                                     @if($asset_transfer_active)<li id="assets-transfer-menu"><a href="{{ route('asset.transfer.list') }}"> Transfer Assets</a></li>@endif
@@ -3276,13 +3339,12 @@
                                 @endif
                                 @if($general_setting_permission_active)
                                     <li id="general-setting-menu"><a href="{{route('setting.general')}}">{{trans('file.General Setting')}}</a></li>
-                                    @if(!isset($cloudTenant) || $cloudTenant->type !== \App\Cloud\CloudTenantType::CUSTOMER)
-                                    <li id="activity-logs-menu"><a href="{{route('activity-logs.index')}}">Activity Logs</a></li>
-                                    <li id="env-setting-menu"><a href="{{route('setting.env')}}">.env Settings</a></li>
-                                    @endif
                                 @endif
-                                @if(!$general_setting_permission_active && (Auth::user()->hasFullAdminAccess() || (int) Auth::user()->role_id === 2))
+                                @if($skyCan('activity-logs') || Auth::user()->hasFullAdminAccess())
                                     <li id="activity-logs-menu"><a href="{{route('activity-logs.index')}}">Activity Logs</a></li>
+                                @endif
+                                @if(($skyCan('env-setting') || Auth::user()->hasFullAdminAccess()) && (!isset($cloudTenant) || $cloudTenant->type !== \App\Cloud\CloudTenantType::CUSTOMER))
+                                    <li id="env-setting-menu"><a href="{{route('setting.env')}}">.env Settings</a></li>
                                 @endif
                                 @if($mail_setting_permission_active)
                                     <li id="mail-setting-menu"><a href="{{route('setting.mail')}}">{{trans('file.Mail Setting')}}</a></li>

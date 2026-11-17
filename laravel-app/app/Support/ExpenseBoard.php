@@ -24,7 +24,7 @@ class ExpenseBoard
             return true;
         }
 
-        return self::roleHas($user, 'expenses-index');
+        return self::roleHas($user, 'expenses-index') || self::roleHas($user, 'expense_categories');
     }
 
     public static function canAdd($user)

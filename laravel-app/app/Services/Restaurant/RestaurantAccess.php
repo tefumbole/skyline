@@ -101,12 +101,17 @@ class RestaurantAccess
         if (self::managesOrders($user)) {
             return true;
         }
-        foreach (['kitchen-orders', 'bar-orders', 'waiter-orders', 'order-logs', 'orders-index', 'orders-add', 'orders-edit', 'orders-delete'] as $permission) {
+        foreach (['kitchen-orders', 'bar-orders', 'waiter-orders', 'order-logs', 'orders-index', 'orders-add', 'orders-edit', 'orders-delete', 'orders-ready-desk'] as $permission) {
             if (self::can($user, $permission)) {
                 return true;
             }
         }
         foreach (array_keys(self::lanes()) as $key) {
+            if (self::can($user, 'orders-'.$key.'-index')) {
+                return true;
+            }
+        }
+        foreach (array_keys(self::statuses()) as $key) {
             if (self::can($user, 'orders-'.$key.'-index')) {
                 return true;
             }
@@ -205,6 +210,7 @@ class RestaurantAccess
     public static function canReadyDesk($user)
     {
         return self::can($user, 'waiter-orders')
+            || self::can($user, 'orders-ready-desk')
             || self::can($user, 'orders-ready-index')
             || self::can($user, 'orders-ready-edit')
             || self::can($user, 'orders-index');
@@ -254,10 +260,6 @@ class RestaurantAccess
     {
         if (self::managesOrders($user)) {
             return true;
-        }
-        $role = strtolower((string) ($user ? $user->roleName() : ''));
-        if ($role === 'restaurant' || $role === 'kitchen') {
-            return $status === 'awaiting' || $status === 'accepted';
         }
         if (self::can($user, 'orders-index') || self::can($user, 'orders-'.$status.'-index') || self::can($user, 'order-logs')) {
             return true;

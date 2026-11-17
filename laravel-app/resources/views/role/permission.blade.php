@@ -79,17 +79,11 @@
     $('.perm-card').each(function () { paint($(this)); });
     $('.section-toggle').on('change', function () {
         var card = $('#' + $(this).data('section'));
-        var on = this.checked;
-        card.find('.perm').each(function () {
-            var name = this.name;
-            $('.perm[name="' + name + '"]').prop('checked', on);
-        });
-        $('.perm-card').each(function () { paint($(this)); });
+        card.find('.perm').prop('checked', this.checked);
+        paint(card);
     });
     $('.perm').on('change', function () {
-        var on = this.checked;
-        $('.perm[name="' + this.name + '"]').prop('checked', on);
-        $('.perm-card').each(function () { paint($(this)); });
+        paint($(this).closest('.perm-card'));
     });
     $('#perm-all').on('change', function () {
         var on = this.checked;

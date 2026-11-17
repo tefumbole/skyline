@@ -21,9 +21,9 @@ class RolePermissionMenu
                 ['Import Sale By CSV', 'sales-import'],
                 ['Gift Card List', 'gift_card'],
                 ['Coupon List', 'coupon'],
-                ['Delivery List', 'delivery'],
-                ['Delivery Sign Pending', 'delivery'],
-                ['Signed Delivery', 'delivery'],
+                ['Delivery List', 'delivery-list'],
+                ['Delivery Sign Pending', 'delivery-pending'],
+                ['Signed Delivery', 'delivery-signed'],
             ]),
             self::section('Tables', [
                 ['Tables', 'tables'],
@@ -40,7 +40,7 @@ class RolePermissionMenu
                 ['Log', 'order-logs'],
             ]),
             self::section('Ready for Delivery', [
-                ['Ready for Delivery', 'orders-ready-index'],
+                ['Ready for Delivery', 'orders-ready-desk'],
             ]),
             self::section('Call Center', [
                 ['Call Center', 'call-center'],
@@ -49,12 +49,25 @@ class RolePermissionMenu
                 ['Quotation List', 'quotes-index'],
                 ['Add Quotation', 'quotes-add'],
             ]),
+            self::section('Online Order', [
+                ['Order List', 'orders-index'],
+                ['Donation List', 'donations-index'],
+                ['Service List', 'services-index'],
+                ['Online Booking List', 'online-booking-index'],
+            ]),
+            self::section('Payments', [
+                ['Awaiting Payment', 'payments-awaiting'],
+                ['Collected', 'payments-collected'],
+                ['Payments', 'payments-list'],
+                ['Payout', 'payments-payout-tab'],
+                ['Request for Payment', 'payments-request'],
+            ]),
             self::section('Rental Module', [
                 ['Booking Create', 'booking_create'],
-                ['Booking List', 'booking_index'],
-                ['Booking Request', 'booking_index'],
-                ['Booked Products', 'booking_index'],
-                ['Booking Reminder', 'booking_index'],
+                ['Booking List', 'booking-list'],
+                ['Booking Request', 'booking-request'],
+                ['Booked Products', 'booking-products'],
+                ['Booking Reminder', 'booking-reminder'],
                 ['Awaiting Signature', 'booking_awaiting_signature'],
                 ['Pending Review', 'booking_pending_review'],
                 ['Signed Contracts', 'booking_signed_contracts'],
@@ -72,9 +85,9 @@ class RolePermissionMenu
             self::section('Announcements', [
                 ['Announcements', 'announcements_module'],
                 ['Compose', 'announcements.compose'],
-                ['All Announcements', 'announcements.view'],
-                ['Scheduled', 'announcements.view'],
-                ['Reminders', 'announcements.view'],
+                ['All Announcements', 'announcements-all'],
+                ['Scheduled', 'announcements-scheduled'],
+                ['Reminders', 'announcements-reminders'],
                 ['Templates', 'announcements.templates'],
                 ['Categories', 'announcements.categories'],
                 ['Create SMS', 'create_sms'],
@@ -100,46 +113,52 @@ class RolePermissionMenu
                 ['Help', 'help'],
             ]),
             self::section('Task Manager', [
-                ['Task Dashboard', 'tasks.view'],
-                ['All Tasks', 'tasks.view'],
-                ['Scheduled', 'tasks.view'],
-                ['Reminders', 'tasks.view'],
-                ['Pending Acceptances', 'tasks.view'],
+                ['Task Dashboard', 'tasks-dashboard'],
+                ['All Tasks', 'tasks-all'],
+                ['Scheduled', 'tasks-scheduled'],
+                ['Reminders', 'tasks-reminders'],
+                ['Pending Acceptances', 'tasks-pending'],
                 ['Create Task', 'tasks.create'],
                 ['Task Settings', 'tasks.settings'],
                 ['Task Manager', 'tasks_module'],
             ]),
             self::section('TimeSheets (Employee)', [
-                ['Create Activity', 'timesheets.employee'],
-                ['Fill Time Sheet', 'timesheets.employee'],
-                ['Working Week', 'timesheets.employee'],
+                ['Create Activity', 'timesheets-activity'],
+                ['Fill Time Sheet', 'timesheets-fill'],
+                ['Working Week', 'timesheets-week'],
                 ['TimeSheets', 'timesheets_module'],
+            ]),
+            self::section('TimeSheet Admin', [
+                ['Reports', 'timesheets-admin-report'],
+                ['Overtime Report', 'timesheets-admin-overtime'],
+                ['Manage All', 'timesheets-admin-manage'],
+                ['Categories', 'timesheets-admin-categories'],
             ]),
             self::section('Purchase', [
                 ['Purchase List', 'purchases-index'],
                 ['Add Purchase', 'purchases-add'],
-                ['Import Purchase By CSV', 'purchases-add'],
+                ['Import Purchase By CSV', 'purchases-import'],
             ]),
             self::section('Return', [
                 ['Sale', 'returns-index'],
                 ['Purchase', 'purchase-return-index'],
             ]),
             self::section('Permissions', [
-                ['Awaiting Approval', 'permissions_module'],
-                ['Approved Permissions', 'permissions_module'],
-                ['Denied Permissions', 'permissions_module'],
-                ['Permissions Listings', 'permissions_module'],
+                ['Awaiting Approval', 'permissions-awaiting'],
+                ['Approved Permissions', 'permissions-approved'],
+                ['Denied Permissions', 'permissions-denied'],
+                ['Permissions Listings', 'permissions-list'],
             ]),
             self::section('Fixed Assets', [
-                ['Assets Dashboard', 'asset-index'],
+                ['Assets Dashboard', 'asset-dashboard'],
                 ['Assets Region', 'region-index'],
                 ['Assets Station', 'station-index'],
                 ['Assets Donor', 'donor-index'],
                 ['Assets Type', 'asset-type-index'],
                 ['Add Assets', 'asset-add'],
                 ['Assets List', 'asset-index'],
-                ['Repair Activity', 'activity-index'],
-                ['Asset Activity', 'activity-index'],
+                ['Repair Activity', 'asset-repair'],
+                ['Asset Activity', 'asset-activity'],
                 ['Asset Expense', 'asset-expense-index'],
                 ['Dispose Assets', 'asset-disppose'],
                 ['Transfer Assets', 'asset-transfer'],
@@ -148,14 +167,14 @@ class RolePermissionMenu
                 ['Fixed Assets', 'fixed_assets'],
             ]),
             self::section('Events', [
-                ['Events Dashboard', 'events.view'],
-                ['All Events', 'events.view'],
-                ['Event Calendar', 'events.view'],
+                ['Events Dashboard', 'events-dashboard'],
+                ['All Events', 'events-all'],
+                ['Event Calendar', 'events-calendar'],
                 ['Create Event', 'events.create'],
                 ['Event Workforce', 'events.manage_workforce'],
-                ['Event Timesheets', 'events.view'],
-                ['Labour Payments', 'events.view'],
-                ['Event Reminders', 'events.view'],
+                ['Event Timesheets', 'events-timesheets'],
+                ['Labour Payments', 'events-payments'],
+                ['Event Reminders', 'events-reminders'],
                 ['Contract Templates', 'event_contracts.view'],
                 ['Event Settings', 'events.settings'],
                 ['Events', 'events_module'],
@@ -170,13 +189,13 @@ class RolePermissionMenu
                 ['HRM', 'hrm'],
             ]),
             self::section('Job Board', [
-                ['Applicants', 'jobs_module'],
-                ['Job Postings', 'jobs.view'],
+                ['Applicants', 'jobs-applicants'],
+                ['Job Postings', 'jobs-postings'],
                 ['Add Job', 'jobs.create'],
-                ['All Applications', 'jobs.view'],
-                ['Awaiting Approval', 'jobs.view'],
-                ['Selected', 'jobs.view'],
-                ['Rejected', 'jobs.view'],
+                ['All Applications', 'jobs-applications'],
+                ['Awaiting Approval', 'jobs-awaiting'],
+                ['Selected', 'jobs-selected'],
+                ['Rejected', 'jobs-rejected'],
             ]),
             self::section('Accounting', [
                 ['Account', 'account-index'],
@@ -221,11 +240,11 @@ class RolePermissionMenu
                 ['Due Report', 'due_report'],
             ]),
             self::section('Contracts', [
-                ['Dashboard', 'contracts.view'],
-                ['Contract List', 'contracts.view'],
-                ['Awaiting Client Signature', 'contracts.view'],
-                ['Awaiting Admin Signature', 'contracts.view'],
-                ['Signed', 'contracts.view'],
+                ['Dashboard', 'contracts-dashboard'],
+                ['Contract List', 'contracts-list'],
+                ['Awaiting Client Signature', 'contracts-client-sign'],
+                ['Awaiting Admin Signature', 'contracts-admin-sign'],
+                ['Signed', 'contracts-signed'],
                 ['Create Contract', 'contracts.create'],
                 ['Templates', 'contracts.templates'],
                 ['Clause Library', 'contracts.clauses'],
@@ -240,18 +259,33 @@ class RolePermissionMenu
                 ['MAI Voice', 'mai-voice'],
             ]),
             self::section('WhatsApp Hub', [
-                ['Command Center', 'whatsapp.view'],
-                ['Conversations', 'whatsapp.view'],
-                ['Leads', 'whatsapp.view'],
-                ['Groups', 'whatsapp.manage'],
-                ['Rentals', 'whatsapp.view'],
-                ['Attendance', 'whatsapp.view'],
-                ['Calls', 'whatsapp.view'],
-                ['AI Assistant', 'whatsapp.manage'],
-                ['AI brief', 'whatsapp.view'],
-                ['People I know', 'whatsapp.view'],
-                ['Settings', 'whatsapp.manage'],
+                ['Command Center', 'whatsapp-command'],
+                ['Conversations', 'whatsapp-conversations'],
+                ['Leads', 'whatsapp-leads'],
+                ['Groups', 'whatsapp-groups'],
+                ['Rentals', 'whatsapp-rentals'],
+                ['Attendance', 'whatsapp-attendance'],
+                ['Calls', 'whatsapp-calls'],
+                ['AI Assistant', 'whatsapp-assistant'],
+                ['AI brief', 'whatsapp-brief'],
+                ['People I know', 'whatsapp-people'],
+                ['Settings', 'whatsapp-settings'],
                 ['WhatsApp Hub', 'whatsapp_module'],
+            ]),
+            self::section('Digital Invitations', [
+                ['Categories', 'online_invitation_category'],
+                ['Templates', 'online_invitation_template'],
+                ['Events', 'online_invitation_event'],
+                ['All Invitations', 'invitations-all'],
+                ['Awaiting Sending', 'invitations-awaiting'],
+                ['Sent', 'invitations-sent'],
+                ['Used', 'invitations-used'],
+                ['Failed', 'invitations-failed'],
+                ['Attending', 'invitations-attending'],
+                ['Request Links', 'invitations-request-links'],
+                ['Reminders', 'invitations-reminders'],
+                ['Queued Messages', 'invitations-queued'],
+                ['Create Invitation', 'invitations-create'],
             ]),
             self::section('Guest Reviews', [
                 ['Guest Reviews', 'guest-reviews'],
@@ -265,6 +299,8 @@ class RolePermissionMenu
                 ['Currency', 'currency'],
                 ['Tax', 'tax'],
                 ['General Setting', 'general_setting'],
+                ['Activity Logs', 'activity-logs'],
+                ['.env Settings', 'env-setting'],
                 ['Mail Setting', 'mail_setting'],
                 ['POS Setting', 'pos_setting'],
                 ['Reward Point Setting', 'reward_point_setting'],
@@ -293,14 +329,18 @@ class RolePermissionMenu
     public static function apply(Role $role, Request $request)
     {
         foreach (self::names() as $name) {
-            $permission = Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
-            $on = $request->has($name);
+            Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+        }
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (self::names() as $name) {
             try {
-                if ($on && ! $role->hasPermissionTo($name)) {
+                $permission = Permission::findByName($name, 'web');
+                $on = $request->has($name);
+                if ($on && ! $role->hasPermissionTo($permission)) {
                     $role->givePermissionTo($permission);
                 }
-                if (! $on && $role->hasPermissionTo($name)) {
-                    $role->revokePermissionTo($name);
+                if (! $on && $role->hasPermissionTo($permission)) {
+                    $role->revokePermissionTo($permission);
                 }
             } catch (\Throwable $e) {
             }

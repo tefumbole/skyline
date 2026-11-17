@@ -4,6 +4,15 @@
     $money = function ($amount) {
         return number_format((float) $amount, 0).' XAF';
     };
+    $categoryChoices = $categories->map(function ($category) use ($stats) {
+        $parent = ($category->parent_id && isset($stats[$category->parent_id])) ? $stats[$category->parent_id]['name'] : '';
+        return [
+            'id' => (int) $category->id,
+            'name' => $category->name,
+            'code' => (string) $category->code,
+            'parent' => $parent,
+        ];
+    })->values();
 @endphp
 <style>
     section.ex-page {
@@ -38,6 +47,35 @@
         box-sizing: border-box;
     }
     .ex-field textarea { min-height: 72px; resize: vertical; }
+    .ex-combo { position: relative; }
+    .ex-combo input[type="text"] { padding-right: 44px; }
+    .ex-combo.is-open input[type="text"] { border-color: #e1b368; box-shadow: 0 0 0 3px rgba(225,179,104,.28); }
+    .ex-combo-toggle {
+        position: absolute; top: 4px; right: 4px; width: 40px; height: 40px;
+        border: 0; background: transparent; border-radius: 10px; cursor: pointer;
+    }
+    .ex-combo-toggle span {
+        display: block; width: 8px; height: 8px; margin: 12px auto 0;
+        border-right: 2px solid #5c6b80; border-bottom: 2px solid #5c6b80;
+        transform: rotate(45deg);
+    }
+    .ex-combo-list {
+        position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px);
+        margin: 0; padding: 6px; list-style: none; background: #fff;
+        border-radius: 14px; box-shadow: 0 16px 40px rgba(12,24,48,.16);
+        max-height: 240px; overflow: auto; -webkit-overflow-scrolling: touch;
+    }
+    .ex-combo-list button {
+        display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px;
+        min-height: 48px; padding: 8px 12px; border: 0; border-radius: 10px;
+        background: transparent; color: #0c1830; text-align: left; font-size: 16px; cursor: pointer;
+    }
+    .ex-combo-list button.is-on, .ex-combo-list button:hover { background: #f7f1e4; }
+    .ex-combo-list strong { font-weight: 700; }
+    .ex-combo-list small { display: block; color: #5c6b80; font-size: 12px; font-weight: 600; }
+    .ex-combo-list em { font-style: normal; color: #8a6a32; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+    .ex-combo-empty { color: #5c6b80; padding: 12px; font-size: 14px; }
+    .ex-hint { margin: 6px 0 0; color: #9a3b3b; font-size: 13px; }
     .ex-actions { display: flex; flex-direction: column; gap: 8px; }
     .ex-btn {
         display: block; width: 100%; min-height: 48px; line-height: 48px; padding: 0 16px;
@@ -92,13 +130,14 @@
             <input type="date" name="spent_on" id="ex-date" required value="{{ date('Y-m-d') }}">
         </div>
         <div class="ex-field">
-            <label>Category</label>
-            <select name="expense_category_id" id="ex-category" required>
-                <option value="">Choose a category</option>
-                @foreach($categories as $category)
-                    <option value="{{ $category->id }}">{{ $category->parent_id && isset($stats[$category->parent_id]) ? $stats[$category->parent_id]['name'].' / ' : '' }}{{ $category->name }}</option>
-                @endforeach
-            </select>
+            <label for="ex-category-search">Category</label>
+            <div class="ex-combo" id="ex-combo">
+                <input type="hidden" name="expense_category_id" id="ex-category" value="">
+                <input type="text" id="ex-category-search" autocomplete="off" placeholder="Search or choose a category" role="combobox" aria-expanded="false" aria-controls="ex-category-list" aria-autocomplete="list">
+                <button type="button" class="ex-combo-toggle" id="ex-category-toggle" aria-label="Show categories"><span></span></button>
+                <ul class="ex-combo-list" id="ex-category-list" role="listbox" hidden></ul>
+            </div>
+            <p class="ex-hint" id="ex-category-hint" hidden>Choose a category.</p>
             @if($categories->isEmpty())
                 <p style="margin-top:6px;">Add a category first from Categories &amp; budgets.</p>
             @endif
@@ -156,7 +195,117 @@
         var storeUrl = @json(route('expenses.store'));
         var updateBase = @json(url('expenses'));
         var today = @json(date('Y-m-d'));
+        var categories = @json($categoryChoices);
         var reset = document.getElementById('ex-reset');
+        var combo = document.getElementById('ex-combo');
+        var hidden = document.getElementById('ex-category');
+        var search = document.getElementById('ex-category-search');
+        var list = document.getElementById('ex-category-list');
+        var hint = document.getElementById('ex-category-hint');
+        var toggle = document.getElementById('ex-category-toggle');
+        function esc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+        function labelFor(item) {
+            return item.parent ? item.parent + ' / ' + item.name : item.name;
+        }
+        function choose(item) {
+            hidden.value = String(item.id);
+            search.value = labelFor(item);
+            hint.hidden = true;
+            closeList();
+        }
+        function clearCategory() {
+            hidden.value = '';
+            search.value = '';
+            hint.hidden = true;
+        }
+        function matches(item, query) {
+            var hay = (item.parent + ' ' + item.name + ' ' + item.code).toLowerCase();
+            return hay.indexOf(query) !== -1;
+        }
+        function openList(query) {
+            var q = (query || '').toLowerCase().trim();
+            var html = '';
+            var found = 0;
+            for (var i = 0; i < categories.length; i++) {
+                var item = categories[i];
+                if (q && !matches(item, q)) continue;
+                found++;
+                var on = String(item.id) === hidden.value ? ' is-on' : '';
+                html += '<li><button type="button" class="' + on.trim() + '" data-id="' + item.id + '"><span><strong>' + esc(item.name) + '</strong>' + (item.parent ? '<small>' + esc(item.parent) + '</small>' : '') + '</span><em>' + esc(item.code || '') + '</em></button></li>';
+            }
+            if (!found) {
+                html = '<li class="ex-combo-empty">No category matches.</li>';
+            }
+            list.innerHTML = html;
+            list.hidden = false;
+            combo.className = 'ex-combo is-open';
+            search.setAttribute('aria-expanded', 'true');
+        }
+        function closeList() {
+            list.hidden = true;
+            combo.className = 'ex-combo';
+            search.setAttribute('aria-expanded', 'false');
+        }
+        function pickById(id) {
+            for (var i = 0; i < categories.length; i++) {
+                if (String(categories[i].id) === String(id)) {
+                    choose(categories[i]);
+                    return;
+                }
+            }
+            clearCategory();
+        }
+        search.addEventListener('focus', function () { openList(search.value); });
+        search.addEventListener('input', function () {
+            hidden.value = '';
+            hint.hidden = true;
+            openList(search.value);
+        });
+        toggle.addEventListener('click', function () {
+            if (list.hidden) {
+                search.focus();
+                openList('');
+            } else {
+                closeList();
+            }
+        });
+        list.addEventListener('click', function (event) {
+            var button = event.target;
+            while (button && button !== list && button.tagName !== 'BUTTON') {
+                button = button.parentNode;
+            }
+            if (!button || button === list) return;
+            pickById(button.getAttribute('data-id'));
+        });
+        document.addEventListener('click', function (event) {
+            if (!combo.contains(event.target)) closeList();
+        });
+        form.addEventListener('submit', function (event) {
+            if (hidden.value) return;
+            var q = search.value.toLowerCase().trim();
+            var only = null;
+            var count = 0;
+            for (var i = 0; i < categories.length; i++) {
+                if (q && matches(categories[i], q)) {
+                    only = categories[i];
+                    count++;
+                }
+            }
+            if (count === 1) {
+                choose(only);
+                return;
+            }
+            event.preventDefault();
+            hint.hidden = false;
+            openList(search.value);
+            search.focus();
+        });
         function createMode() {
             form.action = storeUrl;
             document.getElementById('ex-method').value = 'POST';
@@ -164,7 +313,7 @@
             document.getElementById('ex-title').textContent = 'Create expense';
             document.getElementById('ex-save').textContent = 'Save expense';
             document.getElementById('ex-date').value = today;
-            document.getElementById('ex-category').value = '';
+            clearCategory();
             document.getElementById('ex-amount').value = '';
             document.getElementById('ex-note').value = '';
             reset.hidden = true;
@@ -185,7 +334,7 @@
                 document.getElementById('ex-title').textContent = 'Edit expense';
                 document.getElementById('ex-save').textContent = 'Save changes';
                 document.getElementById('ex-date').value = this.getAttribute('data-date');
-                document.getElementById('ex-category').value = this.getAttribute('data-category');
+                pickById(this.getAttribute('data-category'));
                 document.getElementById('ex-amount').value = this.getAttribute('data-amount');
                 document.getElementById('ex-note').value = this.getAttribute('data-note') || '';
                 reset.hidden = false;

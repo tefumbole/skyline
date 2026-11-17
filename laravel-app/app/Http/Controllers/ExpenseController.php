@@ -122,6 +122,9 @@ class ExpenseController extends Controller
         ])->first();
         if($cash_register_data)
             $data['cash_register_id'] = $cash_register_data->id;
+        if ($missing = $this->missingSetupMessage($data)) {
+            return redirect()->route('expenses.index')->with('not_permitted', $missing);
+        }
         $expense = Expense::create($data);
         $this->applyDate($expense, $request);
         if ($request->exists('payment_ids')) {
@@ -196,7 +199,11 @@ class ExpenseController extends Controller
         if (! $lims_expense_data) {
             return redirect()->route('expenses.index')->with('not_permitted', 'That expense was not found.');
         }
-        $lims_expense_data->update($this->expensePayload($request, $lims_expense_data));
+        $payload = $this->expensePayload($request, $lims_expense_data);
+        if ($missing = $this->missingSetupMessage($payload)) {
+            return redirect()->route('expenses.index')->with('not_permitted', $missing);
+        }
+        $lims_expense_data->update($payload);
         $this->applyDate($lims_expense_data, $request);
         if ($request->exists('payment_ids')) {
             ExpenseBoard::syncPayments($lims_expense_data->id, (array) $request->input('payment_ids', []));
@@ -216,15 +223,20 @@ class ExpenseController extends Controller
         if ($warehouseId < 1) {
             $warehouseId = (int) Warehouse::where('is_active', true)->value('id');
         }
+        $accountId = (int) $request->input('account_id');
+        if ($accountId < 1 && $existing) {
+            $accountId = (int) $existing->account_id;
+        }
+        if ($accountId < 1) {
+            $accountId = $this->defaultAccountId();
+        }
         $data = [
             'expense_category_id' => (int) $request->input('expense_category_id'),
             'warehouse_id' => $warehouseId,
+            'account_id' => $accountId,
             'amount' => $request->input('amount'),
             'note' => $request->input('note'),
         ];
-        if ($request->filled('account_id')) {
-            $data['account_id'] = (int) $request->input('account_id');
-        }
         if ($request->exists('event_id')) {
             $eventId = $request->input('event_id') ?: null;
             $quotationId = $request->filled('quotation_id') ? (int) $request->input('quotation_id') : null;
@@ -239,6 +251,31 @@ class ExpenseController extends Controller
         }
 
         return $data;
+    }
+
+    protected function defaultAccountId()
+    {
+        $id = (int) Account::where('is_active', true)->where('is_default', 1)->value('id');
+        if ($id < 1) {
+            $id = (int) Account::where('is_active', true)->orderBy('id')->value('id');
+        }
+        if ($id < 1) {
+            $id = (int) Account::orderBy('id')->value('id');
+        }
+
+        return $id;
+    }
+
+    protected function missingSetupMessage(array $data)
+    {
+        if ((int) $data['account_id'] < 1) {
+            return 'Add a cash account before saving an expense.';
+        }
+        if ((int) $data['warehouse_id'] < 1) {
+            return 'Add a warehouse before saving an expense.';
+        }
+
+        return null;
     }
 
     protected function savedMessage($saved, $categoryId)

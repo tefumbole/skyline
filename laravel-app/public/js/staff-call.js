@@ -16,6 +16,7 @@
     var offerSdp = '';
     var pc = null;
     var localStream = null;
+    var remoteStream = null;
     var remoteReady = false;
     var answerApplied = false;
     var pendingLocal = [];
@@ -32,7 +33,7 @@
     var ringing = false;
     var muted = false;
     var cameraOff = false;
-    var SCRIPT_VERSION = 6;
+    var SCRIPT_VERSION = 7;
     var iceServers = null;
 
     function token() {
@@ -346,14 +347,26 @@
         }
     }
 
-    function attachRemote(stream) {
-        var sink = mode === 'video' ? remoteVideo : remoteAudio;
-        var other = mode === 'video' ? remoteAudio : remoteVideo;
-        if (other) other.srcObject = null;
+    function playSink(sink) {
         if (!sink) return;
-        sink.srcObject = stream;
+        try { sink.muted = false; } catch (e) {}
+        if ('volume' in sink) { try { sink.volume = 1; } catch (e) {} }
         var play = sink.play();
         if (play && play.catch) play.catch(function () {});
+    }
+
+    function remoteSink() {
+        return mode === 'video' ? remoteVideo : remoteAudio;
+    }
+
+    function attachRemote(stream) {
+        remoteStream = stream;
+        var sink = remoteSink();
+        var other = mode === 'video' ? remoteAudio : remoteVideo;
+        if (other) { try { other.srcObject = null; } catch (e) {} }
+        if (!sink) return;
+        if (sink.srcObject !== stream) sink.srcObject = stream;
+        playSink(sink);
     }
 
     function showLocalPreview(stream) {
@@ -371,7 +384,12 @@
             tuneAll();
             tuneReceivers();
             readPath();
+            if (remoteStream) playSink(remoteSink());
             if (connectTimer) clearTimeout(connectTimer);
+            return;
+        }
+        if (stateName === 'closed') {
+            if (state !== 'idle') finish('Call ended.', false);
             return;
         }
         if (stateName !== 'failed' || failTimer) return;
@@ -381,9 +399,9 @@
             failTimer = null;
             if (!pc) return;
             if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') {
-                finish('The call could not connect. Use the hotel WiFi if you are on different networks.', true, 'ice-failed');
+                finish('The call dropped. Use the hotel WiFi if you are on different networks.', true, 'ice-failed');
             }
-        }, 20000);
+        }, 12000);
     }
 
     function setupPc() {
@@ -554,6 +572,7 @@
         }
         pc = null;
         stopStream();
+        remoteStream = null;
         remoteVideo.srcObject = null;
         localVideo.srcObject = null;
         remoteAudio.srcObject = null;
@@ -575,6 +594,7 @@
     function begin(stream) {
         setupPc();
         addCallerTracks(stream);
+        preferCodecs(pc);
         return pc.createOffer().then(function (offer) {
             var sdp = cleanSdp(offer.sdp);
             return pc.setLocalDescription({ type: 'offer', sdp: sdp }).then(function () {
@@ -636,13 +656,18 @@
         paintCall('Connecting');
         var offer = cleanSdp(offerSdp);
         openMedia(mode).then(function (stream) {
-            return negotiate(stream, offer, false).catch(function () {
-                return negotiate(stream, offer, true);
+            setupPc();
+            // Set the remote offer first so the transceivers it describes exist,
+            // then attach our own tracks onto them. This keeps the audio and
+            // video lines aligned so both people are heard and seen.
+            return pc.setRemoteDescription({ type: 'offer', sdp: offer }).then(function () {
+                return attachAnswerTracks(stream);
+            }).then(function () {
+                remoteReady = true;
+                flushRemote();
+                preferCodecs(pc);
+                return pc.createAnswer();
             });
-        }).then(function () {
-            remoteReady = true;
-            flushRemote();
-            return pc.createAnswer();
         }).then(function (answer) {
             var sdp = cleanSdp(answer.sdp);
             return pc.setLocalDescription({ type: 'answer', sdp: sdp }).then(function () {
@@ -666,18 +691,6 @@
             armConnectTimer();
         }).catch(function (error) {
             finish(mediaError(error, true), true, errorText(error));
-        });
-    }
-
-    function negotiate(stream, offer, remoteFirst) {
-        if (pc) {
-            try { pc.close(); } catch (e) {}
-            pc = null;
-        }
-        setupPc();
-        if (!remoteFirst) addCallerTracks(stream);
-        return pc.setRemoteDescription({ type: 'offer', sdp: offer }).then(function () {
-            if (remoteFirst) return attachAnswerTracks(stream);
         });
     }
 
@@ -805,9 +818,11 @@
 
     document.addEventListener('pointerdown', function () {
         var Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        if (!audioCtx) audioCtx = new Ctx();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (Ctx) {
+            if (!audioCtx) audioCtx = new Ctx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        if (remoteStream) playSink(remoteSink());
     });
 
     heartbeat();

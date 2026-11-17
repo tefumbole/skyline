@@ -23,7 +23,7 @@ class StaffCallController extends Controller
 
         return response()->json([
             'ok' => true,
-            'script' => 6,
+            'script' => 7,
             'iceServers' => $this->iceServers(),
             'incoming' => $this->incomingPayload($userId),
         ]);

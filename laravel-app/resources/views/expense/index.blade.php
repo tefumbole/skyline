@@ -6,23 +6,44 @@
     };
 @endphp
 <style>
-    .ex-page { max-width: 640px; margin: 0 auto 32px; padding: 0 12px; }
-    .ex-hero { background: #0c1830; color: #fff; border-radius: 16px; padding: 16px; }
-    .ex-kicker { color: #e1b368; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
-    .ex-hero h1 { margin: 0; font-size: 26px; font-weight: 700; }
-    .ex-hero p { margin: 8px 0 0; color: #d5deea; }
-    .ex-card { background: #fff; border-radius: 16px; padding: 14px; margin-top: 12px; box-shadow: 0 8px 24px rgba(12,24,48,.06); }
-    .ex-card h2 { margin: 0 0 4px; color: #0c1830; font-size: 20px; }
-    .ex-card > p { margin: 0 0 12px; color: #5c6b80; font-size: 13px; }
-    .ex-field { margin-bottom: 12px; }
+    section.ex-page {
+        width: 100%;
+        max-width: 640px;
+        margin: 0 auto 24px;
+        padding: 0 0 16px;
+        box-sizing: border-box;
+    }
+    .ex-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: 0 8px 24px rgba(12,24,48,.06);
+        scroll-margin-top: 12px;
+    }
+    .ex-card h2 { margin: 0 0 10px; color: #0c1830; font-size: 22px; line-height: 1.2; }
+    .ex-field { margin-bottom: 10px; min-width: 0; }
     .ex-field label { display: block; font-size: 12px; font-weight: 700; color: #5c6b80; margin-bottom: 4px; letter-spacing: .04em; text-transform: uppercase; }
     .ex-field input, .ex-field select, .ex-field textarea {
-        width: 100%; border: 1px solid #d5deea; border-radius: 12px; min-height: 48px; padding: 10px 12px;
-        background: #fff; color: #0c1830; font-size: 16px; box-sizing: border-box;
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+        border: 1px solid #d5deea;
+        border-radius: 12px;
+        min-height: 48px;
+        padding: 10px 12px;
+        background: #fff;
+        color: #0c1830;
+        font-size: 16px;
+        line-height: 1.3;
+        box-sizing: border-box;
     }
-    .ex-field textarea { min-height: 88px; }
+    .ex-field textarea { min-height: 72px; resize: vertical; }
     .ex-actions { display: flex; flex-direction: column; gap: 8px; }
-    .ex-btn { display: block; width: 100%; min-height: 48px; line-height: 48px; padding: 0 16px; border-radius: 12px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; text-align: center; font-size: 16px; }
+    .ex-btn {
+        display: block; width: 100%; min-height: 48px; line-height: 48px; padding: 0 16px;
+        border-radius: 12px; font-weight: 700; border: 0; cursor: pointer; text-align: center; font-size: 16px;
+        box-sizing: border-box;
+    }
     .ex-btn.gold { background: #e1b368; color: #0c1830; }
     .ex-btn.quiet { color: #0c1830; background: #f3f6fb; }
     .ex-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
@@ -33,13 +54,23 @@
     .ex-amount { font-size: 18px; font-weight: 700; color: #0c1830; white-space: nowrap; }
     .ex-empty { color: #5c6b80; background: #fff; border-radius: 16px; padding: 16px; margin-top: 12px; }
     .ex-link { display: block; width: 100%; margin-top: 10px; min-height: 44px; border-radius: 12px; border: 1px solid #d5deea; background: #fff; color: #0c1830; font-weight: 700; font-size: 16px; }
-    .ex-page .pagination { flex-wrap: wrap; justify-content: center; }
+    .ex-page .pagination { flex-wrap: wrap; justify-content: center; margin: 8px 0 0; }
+    @media (max-width: 359px) {
+        .ex-card, .ex-item, .ex-empty { padding: 12px; border-radius: 12px; }
+        .ex-card h2 { font-size: 20px; }
+        .ex-field { margin-bottom: 8px; }
+        .ex-field textarea { min-height: 64px; }
+    }
+    @media (max-height: 700px) and (max-width: 767px) {
+        .ex-field { margin-bottom: 8px; }
+        .ex-field textarea { min-height: 56px; }
+        .ex-card h2 { margin-bottom: 8px; }
+    }
     @media (min-width: 768px) {
-        .ex-page { padding: 0; }
-        .ex-hero { padding: 22px 24px; border-radius: 22px; }
-        .ex-hero h1 { font-size: 32px; }
+        .ex-card { padding: 18px; }
+        .ex-card h2 { font-size: 26px; }
         .ex-actions { flex-direction: row; justify-content: flex-end; }
-        .ex-btn { width: auto; }
+        .ex-btn { width: auto; min-width: 160px; }
     }
 </style>
 <section class="ex-page">
@@ -49,11 +80,6 @@
     @if(session()->has('not_permitted'))
         <div class="alert alert-danger">{{ session('not_permitted') }}</div>
     @endif
-    <div class="ex-hero">
-        <p class="ex-kicker">Money out</p>
-        <h1>Expenses</h1>
-        <p>Add the date, the amount, and a short description.</p>
-    </div>
 
     @if($canAdd || $canEdit)
     <form class="ex-card" id="ex-form" method="post" action="{{ route('expenses.store') }}">
@@ -61,7 +87,6 @@
         <input type="hidden" name="_method" id="ex-method" value="POST">
         <input type="hidden" name="expense_id" id="ex-id" value="">
         <h2 id="ex-title">Create expense</h2>
-        <p>This stays on the screen, so you can fill it in on a phone.</p>
         <div class="ex-field">
             <label>Date</label>
             <input type="date" name="spent_on" id="ex-date" required value="{{ date('Y-m-d') }}">
@@ -148,6 +173,9 @@
             createMode();
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
+        if (window.matchMedia('(max-width: 767px)').matches) {
+            setTimeout(function () { form.scrollIntoView({ block: 'start' }); }, 50);
+        }
         var edits = document.querySelectorAll('.ex-edit');
         for (var i = 0; i < edits.length; i++) {
             edits[i].addEventListener('click', function () {

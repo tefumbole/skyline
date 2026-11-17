@@ -256,19 +256,27 @@ class StaffCallController extends Controller
 
     protected function iceServers()
     {
-        $servers = [
-            ['urls' => 'stun:stun.l.google.com:19302'],
-            ['urls' => 'stun:stun1.l.google.com:19302'],
-        ];
         $host = trim((string) config('services.turn.host'));
+        $servers = [];
+        // Our own coturn answers STUN too. Prefer it, then fall back to Google
+        // so address discovery still works if our box is unreachable.
+        if ($host !== '') {
+            $servers[] = ['urls' => 'stun:'.$host.':3478'];
+        }
+        $servers[] = ['urls' => 'stun:stun.l.google.com:19302'];
+        $servers[] = ['urls' => 'stun:stun1.l.google.com:19302'];
+
         $secret = (string) config('services.turn.secret');
         if ($host !== '' && $secret !== '') {
             $username = (time() + 3600).':skyline';
             $credential = base64_encode(hash_hmac('sha1', $username, $secret, true));
             $servers[] = [
+                // UDP is best when it is allowed; TCP and TLS/443-style 5349
+                // punch through networks that block UDP or odd ports.
                 'urls' => [
                     'turn:'.$host.':3478?transport=udp',
                     'turn:'.$host.':3478?transport=tcp',
+                    'turns:'.$host.':5349?transport=tcp',
                 ],
                 'username' => $username,
                 'credential' => $credential,

@@ -19,7 +19,16 @@
     .perm-chip { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 999px; background: #f3f6fb; color: #0c1830; font-weight: 700; cursor: pointer; }
     .perm-chip.is-on { background: #e1b368; }
     .perm-save { position: sticky; bottom: 12px; margin-top: 16px; }
-    .perm-save input { width: 100%; min-height: 48px; border: 0; border-radius: 999px; background: #e1b368; color: #0c1830; font-weight: 800; }
+    .perm-save input {
+        width: 100%; min-height: 48px; border: 0; border-radius: 999px;
+        background: #e1b368; color: #0c1830; font-weight: 800;
+        cursor: pointer !important; transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .perm-save input:hover {
+        background: #c9963f; color: #0c1830;
+        box-shadow: 0 8px 18px rgba(12, 24, 48, .18);
+        transform: translateY(-1px);
+    }
 </style>
 <section class="perm-page">
     <p class="perm-kicker">Settings</p>

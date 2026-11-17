@@ -26,7 +26,7 @@
         <div class="row">
             <div class="col-lg-4 mb-4">
                 <div class="ts-card ts-card-accent h-100">
-                    <h5 class="mb-1" style="color:#0b3f90;font-weight:700;">Create New Activity</h5>
+                    <h5 class="mb-1" style="color:#0c1830;font-weight:700;">Create New Activity</h5>
                     <p class="text-muted small mb-3">Define a new task type.</p>
                     <form method="POST" action="{{ route('timesheet.activities.store') }}">
                         @csrf
@@ -63,7 +63,7 @@
                 <div class="ts-card">
                     <div class="d-flex justify-content-between align-items-start flex-wrap mb-3" style="gap:10px;">
                         <div>
-                            <h5 class="mb-1" style="color:#0b3f90;font-weight:700;">Your Activities</h5>
+                            <h5 class="mb-1" style="color:#0c1830;font-weight:700;">Your Activities</h5>
                             <p class="text-muted small mb-0">Manage your existing activity definitions.</p>
                         </div>
                         <form method="GET" class="mb-0">
@@ -85,7 +85,7 @@
 
                     @forelse($items as $item)
                         @php
-                            $catColor = optional($item->categoryRel)->color ?: ($item->color ?: '#7c3aed');
+                            $catColor = optional($item->categoryRel)->color ?: ($item->color ?: '#e1b368');
                         @endphp
                         <div class="ts-activity">
                             <div class="ts-activity-icon" style="background:{{ $catColor }};">
@@ -104,7 +104,7 @@
                                 <div class="text-muted small mt-1">{{ $item->description ?: '—' }}</div>
                             </div>
                             <div class="text-nowrap">
-                                <button type="button" class="btn btn-link text-primary p-1" data-toggle="modal" data-target="#editActivity{{ $item->id }}" title="Edit">
+                                <button type="button" class="btn btn-link p-1" style="color:#0c1830;" data-toggle="modal" data-target="#editActivity{{ $item->id }}" title="Edit">
                                     <i class="dripicons-pencil"></i>
                                 </button>
                                 <form method="POST" action="{{ route('timesheet.activities.destroy', $item->id) }}" class="d-inline" onsubmit="return confirm('Delete this activity?');">

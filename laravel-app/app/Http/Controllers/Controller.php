@@ -25,6 +25,9 @@ class Controller extends BaseController
 
         $this->middleware(function ($request, $next) {
             $this->user = \Illuminate\Support\Facades\Auth::user();
+            if ($this->user && $this->user->hasFullAdminAccess()) {
+                \App\Support\AdminPermissions::sync();
+            }
             if ($this->user && ! $this->user->isShopCustomer()) {
                 $all_permission = [];
                 try {

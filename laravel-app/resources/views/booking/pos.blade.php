@@ -864,7 +864,7 @@
                             ['role_id', $role->id]
                         ])->first();
                         ?>
-                        @if($role->name == 'Admin')
+                        @if(Auth::user()->hasFullAdminAccess())
                             <li id="role-menu"><a href="{{route('role.index')}}">{{trans('file.Role Permission')}}</a></li>
                         @endif
                         @if($send_notification_permission_active)
@@ -2407,7 +2407,7 @@ function isCashRegisterAvailable(warehouse_id) {
               $("#register-details-btn").addClass('d-none');
               $('#cash-register-modal select[name=warehouse_id]').val(warehouse_id);
 
-              if(role_id <= 2)
+              if(role_id <= 2 || {{ Auth::user()->hasFullAdminAccess() ? 'true' : 'false' }})
                 $("#cash-register-modal .warehouse-section").removeClass('d-none');
               else
                 $("#cash-register-modal .warehouse-section").addClass('d-none');

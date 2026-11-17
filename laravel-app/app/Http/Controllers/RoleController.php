@@ -20,12 +20,11 @@ class RoleController extends Controller
         }
 
 
-        if(Auth::user()->role_id <= 2) {
-            $lims_role_all = Roles::where('is_active', true)->get();
-            return view('role.create', compact('lims_role_all'));
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
         }
-        else
-            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        $lims_role_all = Roles::where('is_active', true)->get();
+        return view('role.create', compact('lims_role_all'));
     }
 
 
@@ -36,6 +35,9 @@ class RoleController extends Controller
 
     public function store(Request $request)
     {
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
+        }
         $this->validate($request, [
             'name' => [
                 'max:255',
@@ -52,16 +54,17 @@ class RoleController extends Controller
 
     public function edit($id)
     {
-        if(Auth::user()->role_id <= 2) {
-            $lims_role_data = Roles::find($id);
-            return $lims_role_data;
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
         }
-        else
-            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        return Roles::find($id);
     }
 
     public function update(Request $request, $id)
     {
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
+        }
         $this->validate($request, [
             'name' => [
                 'max:255',
@@ -79,23 +82,29 @@ class RoleController extends Controller
 
     public function permission($id)
     {
-        if(Auth::user()->role_id <= 2) {
-            $lims_role_data = Roles::find($id);
-            $permissions = Role::findByName($lims_role_data->name)->permissions;
-            foreach ($permissions as $permission)
-                $all_permission[] = $permission->name;
-            if(empty($all_permission))
-                $all_permission[] = 'dummy text';
-            return view('role.permission', compact('lims_role_data', 'all_permission'));
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
         }
-        else
-            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        $lims_role_data = Roles::find($id);
+        if (! $lims_role_data) {
+            return redirect('role')->with('not_permitted', 'That role was not found.');
+        }
+        $all_permission = ['dummy text'];
+        try {
+            $permissions = Role::findByName($lims_role_data->name, 'web')->permissions;
+            foreach ($permissions as $permission) {
+                $all_permission[] = $permission->name;
+            }
+        } catch (\Throwable $e) {
+        }
+        return view('role.permission', compact('lims_role_data', 'all_permission'));
     }
 
     public function setPermission(Request $request)
     {
-        if(!true)
-            return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
+        }
 
         $role = Role::firstOrCreate(['id' => $request['role_id']]);
 
@@ -2019,16 +2028,36 @@ class RoleController extends Controller
             }
         }
 
+        \App\Support\AdminPermissions::sync(true);
+
         return redirect('role')->with('message', 'Permission updated successfully');
     }
 
     public function destroy($id)
     {
-        if(!true)
-            return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
+        if ($deny = $this->denyUnlessRoleAdmin()) {
+            return $deny;
+        }
         $lims_role_data = Roles::find($id);
+        if (! $lims_role_data) {
+            return redirect('role')->with('not_permitted', 'That role was not found.');
+        }
+        $name = strtolower(trim((string) $lims_role_data->name));
+        if (in_array($name, ['admin', 'super admin'], true)) {
+            return redirect('role')->with('not_permitted', 'The admin role stays in the system.');
+        }
         $lims_role_data->is_active = false;
         $lims_role_data->save();
-        return redirect('role')->with('not_permitted', 'Data deleted successfully');
+        return redirect('role')->with('message', 'Data deleted successfully');
+    }
+
+    protected function denyUnlessRoleAdmin()
+    {
+        $user = Auth::user();
+        if ($user && $user->hasFullAdminAccess()) {
+            return null;
+        }
+
+        return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 }

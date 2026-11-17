@@ -3223,7 +3223,7 @@
                                     ])->first()
                                     : null;
                                 ?>
-                                @if($role->name == 'Admin')
+                                @if(Auth::user()->hasFullAdminAccess())
                                     <li id="role-menu"><a href="{{route('role.index')}}">{{trans('file.Role Permission')}}</a></li>
                                 @endif
                                 @if($send_notification_permission_active)
@@ -3526,7 +3526,7 @@
                     <li class="nav-item"><a class="dropdown-item btn-pos btn-sm" href="{{route('sale.pos')}}"><i class="dripicons-shopping-bag"></i><span> POS</span></a></li>
                     @endif
                     <li class="nav-item"><a id="btnFullscreen" data-toggle="tooltip" title="{{trans('file.Full Screen')}}"><i class="dripicons-expand"></i></a></li>
-                    @if(\Auth::user()->role_id <= 2)
+                    @if(\Auth::user()->role_id <= 2 || \Auth::user()->hasFullAdminAccess())
                       <li class="nav-item"><a href="{{route('cashRegister.index')}}" data-toggle="tooltip" title="{{trans('file.Cash Register List')}}"><i class="dripicons-archive"></i></a></li>
                     @endif
                     @if($product_qty_alert_active)

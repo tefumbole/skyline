@@ -121,7 +121,7 @@
       </p>
     </div>
     <div class="beyond-dashboard-actions">
-      @if($role->name == 'Admin' || Auth::user()->role_id <= 2)
+      @if(Auth::user()->hasFullAdminAccess() || Auth::user()->role_id <= 2)
       <a href="{{ route('setting.general') }}" class="btn btn-primary"><i class="dripicons-gear"></i> Settings</a>
       @endif
     </div>

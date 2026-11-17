@@ -11,6 +11,48 @@ use Illuminate\Support\Facades\Schema;
  */
 class ManagerDashboard
 {
+    public static function today()
+    {
+        $today = \Carbon\Carbon::now('Africa/Douala');
+        $blank = [
+            'date' => $today->format('l j F'),
+            'sales' => 0.0,
+            'customers' => 0,
+            'momo' => 0.0,
+            'orange' => 0.0,
+            'mobile' => 0.0,
+        ];
+        try {
+            $board = app(\App\Http\Controllers\ReportController::class)->salesPeriodSnapshot(
+                $today->copy()->startOfDay(),
+                $today->copy()->endOfDay()
+            );
+        } catch (\Throwable $e) {
+            return $blank;
+        }
+
+        $customers = [];
+        $saleIds = [];
+        foreach ($board['sales'] as $sale) {
+            if ((int) $sale->sale_status === 3) {
+                continue;
+            }
+            $saleIds[] = (int) $sale->id;
+            $customerId = (int) $sale->customer_id;
+            if ($customerId > 0) {
+                $customers[$customerId] = true;
+            }
+        }
+        $split = self::mobileSplit($saleIds);
+        $blank['sales'] = (float) $board['total'];
+        $blank['customers'] = count($customers);
+        $blank['momo'] = $split['momo'];
+        $blank['orange'] = $split['orange'];
+        $blank['mobile'] = $split['mobile'];
+
+        return $blank;
+    }
+
     public static function charts($user)
     {
         $charts = [];
@@ -72,6 +114,67 @@ class ManagerDashboard
     protected static function can($user, $name)
     {
         return RestaurantAccess::can($user, $name);
+    }
+
+    protected static function mobileSplit(array $saleIds)
+    {
+        $split = ['momo' => 0.0, 'orange' => 0.0, 'mobile' => 0.0];
+        if ($saleIds === [] || ! Schema::hasTable('payments')) {
+            return $split;
+        }
+        try {
+            $rows = DB::table('payments')
+                ->leftJoin('sales', 'sales.id', '=', 'payments.sale_id')
+                ->leftJoin('customers', 'customers.id', '=', 'sales.customer_id')
+                ->whereIn('payments.sale_id', $saleIds)
+                ->where('payments.amount', '>', 0)
+                ->get(['payments.amount', 'payments.paying_method', 'customers.phone_number']);
+        } catch (\Throwable $e) {
+            return $split;
+        }
+        foreach ($rows as $row) {
+            $name = strtolower((string) $row->paying_method);
+            if (strpos($name, 'momo') === false && strpos($name, 'orange') === false) {
+                continue;
+            }
+            $amount = (float) $row->amount;
+            $network = self::network($row->phone_number);
+            if ($network === 'mtn') {
+                $split['momo'] += $amount;
+            } elseif ($network === 'orange') {
+                $split['orange'] += $amount;
+            } elseif (strpos($name, 'orange') === false) {
+                $split['momo'] += $amount;
+            } else {
+                $split['mobile'] += $amount;
+            }
+        }
+
+        return $split;
+    }
+
+    /**
+     * Same Cameroon prefixes as CampayCollectService.
+     */
+    protected static function network($phone)
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strpos($digits, '237') === 0) {
+            $digits = substr($digits, 3);
+        }
+        if (strlen($digits) !== 9 || $digits[0] !== '6') {
+            return null;
+        }
+        $three = substr($digits, 0, 3);
+        $two = substr($digits, 0, 2);
+        if ($two === '67' || ($three >= '650' && $three <= '654') || ($three >= '680' && $three <= '683')) {
+            return 'mtn';
+        }
+        if ($two === '69' || ($three >= '655' && $three <= '659') || ($three >= '690' && $three <= '699')) {
+            return 'orange';
+        }
+
+        return null;
     }
 
     protected static function monthly($id, $title, $hint, $table, $sumColumn, $year, array $months, $money)

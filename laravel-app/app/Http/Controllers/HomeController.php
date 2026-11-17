@@ -446,6 +446,7 @@ echo $response;
         if (strcasecmp((string) Auth::user()->roleName(), 'Manager') === 0) {
             return view('manager.dashboard', [
                 'charts' => \App\Support\ManagerDashboard::charts(Auth::user()),
+                'today' => \App\Support\ManagerDashboard::today(),
             ]);
         }
 

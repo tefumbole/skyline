@@ -2,7 +2,11 @@
 @section('content')
 @php
     $charts = $charts ?? [];
+    $today = $today ?? ['date' => '', 'sales' => 0, 'customers' => 0, 'momo' => 0, 'orange' => 0, 'mobile' => 0];
     $roleName = Auth::user()->roleName() ?: 'Manager';
+    $money = function ($amount) {
+        return number_format((float) $amount, 0, '.', ',');
+    };
 @endphp
 <div class="beyond-dashboard">
     <div class="beyond-dashboard-hero">
@@ -12,6 +16,52 @@
                 Welcome back, {{ Auth::user()->name }}
                 <span class="beyond-role-badge">{{ $roleName }}</span>
             </p>
+        </div>
+    </div>
+
+    <div class="beyond-stat-grid">
+        <div class="beyond-stat-card" style="cursor: default;">
+            <div>
+                <div class="label">Today's sales</div>
+                <div class="value">{{ $money($today['sales']) }}</div>
+                <div class="hint">FCFA · {{ $today['date'] }}</div>
+            </div>
+        </div>
+        <div class="beyond-stat-card" style="cursor: default;">
+            <div>
+                <div class="label">Customers served</div>
+                <div class="value">{{ (int) $today['customers'] }}</div>
+                <div class="hint">Bills opened today</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="beyond-chart-panel" style="margin-bottom: 16px;">
+        <h5>Payments today</h5>
+        <div class="beyond-stat-grid" style="margin: 12px 0 0;">
+            <div class="beyond-stat-card" style="cursor: default;">
+                <div>
+                    <div class="label">MoMo</div>
+                    <div class="value">{{ $money($today['momo']) }}</div>
+                    <div class="hint">MTN Mobile Money, FCFA</div>
+                </div>
+            </div>
+            <div class="beyond-stat-card" style="cursor: default;">
+                <div>
+                    <div class="label">Orange Money (OM)</div>
+                    <div class="value">{{ $money($today['orange']) }}</div>
+                    <div class="hint">Orange, FCFA</div>
+                </div>
+            </div>
+            @if((float) $today['mobile'] > 0)
+                <div class="beyond-stat-card" style="cursor: default;">
+                    <div>
+                        <div class="label">MoMo / Orange</div>
+                        <div class="value">{{ $money($today['mobile']) }}</div>
+                        <div class="hint">Network was not on the bill, FCFA</div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

@@ -36,7 +36,7 @@ class ExpenseBoard
             return true;
         }
 
-        return self::roleHas($user, 'expenses-add');
+        return self::roleHas($user, 'expenses-add') || self::roleHas($user, 'expenses-index');
     }
 
     public static function canEdit($user)
@@ -48,7 +48,7 @@ class ExpenseBoard
             return true;
         }
 
-        return self::roleHas($user, 'expenses-edit');
+        return self::roleHas($user, 'expenses-edit') || self::roleHas($user, 'expenses-index');
     }
 
     protected static function roleHas($user, $permission)

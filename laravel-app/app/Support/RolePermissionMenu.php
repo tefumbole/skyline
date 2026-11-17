@@ -309,6 +309,8 @@ class RolePermissionMenu
             ]),
             self::section('Expenses', [
                 ['Expenses', 'expenses-index'],
+                ['Create expense', 'expenses-add'],
+                ['Edit expense', 'expenses-edit'],
                 ['Categories & budgets', 'expense_categories'],
             ]),
         ];
@@ -344,6 +346,49 @@ class RolePermissionMenu
                 }
             } catch (\Throwable $e) {
             }
+        }
+        self::grantWith($role, 'expenses-index', ['expenses-add', 'expenses-edit', 'expenses-delete']);
+        self::linkUsers($role);
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /**
+     * A menu tick also grants the actions on that screen.
+     */
+    protected static function grantWith(Role $role, $source, array $actions)
+    {
+        $on = $role->hasPermissionTo($source);
+        foreach ($actions as $name) {
+            $permission = Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+            if ($on && ! $role->hasPermissionTo($permission)) {
+                $role->givePermissionTo($permission);
+            }
+        }
+    }
+
+    /**
+     * Every person on this role receives the role's permissions.
+     */
+    public static function linkUsers(Role $role)
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('users') || ! \Illuminate\Support\Facades\Schema::hasTable('model_has_roles')) {
+            return;
+        }
+        $ids = \Illuminate\Support\Facades\DB::table('users')->where('role_id', $role->id)->pluck('id');
+        foreach ($ids as $id) {
+            $linked = \Illuminate\Support\Facades\DB::table('model_has_roles')
+                ->where('role_id', $role->id)
+                ->where('model_id', $id)
+                ->where('model_type', \App\User::class)
+                ->exists();
+            if ($linked) {
+                continue;
+            }
+            \Illuminate\Support\Facades\DB::table('model_has_roles')->insert([
+                'role_id' => $role->id,
+                'model_type' => \App\User::class,
+                'model_id' => $id,
+            ]);
         }
     }
 

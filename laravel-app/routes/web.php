@@ -1282,6 +1282,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::post('setting/reward-point-setting_store', 'SettingController@rewardPointSettingStore')->name('setting.rewardPointStore');
 
 	Route::get('backup', 'SettingController@backup')->name('setting.backup');
+	Route::post('backup', 'SettingController@backup')->name('setting.backup.run');
 	Route::get('setting/general_setting/change-theme/{theme}', 'SettingController@changeTheme');
 	Route::get('setting/mail_setting', 'SettingController@mailSetting')->name('setting.mail');
 	Route::get('setting/messaging', 'SettingController@messagingSetting')->name('setting.messaging');
@@ -1296,6 +1297,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::get('setting/pos_setting', 'SettingController@posSetting')->name('setting.pos');
 	Route::post('setting/pos_setting_store', 'SettingController@posSettingStore')->name('setting.posStore');
 	Route::get('setting/empty-database', 'SettingController@emptyDatabase')->name('setting.emptyDatabase');
+	Route::post('setting/empty-database', 'SettingController@emptyDatabase')->name('setting.empty.run');
 
 	Route::get('expense_categories/gencode', 'ExpenseCategoryController@generateCode');
 	Route::post('expense_categories/import', 'ExpenseCategoryController@import')->name('expense_category.import');

@@ -3250,13 +3250,12 @@
                                     <li id="tax-menu"><a href="{{route('tax.index')}}">{{trans('file.Tax')}}</a></li>
                                 @endif
                                 <li id="user-menu"><a href="{{route('user.profile', ['id' => Auth::id()])}}">{{trans('file.User Profile')}}</a></li>
-                                <li id="my-transactions-menu"><a href="{{url('my-transactions/'.date('Y').'/'.date('m'))}}">{{trans('file.My Transaction')}}</a></li>
                                 @if($backup_database_permission_active)
-                                    <li id="backup-database-menu"><a href="{{route('setting.backup')}}">{{trans('file.Backup Database')}}</a></li>
+                                    <li id="backup-database-menu"><a href="#" data-toggle="modal" data-target="#sky-backup-modal">{{trans('file.Backup Database')}}</a></li>
                                 @endif
                                 @if($empty_database_permission_active)
                                     <li id="empty-database-menu">
-                                        <a onclick="return confirm('Are you sure want to delete? If you do this all of your data will be lost.')" href="{{route('setting.emptyDatabase')}}">{{trans('file.Empty Database')}}</a>
+                                        <a href="#" data-toggle="modal" data-target="#sky-empty-modal">{{trans('file.Empty Database')}}</a>
                                     </li>
                                 @endif
                                 @if($general_setting_permission_active)
@@ -4450,10 +4449,15 @@
                       var isActive = $link.closest('li').hasClass('active');
                       var iconClass = resolveTabIcon($link, $parentLink, label);
                       var tabHref = href && href !== '#' ? href : '#';
+                      var modalTarget = $link.attr('data-target');
                       var $tab = $('<a>', {
                           'class': 'beyond-module-tab ' + toneClass + (isActive ? ' is-active' : ''),
                           'href': tabHref
                       });
+                      if (modalTarget) {
+                          $tab.attr('data-toggle', 'modal').attr('data-target', modalTarget);
+                          $tab.on('click', function (e) { e.preventDefault(); });
+                      }
                       if ($form.length && tabHref === '#') {
                           $tab.on('click', function (e) {
                               e.preventDefault();
@@ -4737,6 +4741,7 @@
             #sky-order-pop .stay { background:transparent; color:#fff8ea; border:1px solid #e1b368; }
         </style>
         <audio id="sky-ready-beep" preload="auto" src="{{ url('public/beep/beep-07.mp3') }}"></audio>
+        @include('partials.sky_board')
         <div id="sky-order-pop" hidden>
             <h2 id="sky-order-pop-title">Order waiting</h2>
             <div id="sky-order-pop-body"></div>

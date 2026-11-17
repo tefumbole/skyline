@@ -1,7 +1,7 @@
 @extends('layout.main')
 
 @section('content')
-<section class="forms">
+<section class="forms sky-board">
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-start flex-wrap mb-3" style="gap:12px;">
             <div>

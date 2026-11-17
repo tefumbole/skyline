@@ -18,7 +18,7 @@
         float: right;
     }
 </style>
-<section class="forms">
+<section class="forms sky-form">
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-6">

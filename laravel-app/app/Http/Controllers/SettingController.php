@@ -25,9 +25,37 @@ use App\Services\Messaging\NotificationRouter;
 
 class SettingController extends Controller
 {
-    public function emptyDatabase()
+    public function emptyDatabase(Request $request)
     {
-        return redirect()->route('setting.general')->with('not_permitted', 'Clearing the database from this screen is turned off.');
+        if ($deny = $this->denyDatabaseChoice('empty_database')) {
+            return $deny;
+        }
+        if (! $request->isMethod('post') || $request->input('confirm') !== 'EMPTY') {
+            $message = $request->isMethod('post')
+                ? 'Type EMPTY in the box before clearing anything.'
+                : 'Choose what to clear from the Empty Database window.';
+
+            return redirect()->back()->with('not_permitted', $message);
+        }
+        $tables = \App\Support\DatabaseChoice::selected($request->input('groups', []), $this->databaseTables(), 'empty');
+        if (count($tables) < 1) {
+            return redirect()->back()->with('not_permitted', 'Choose at least one group to clear.');
+        }
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $cleared = 0;
+        try {
+            foreach ($tables as $table) {
+                try {
+                    DB::table($table)->truncate();
+                    $cleared++;
+                } catch (\Throwable $e) {
+                }
+            }
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        return redirect()->back()->with('message', $cleared.' group tables were cleared. Staff logins and settings were left in place.');
     }
     public function generalSetting()
     {
@@ -313,10 +341,14 @@ class SettingController extends Controller
         return redirect()->back()->with('message', 'Reward point setting updated successfully');
     }
 
-    public function backup()
+    public function backup(Request $request)
     {
-        if(!true)
-            return redirect()->back()->with('not_permitted', 'This feature is disable for demo!');
+        if ($deny = $this->denyDatabaseChoice('backup_database')) {
+            return $deny;
+        }
+        if (! $request->isMethod('post')) {
+            return redirect()->back()->with('not_permitted', 'Choose what to back up from the Backup Database window.');
+        }
 
         // Database configuration
         $host = env('DB_HOST');
@@ -339,6 +371,11 @@ class SettingController extends Controller
 
         while ($row = mysqli_fetch_row($result)) {
             $tables[] = $row[0];
+        }
+        $tables = \App\Support\DatabaseChoice::selected($request->input('groups', []), $tables, 'backup');
+        if (count($tables) < 1) {
+            mysqli_close($conn);
+            return redirect()->back()->with('not_permitted', 'Choose at least one group to back up.');
         }
 
         $sqlScript = "";
@@ -711,5 +748,38 @@ class SettingController extends Controller
         $pos_setting->sunmi_paper_mm = (int) ($data['sunmi_paper_mm'] ?? 80) === 58 ? 58 : 80;
     	$pos_setting->save();
     	return redirect()->back()->with('message', 'POS setting updated successfully');
+    }
+
+    protected function denyDatabaseChoice($permission)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        if ($user->hasFullAdminAccess()) {
+            return null;
+        }
+        try {
+            $role = \Spatie\Permission\Models\Role::find($user->role_id);
+            if ($role && $role->hasPermissionTo($permission)) {
+                return null;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+    }
+
+    protected function databaseTables()
+    {
+        $tables = [];
+        foreach (DB::select('SHOW TABLES') as $row) {
+            $values = array_values((array) $row);
+            if (isset($values[0]) && is_string($values[0])) {
+                $tables[] = $values[0];
+            }
+        }
+
+        return $tables;
     }
 }

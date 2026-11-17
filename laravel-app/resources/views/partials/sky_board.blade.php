@@ -19,14 +19,14 @@
     .sky-board table tbody tr:hover td { background: #e7eef8 !important; }
     .sky-board > .container-fluid .btn-info,
     .sky-board > .container-fluid .btn-primary {
-        background: #0c1830; color: #e1b368; border: 0; border-radius: 999px; font-weight: 700; min-height: 40px;
+        background: #0c1830 !important; background-color: #0c1830 !important; color: #e1b368 !important; border: 0; border-radius: 999px; font-weight: 700; min-height: 40px;
     }
     .sky-form .card { border: 0; border-radius: 18px; box-shadow: 0 12px 32px rgba(12,24,48,.06); overflow: hidden; }
     .sky-form .card-header { background: #0c1830; color: #e1b368; border: 0; box-shadow: inset 0 -3px 0 #e1b368; }
     .sky-form .card-header h4, .sky-form .card-header h5 { color: #e1b368; margin: 0; }
     .sky-form .form-control { border-radius: 12px; border-color: #d7deea; min-height: 42px; }
     .sky-form .btn-primary, .sky-form input[type="submit"], .sky-form button[type="submit"] {
-        background: #e1b368; color: #0c1830; border: 0; border-radius: 999px; font-weight: 800; min-height: 44px; padding: 8px 22px;
+        background: #e1b368 !important; background-color: #e1b368 !important; color: #0c1830 !important; border-color: #e1b368 !important; border-radius: 999px; font-weight: 800; min-height: 44px; padding: 8px 22px;
     }
     .sky-choice { border: 0; border-radius: 18px; overflow: hidden; }
     .sky-choice .modal-header { background: #0c1830; color: #e1b368; border: 0; box-shadow: inset 0 -3px 0 #e1b368; }
@@ -36,7 +36,7 @@
     .sky-choice .choice-row + .choice-row { margin-top: 8px; }
     .sky-choice .choice-row.is-on { background: #e1b368; }
     .sky-choice .modal-footer { border: 0; }
-    .sky-choice .go { background: #e1b368; color: #0c1830; border: 0; border-radius: 999px; font-weight: 800; min-height: 44px; padding: 0 18px; }
+    .sky-choice .go { background: #e1b368 !important; background-color: #e1b368 !important; color: #0c1830 !important; border: 0; border-radius: 999px; font-weight: 800; min-height: 44px; padding: 0 18px; }
     .sky-choice .go:disabled { opacity: .45; }
     .sky-choice .warn { color: #8a3b2a; font-weight: 700; }
 </style>

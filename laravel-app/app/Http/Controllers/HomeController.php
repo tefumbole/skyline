@@ -449,6 +449,11 @@ echo $response;
             ]);
         }
 
+        $roleBoard = \App\Support\RoleDashboard::forUser(Auth::user());
+        if ($roleBoard) {
+            return view('dashboard.role', $roleBoard);
+        }
+
         try {
         $start_date = date("Y").'-'.date("m").'-'.'01';
         $end_date = date("Y").'-'.date("m").'-'.date('t', mktime(0, 0, 0, date("m"), 1, date("Y")));

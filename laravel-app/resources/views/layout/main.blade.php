@@ -1794,18 +1794,34 @@
                             ['role_id', $role->id]
                         ])->first();
                         ?>
-                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0 && $sale_add_permission_active)
+                        @php
+                            $sale_pos_permission = DB::table('permissions')->where('name', 'sales-pos')->first();
+                            $sale_pos_permission_active = $sale_pos_permission ? DB::table('role_has_permissions')->where([
+                                ['permission_id', $sale_pos_permission->id],
+                                ['role_id', $role->id]
+                            ])->first() : null;
+                            $sale_import_permission = DB::table('permissions')->where('name', 'sales-import')->first();
+                            $sale_import_permission_active = $sale_import_permission ? DB::table('role_has_permissions')->where([
+                                ['permission_id', $sale_import_permission->id],
+                                ['role_id', $role->id]
+                            ])->first() : null;
+                        @endphp
+                        @if(auth()->check() && strcasecmp((string) auth()->user()->roleName(), 'Waiter') === 0 && $sale_pos_permission_active)
                             <li id="sale-pos-menu"><a href="{{ route('sale.pos') }}" data-nav-key="sale"><i class="dripicons-shopping-bag"></i><span>POS</span></a></li>
-                        @elseif($sale_index_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
+                        @elseif($sale_index_permission_active || $sale_pos_permission_active || $sale_add_permission_active || $sale_import_permission_active || $gift_card_permission_active || $coupon_permission_active || $delivery_permission_active)
                             <li><a href="#sale" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-cart"></i><span>{{trans('file.Sale')}}</span></a>
                                 <ul id="sale" class="collapse list-unstyled ">
                                     @if($sale_index_permission_active)
                                         <li id="sale-list-menu"><a href="{{route('sales.index')}}">{{trans('file.Sale List')}}</a></li>
-                                        @if($sale_add_permission_active)
-                                            <li><a href="{{route('sale.pos')}}">POS</a></li>
-                                            <li id="sale-create-menu"><a href="{{route('sales.create')}}">{{trans('file.Add Sale')}}</a></li>
-                                            <li id="sale-import-menu"><a href="{{url('sales/sale_by_csv')}}">{{trans('file.Import Sale By CSV')}}</a></li>
-                                        @endif
+                                    @endif
+                                    @if($sale_pos_permission_active)
+                                        <li><a href="{{route('sale.pos')}}">POS</a></li>
+                                    @endif
+                                    @if($sale_add_permission_active)
+                                        <li id="sale-create-menu"><a href="{{route('sales.create')}}">{{trans('file.Add Sale')}}</a></li>
+                                    @endif
+                                    @if($sale_import_permission_active)
+                                        <li id="sale-import-menu"><a href="{{url('sales/sale_by_csv')}}">{{trans('file.Import Sale By CSV')}}</a></li>
                                     @endif
 
                                     @if($gift_card_permission_active)
@@ -3515,11 +3531,11 @@
 
                   <ul class="nav-menu list-unstyled d-flex flex-md-row align-items-md-center">
                     <?php
-                      $add_permission = DB::table('permissions')->where('name', 'sales-add')->first();
-                      $add_permission_active = DB::table('role_has_permissions')->where([
+                      $add_permission = DB::table('permissions')->where('name', 'sales-pos')->first();
+                      $add_permission_active = $add_permission ? DB::table('role_has_permissions')->where([
                           ['permission_id', $add_permission->id],
                           ['role_id', $role->id]
-                      ])->first();
+                      ])->first() : null;
                     ?>
                     @if($add_permission_active)
                     <li class="nav-item"><a class="dropdown-item btn-pos btn-sm" href="{{route('sale.pos')}}"><i class="dripicons-shopping-bag"></i><span> POS</span></a></li>

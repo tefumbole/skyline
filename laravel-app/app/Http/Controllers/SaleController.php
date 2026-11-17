@@ -384,7 +384,7 @@ class SaleController extends Controller
     public function create()
     {
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('sales-add')) {
+        if($role && ($role->hasPermissionTo('sales-add') || Auth::user()->hasFullAdminAccess())) {
             $lims_customer_list = Customer::where('is_active', true)->get();
             if(Auth::user()->role_id > 2) {
                 $lims_warehouse_list = Warehouse::where([
@@ -2035,7 +2035,12 @@ class SaleController extends Controller
     public function posSale()
     {
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('sales-add')){
+        $canPos = false;
+        try {
+            $canPos = $role && $role->hasPermissionTo('sales-pos');
+        } catch (\Throwable $e) {
+        }
+        if($canPos || Auth::user()->hasFullAdminAccess()){
             $permissions = Role::findByName($role->name)->permissions;
             foreach ($permissions as $permission)
                 $all_permission[] = $permission->name;
@@ -2689,7 +2694,12 @@ class SaleController extends Controller
     public function saleByCsv()
     {
         $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('sales-add')){
+        $canImport = false;
+        try {
+            $canImport = $role && $role->hasPermissionTo('sales-import');
+        } catch (\Throwable $e) {
+        }
+        if($canImport || Auth::user()->hasFullAdminAccess()){
             $lims_customer_list = Customer::where('is_active', true)->get();
             $lims_warehouse_list = Warehouse::where('is_active', true)->get();
             $lims_biller_list = Biller::where('is_active', true)->get();

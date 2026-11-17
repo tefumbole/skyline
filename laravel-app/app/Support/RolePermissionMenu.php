@@ -16,9 +16,9 @@ class RolePermissionMenu
             ]),
             self::section('Sale', [
                 ['Sale List', 'sales-index'],
-                ['POS', 'sales-add'],
+                ['POS', 'sales-pos'],
                 ['Add Sale', 'sales-add'],
-                ['Import Sale By CSV', 'sales-add'],
+                ['Import Sale By CSV', 'sales-import'],
                 ['Gift Card List', 'gift_card'],
                 ['Coupon List', 'coupon'],
                 ['Delivery List', 'delivery'],

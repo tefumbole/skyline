@@ -457,7 +457,7 @@
         return \App\Services\Restaurant\RestaurantAccess::can(Auth::user(), $name);
     };
     $homeLinks = [];
-    if ($homeCan('sales-add')) {
+    if ($homeCan('sales-pos')) {
         $homeLinks[] = ['POS', route('sale.pos')];
     }
     if ($homeCan('sales-index')) {

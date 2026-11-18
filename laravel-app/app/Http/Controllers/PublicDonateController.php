@@ -29,16 +29,7 @@ class PublicDonateController extends Controller
     public function adminIndex()
     {
         $user = Auth::user();
-        $allowed = $user && ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true));
-        if (! $allowed && $user) {
-            try {
-                $role = \Spatie\Permission\Models\Role::find($user->role_id);
-                $allowed = $role && $role->hasPermissionTo('payments-index');
-            } catch (\Throwable $e) {
-                $allowed = false;
-            }
-        }
-        if (! $allowed) {
+        if (! $this->paymentsAllowed()) {
             abort(403);
         }
         $pending = PublicDonation::whereIn('status', ['pending', 'waiting'])->orderByDesc('id')->limit(30)->get();
@@ -65,17 +56,7 @@ class PublicDonateController extends Controller
 
     public function adminDeleteSelection(Request $request)
     {
-        $user = Auth::user();
-        $allowed = $user && ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true));
-        if (! $allowed && $user) {
-            try {
-                $role = \Spatie\Permission\Models\Role::find($user->role_id);
-                $allowed = $role && $role->hasPermissionTo('payments-index');
-            } catch (\Throwable $e) {
-                $allowed = false;
-            }
-        }
-        if (! $allowed) {
+        if (! $this->paymentsAllowed()) {
             abort(403);
         }
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])))));
@@ -406,17 +387,17 @@ class PublicDonateController extends Controller
     protected function paymentsAllowed()
     {
         $user = Auth::user();
-        $allowed = $user && ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true));
-        if (! $allowed && $user) {
-            try {
-                $role = \Spatie\Permission\Models\Role::find($user->role_id);
-                $allowed = $role && $role->hasPermissionTo('payments-index');
-            } catch (\Throwable $e) {
-                $allowed = false;
-            }
+        if ($user && in_array((int) $user->role_id, [1, 2, 4, 8], true)) {
+            return true;
         }
 
-        return (bool) $allowed;
+        return \App\Support\RoleAccess::allows($user, [
+            'payments-index',
+            'payments-list',
+            'payments-collected',
+            'payments-awaiting',
+            'payments-request',
+        ]);
     }
 
     protected function openDepositQuery()

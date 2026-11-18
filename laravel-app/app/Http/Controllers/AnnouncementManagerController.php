@@ -40,7 +40,10 @@ class AnnouncementManagerController extends Controller
     {
         if (in_array('announcements_module', $this->all_permission, true)
             || in_array($permission, $this->all_permission, true)
-            || in_array('announcement_index', $this->all_permission, true)) {
+            || in_array('announcement_index', $this->all_permission, true)
+            || in_array('announcements-all', $this->all_permission, true)
+            || in_array('announcements-scheduled', $this->all_permission, true)
+            || in_array('announcements-reminders', $this->all_permission, true)) {
             return;
         }
         abort(403, 'You are not allowed to access Announcements.');

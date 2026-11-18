@@ -1765,15 +1765,16 @@ class PayoutController extends Controller
         if (! $user) {
             abort(403);
         }
-        if ($user->hasFullAdminAccess() || in_array((int) $user->role_id, [1, 2, 4, 8], true)) {
+        if (in_array((int) $user->role_id, [1, 2, 4, 8], true)) {
             return;
         }
-        try {
-            $role = \Spatie\Permission\Models\Role::find($user->role_id);
-            if ($role && $role->hasPermissionTo('payments-index')) {
-                return;
-            }
-        } catch (\Throwable $e) {
+        if (\App\Support\RoleAccess::allows($user, [
+            'payments-index',
+            'payments-payout',
+            'payments-payout-tab',
+            'payments-request',
+        ])) {
+            return;
         }
         abort(403);
     }

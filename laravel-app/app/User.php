@@ -110,13 +110,7 @@ class User extends Authenticatable
         if ($this->hasFullAdminAccess()) {
             return true;
         }
-        try {
-            $role = \Spatie\Permission\Models\Role::find($this->role_id);
-
-            return $role && $role->hasPermissionTo('payments-payout');
-        } catch (\Throwable $e) {
-            return false;
-        }
+        return \App\Support\RoleAccess::allows($this, ['payments-payout', 'payments-payout-tab']);
     }
 
     /** Settings stays with administrators. Station roles use My Profile instead. */

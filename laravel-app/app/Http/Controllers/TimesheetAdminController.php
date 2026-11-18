@@ -36,7 +36,11 @@ class TimesheetAdminController extends Controller
     {
         if (in_array('timesheets_module', $this->all_permission, true)
             || in_array('timesheets.admin', $this->all_permission, true)
-            || in_array('timesheets.manage', $this->all_permission, true)) {
+            || in_array('timesheets.manage', $this->all_permission, true)
+            || in_array('timesheets-admin-report', $this->all_permission, true)
+            || in_array('timesheets-admin-overtime', $this->all_permission, true)
+            || in_array('timesheets-admin-manage', $this->all_permission, true)
+            || in_array('timesheets-admin-categories', $this->all_permission, true)) {
             return;
         }
         abort(403, 'You are not allowed to access Timesheet Admin.');

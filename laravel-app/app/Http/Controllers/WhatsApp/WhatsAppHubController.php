@@ -1295,23 +1295,6 @@ class WhatsAppHubController extends Controller
 
     protected function canAny(array $names)
     {
-        $user = Auth::user();
-        if (! $user) {
-            return false;
-        }
-        $role = Role::find($user->role_id);
-        if (! $role) {
-            return false;
-        }
-        foreach ($names as $name) {
-            try {
-                if ($role->hasPermissionTo($name)) {
-                    return true;
-                }
-            } catch (\Exception $e) {
-            }
-        }
-
-        return false;
+        return \App\Support\RoleAccess::allows(Auth::user(), $names);
     }
 }

@@ -39,8 +39,7 @@ class ReportController extends Controller
 {
     public function productQuantityAlert()
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('product-qty-alert')){
+        if($this->allowsReport(['product-qty-alert', 'qty_alert'])){
             $lims_product_data = Product::select('name','code', 'image', 'qty', 'alert_quantity')->where('is_active', true)->whereColumn('alert_quantity', '>', 'qty')->get();
             return view('report.qty_alert_report', compact('lims_product_data'));
         }
@@ -50,8 +49,7 @@ class ReportController extends Controller
 
     public function warehouseStock()
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('warehouse-stock-report')){
+        if($this->allowsReport(['warehouse-stock-report', 'warehouse_stock'])){
             $total_item = DB::table('product_warehouse')
                 ->join('products', 'product_warehouse.product_id', '=', 'products.id')
                 ->where([
@@ -108,8 +106,7 @@ class ReportController extends Controller
 
     public function dailySale($year, $month)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('daily-sale')){
+        if($this->allowsReport(['daily-sale', 'daily_sale'])){
             $start = 1;
             $number_of_day = date('t', mktime(0, 0, 0, $month, 1, $year));
             while($start <= $number_of_day)
@@ -351,8 +348,7 @@ class ReportController extends Controller
 
     public function dailyPurchase($year, $month)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('daily-purchase')){
+        if($this->allowsReport(['daily-purchase', 'daily_purchase'])){
             $start = 1;
             $number_of_day = date('t', mktime(0, 0, 0, $month, 1, $year));
             while($start <= $number_of_day)
@@ -434,8 +430,7 @@ class ReportController extends Controller
 
     public function monthlySale($year)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('monthly-sale')){
+        if($this->allowsReport(['monthly-sale', 'monthly_sale'])){
             $start = strtotime($year .'-01-01');
             $end = strtotime($year .'-12-31');
             while($start <= $end)
@@ -509,8 +504,7 @@ class ReportController extends Controller
 
     public function monthlyPurchase($year)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('monthly-purchase')){
+        if($this->allowsReport(['monthly-purchase', 'monthly_purchase'])){
             $start = strtotime($year .'-01-01');
             $end = strtotime($year .'-12-31');
             while($start <= $end)
@@ -582,8 +576,7 @@ class ReportController extends Controller
 
     public function bestSeller()
     {
-        $role = Role::find(Auth::user()->role_id);
-        if($role->hasPermissionTo('best-seller')){
+        if($this->allowsReport(['best-seller', 'best_seller'])){
             $start = strtotime(date("Y-m", strtotime("-2 months")).'-01');
             $end = strtotime(date("Y").'-'.date("m").'-31');
 
@@ -910,8 +903,9 @@ class ReportController extends Controller
             $limit = $totalData;
         //return $request;
         $start = $request->input('start');
-        $order = $columns[$request->input('order.0.column')];
-        $dir = $request->input('order.0.dir');
+        $sortIndex = (int) $request->input('order.0.column');
+        $order = isset($columns[$sortIndex]) ? $columns[$sortIndex] : 'name';
+        $dir = strtolower((string) $request->input('order.0.dir')) === 'asc' ? 'asc' : 'desc';
         if($request->input('search.value')) {
             $search = $request->input('search.value');
             $totalData = Product::where([
@@ -1670,8 +1664,7 @@ class ReportController extends Controller
 
     public function salesByDate(Request $request)
     {
-        $role = Role::find(Auth::user()->role_id);
-        if (! $role->hasPermissionTo('sale-report') && ! $role->hasPermissionTo('daily-sale')) {
+        if (! $this->allowsReport(['sale-report', 'sale_report', 'daily-sale', 'daily_sale'])) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
 
@@ -1960,7 +1953,7 @@ class ReportController extends Controller
 
     public function customerSummary(Request $request)
     {
-        if (! $this->allowsReport(['customer-report', 'sale-report'])) {
+        if (! $this->allowsReport(['customer-report', 'customer_report', 'sale-report', 'sale_report'])) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $window = $this->reportWindow($request, 'month');
@@ -2022,7 +2015,7 @@ class ReportController extends Controller
 
     public function staffSummary(Request $request)
     {
-        if (! $this->allowsReport(['user-report'])) {
+        if (! $this->allowsReport(['user-report', 'user_report'])) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $window = $this->reportWindow($request, 'month');
@@ -2107,7 +2100,7 @@ class ReportController extends Controller
 
     public function paymentSummary(Request $request)
     {
-        if (! $this->allowsReport(['payment-report'])) {
+        if (! $this->allowsReport(['payment-report', 'payment_report'])) {
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
         }
         $range = (string) $request->input('range', 'day');

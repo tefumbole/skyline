@@ -228,16 +228,8 @@ class WhatsAppAssistantController extends Controller
         if (! $user) {
             return redirect()->guest(url('/login'));
         }
-        $role = Role::find($user->role_id);
-        if ($role) {
-            foreach ($names as $name) {
-                try {
-                    if ($role->hasPermissionTo($name)) {
-                        return null;
-                    }
-                } catch (\Exception $e) {
-                }
-            }
+        if (\App\Support\RoleAccess::allows($user, $names)) {
+            return null;
         }
 
         return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access Beyond Assistant.');

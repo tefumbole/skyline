@@ -429,6 +429,31 @@
                 border: 0 !important;
                 background: transparent !important;
             }
+            #side-main-menu ul#report.collapse,
+            #side-main-menu ul#report.collapse.show,
+            #side-main-menu ul#report.collapse.collapsing {
+                display: block !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                padding: 0 0 8px !important;
+            }
+
+            #side-main-menu ul#report > li > a {
+                margin-left: 28px;
+                font-size: 13px;
+            }
+
+            #side-main-menu ul#report .report-sub {
+                display: none;
+            }
+
+            #side-main-menu ul#report > li.active > .report-sub {
+                display: block;
+            }
 
             .side-navbar .side-menu > li > a[data-toggle="collapse"]::after,
             .side-navbar .side-menu > li > a[data-toggle="collapse"]::before,
@@ -3095,6 +3120,21 @@
                                                 <li id="daily-sale-monthly"><a href="{{url('report/monthly_sale/'.date('Y'))}}">Monthly</a></li>
                                                 <li id="daily-sale-yearly"><a href="{{ route('report.yearlySale') }}">Yearly</a></li>
                                             </ul>
+                                        </li>
+                                    @endif
+                                    @if($monthly_sale_active)
+                                        <li id="monthly-sale-report-menu">
+                                            <a href="{{url('report/monthly_sale/'.date('Y'))}}">{{trans('file.Monthly Sale')}}</a>
+                                        </li>
+                                    @endif
+                                    @if($daily_purchase_active)
+                                        <li id="daily-purchase-report-menu">
+                                            <a href="{{url('report/daily_purchase/'.date('Y').'/'.date('m'))}}">{{trans('file.Daily Purchase')}}</a>
+                                        </li>
+                                    @endif
+                                    @if($monthly_purchase_active)
+                                        <li id="monthly-purchase-report-menu">
+                                            <a href="{{url('report/monthly_purchase/'.date('Y'))}}">{{trans('file.Monthly Purchase')}}</a>
                                         </li>
                                     @endif
                                     @if(! \App\Services\Restaurant\RestaurantAccess::hidesOrderLog(auth()->user()))

@@ -76,7 +76,7 @@ class MomoLedger
             return $a['sort'] > $b['sort'] ? -1 : 1;
         });
 
-        return array_slice($rows, 0, 500);
+        return array_slice($rows, 0, 2000);
     }
 
     protected static function deposits()
@@ -89,7 +89,7 @@ class MomoLedger
             $query->where('payment_method', 3);
         }
         $rows = array();
-        foreach ($query->limit(400)->get() as $deposit) {
+        foreach ($query->limit(1500)->get() as $deposit) {
             $status = self::depositStatus($deposit);
             $rows[] = self::row(
                 $deposit->created_at,
@@ -120,7 +120,7 @@ class MomoLedger
                     ->orWhereRaw('LOWER(paying_method) like ?', array('%orange%'));
             })
             ->orderByDesc('id')
-            ->limit(400)
+            ->limit(1500)
             ->get();
         $saleIds = array();
         foreach ($payments as $payment) {
@@ -134,12 +134,24 @@ class MomoLedger
                 $sales[$sale->id] = $sale;
             }
         }
+        $taken = array();
+        if (Schema::hasTable('deposits') && Schema::hasColumn('deposits', 'campay_reference')) {
+            foreach (Deposit::query()->whereNotNull('campay_reference')->orderByDesc('id')->limit(1500)->pluck('campay_reference') as $reference) {
+                $reference = trim((string) $reference);
+                if ($reference !== '') {
+                    $taken[strtolower($reference)] = true;
+                }
+            }
+        }
         $rows = array();
         foreach ($payments as $payment) {
+            $note = trim((string) $payment->payment_note);
+            if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $note, $match) && isset($taken[strtolower($match[0])])) {
+                continue;
+            }
             $sale = isset($sales[$payment->sale_id]) ? $sales[$payment->sale_id] : null;
             $customer = $sale && $sale->customer ? $sale->customer : null;
             $phone = $customer && isset($customer->phone_number) ? (string) $customer->phone_number : '';
-            $note = trim((string) $payment->payment_note);
             if ($sale && $sale->reference_no) {
                 $note = trim('Bill '.$sale->reference_no.($note !== '' ? ' · '.$note : ''));
             }
@@ -166,7 +178,7 @@ class MomoLedger
         if (! Schema::hasTable('campay_payouts')) {
             return array();
         }
-        $payouts = CampayPayout::query()->orderByDesc('id')->limit(400)->get();
+        $payouts = CampayPayout::query()->orderByDesc('id')->limit(1500)->get();
         $requestIds = array();
         foreach ($payouts as $payout) {
             if (! empty($payout->request_id)) {

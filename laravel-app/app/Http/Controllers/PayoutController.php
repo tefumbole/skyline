@@ -49,7 +49,7 @@ class PayoutController extends Controller
                 $this->fillMomoNames($lines);
             }
         }
-        $history = $this->history($tenantId)->orderByDesc('id')->limit(400)->get();
+        $history = $this->history($tenantId)->orderByDesc('id')->limit(2000)->get();
         app()->terminating(function () {
             $this->settleRecorded();
             $this->refreshPendingStatuses();
@@ -363,7 +363,8 @@ class PayoutController extends Controller
         if ($batch->status !== 'pending') {
             return redirect()->route('payout.request', ['review' => $batch->id])->with('not_permitted', 'This request can no longer be changed.');
         }
-        $back = redirect()->route('payout.request', ['review' => $batch->id]);
+        $stayOnPayouts = $request->input('back') === 'index';
+        $back = redirect()->to($stayOnPayouts ? route('payout.index') : route('payout.request', ['review' => $batch->id]));
         if ($request->input('action') === 'reject') {
             $reason = trim((string) $request->input('reason', ''));
             if ($reason === '') {
@@ -386,15 +387,15 @@ class PayoutController extends Controller
                 $message .= ' No WhatsApp number was found, so the message was not sent.';
             }
 
-            return redirect()->route('payout.request')->with('message', $message);
+            return redirect()->to($stayOnPayouts ? route('payout.index') : route('payout.request'))->with('message', $message);
         }
         if ($request->input('action') === 'approve') {
             $rows = CampayPayout::where('request_id', $batch->id)->whereIn('status', ['pending', 'failed'])->orderBy('id')->get();
             if ($rows->count() < 1) {
-                return redirect()->route('payout.request')->with('not_permitted', 'There is no one left to pay.');
+                return redirect()->to($stayOnPayouts ? route('payout.index') : route('payout.request'))->with('not_permitted', 'There is no one left to pay.');
             }
 
-            return $this->sendRows($batch, $rows, route('payout.request'));
+            return $this->sendRows($batch, $rows, $stayOnPayouts ? route('payout.index') : route('payout.request'));
         }
         $amounts = (array) $request->input('amounts', []);
         if ($request->input('action') === 'delete') {

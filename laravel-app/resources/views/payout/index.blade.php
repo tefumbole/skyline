@@ -72,6 +72,65 @@
     @endif
 
     <div class="pay-card">
+        <form method="POST" action="{{ route('payout.pending.delete') }}" id="pendingDeleteForm">@csrf</form>
+        <div class="pay-card-head">
+            <h2>Pending approvals</h2>
+            @if($pending->count())
+                <button class="pay-danger" type="submit" form="pendingDeleteForm" id="pendingDeleteSelected">Delete selected</button>
+            @endif
+        </div>
+        <div class="table-responsive">
+            <table class="pay-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px">@if($pending->count())<input type="checkbox" id="pendingAll" form="pendingDeleteForm" title="Select all">@endif</th>
+                        <th>When</th><th>From</th><th>Note</th><th>People</th><th>Total</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($pending as $row)
+                        @php $sum = $totals->get($row->id); @endphp
+                        <tr>
+                            <td><input type="checkbox" class="pending-row" form="pendingDeleteForm" name="ids[]" value="{{ $row->id }}"></td>
+                            <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
+                            <td>{{ $row->requester_name }}</td>
+                            <td>{{ $row->note }}</td>
+                            <td>{{ $sum ? $sum->people : 0 }}</td>
+                            <td>{{ number_format($sum ? $sum->total : 0, 0, '.', ' ') }} XAF</td>
+                            <td>
+                                <div class="pay-row-actions">
+                                    @if(Auth::user()->canSendPayout())
+                                    <form method="POST" action="{{ route('payout.request.revise') }}">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $row->id }}">
+                                        <input type="hidden" name="action" value="approve">
+                                        <input type="hidden" name="back" value="index">
+                                        <button class="pay-open" type="submit" style="border:0;cursor:pointer;background:#e7f6ee;color:#178a45" onclick="return confirm('Accept this payout and send the money? The client will be told when it is paid.')">Accept</button>
+                                    </form>
+                                    @endif
+                                    <form method="POST" action="{{ route('payout.request.revise') }}" class="payout-reject">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $row->id }}">
+                                        <input type="hidden" name="action" value="reject">
+                                        <input type="hidden" name="back" value="index">
+                                        <input type="hidden" name="reason" value="">
+                                        <button class="pay-danger" type="submit">Reject</button>
+                                    </form>
+                                    <a class="pay-open" href="{{ route('payout.index', ['request' => $row->id]) }}">Open</a>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="pay-muted">No payment requests are waiting.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @endif
+
+    <div class="pay-card">
         <form method="POST" action="{{ route('payout.drop') }}" id="failedDeleteForm">@csrf</form>
         <div class="pay-card-head">
             <h2>Withdrawals</h2>
@@ -216,52 +275,23 @@
         </div>
     @endif
 
-    <div class="pay-card">
-        <form method="POST" action="{{ route('payout.pending.delete') }}" id="pendingDeleteForm">@csrf</form>
-        <div class="pay-card-head">
-            <h2>Payout requests</h2>
-            @if($pending->count())
-                <button class="pay-danger" type="submit" form="pendingDeleteForm" id="pendingDeleteSelected">Delete selected</button>
-            @endif
-        </div>
-        <div class="table-responsive">
-            <table class="pay-table">
-                <thead>
-                    <tr>
-                        <th style="width:36px">@if($pending->count())<input type="checkbox" id="pendingAll" form="pendingDeleteForm" title="Select all">@endif</th>
-                        <th>When</th><th>From</th><th>Note</th><th>People</th><th>Total</th><th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($pending as $row)
-                        @php $sum = $totals->get($row->id); @endphp
-                        <tr>
-                            <td><input type="checkbox" class="pending-row" form="pendingDeleteForm" name="ids[]" value="{{ $row->id }}"></td>
-                            <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
-                            <td>{{ $row->requester_name }}</td>
-                            <td>{{ $row->note }}</td>
-                            <td>{{ $sum ? $sum->people : 0 }}</td>
-                            <td>{{ number_format($sum ? $sum->total : 0, 0, '.', ' ') }} XAF</td>
-                            <td>
-                                <div class="pay-row-actions">
-                                    <a class="pay-open" href="{{ route('payout.index', ['request' => $row->id]) }}">Open</a>
-                                    <form method="POST" action="{{ route('payout.pending.delete') }}">
-                                        @csrf
-                                        <input type="hidden" name="ids[]" value="{{ $row->id }}">
-                                        <button class="pay-danger" type="submit" onclick="return confirm('Cancel this pending payout?')">Cancel</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7" class="pay-muted">No payment requests are waiting.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
 
 </section>
+<script>
+(function () {
+    document.querySelectorAll('.payout-reject').forEach(function (rejectForm) {
+        rejectForm.addEventListener('submit', function (event) {
+            var reason = window.prompt('Why is this payout rejected? The client will receive this reason.');
+            if (!reason || !reason.trim()) {
+                event.preventDefault();
+                return;
+            }
+            var field = rejectForm.querySelector('[name="reason"]');
+            if (field) field.value = reason.trim();
+        });
+    });
+})();
+</script>
 <script>
 (function () {
     var form = document.getElementById('pendingDeleteForm');

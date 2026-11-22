@@ -51,6 +51,7 @@
                             <th style="width:36px"><input type="checkbox" id="depositsAll" title="Select all"></th>
                             <th>Time</th>
                             <th>Client</th>
+                            <th>Phone</th>
                             <th>Amount paid</th>
                             <th>Amount received</th>
                             <th>Charges</th>
@@ -74,11 +75,27 @@
                                 $paid = isset($paidAmounts[$deposit->id]) ? (float) $paidAmounts[$deposit->id] : $received;
                                 if ($paid < $received) $paid = $received;
                                 $charges = max(0, $paid - $received);
+                                $clientName = trim((string) optional($deposit->customer)->name);
+                                if ($clientName === '' || strcasecmp($clientName, 'WALKIN') === 0) {
+                                    if (preg_match('/·\s*MoMo\s+(.+)$/i', (string) $deposit->note, $holder)) {
+                                        $clientName = trim($holder[1]);
+                                    }
+                                }
+                                if ($clientName === '') {
+                                    $clientName = '—';
+                                }
+                                $phoneDigits = preg_replace('/\D/', '', (string) optional($deposit->customer)->phone_number);
+                                $momoDigits = preg_replace('/\D/', '', (string) $deposit->mtn_number);
+                                $usable = function ($digits) {
+                                    return strlen($digits) >= 9 && strpos($digits, '2370000') !== 0;
+                                };
+                                $clientPhone = $usable($momoDigits) ? $momoDigits : ($usable($phoneDigits) ? $phoneDigits : ($momoDigits !== '' ? $momoDigits : $phoneDigits));
                             @endphp
                             <tr>
                                 <td><input type="checkbox" class="deposits-line" name="ids[]" value="{{ $deposit->id }}"></td>
                                 <td class="pay-time">@if($deposit->created_at){{ $deposit->created_at->format('M j') }}<br>{{ $deposit->created_at->format('H:i') }}@endif</td>
-                                <td class="pay-client">{{ optional($deposit->customer)->name ?: '—' }}</td>
+                                <td class="pay-client">{{ $clientName }}</td>
+                                <td>{{ $clientPhone !== '' ? $clientPhone : '—' }}</td>
                                 <td class="pay-amt">{{ number_format($paid, 0, '.', ' ') }} XAF</td>
                                 <td class="pay-amt">{{ number_format($received, 0, '.', ' ') }} XAF</td>
                                 <td class="pay-amt pay-amt-soft">{{ number_format($charges, 0, '.', ' ') }} XAF</td>
@@ -92,7 +109,7 @@
                                 <td class="pay-note-cell">{{ $deposit->note }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="pay-muted">No deposits yet.</td></tr>
+                            <tr><td colspan="10" class="pay-muted">No deposits yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

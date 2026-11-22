@@ -2337,6 +2337,7 @@
                                     @if($skyCan('payments-list'))<li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Payments</a></li>@endif
                                     @if($skyCan('payments-payout-tab'))<li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>@endif
                                     @if($skyCan('payments-request'))<li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>@endif
+                                    <li id="payment-transactions-menu"><a href="{{route('payment.transactions')}}">Transactions</a></li>
                                 </ul>
                             </li>
                         @endif
@@ -4111,7 +4112,7 @@
                           </div>
                           @php
                               $momoWalletText = null;
-                              $momoWalletRoutes = ['payment.index', 'payout.index', 'payout.request', 'deposit.index', 'deposit.desk', 'momo.payments'];
+                              $momoWalletRoutes = ['payment.index', 'payout.index', 'payout.request', 'deposit.index', 'deposit.desk', 'momo.payments', 'payment.transactions'];
                               $showMomoWallet = in_array(optional(request()->route())->getName(), $momoWalletRoutes, true);
                               if ($showMomoWallet) {
                                   $cachedWallet = \Illuminate\Support\Facades\Cache::get('skyline.campay.app_balance');

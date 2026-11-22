@@ -119,6 +119,14 @@ class PaymentController extends Controller
         return view('payment.collected', compact('sales'));
     }
 
+    public function transactions()
+    {
+        $this->assertCanSeeTransactions();
+        $rows = \App\Support\MomoLedger::history();
+
+        return view('payment.transactions', compact('rows'));
+    }
+
     public function receipt($token)
     {
         $this->assertCanReadPayments();
@@ -1538,6 +1546,29 @@ class PaymentController extends Controller
         \Illuminate\Support\Facades\Cache::put('payment-receipt:'.$token, $ids, now()->addHours(12));
 
         return route('payment.receipt', ['token' => $token]).'?print=1';
+    }
+
+    protected function assertCanSeeTransactions()
+    {
+        $user = Auth::user();
+        if (! $user) {
+            abort(403);
+        }
+        if ($user->hasFullAdminAccess()) {
+            return;
+        }
+        if (\App\Support\RoleAccess::allows($user, [
+            'payments-index',
+            'payments-awaiting',
+            'payments-collected',
+            'payments-list',
+            'payments-payout',
+            'payments-payout-tab',
+            'payments-request',
+        ])) {
+            return;
+        }
+        abort(403);
     }
 
     protected function assertCanReadPayments()

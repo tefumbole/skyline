@@ -429,19 +429,6 @@
                 border: 0 !important;
                 background: transparent !important;
             }
-            #side-main-menu ul#report.collapse,
-            #side-main-menu ul#report.collapse.show,
-            #side-main-menu ul#report.collapse.collapsing {
-                display: block !important;
-                height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                pointer-events: auto !important;
-                padding: 0 0 8px !important;
-            }
-
             #side-main-menu ul#report > li > a {
                 margin-left: 28px;
                 font-size: 13px;
@@ -3095,7 +3082,7 @@
                                 ['role_id', $role->id] ])->first();
                         ?>
                         @if($JE_active ||$average_sale_active || $profit_loss_active || $best_seller_active || $warehouse_report_active || $warehouse_stock_report_active || $product_report_active || $daily_sale_active || $monthly_sale_active || $daily_purchase_active || $monthly_purchase_active || $purchase_report_active || $sale_report_active || $payment_report_active || $product_qty_alert_active || $user_report_active || $customer_report_active || $supplier_report_active || $due_report_active)
-                            <li><a href="#report" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-document-remove"></i><span>{{trans('file.Reports')}}</span></a>
+                            <li><a href="#report" data-nav-key="report" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-document-remove"></i><span>{{trans('file.Reports')}}</span></a>
                                 <ul id="report" class="collapse list-unstyled ">
                                     @if($sale_report_active)
                                         <li id="sale-report-menu">
@@ -4511,7 +4498,14 @@
                       return;
                   }
 
+                  var onReport = /\/report(\/|$)/.test(window.location.pathname);
                   var $activeItem = $('#side-main-menu ul.collapse li.active').first();
+                  if (onReport) {
+                      $activeItem = $('#report li.active').first();
+                      if (!$activeItem.length) {
+                          $activeItem = $('#report > li').first();
+                      }
+                  }
                   if (!$activeItem.length) {
                       $tabsWrap.removeClass('is-visible');
                       return;

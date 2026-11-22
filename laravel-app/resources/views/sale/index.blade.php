@@ -42,9 +42,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2 mt-3">
-                        <div class="form-group">
+                    <div class="col-md-3 mt-3">
+                        <div class="form-group sky-sale-exports">
                             <button class="btn btn-primary" id="filter-btn" type="submit">{{trans('file.submit')}}</button>
+                            <a class="sky-sale-export" target="_blank" href="{{ route('report.sales', ['range' => 'custom', 'start_date' => $starting_date, 'end_date' => $ending_date, 'warehouse_id' => $warehouse_id, 'print' => 'letter']) }}">Letterhead</a>
+                            <a class="sky-sale-export" target="_blank" href="{{ route('report.sales', ['range' => 'custom', 'start_date' => $starting_date, 'end_date' => $ending_date, 'warehouse_id' => $warehouse_id, 'print' => 'thermal']) }}">Thermal</a>
                         </div>
                     </div>
                 </div>
@@ -55,8 +57,8 @@
                 <a href="{{url('sales/sale_by_csv')}}" class="btn btn-primary"><i class="dripicons-copy"></i> {{trans('file.Import Sale')}}</a>
             @endif
         </div>
-        <div class="table-responsive">
-            <table id="sale-table" class="table sale-list" style="width: 100%">
+        <div class="table-responsive sky-sale-board">
+            <table id="sale-table" class="table sale-list">
                 <thead>
                 <tr>
                     <th class="not-exported"></th>
@@ -85,6 +87,18 @@
     </section>
 
     <style>
+        .sky-sale-exports { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .sky-sale-export { display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px; border-radius: 8px; background: #0c1830; color: #e1b368 !important; font-size: 13px; font-weight: 800; text-decoration: none !important; }
+        .sky-sale-board { background: #fff; border-radius: 16px; box-shadow: 0 12px 32px rgba(12, 24, 48, .08); padding: 8px 10px 12px; }
+        #sale-table { width: auto !important; border-collapse: separate; border-spacing: 0; }
+        #sale-table thead th { padding: 8px 10px !important; background: #0c1830 !important; color: #e1b368 !important; border: 0 !important; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+        #sale-table tbody td { padding: 6px 10px !important; border-top: 0 !important; border-bottom: 1px solid #eef1f6; color: #1c2434; font-size: 13px; white-space: nowrap; }
+        #sale-table tbody tr:nth-child(even) td { background: #f7f4ee; }
+        #sale-table tbody tr:hover td { background: #f3f6fb; }
+        #sale-table td.sky-money { color: #0c1830; font-weight: 800; }
+        #sale-table td.sky-paid { color: #178a45; font-weight: 800; }
+        #sale-table td.sky-due { color: #9b1c1c; font-weight: 800; }
+        #sale-table tfoot th { padding: 8px 10px !important; background: #0c1830 !important; color: #fff !important; border: 0 !important; white-space: nowrap; }
         .w2k-mini-invoice{max-width:340px;margin:1rem auto;}
         .w2k-mini-invoice .mini-chrome{display:none !important;}
         .sky-slip{width:72mm;max-width:100%;margin:0 auto 8px;zoom:1;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;padding:2px 3px 4px;}
@@ -859,6 +873,7 @@
         $('#sale-table').DataTable( {
             "processing": true,
             "serverSide": true,
+            "autoWidth": false,
             "ajax":{
                 url:"sales/sale-data",
                 data:{
@@ -879,9 +894,9 @@
                 {"data": "key"},
                 {"data": "date"},
                 {"data": "customer"},
-                {"data": "grand_total"},
-                {"data": "paid_amount"},
-                {"data": "due"},
+                {"data": "grand_total", "className": "sky-money"},
+                {"data": "paid_amount", "className": "sky-paid"},
+                {"data": "due", "className": "sky-due"},
                 {"data": "payment_status"},
                 {"data": "options"},
             ],

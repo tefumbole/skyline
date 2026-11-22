@@ -54,7 +54,6 @@
             .pay-collected { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: #0c1830; color: #e1b368; font-weight: 700; text-decoration: none; }
             .pay-collected:hover { color: #e1b368; }
         </style>
-        <p style="margin:0 0 12px"><a class="pay-collected" href="{{ route('payment.collected') }}">Collected payments</a></p>
         <div class="pay-board">
         <div class="table-responsive">
             <table id="biller-table" class="table sale-list">

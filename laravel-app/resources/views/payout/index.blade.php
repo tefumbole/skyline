@@ -23,9 +23,9 @@
 
     <div class="pay-toolbar">
         @if(Auth::user()->canSendPayout())
-        <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('payout.index', !empty($making) ? [] : ['new' => 1]) }}">{{ !empty($making) ? 'Close' : 'Request a payout' }}</a>
+        <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('payout.index', !empty($making) ? [] : ['new' => 1]) }}">{{ !empty($making) ? 'Close' : 'New withdrawal' }}</a>
         @endif
-        <a class="pay-new" href="{{ route('payout.request') }}">Request for payment</a>
+        <a class="pay-new" href="{{ route('payout.request') }}">Withdrawal request</a>
     </div>
 
     @if(!empty($making))
@@ -70,6 +70,67 @@
             </div>
         </div>
     @endif
+
+    <div class="pay-card">
+        <form method="POST" action="{{ route('payout.drop') }}" id="failedDeleteForm">@csrf</form>
+        <div class="pay-card-head">
+            <h2>Withdrawals</h2>
+            @if($history->count())
+                <button class="pay-danger" type="submit" form="failedDeleteForm">Delete selected</button>
+            @endif
+        </div>
+        <div class="table-responsive">
+            <table class="pay-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px">@if($history->count())<input type="checkbox" id="failedAll" form="failedDeleteForm" title="Select all">@endif</th>
+                        <th>When</th><th>Person</th><th>Number</th><th>Name on MoMo</th><th>Amount</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($history as $row)
+                        @php
+                            $tone = $row->status === 'paid' ? 'ok' : ($row->status === 'pending' ? 'wait' : 'no');
+                            $isRefund = (isset($row->kind) && $row->kind === 'refund') || stripos((string) $row->note, 'refund') !== false;
+                            $statusLabel = $row->status === 'paid'
+                                ? ($isRefund ? 'Refund' : 'Payout')
+                                : ($row->status === 'pending' ? 'Waiting' : ($row->status === 'rejected' ? 'Rejected' : 'Not paid'));
+                        @endphp
+                        <tr>
+                            <td>@if($row->status === 'failed')<input type="checkbox" class="failed-row" form="failedDeleteForm" name="ids[]" value="{{ $row->id }}">@endif</td>
+                            <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
+                            <td>{{ $row->person_name }}</td>
+                            <td>{{ $row->phone }}</td>
+                            <td>{{ $row->momo_name }}</td>
+                            <td style="color:#9b1c1c;font-weight:750">{{ number_format($row->amount, 0, '.', ' ') }} XAF</td>
+                            <td>
+                                <span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span>
+                                @if($row->error)<div class="pay-note">{{ $row->error }}</div>@endif
+                                @if($row->status === 'failed')
+                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                                        <form method="POST" action="{{ route('payout.retry') }}">
+                                            @csrf
+                                            <input type="hidden" name="id" value="{{ $row->id }}">
+                                            @if(Auth::user()->canSendPayout())
+                                            <button class="pay-open" type="submit" style="border:0;cursor:pointer" onclick="return confirm('Pay this person?')">Pay</button>
+                                            @endif
+                                        </form>
+                                        <form method="POST" action="{{ route('payout.drop') }}">
+                                            @csrf
+                                            <input type="hidden" name="id" value="{{ $row->id }}">
+                                            <button class="pay-open" type="submit" style="border:0;cursor:pointer;background:#fdecec;color:#9b1c1c" onclick="return confirm('Delete this failed payment? A retry will not send it.')">Delete</button>
+                                        </form>
+                                    </div>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="pay-muted">No withdrawals yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <div class="pay-balance">
         <div>
@@ -200,66 +261,6 @@
         </div>
     </div>
 
-    <div class="pay-card">
-        <form method="POST" action="{{ route('payout.drop') }}" id="failedDeleteForm">@csrf</form>
-        <div class="pay-card-head">
-            <h2>Not paid</h2>
-            @if($history->count())
-                <button class="pay-danger" type="submit" form="failedDeleteForm">Delete selected</button>
-            @endif
-        </div>
-        <div class="table-responsive">
-            <table class="pay-table">
-                <thead>
-                    <tr>
-                        <th style="width:36px">@if($history->count())<input type="checkbox" id="failedAll" form="failedDeleteForm" title="Select all">@endif</th>
-                        <th>When</th><th>Person</th><th>Number</th><th>Name on MoMo</th><th>Amount</th><th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($history as $row)
-                        @php
-                            $tone = $row->status === 'paid' ? 'ok' : ($row->status === 'pending' ? 'wait' : 'no');
-                            $isRefund = (isset($row->kind) && $row->kind === 'refund') || stripos((string) $row->note, 'refund') !== false;
-                            $statusLabel = $row->status === 'paid'
-                                ? ($isRefund ? 'Refund' : 'Payout')
-                                : ($row->status === 'pending' ? 'Waiting' : ($row->status === 'rejected' ? 'Rejected' : 'Not paid'));
-                        @endphp
-                        <tr>
-                            <td><input type="checkbox" class="failed-row" form="failedDeleteForm" name="ids[]" value="{{ $row->id }}"></td>
-                            <td>{{ $row->created_at ? $row->created_at->format('M j H:i') : '' }}</td>
-                            <td>{{ $row->person_name }}</td>
-                            <td>{{ $row->phone }}</td>
-                            <td>{{ $row->momo_name }}</td>
-                            <td>{{ number_format($row->amount, 0, '.', ' ') }} XAF</td>
-                            <td>
-                                <span class="pay-pill pay-pill-{{ $tone }}">{{ $statusLabel }}</span>
-                                @if($row->error)<div class="pay-note">{{ $row->error }}</div>@endif
-                                @if($row->status === 'failed')
-                                    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
-                                        <form method="POST" action="{{ route('payout.retry') }}">
-                                            @csrf
-                                            <input type="hidden" name="id" value="{{ $row->id }}">
-                                            @if(Auth::user()->canSendPayout())
-                                            <button class="pay-open" type="submit" style="border:0;cursor:pointer" onclick="return confirm('Pay this person?')">Pay</button>
-                                            @endif
-                                        </form>
-                                        <form method="POST" action="{{ route('payout.drop') }}">
-                                            @csrf
-                                            <input type="hidden" name="id" value="{{ $row->id }}">
-                                            <button class="pay-open" type="submit" style="border:0;cursor:pointer;background:#fdecec;color:#9b1c1c" onclick="return confirm('Delete this failed payment? A retry will not send it.')">Delete</button>
-                                        </form>
-                                    </div>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7" class="pay-muted">Paid payouts leave this list. Nothing is waiting to be sent again.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
 </section>
 <script>
 (function () {

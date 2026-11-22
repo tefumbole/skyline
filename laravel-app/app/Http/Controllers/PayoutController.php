@@ -49,7 +49,7 @@ class PayoutController extends Controller
                 $this->fillMomoNames($lines);
             }
         }
-        $history = $this->history($tenantId)->where('status', 'failed')->orderByDesc('id')->limit(30)->get();
+        $history = $this->history($tenantId)->orderByDesc('id')->limit(400)->get();
         app()->terminating(function () {
             $this->settleRecorded();
             $this->refreshPendingStatuses();
@@ -1720,7 +1720,7 @@ class PayoutController extends Controller
 
     protected function history($tenantId)
     {
-        $query = CampayPayout::query()->where('status', '!=', 'pending');
+        $query = CampayPayout::query();
         if ($tenantId) {
             $ids = CampayPayoutRequest::where('cloud_tenant_id', $tenantId)->pluck('id');
             $query->where(function ($rows) use ($ids) {

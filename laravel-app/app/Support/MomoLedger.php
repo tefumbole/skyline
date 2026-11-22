@@ -16,6 +16,23 @@ use Illuminate\Support\Facades\Schema;
  */
 class MomoLedger
 {
+    public static function shortNote($note)
+    {
+        $text = (string) $note;
+        $bits = array();
+        if (stripos($text, 'bill') !== false || stripos($text, 'posr-') !== false) {
+            $bits[] = 'Bill POS';
+        }
+        if (stripos($text, 'campay') !== false) {
+            $bits[] = 'Campay';
+        }
+        if (stripos($text, 'skyline') !== false) {
+            $bits[] = 'Skyline';
+        }
+
+        return implode(' · ', $bits);
+    }
+
     public static function history()
     {
         $rows = array();

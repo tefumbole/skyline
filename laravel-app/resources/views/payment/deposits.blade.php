@@ -38,7 +38,10 @@
     @endif
 
     <div class="pay-card" style="margin-bottom:16px">
-        <div class="pay-card-head"><h2>Payments</h2></div>
+        <div class="pay-card-head">
+            <h2>Deposit</h2>
+            <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('deposit.index', !empty($making) ? [] : ['new' => 1]) }}">{{ !empty($making) ? 'Close' : 'Make a deposit' }}</a>
+        </div>
         <form method="POST" action="{{ route('deposit.delete_selection') }}" id="depositsListForm">
             @csrf
             <div class="table-responsive">
@@ -89,7 +92,7 @@
                                 <td class="pay-note-cell">{{ $deposit->note }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="pay-muted">No payments yet.</td></tr>
+                            <tr><td colspan="9" class="pay-muted">No deposits yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -100,10 +103,6 @@
                 </div>
             @endif
         </form>
-    </div>
-
-    <div class="pay-toolbar">
-        <a class="pay-new {{ !empty($making) ? 'is-on' : '' }}" href="{{ route('deposit.index', ['new' => 1]) }}">+ Add Deposit</a>
     </div>
 
     @if(!empty($making))

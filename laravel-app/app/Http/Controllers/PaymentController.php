@@ -119,10 +119,35 @@ class PaymentController extends Controller
         return view('payment.collected', compact('sales'));
     }
 
-    public function transactions()
+    public function transactions(Request $request)
     {
         $this->assertCanSeeTransactions();
         $rows = \App\Support\MomoLedger::history();
+        $print = (string) $request->input('print');
+        if (in_array($print, array('letter', 'thermal'), true)) {
+            $lines = array();
+            foreach ($rows as $row) {
+                $lines[] = array(
+                    $row['when'],
+                    $row['direction'] === 'withdrawal' ? 'Withdrawal' : 'Deposit',
+                    number_format($row['amount'], 0, '.', ' '),
+                    $row['done_by'],
+                    $row['number'],
+                    $row['requested_by'],
+                    $row['status'],
+                    \App\Support\MomoLedger::shortNote($row['note'].' '.$row['reference']),
+                );
+            }
+
+            return view('report.summary_print', array(
+                'print' => $print,
+                'heading' => 'Transactions',
+                'period' => 'Mobile Money',
+                'columns' => array('When', 'Type', 'Amount', 'Done by', 'Number', 'Requested by', 'Status', 'Note'),
+                'lines' => $lines,
+                'back' => route('payment.transactions'),
+            ));
+        }
 
         return view('payment.transactions', compact('rows'));
     }

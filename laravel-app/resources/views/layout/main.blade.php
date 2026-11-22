@@ -2333,10 +2333,8 @@
                                 <a href="#payments" data-nav-key="payments" aria-expanded="false" data-toggle="collapse"> <i class="fa fa-dollar"></i><span>Payments</span></a>
                                 <ul id="payments" class="collapse list-unstyled ">
                                     @if($skyCan('payments-awaiting'))<li id="payment-index-menu"><a href="{{route('payment.index')}}">Awaiting Payment</a></li>@endif
-                                    @if($skyCan('payments-collected'))<li id="payment-collected-menu"><a href="{{route('payment.collected')}}">Collected</a></li>@endif
-                                    @if($skyCan('payments-list'))<li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Payments</a></li>@endif
+                                    @if($skyCan('payments-list'))<li id="desposit-index-menu"><a href="{{route('deposit.index')}}">Deposit</a></li>@endif
                                     @if($skyCan('payments-payout-tab'))<li id="payout-index-menu"><a href="{{route('payout.index')}}">Payout</a></li>@endif
-                                    @if($skyCan('payments-request'))<li id="payout-request-menu"><a href="{{route('payout.request')}}">Request for Payment</a></li>@endif
                                     <li id="payment-transactions-menu"><a href="{{route('payment.transactions')}}">Transactions</a></li>
                                 </ul>
                             </li>

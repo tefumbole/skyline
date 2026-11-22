@@ -128,8 +128,6 @@
         </div>
     </div>
 
-    @endif
-
     <div class="pay-card">
         <form method="POST" action="{{ route('payout.drop') }}" id="failedDeleteForm">@csrf</form>
         <div class="pay-card-head">

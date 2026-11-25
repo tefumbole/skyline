@@ -9,9 +9,6 @@
 <div class="alert alert-danger alert-dismissible text-center">
     <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ $errors->first('account_no') }}</div>
 @endif
-@php
-    $lims_department_list = \App\Department::where('is_active', true)->get();
-@endphp
 <style>
     .acct-board { background:#f3f6fb; margin:-8px -15px 0; padding:12px; }
     .acct-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 10px 28px rgba(12,24,48,.08); }
@@ -21,16 +18,18 @@
     .acct-btn { border:0; border-radius:999px; background:#e1b368; color:#0c1830; font-weight:800; font-size:12px; padding:6px 12px; }
     .acct-btn.ghost { background:transparent; color:#e1b368; border:1px solid #e1b368; }
     #account-table { margin:0; width:100%; }
-    #account-table thead th { background:#0c1830; color:#e1b368; font-size:11px; letter-spacing:.04em; text-transform:uppercase; border:0 !important; padding:6px 10px; white-space:nowrap; }
-    #account-table tbody td { padding:3px 10px !important; white-space:nowrap; vertical-align:middle; border-bottom:1px solid #eef1f6; font-size:13px; line-height:1.2; color:#1c2434; }
+    #account-table thead th { background:#0c1830 !important; color:#e1b368 !important; font-size:11px; letter-spacing:.04em; text-transform:uppercase; border:0 !important; padding:6px 10px !important; white-space:nowrap; }
+    #account-table tbody td { padding:4px 10px !important; white-space:nowrap; vertical-align:middle; border-bottom:1px solid #eef1f6; font-size:13px; line-height:1.2; color:#1c2434; }
     #account-table tbody tr:nth-child(even) td { background:#f7f4ee; }
     #account-table tbody tr:hover td { background:#fff8ea; }
-    #account-table .note-cell { max-width:220px; overflow:hidden; text-overflow:ellipsis; }
-    #account-table .money { text-align:right; font-variant-numeric:tabular-nums; font-weight:700; }
-    #account-table .btn-group > .btn { padding:1px 8px; line-height:1.4; border-radius:999px; font-size:12px; }
-    .acct-board .toggle.btn { height:20px !important; min-height:20px !important; min-width:52px !important; width:52px !important; border-radius:999px !important; padding:0 !important; }
-    .acct-board .toggle .toggle-group { height:20px !important; }
-    .acct-board .toggle-group .btn { padding:0 6px !important; line-height:18px !important; font-size:10px !important; }
+    #account-table tr.is-off td { color:#8b93a7; }
+    #account-table .name-cell, #account-table .note-cell { max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+    #account-table .money { text-align:right; font-variant-numeric:tabular-nums; font-weight:800; color:#0c1830; }
+    #account-table tr.is-off .money { color:#8b93a7; }
+    #account-table .btn-group > .btn { padding:2px 10px; line-height:1.4; border-radius:999px; font-size:12px; background:#0c1830; color:#e1b368; border:0; }
+    .acct-switch { border:0; border-radius:999px; min-width:54px; height:22px; padding:0 10px; font-size:11px; font-weight:800; cursor:pointer; background:#f8d7d7; color:#9b1c1c; }
+    .acct-switch.is-on { background:#d9f5e6; color:#0d7a3a; }
+    .acct-default { display:inline-block; margin-left:6px; background:#e1b368; color:#0c1830; border-radius:999px; font-size:10px; font-weight:800; padding:1px 7px; letter-spacing:.04em; }
     .acct-board .dataTables_wrapper { padding:8px 10px 12px; }
     .acct-board .dataTables_wrapper .row { margin:0 0 6px; align-items:center; }
     .acct-board .dt-buttons .btn { background:#0c1830; color:#e1b368; border:0; border-radius:8px; padding:3px 8px; margin-left:4px; }
@@ -50,34 +49,23 @@
             <thead>
                 <tr>
                     <th class="not-exported"></th>
-                    <th>{{trans('file.Account')}} No</th>
-                    <th>{{trans('file.Department')}} / {{trans('file.Code')}}</th>
+                    <th>Code</th>
                     <th>{{trans('file.name')}}</th>
-                    <th>{{trans('file.Initial Balance')}}</th>
-                    <th>{{trans('file.Default')}}</th>
+                    <th>Balance</th>
+                    <th>On</th>
                     <th>{{trans('file.Note')}}</th>
                     <th class="not-exported">{{trans('file.action')}}</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($lims_account_all as $key=>$account)
-                <tr>
+                <tr class="{{ $account->is_active ? '' : 'is-off' }}">
                     <td>{{$key}}</td>
                     <td>{{ $account->account_no }}</td>
-                    @php
-                        $deptName = optional($account->departments)->name;
-                        $deptCode = optional($account->departments)->code;
-                        $deptLabel = trim(($deptName ? $deptName : '').($deptCode ? ' '.$deptCode : ''));
-                    @endphp
-                    <td>{{ $deptLabel !== '' ? $deptLabel : '—' }}</td>
-                    <td>{{ $account->name }}</td>
-                    <td class="money">{{ number_format((float) $account->initial_balance, 0, '.', ' ') }}</td>
+                    <td class="name-cell" title="{{ $account->name }}">{{ $account->name }}@if($account->is_default)<span class="acct-default">Default</span>@endif</td>
+                    <td class="money">{{ number_format((float) $account->total_balance, 0, '.', ' ') }}</td>
                     <td>
-                        @if($account->is_default)
-                        <input type="checkbox" checked class="default" data-id="{{$account->id}}" data-toggle="toggle" data-height="20" data-width="52" data-onstyle="success" data-offstyle="danger">
-                        @else
-                        <input type="checkbox" class="default" data-id="{{$account->id}}" data-toggle="toggle" data-height="20" data-width="52" data-onstyle="success" data-offstyle="danger">
-                        @endif
+                        <button type="button" class="acct-switch {{ $account->is_active ? 'is-on' : '' }}" data-id="{{ $account->id }}">{{ $account->is_active ? 'On' : 'Off' }}</button>
                     </td>
                     <td class="note-cell" title="{{ $account->note }}">{{ $account->note }}</td>
                     <td>
@@ -88,6 +76,9 @@
                             </button>
                             <ul class="dropdown-menu edit-options dropdown-menu-right dropdown-default" user="menu">
                                 <li><button type="button" data-id="{{$account->id}}" data-account_no="{{$account->account_no}}" data-name="{{$account->name}}"  data-initial_balance="{{$account->initial_balance}}" data-note="{{$account->note}}" class="edit-btn btn btn-link" data-toggle="modal" data-target="#editModal"><i class="dripicons-document-edit"></i> {{trans('file.edit')}}</button></li>
+                                @if(!$account->is_default)
+                                <li><button type="button" class="make-default btn btn-link" data-id="{{ $account->id }}"><i class="dripicons-checkmark"></i> Set as default</button></li>
+                                @endif
                                 <li class="divider"></li>
                                 {{ Form::open(['route' => ['accounts.destroy', $account->id], 'method' => 'DELETE'] ) }}
                                 <li>
@@ -128,15 +119,6 @@
                         <label>{{trans('file.Account')}} No *</label>
                         <input type="text" name="account_no" required class="form-control">
                         <input type="hidden" name="account_id">
-                    </div>
-                    <div class="form-group">
-                        <label>{{trans('file.Department')}} *</label>
-                        <select class="form-control selectpicker" name="department_id" data-live-search="true">
-                            <option value="0">Choose department</option>
-                            @foreach($lims_department_list as $account)
-                                <option value="{{$account->id}}">{{$account->name}} - {{$account->code}}</option>
-                            @endforeach
-                        </select>
                     </div>
                     <div class="form-group">
                         <label>{{trans('file.name')}} *</label>
@@ -205,25 +187,31 @@
         $("#editModal textarea[name='note']").val( $(this).data('note') );
     });
 
-    $('.default').on('change', function() {
-        //off to on
-        if ($(this).parent().hasClass("btn-success")) {
-            var id = $(this).data('id');
-            $('.default').not($(this)).parent().removeClass('btn-success');
-            $('.default').not($(this)).parent().addClass('btn-danger off');
-            $('.default').not($(this)).prop('checked', false);
-            $(this).prop('checked', true);
-            $.get('accounts/make-default/' + id, function(data) {
-                alert(data);
-            });
-        }
-        //on to off
-        else {
-            $(this).parent().removeClass('btn-danger off');
-            $(this).parent().addClass('btn-success');
-            $(this).prop('checked', true);
-            alert('Please make another account default first!');
-        }
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
+    });
+
+    $(document).on('click', '#account-table .acct-switch', function () {
+        var btn = $(this);
+        $.ajax({
+            url: '{{ url('accounts/toggle') }}/' + btn.data('id'),
+            method: 'POST',
+            success: function (res) {
+                var on = !!(res && res.on);
+                btn.toggleClass('is-on', on).text(on ? 'On' : 'Off');
+                btn.closest('tr').toggleClass('is-off', !on);
+            },
+            error: function (xhr) {
+                var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Could not change this account.';
+                alert(msg);
+            }
+        });
+    });
+
+    $(document).on('click', '.make-default', function () {
+        $.get('{{ url('accounts/make-default') }}/' + $(this).data('id'), function () {
+            window.location.reload();
+        });
     });
 
 function confirmDelete() {
@@ -246,7 +234,7 @@ function confirmDelete() {
         'columnDefs': [
             {
                 "orderable": false,
-                'targets': [0, 6]
+                'targets': [0, 4, 6]
             },
             {
                 'render': function(data, type, row, meta){
@@ -320,14 +308,15 @@ function confirmDelete() {
             datatable_sum(api, false);
         }
     } );
-    function datatable_sum(dt_selector, is_calling_first) {
-        if (dt_selector.rows( '.selected' ).any() && is_calling_first) {
-            var rows = dt_selector.rows( '.selected' ).indexes();
-            $( dt_selector.column( 3 ).footer() ).html(dt_selector.cells( rows, 3, { page: 'current' } ).data().sum().toFixed(2));
+    function datatable_sum(dt_selector) {
+        if (!dt_selector || !dt_selector.column(3).footer()) {
+            return;
         }
-        else {
-            $( dt_selector.column( 3 ).footer() ).html(dt_selector.cells( rows, 3, { page: 'current' } ).data().sum().toFixed(2));
-        }
+        var total = 0;
+        dt_selector.column(3, { page: 'current' }).data().each(function (value) {
+            total += parseFloat(String(value).replace(/[^0-9.-]/g, '')) || 0;
+        });
+        $(dt_selector.column(3).footer()).html(total.toLocaleString());
     }
 
 </script>

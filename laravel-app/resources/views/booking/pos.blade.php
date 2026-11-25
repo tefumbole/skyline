@@ -408,9 +408,6 @@
                         <ul id="account" class="collapse list-unstyled ">
                             @if($index_permission_active)
                                 <li id="account-list-menu"><a href="{{route('accounts.index')}}">{{trans('file.Account List')}}</a></li>
-                                @if($department_active)
-                                    <li id="account-dept-menu"><a href="{{ route('departments.index', ['module' => 'account']) }}">{{trans('file.Department')}}</a></li>
-                                @endif
                                 @if($JE_active)
                                     <li id="JE-menu">
                                         <a href="{{url('report/JE')}}">{{trans('file.JE Report')}}</a>

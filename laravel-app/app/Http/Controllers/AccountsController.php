@@ -24,7 +24,7 @@ class AccountsController extends Controller
     {
         $role = Role::find(Auth::user()->role_id);
         if($role->hasPermissionTo('account-index')){
-            $lims_account_all = Account::with('departments')->where('is_active', true)->get();
+            $lims_account_all = Account::orderBy('account_no')->get();
             return view('account.index', compact('lims_account_all'));
         }
         else
@@ -98,10 +98,6 @@ class AccountsController extends Controller
             ],
         ]);
 
-        if($request->department_id == 0) {
-            return back()->with('message', 'Please select department');
-        }
-
         $lims_account_data = Account::where('is_active', true)->first();
         $data = $request->all();
         if($data['initial_balance'])
@@ -117,15 +113,32 @@ class AccountsController extends Controller
 
     public function makeDefault($id)
     {
-        $lims_account_data = Account::where('is_default', true)->first();
-        $lims_account_data->is_default = false;
-        $lims_account_data->save();
-
-        $lims_account_data = Account::find($id);
-        $lims_account_data->is_default = true;
-        $lims_account_data->save();
+        $account = Account::find($id);
+        if (! $account) {
+            return response('Account not found', 404);
+        }
+        Account::where('is_default', true)->update(array('is_default' => false));
+        $account->is_default = true;
+        $account->is_active = true;
+        $account->save();
 
         return 'Account set as default successfully';
+    }
+
+    public function toggleActive($id)
+    {
+        $account = Account::find($id);
+        if (! $account) {
+            return response()->json(array('ok' => false, 'message' => 'Account not found'), 404);
+        }
+        $turningOff = (bool) $account->is_active;
+        if ($turningOff && $account->is_default) {
+            return response()->json(array('ok' => false, 'message' => 'Set another account as default before turning this one off.'), 422);
+        }
+        $account->is_active = $turningOff ? 0 : 1;
+        $account->save();
+
+        return response()->json(array('ok' => true, 'on' => (bool) $account->is_active));
     }
 
     public function edit($id)
@@ -145,11 +158,8 @@ class AccountsController extends Controller
         ]);
 
         $data = $request->all();
+        unset($data['total_balance']);
         $lims_account_data = Account::find($data['account_id']);
-        if($data['initial_balance'])
-            $data['total_balance'] = $data['initial_balance'];
-        else
-            $data['total_balance'] = 0;
         $lims_account_data->update($data);
         return redirect('accounts')->with('message', 'Account updated successfully');
     }

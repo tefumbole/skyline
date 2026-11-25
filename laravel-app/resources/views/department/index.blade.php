@@ -30,8 +30,8 @@
     <div class="acct-card">
     <div class="acct-head">
         <div>
-            <h2>{{ request('module') === 'hrm' ? 'HRM' : 'Accounting' }} · Department</h2>
-            <p>{{ request('module') === 'hrm' ? 'Staff departments. Accounting uses this same list on an account.' : 'Departments attached to accounts. HRM opens this same list.' }}</p>
+            <h2>HRM · Department</h2>
+            <p>Staff departments. This list stays under Human Resource.</p>
         </div>
         <div class="acct-actions">
             <button type="button" class="acct-btn" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans('file.Add Department')}}</button>
@@ -174,16 +174,9 @@
 </div>
 
 <script type="text/javascript">
-    var deptModule = (window.location.search.indexOf('module=hrm') !== -1) ? 'hrm' : 'account';
-    if (deptModule === 'hrm') {
-        $("ul#hrm").siblings('a').attr('aria-expanded','true');
-        $("ul#hrm").addClass("show");
-        $("#hrm-dept-menu").addClass("active");
-    } else {
-        $("ul#account").siblings('a').attr('aria-expanded','true');
-        $("ul#account").addClass("show");
-        $("#account-dept-menu").addClass("active");
-    }
+    $("ul#hrm").siblings('a').attr('aria-expanded','true');
+    $("ul#hrm").addClass("show");
+    $("#hrm-dept-menu").addClass("active");
 
     var department_id = [];
     var user_verified = <?php echo json_encode(true) ?>;

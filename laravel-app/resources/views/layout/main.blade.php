@@ -2816,9 +2816,6 @@
                                     <li id="chart-of-account-menu"><a href="{{ route('accounts.chart') }}">Chart of Account</a></li>
                                     @if($index_permission_active)
                                         <li id="account-list-menu"><a href="{{route('accounts.index')}}">{{trans('file.Account List')}}</a></li>
-                                        @if($department_active)
-                                            <li id="account-dept-menu"><a href="{{ route('departments.index', ['module' => 'account']) }}">{{trans('file.Department')}}</a></li>
-                                        @endif
                                         @if($JE_active)
                                             <li id="JE-menu">
                                                 <a href="{{url('report/JE')}}">{{trans('file.JE Report')}}</a>
@@ -3869,15 +3866,6 @@
                           <input type="text" name="account_no" required class="form-control">
                       </div>
 
-                    <div class="form-group">
-                        <label>{{trans('file.Department')}} *</label>
-                        <select class="form-control selectpicker" name="department_id" data-live-search="true" required>
-                                <option value="0">Choose department</option>
-                            @foreach($lims_department_list as $account)
-                                <option value="{{$account->id}}">{{$account->name}} - {{$account->code}}</option>
-                            @endforeach
-                        </select>
-                    </div>
                       <div class="form-group">
                           <label>{{trans('file.name')}} *</label>
                           <input type="text" name="name" required class="form-control">
@@ -4805,9 +4793,8 @@
                       return;
                   }
                   if (path === '/departments' || /\/departments$/.test(path)) {
-                      var deptModule = queryParam(window.location.search, 'module') === 'hrm' ? 'hrm' : 'account';
                       $('#side-main-menu li.active').removeClass('active');
-                      $('#' + (deptModule === 'hrm' ? 'hrm-dept-menu' : 'account-dept-menu')).addClass('active');
+                      $('#hrm-dept-menu').addClass('active');
                       return;
                   }
                   var best = null;

@@ -2807,9 +2807,13 @@
                                 ['role_id', $role->id]])->first();
 
                         ?>
-                        @if($index_permission_active || $balance_sheet_permission_active || $account_statement_permission_active || $money_transfer_permission_active)
+                        @php
+                            $showChart = Auth::user() && (Auth::user()->hasFullAdminAccess() || in_array((int) Auth::user()->role_id, array(9, 10, 11), true));
+                        @endphp
+                        @if($index_permission_active || $balance_sheet_permission_active || $account_statement_permission_active || $money_transfer_permission_active || $showChart)
                             <li class=""><a href="#account" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-briefcase"></i><span>{{trans('file.Accounting')}}</span></a>
                                 <ul id="account" class="collapse list-unstyled ">
+                                    <li id="chart-of-account-menu"><a href="{{ route('accounts.chart') }}">Chart of Account</a></li>
                                     @if($index_permission_active)
                                         <li id="account-list-menu"><a href="{{route('accounts.index')}}">{{trans('file.Account List')}}</a></li>
                                         @if($department_active)

@@ -1362,6 +1362,7 @@ Route::group(['middleware' => ['auth', 'active', 'intern.compliance']], function
 	Route::resource('coupons', 'CouponController');
 	//accounting routes
 	Route::get('accounts/make-default/{id}', 'AccountsController@makeDefault');
+	Route::get('accounts/chart', 'AccountsController@chart')->name('accounts.chart');
 	Route::get('accounts/balancesheet', 'AccountsController@balanceSheet')->name('accounts.balancesheet');
 	Route::post('accounts/account-statement', 'AccountsController@accountStatement')->name('accounts.statement');
 	Route::resource('accounts', 'AccountsController');

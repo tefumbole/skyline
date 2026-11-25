@@ -297,8 +297,9 @@
                     <div class="form-group">
                         <label> {{trans('file.Account')}}</label>
                         <select class="form-control selectpicker" name="account_id" data-live-search="true">
+                            @php $foodSaleAccount = $lims_account_list->first(function ($row) { return (string) $row->account_no === '7011'; }); @endphp
                             @foreach($lims_account_list as $account)
-                                @if($account->is_default)
+                                @if(($foodSaleAccount && (string) $account->account_no === '7011') || (! $foodSaleAccount && $account->is_default))
                                     <option selected value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{ optional($account->departments)->code }}</option>
                                 @else
                                     <option value="{{$account->id}}">{{$account->name}} / {{$account->account_no}} - {{ optional($account->departments)->code }}</option>

@@ -31,6 +31,57 @@ class AccountsController extends Controller
             return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
     }
 
+    public function chart()
+    {
+        if (! $this->canSeeChart()) {
+            return redirect()->back()->with('not_permitted', 'Sorry! You are not allowed to access this module');
+        }
+        $chart = app(\App\Support\ChartOfAccounts::class);
+        $chart->ensure();
+        $codes = array();
+        foreach ($chart->catalog() as $meta) {
+            $codes[] = $meta['code'];
+        }
+        $byCode = Account::whereIn('account_no', $codes)->get()->keyBy(function ($account) {
+            return (string) $account->account_no;
+        });
+        $rows = array();
+        foreach ($chart->catalog() as $meta) {
+            $account = $byCode->get((string) $meta['code']);
+            if (! $account) {
+                continue;
+            }
+            $rows[] = array(
+                'class' => $meta['class'],
+                'group' => $meta['group'],
+                'code' => $meta['code'],
+                'name' => $meta['name'],
+                'statement' => $meta['statement'],
+                'normal' => $meta['normal'],
+                'account' => $account,
+            );
+        }
+
+        return view('account.chart', compact('rows'));
+    }
+
+    private function canSeeChart()
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->hasFullAdminAccess()) {
+            return true;
+        }
+        if (in_array((int) $user->role_id, array(9, 10, 11), true)) {
+            return true;
+        }
+        $role = Role::find($user->role_id);
+
+        return $role && $role->hasPermissionTo('account-index');
+    }
+
     public function create()
     {
         //

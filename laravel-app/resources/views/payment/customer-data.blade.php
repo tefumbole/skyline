@@ -143,7 +143,10 @@
     </div>
 
     @php
-        $defaultPayAccount = $lims_account_list->first(function ($account) { return $account->is_default; });
+        $defaultPayAccount = $lims_account_list->first(function ($account) { return (string) $account->account_no === '7011'; });
+        if (! $defaultPayAccount) {
+            $defaultPayAccount = $lims_account_list->first(function ($account) { return $account->is_default; });
+        }
         if (! $defaultPayAccount) {
             $defaultPayAccount = $lims_account_list->first();
         }

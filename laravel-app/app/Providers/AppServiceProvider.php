@@ -67,6 +67,7 @@ class AppServiceProvider extends ServiceProvider
             \App::setLocale('en');
         }
         Schema::defaultStringLength(191);
+        \App\Support\ChartPosting::register();
 
         // Guard against boot before the database is installed/migrated (fresh install, CLI, migrations).
         if (! $this->settingsAvailable()) {

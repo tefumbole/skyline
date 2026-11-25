@@ -10,10 +10,33 @@
   <div class="alert alert-danger alert-dismissible text-center"><button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>{{ session()->get('not_permitted') }}</div>
 @endif
 
-<section>
-    <div class="container-fluid">
-        <button type="button" class="btn btn-info" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans('file.Add Department')}}</button>
-        <button class="btn btn-primary" data-toggle="modal" data-target="#importDepartment"><i class="dripicons-copy"></i> {{trans('file.Import Department')}}</button>
+<style>
+    .acct-board { background:#f3f6fb; margin:-8px -15px 0; padding:12px; }
+    .acct-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 10px 28px rgba(12,24,48,.08); }
+    .acct-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:#0c1830; }
+    .acct-head h2 { margin:0; color:#e1b368; font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .acct-head p { margin:3px 0 0; color:#fff; font-size:12px; }
+    .acct-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .acct-btn { border:0; border-radius:999px; background:#e1b368; color:#0c1830; font-weight:800; font-size:12px; padding:6px 12px; }
+    .acct-btn.ghost { background:transparent; color:#e1b368; border:1px solid #e1b368; }
+    #department-table { margin:0; }
+    #department-table thead th { background:#0c1830; color:#e1b368; font-size:11px; letter-spacing:.04em; text-transform:uppercase; border:0; padding:6px 10px; white-space:nowrap; }
+    #department-table tbody td { padding:4px 10px; white-space:nowrap; vertical-align:middle; border-bottom:1px solid #eef1f6; font-size:13px; line-height:1.25; }
+    #department-table tbody tr:nth-child(even) td { background:#f7f4ee; }
+    .acct-board .dataTables_wrapper { padding:8px 10px 12px; }
+    .acct-board .dt-buttons .btn { background:#0c1830; color:#e1b368; border:0; border-radius:8px; padding:3px 8px; }
+</style>
+<section class="acct-board">
+    <div class="acct-card">
+    <div class="acct-head">
+        <div>
+            <h2>{{ request('module') === 'hrm' ? 'HRM' : 'Accounting' }} · Department</h2>
+            <p>{{ request('module') === 'hrm' ? 'Staff departments. Accounting uses this same list on an account.' : 'Departments attached to accounts. HRM opens this same list.' }}</p>
+        </div>
+        <div class="acct-actions">
+            <button type="button" class="acct-btn" data-toggle="modal" data-target="#createModal"><i class="dripicons-plus"></i> {{trans('file.Add Department')}}</button>
+            <button class="acct-btn ghost" data-toggle="modal" data-target="#importDepartment"><i class="dripicons-copy"></i> {{trans('file.Import Department')}}</button>
+        </div>
     </div>
     <div class="table-responsive">
         <table id="department-table" class="table">
@@ -55,7 +78,8 @@
             </tbody>
         </table>
     </div>
-</seaction>
+    </div>
+</section>
 
 <!-- Create Modal -->
 <div id="createModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" class="modal fade text-left">
@@ -150,9 +174,16 @@
 </div>
 
 <script type="text/javascript">
-    $("ul#account").siblings('a').attr('aria-expanded','true');
-    $("ul#account").addClass("show");
-    $("ul#account #dept-menu").addClass("active");
+    var deptModule = (window.location.search.indexOf('module=hrm') !== -1) ? 'hrm' : 'account';
+    if (deptModule === 'hrm') {
+        $("ul#hrm").siblings('a').attr('aria-expanded','true');
+        $("ul#hrm").addClass("show");
+        $("#hrm-dept-menu").addClass("active");
+    } else {
+        $("ul#account").siblings('a').attr('aria-expanded','true');
+        $("ul#account").addClass("show");
+        $("#account-dept-menu").addClass("active");
+    }
 
     var department_id = [];
     var user_verified = <?php echo json_encode(true) ?>;

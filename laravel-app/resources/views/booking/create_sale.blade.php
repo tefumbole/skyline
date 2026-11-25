@@ -310,7 +310,7 @@
           <li class=""><a href="#hrm" aria-expanded="false" data-toggle="collapse"> <i class="dripicons-user-group"></i><span>HRM</span></a>
             <ul id="hrm" class="collapse list-unstyled ">
               @if($department_active)
-              <li id="dept-menu"><a href="{{route('departments.index')}}">{{trans('file.Department')}}</a></li>
+              <li id="hrm-dept-menu"><a href="{{ route('departments.index', ['module' => 'hrm']) }}">{{trans('file.Department')}}</a></li>
               @endif
               @if($index_employee_active)
               <li id="employee-menu"><a href="{{route('employees.index')}}">{{trans('file.Employee')}}</a></li>

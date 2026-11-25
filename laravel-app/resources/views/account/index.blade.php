@@ -12,10 +12,38 @@
 @php
     $lims_department_list = \App\Department::where('is_active', true)->get();
 @endphp
-<section>
-    <div class="container-fluid">
-        <button class="btn btn-info" data-toggle="modal" data-target="#account-modal"><i class="dripicons-plus"></i> {{trans('file.Add Account')}}</button>
-        <button class="btn btn-primary" data-toggle="modal" data-target="#importAccount"><i class="dripicons-copy"></i> {{trans('file.Import Account')}}</button>
+<style>
+    .acct-board { background:#f3f6fb; margin:-8px -15px 0; padding:12px; }
+    .acct-card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 10px 28px rgba(12,24,48,.08); }
+    .acct-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:#0c1830; }
+    .acct-head h2 { margin:0; color:#e1b368; font-size:13px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .acct-actions { display:flex; gap:8px; }
+    .acct-btn { border:0; border-radius:999px; background:#e1b368; color:#0c1830; font-weight:800; font-size:12px; padding:6px 12px; }
+    .acct-btn.ghost { background:transparent; color:#e1b368; border:1px solid #e1b368; }
+    #account-table { margin:0; width:100%; }
+    #account-table thead th { background:#0c1830; color:#e1b368; font-size:11px; letter-spacing:.04em; text-transform:uppercase; border:0 !important; padding:6px 10px; white-space:nowrap; }
+    #account-table tbody td { padding:3px 10px !important; white-space:nowrap; vertical-align:middle; border-bottom:1px solid #eef1f6; font-size:13px; line-height:1.2; color:#1c2434; }
+    #account-table tbody tr:nth-child(even) td { background:#f7f4ee; }
+    #account-table tbody tr:hover td { background:#fff8ea; }
+    #account-table .note-cell { max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+    #account-table .money { text-align:right; font-variant-numeric:tabular-nums; font-weight:700; }
+    #account-table .btn-group > .btn { padding:1px 8px; line-height:1.4; border-radius:999px; font-size:12px; }
+    .acct-board .toggle.btn { height:20px !important; min-height:20px !important; min-width:52px !important; width:52px !important; border-radius:999px !important; padding:0 !important; }
+    .acct-board .toggle .toggle-group { height:20px !important; }
+    .acct-board .toggle-group .btn { padding:0 6px !important; line-height:18px !important; font-size:10px !important; }
+    .acct-board .dataTables_wrapper { padding:8px 10px 12px; }
+    .acct-board .dataTables_wrapper .row { margin:0 0 6px; align-items:center; }
+    .acct-board .dt-buttons .btn { background:#0c1830; color:#e1b368; border:0; border-radius:8px; padding:3px 8px; margin-left:4px; }
+    .acct-board .dataTables_filter input { border:1px solid #e1b368; border-radius:999px; height:28px; padding:0 10px; }
+</style>
+<section class="acct-board">
+    <div class="acct-card">
+    <div class="acct-head">
+        <h2>Account List</h2>
+        <div class="acct-actions">
+            <button class="acct-btn" data-toggle="modal" data-target="#account-modal"><i class="dripicons-plus"></i> {{trans('file.Add Account')}}</button>
+            <button class="acct-btn ghost" data-toggle="modal" data-target="#importAccount"><i class="dripicons-copy"></i> {{trans('file.Import Account')}}</button>
+        </div>
     </div>
     <div class="table-responsive">
         <table id="account-table" class="table">
@@ -36,21 +64,22 @@
                 <tr>
                     <td>{{$key}}</td>
                     <td>{{ $account->account_no }}</td>
-                    <td>{{ optional($account->departments)->name }} / {{ optional($account->departments)->code }}</td>
+                    @php
+                        $deptName = optional($account->departments)->name;
+                        $deptCode = optional($account->departments)->code;
+                        $deptLabel = trim(($deptName ? $deptName : '').($deptCode ? ' '.$deptCode : ''));
+                    @endphp
+                    <td>{{ $deptLabel !== '' ? $deptLabel : '—' }}</td>
                     <td>{{ $account->name }}</td>
-                    @if($account->initial_balance)
-                        <td>{{ number_format((float)$account->initial_balance, 2, '.', '') }}</td>
-                    @else
-                        <td>0.00</td>
-                    @endif
+                    <td class="money">{{ number_format((float) $account->initial_balance, 0, '.', ' ') }}</td>
                     <td>
                         @if($account->is_default)
-                        <input type="checkbox" checked class="default" data-id="{{$account->id}}" data-toggle="toggle" data-onstyle="success" data-offstyle="danger">
+                        <input type="checkbox" checked class="default" data-id="{{$account->id}}" data-toggle="toggle" data-height="20" data-width="52" data-onstyle="success" data-offstyle="danger">
                         @else
-                        <input type="checkbox" class="default" data-id="{{$account->id}}" data-toggle="toggle"  data-onstyle="success" data-offstyle="danger">
+                        <input type="checkbox" class="default" data-id="{{$account->id}}" data-toggle="toggle" data-height="20" data-width="52" data-onstyle="success" data-offstyle="danger">
                         @endif
                     </td>
-                    <td>{{ $account->note }}</td>
+                    <td class="note-cell" title="{{ $account->note }}">{{ $account->note }}</td>
                     <td>
                         <div class="btn-group">
                             <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{trans('file.action')}}
@@ -81,6 +110,7 @@
                 <th></th>
             </tfoot>
         </table>
+    </div>
     </div>
 </section>
 

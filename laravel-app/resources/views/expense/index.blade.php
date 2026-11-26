@@ -4,13 +4,30 @@
     $money = function ($amount) {
         return number_format((float) $amount, 0).' XAF';
     };
-    $categoryChoices = $categories->map(function ($category) use ($stats) {
+    $chart = app(\App\Support\ChartOfAccounts::class);
+    $chart->ensure();
+    $debitAccounts = \App\Account::where('is_active', 1)->where('account_no', 'like', '6%')->orderBy('account_no')->get();
+    $creditAccounts = \App\Account::where('is_active', 1)->whereIn('account_no', array('521', '5211', '571'))->orderBy('account_no')->get();
+    $debitIds = array();
+    foreach ($debitAccounts as $account) {
+        $debitIds[(string) $account->account_no] = (int) $account->id;
+    }
+    $cashAccountId = 0;
+    foreach ($creditAccounts as $account) {
+        if ((string) $account->account_no === '571') {
+            $cashAccountId = (int) $account->id;
+        }
+    }
+    $categoryChoices = $categories->map(function ($category) use ($stats, $chart, $debitIds) {
         $parent = ($category->parent_id && isset($stats[$category->parent_id])) ? $stats[$category->parent_id]['name'] : '';
+        $debitCode = $chart->expenseCode($category->name, '') ?: '658';
         return [
             'id' => (int) $category->id,
             'name' => $category->name,
             'code' => (string) $category->code,
             'parent' => $parent,
+            'debit' => isset($debitIds[$debitCode]) ? $debitIds[$debitCode] : 0,
+            'debitCode' => $debitCode,
         ];
     })->values();
 @endphp
@@ -143,6 +160,24 @@
             @endif
         </div>
         <div class="ex-field">
+            <label for="ex-debit">Debit account</label>
+            <select name="account_id" id="ex-debit" required>
+                @foreach($debitAccounts as $account)
+                    <option value="{{ $account->id }}" {{ (string) $account->account_no === '658' ? 'selected' : '' }}>{{ $account->account_no }} · {{ $account->name }}</option>
+                @endforeach
+            </select>
+            <p class="ex-meta" id="ex-debit-hint">Kitchen, restaurant, and bar use 601. Chill On The Hill uses 658.</p>
+        </div>
+        <div class="ex-field">
+            <label for="ex-credit">Credit account</label>
+            <select name="credit_account_id" id="ex-credit" required>
+                @foreach($creditAccounts as $account)
+                    <option value="{{ $account->id }}" {{ (string) $account->account_no === '571' ? 'selected' : '' }}>{{ $account->account_no }} · {{ $account->name }}</option>
+                @endforeach
+            </select>
+            <p class="ex-meta">Cash on hand is the usual payment. Choose Mobile Money when the money left that wallet.</p>
+        </div>
+        <div class="ex-field">
             <label>Amount (XAF)</label>
             <input type="number" name="amount" id="ex-amount" min="0" step="1" inputmode="numeric" required placeholder="0">
         </div>
@@ -176,7 +211,9 @@
                         data-date="{{ $expense->created_at ? $expense->created_at->format('Y-m-d') : date('Y-m-d') }}"
                         data-category="{{ $expense->expense_category_id }}"
                         data-amount="{{ $expense->amount }}"
-                        data-note="{{ $expense->note }}">Edit</button>
+                        data-note="{{ $expense->note }}"
+                        data-debit="{{ $expense->account_id }}"
+                        data-credit="{{ $expense->credit_account_id }}">Edit</button>
                 @endif
             </article>
         @empty
@@ -213,10 +250,16 @@
         function labelFor(item) {
             return item.parent ? item.parent + ' / ' + item.name : item.name;
         }
+        var debitSelect = document.getElementById('ex-debit');
+        var creditSelect = document.getElementById('ex-credit');
+        var cashAccountId = @json($cashAccountId);
         function choose(item) {
             hidden.value = String(item.id);
             search.value = labelFor(item);
             hint.hidden = true;
+            if (debitSelect && item.debit) {
+                debitSelect.value = String(item.debit);
+            }
             closeList();
         }
         function clearCategory() {
@@ -316,6 +359,7 @@
             clearCategory();
             document.getElementById('ex-amount').value = '';
             document.getElementById('ex-note').value = '';
+            if (creditSelect && cashAccountId) creditSelect.value = String(cashAccountId);
             reset.hidden = true;
         }
         reset.addEventListener('click', function () {
@@ -335,6 +379,8 @@
                 document.getElementById('ex-save').textContent = 'Save changes';
                 document.getElementById('ex-date').value = this.getAttribute('data-date');
                 pickById(this.getAttribute('data-category'));
+                if (debitSelect && this.getAttribute('data-debit')) debitSelect.value = this.getAttribute('data-debit');
+                if (creditSelect && this.getAttribute('data-credit')) creditSelect.value = this.getAttribute('data-credit');
                 document.getElementById('ex-amount').value = this.getAttribute('data-amount');
                 document.getElementById('ex-note').value = this.getAttribute('data-note') || '';
                 reset.hidden = false;

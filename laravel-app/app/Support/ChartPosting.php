@@ -36,9 +36,10 @@ class ChartPosting
             try {
                 $chart = app(ChartOfAccounts::class);
                 if ($payment->sale_id) {
-                    $chart->postSale($payment->sale_id);
+                    $chart->syncSale($payment->sale_id);
+                } elseif ($payment->purchase_id) {
+                    $chart->postPurchase($payment);
                 }
-                $chart->postTender($payment);
             } catch (\Throwable $e) {
             }
         });

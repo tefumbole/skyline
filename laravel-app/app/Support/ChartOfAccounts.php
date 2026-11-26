@@ -37,6 +37,7 @@ class ChartOfAccounts
             array('class' => '4', 'group' => 'Third parties', 'code' => '4431', 'name' => 'VAT collected (19.25%)', 'statement' => 'Balance sheet', 'normal' => 'Mixed'),
             array('class' => '4', 'group' => 'Third parties', 'code' => '4452', 'name' => 'Recoverable VAT', 'statement' => 'Balance sheet', 'normal' => 'Mixed'),
             array('class' => '4', 'group' => 'Third parties', 'code' => '447', 'name' => 'Other taxes payable (withholdings, city taxes)', 'statement' => 'Balance sheet', 'normal' => 'Mixed'),
+            array('class' => '4', 'group' => 'Third parties', 'code' => '461', 'name' => 'Owner drawings', 'statement' => 'Balance sheet', 'normal' => 'Debit'),
             array('class' => '4', 'group' => 'Third parties', 'code' => '476', 'name' => 'Prepaid expenses', 'statement' => 'Balance sheet', 'normal' => 'Mixed'),
             array('class' => '4', 'group' => 'Third parties', 'code' => '477', 'name' => 'Deferred income (advance bookings)', 'statement' => 'Balance sheet', 'normal' => 'Mixed'),
             array('class' => '5', 'group' => 'Cash and bank', 'code' => '521', 'name' => 'Bank accounts', 'statement' => 'Balance sheet', 'normal' => 'Debit'),
@@ -139,11 +140,18 @@ class ChartOfAccounts
         if ($amount <= 0) {
             return;
         }
-        $method = strtolower((string) $payment->paying_method);
-        if (strpos($method, 'momo') !== false || strpos($method, 'orange') !== false) {
+        if (! empty($payment->purchase_id) && empty($payment->sale_id)) {
+            $this->postPurchase($payment);
+
+            return;
+        }
+        $code = $this->tenderCode($payment->paying_method);
+        if ($code === '5211') {
             $this->move('5211', $amount, 'sale-momo', (int) $payment->id, 'in');
-        } elseif (strpos($method, 'cash') !== false) {
+        } elseif ($code === '571') {
             $this->move('571', $amount, 'sale-cash', (int) $payment->id, 'in');
+        } elseif ($code === '521') {
+            $this->move('521', $amount, 'sale-bank', (int) $payment->id, 'in');
         }
     }
 
@@ -164,9 +172,122 @@ class ChartOfAccounts
             $code = '658';
         }
         $this->move($code, $amount, 'expense', (int) $expense->id, 'in');
-        $paidBy = strtolower((string) $expense->payment_method.' '.(string) $expense->note);
-        $cash = (strpos($paidBy, 'momo') !== false || strpos($paidBy, 'orange') !== false) ? '5211' : '571';
+        $cash = '571';
+        if (! empty($expense->credit_account_id)) {
+            $credit = Account::find($expense->credit_account_id);
+            if ($credit && in_array((string) $credit->account_no, array('521', '5211', '571'), true)) {
+                $cash = (string) $credit->account_no;
+            }
+        } else {
+            $paidBy = strtolower((string) $expense->payment_method.' '.(string) $expense->note);
+            if (strpos($paidBy, 'momo') !== false || strpos($paidBy, 'orange') !== false) {
+                $cash = '5211';
+            }
+        }
         $this->move($cash, $amount, 'expense-paid', (int) $expense->id, 'out');
+    }
+
+    public function syncSale($saleId)
+    {
+        $this->ensure();
+        $this->postSale($saleId);
+        $grand = round((float) DB::table('sales')->where('id', $saleId)->value('grand_total'), 2);
+        if ($grand > 0) {
+            $this->move('411', $grand, 'sale-receivable', (int) $saleId, 'in');
+        }
+        if (! Schema::hasTable('payments')) {
+            return;
+        }
+        foreach (DB::table('payments')->where('sale_id', $saleId)->get() as $payment) {
+            $this->postTender($payment);
+            $amount = round((float) $payment->amount, 2);
+            if ($amount > 0 && $this->tenderCode($payment->paying_method)) {
+                $this->move('411', $amount, 'sale-clear', (int) $payment->id, 'out');
+            }
+        }
+    }
+
+    public function postPurchase($payment)
+    {
+        $this->ensure();
+        $amount = round((float) $payment->amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+        $debit = '601';
+        if (! empty($payment->account_id)) {
+            $chosen = Account::find($payment->account_id);
+            if ($chosen && $this->isExpenseCode($chosen->account_no)) {
+                $debit = (string) $chosen->account_no;
+            }
+        }
+        $credit = $this->tenderCode(isset($payment->paying_method) ? $payment->paying_method : '');
+        if ($credit === null) {
+            $credit = '571';
+        }
+        $this->move($debit, $amount, 'purchase', (int) $payment->id, 'in');
+        $this->move($credit, $amount, 'purchase-paid', (int) $payment->id, 'out');
+    }
+
+    public function syncBooks()
+    {
+        $this->ensure();
+        if (Schema::hasTable('sales')) {
+            foreach (DB::table('sales')->orderBy('id')->pluck('id') as $saleId) {
+                $this->syncSale($saleId);
+            }
+        }
+        if (Schema::hasTable('campay_payouts')) {
+            foreach (DB::table('campay_payouts')->where('status', 'paid')->orderBy('id')->get() as $payout) {
+                $this->postPayout($payout);
+            }
+        }
+    }
+
+    public function tenderCode($method)
+    {
+        $method = strtolower((string) $method);
+        if ($method === '') {
+            return null;
+        }
+        if (strpos($method, 'momo') !== false || strpos($method, 'orange') !== false) {
+            return '5211';
+        }
+        if (strpos($method, 'cash') !== false) {
+            return '571';
+        }
+        if (strpos($method, 'cheque') !== false || strpos($method, 'card') !== false || strpos($method, 'bank') !== false || strpos($method, 'paypal') !== false || strpos($method, 'visa') !== false) {
+            return '521';
+        }
+
+        return null;
+    }
+
+    public function trialProof()
+    {
+        $debit = 0.0;
+        $credit = 0.0;
+        if (! Schema::hasTable('accounts')) {
+            return array('debit' => 0, 'credit' => 0);
+        }
+        foreach ($this->catalog() as $row) {
+            $balance = (float) Account::where('account_no', $row['code'])->value('total_balance');
+            if ($this->balanceSide($row['code'], $row['normal']) === 'debit') {
+                if ($balance >= 0) {
+                    $debit += $balance;
+                } else {
+                    $credit += abs($balance);
+                }
+            } else {
+                if ($balance >= 0) {
+                    $credit += $balance;
+                } else {
+                    $debit += abs($balance);
+                }
+            }
+        }
+
+        return array('debit' => $debit, 'credit' => $credit);
     }
 
     public function postPayout($payout)
@@ -188,6 +309,8 @@ class ChartOfAccounts
         $code = $this->expenseCode((string) $payout->note, (string) $payout->person_name);
         if ($code !== null) {
             $this->move($code, $amount, 'payout-expense', (int) $payout->id, 'in');
+        } else {
+            $this->move('461', $amount, 'payout-drawings', (int) $payout->id, 'in');
         }
     }
 
@@ -298,6 +421,9 @@ class ChartOfAccounts
     public function expenseCode($name, $note = '')
     {
         $text = strtolower(trim($name.' '.$note));
+        if (strpos($text, 'chill') !== false) {
+            return '658';
+        }
         $map = array(
             '661' => array('salar', 'wage', 'payroll', 'staff pay'),
             '664' => array('cnps', 'social charge'),
@@ -314,7 +440,7 @@ class ChartOfAccounts
             '671' => array('interest'),
             '681' => array('depreciat'),
             '695' => array('income tax'),
-            '601' => array('food', 'beverage', 'drink', 'bar stock', 'kitchen'),
+            '601' => array('kitchin', 'kitchen', 'restaurant', 'bar', 'food', 'beverage', 'drink'),
         );
         foreach ($map as $code => $words) {
             foreach ($words as $word) {
@@ -325,6 +451,15 @@ class ChartOfAccounts
         }
 
         return null;
+    }
+
+    protected function balanceSide($code, $normal)
+    {
+        if (in_array((string) $code, array('411', '4452', '461', '476', '811'), true) || $normal === 'Debit') {
+            return 'debit';
+        }
+
+        return 'credit';
     }
 
     protected function isExpenseCode($code)

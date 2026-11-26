@@ -914,6 +914,17 @@ class PurchaseController extends Controller
         else
             $paying_method = 'Cheque';
 
+        if (! empty($data['credit_id'])) {
+            $creditAccount = Account::find($data['credit_id']);
+            if ($creditAccount && (string) $creditAccount->account_no === '5211') {
+                $paying_method = 'Momo';
+            } elseif ($creditAccount && (string) $creditAccount->account_no === '521') {
+                $paying_method = 'Bank';
+            } elseif ($creditAccount && (string) $creditAccount->account_no === '571') {
+                $paying_method = 'Cash';
+            }
+        }
+
         $lims_payment_data = new Payment();
         $lims_payment_data->user_id = Auth::id();
         $lims_payment_data->purchase_id = $lims_purchase_data->id;

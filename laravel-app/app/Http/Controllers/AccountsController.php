@@ -62,7 +62,9 @@ class AccountsController extends Controller
             );
         }
 
-        return view('account.chart', compact('rows'));
+        $proof = $chart->trialProof();
+
+        return view('account.chart', compact('rows', 'proof'));
     }
 
     private function canSeeChart()

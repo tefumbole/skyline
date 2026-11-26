@@ -207,11 +207,11 @@
                             <input type="text" name="cheque_no" class="form-control">
                         </div>
                     </div>
-                    <div class="form-group col-md-12" id="debit">
+                    <div class="form-group col-md-6" id="debit">
                         <label> {{trans('file.Debit')}}</label>
                         <select class="form-control selectpicker" name="account_id" data-live-search="true">
                             @foreach($lims_account_list as $account)
-                                @if($account->is_default_debit)
+                                @if((string) $account->account_no === '601')
                                     <option selected value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>
                                 @else
                                     <option value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>
@@ -219,11 +219,11 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="form-group col-md-6 hide" id="credit">
+                    <div class="form-group col-md-6" id="credit">
                         <label> {{trans('file.Credit')}}</label>
                         <select class="form-control selectpicker" name="credit_id" data-live-search="true">
                             @foreach($lims_account_list as $account)
-                                @if($account->is_default)
+                                @if((string) $account->account_no === '571')
                                     <option selected value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>
                                 @else
                                     <option value="{{$account->id}}">{{$account->name}} [{{$account->account_no}}]</option>

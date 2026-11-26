@@ -230,10 +230,18 @@ class ExpenseController extends Controller
         if ($accountId < 1) {
             $accountId = $this->defaultAccountId();
         }
+        $creditId = (int) $request->input('credit_account_id');
+        if ($creditId < 1 && $existing && ! empty($existing->credit_account_id)) {
+            $creditId = (int) $existing->credit_account_id;
+        }
+        if ($creditId < 1) {
+            $creditId = (int) Account::where('account_no', '571')->value('id');
+        }
         $data = [
             'expense_category_id' => (int) $request->input('expense_category_id'),
             'warehouse_id' => $warehouseId,
             'account_id' => $accountId,
+            'credit_account_id' => $creditId > 0 ? $creditId : null,
             'amount' => $request->input('amount'),
             'note' => $request->input('note'),
         ];

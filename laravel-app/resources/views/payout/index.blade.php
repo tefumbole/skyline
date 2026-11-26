@@ -40,6 +40,15 @@
                 <form method="POST" action="{{ route('payout.direct') }}" id="newPayoutForm">
                     @csrf
                     <div class="form-group" style="max-width:420px;margin-top:14px">
+                        <label for="payout-account">Account</label>
+                        <select name="account_id" id="payout-account" class="form-control" required>
+                            @foreach($payoutAccounts as $account)
+                                <option value="{{ $account->id }}" {{ (string) $account->account_no === '521' ? 'selected' : '' }}>{{ $account->account_no }} · {{ $account->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="pay-help">This withdrawal is sent through a phone number and goes to the bank.</p>
+                    </div>
+                    <div class="form-group" style="max-width:420px">
                         <label>Note</label>
                         <input type="text" name="note" class="form-control" maxlength="180" placeholder="Salary, refund, allowance">
                     </div>

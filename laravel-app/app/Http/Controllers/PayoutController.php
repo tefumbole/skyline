@@ -59,8 +59,35 @@ class PayoutController extends Controller
         $making = $request->get('new') === '1' && Auth::user() && Auth::user()->canSendPayout();
         $q = '';
         $people = collect();
+        $payoutAccounts = $making ? $this->payoutAccounts() : collect();
 
-        return view('payout.index', compact('pending', 'totals', 'open', 'lines', 'history', 'balance', 'making', 'q', 'people'));
+        return view('payout.index', compact('pending', 'totals', 'open', 'lines', 'history', 'balance', 'making', 'q', 'people', 'payoutAccounts'));
+    }
+
+    protected function payoutAccounts()
+    {
+        $chart = app(\App\Support\ChartOfAccounts::class);
+        $chart->ensure();
+
+        return \App\Account::where('is_active', 1)
+            ->orderBy('account_no')
+            ->get()
+            ->filter(function ($account) use ($chart) {
+                return $chart->isPayoutDebit($account->account_no);
+            })
+            ->values();
+    }
+
+    protected function payoutAccountId(Request $request)
+    {
+        $chart = app(\App\Support\ChartOfAccounts::class);
+        $chart->ensure();
+        $chosen = \App\Account::find((int) $request->input('account_id'));
+        if ($chosen && $chart->isPayoutDebit($chosen->account_no)) {
+            return (int) $chosen->id;
+        }
+
+        return (int) \App\Account::where('account_no', '521')->value('id') ?: null;
     }
 
     protected function refreshPendingStatuses()
@@ -123,6 +150,7 @@ class PayoutController extends Controller
         if ($note === '') {
             $note = 'Payout';
         }
+        $accountId = $this->payoutAccountId($request);
         $lines = $this->collectLines($request);
         if (isset($lines['error'])) {
             return redirect()->route('payout.index', ['new' => 1])->with('not_permitted', $lines['error']);
@@ -153,6 +181,7 @@ class PayoutController extends Controller
                 'user_id' => Auth::id(),
                 'customer_id' => $line['customer_id'],
                 'request_id' => $batch->id,
+                'account_id' => $accountId,
                 'person_name' => substr($line['person_name'], 0, 191),
                 'phone' => $line['phone'],
                 'amount' => $line['amount'],

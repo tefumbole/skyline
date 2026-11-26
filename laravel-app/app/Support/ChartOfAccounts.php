@@ -302,16 +302,67 @@ class ChartOfAccounts
             return;
         }
         $this->move('5211', $amount, 'payout', (int) $payout->id, 'out');
-        if (isset($payout->kind) && $payout->kind === 'refund') {
+        $debit = $this->payoutDebitCode($payout);
+        if ($debit === '7011') {
             $this->move('7011', $amount, 'payout-refund', (int) $payout->id, 'out');
 
             return;
         }
+        $source = 'payout-bank';
+        if ($debit === '461') {
+            $source = 'payout-drawings';
+        } elseif ($this->isExpenseCode($debit)) {
+            $source = 'payout-expense';
+        }
+        $this->move($debit, $amount, $source, (int) $payout->id, 'in');
+    }
+
+    public function payoutDebitCode($payout)
+    {
+        if (isset($payout->kind) && $payout->kind === 'refund') {
+            return '7011';
+        }
+        if (! empty($payout->account_id)) {
+            $chosen = Account::find($payout->account_id);
+            if ($chosen && $this->isPayoutDebit($chosen->account_no)) {
+                return (string) $chosen->account_no;
+            }
+        }
         $code = $this->expenseCode((string) $payout->note, (string) $payout->person_name);
-        if ($code !== null) {
-            $this->move($code, $amount, 'payout-expense', (int) $payout->id, 'in');
-        } else {
-            $this->move('461', $amount, 'payout-drawings', (int) $payout->id, 'in');
+
+        return $code !== null ? $code : '521';
+    }
+
+    public function isPayoutDebit($code)
+    {
+        $code = (string) $code;
+
+        return $code === '521' || $code === '461' || $this->isExpenseCode($code);
+    }
+
+    public function reclassWithdrawalsToBank()
+    {
+        if (! Schema::hasTable('account_entries') || ! Schema::hasTable('accounts')) {
+            return;
+        }
+        DB::transaction(function () {
+            $added = (float) DB::table('account_entries')
+                ->where('source', 'payout-drawings')
+                ->where('account_no', '461')
+                ->where('direction', 'in')
+                ->sum('amount');
+            $account = Account::where('account_no', '461')->lockForUpdate()->first();
+            if ($account && $added > 0) {
+                $account->total_balance = round((float) $account->total_balance - $added, 2);
+                $account->save();
+            }
+            DB::table('account_entries')->where('source', 'payout-drawings')->where('account_no', '461')->delete();
+        });
+        if (! Schema::hasTable('campay_payouts')) {
+            return;
+        }
+        foreach (DB::table('campay_payouts')->where('status', 'paid')->orderBy('id')->get() as $payout) {
+            $this->postPayout($payout);
         }
     }
 

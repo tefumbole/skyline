@@ -26,7 +26,7 @@
     <div class="coa-card">
         <div class="coa-head">
             <h2>Chart of Account</h2>
-            <p>Cash and Mobile Money are debited when a sale is paid. Food credits 7011 and drinks credit 7012. Unpaid bills stay on 411. Expenses debit the cost and credit the account that paid. Withdrawals with no named cost debit 461. Debits {{ number_format($proof['debit'], 0) }} · Credits {{ number_format($proof['credit'], 0) }} XAF.</p>
+            <p>Cash and Mobile Money are debited when a sale is paid. Food credits 7011 and drinks credit 7012. Unpaid bills stay on 411. Expenses debit the cost and credit the account that paid. A withdrawal sent through a phone number debits 521 Bank. Debits {{ number_format($proof['debit'], 0) }} · Credits {{ number_format($proof['credit'], 0) }} XAF.</p>
         </div>
         <div class="table-responsive">
             <table>

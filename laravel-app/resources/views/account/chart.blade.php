@@ -40,6 +40,31 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $active = array();
+                        foreach ($rows as $row) {
+                            if (round((float) $row['account']->total_balance, 2) != 0) {
+                                $active[] = $row;
+                            }
+                        }
+                    @endphp
+                    @if(count($active))
+                        <tr class="group"><td colspan="5">Accounts with a balance</td></tr>
+                        @foreach($active as $row)
+                            @php
+                                $balance = (float) $row['account']->total_balance;
+                                $tone = $balance < 0 ? 'out' : 'in';
+                            @endphp
+                            <tr>
+                                <td class="code">{{ $row['code'] }}</td>
+                                <td>{{ $row['name'] }}</td>
+                                <td>{{ $row['statement'] }}</td>
+                                <td>{{ $row['normal'] }}</td>
+                                <td class="amt {{ $tone }}">{{ number_format($balance, 0, '.', ' ') }}</td>
+                            </tr>
+                        @endforeach
+                    @endif
+                    <tr class="group"><td colspan="5">Full chart of account</td></tr>
                     @php $group = ''; @endphp
                     @foreach($rows as $row)
                         @if($group !== $row['group'])

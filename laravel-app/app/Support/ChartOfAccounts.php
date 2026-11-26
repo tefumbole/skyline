@@ -232,6 +232,7 @@ class ChartOfAccounts
     public function syncBooks()
     {
         $this->ensure();
+        $this->bindTenant();
         if (Schema::hasTable('sales')) {
             foreach (DB::table('sales')->orderBy('id')->pluck('id') as $saleId) {
                 $this->syncSale($saleId);
@@ -314,19 +315,49 @@ class ChartOfAccounts
         }
     }
 
+    public function reverseMispostedOtherSales()
+    {
+        if (! Schema::hasTable('account_entries') || ! Schema::hasTable('accounts')) {
+            return;
+        }
+        DB::transaction(function () {
+            $added = (float) DB::table('account_entries')
+                ->where('source', 'sale')
+                ->where('account_no', '707')
+                ->where('direction', 'in')
+                ->sum('amount');
+            $removed = (float) DB::table('account_entries')
+                ->where('source', 'sale')
+                ->where('account_no', '707')
+                ->where('direction', 'out')
+                ->sum('amount');
+            $account = Account::where('account_no', '707')->lockForUpdate()->first();
+            if ($account) {
+                $account->total_balance = round((float) $account->total_balance - $added + $removed, 2);
+                $account->save();
+            }
+            DB::table('account_entries')->where('source', 'sale')->where('account_no', '707')->delete();
+        });
+    }
+
+    protected function bindTenant()
+    {
+        if (! class_exists(\App\Cloud\CloudTenant::class) || ! class_exists(\App\Services\Cloud\CloudTenantContext::class)) {
+            return;
+        }
+        $tenant = \App\Cloud\CloudTenant::find(1);
+        if ($tenant) {
+            app(\App\Services\Cloud\CloudTenantContext::class)->set($tenant);
+        }
+    }
+
     public function backfill()
     {
         $this->ensure();
         if (! Schema::hasTable('sales')) {
             return;
         }
-        $tenant = null;
-        if (class_exists(\App\Cloud\CloudTenant::class)) {
-            $tenant = \App\Cloud\CloudTenant::find(1);
-        }
-        if ($tenant && class_exists(\App\Services\Cloud\CloudTenantContext::class)) {
-            app(\App\Services\Cloud\CloudTenantContext::class)->set($tenant);
-        }
+        $this->bindTenant();
         foreach (DB::table('sales')->orderBy('id')->pluck('id') as $saleId) {
             $this->postSale($saleId);
         }
@@ -405,8 +436,10 @@ class ChartOfAccounts
         if (strpos($name, 'spa') !== false || strpos($name, 'park') !== false || strpos($name, 'shuttle') !== false) {
             return '7064';
         }
-        if (strpos($name, 'drink') !== false || strpos($name, 'bar') !== false || strpos($name, 'beverage') !== false || strpos($name, 'juice') !== false) {
-            return '7012';
+        foreach (array('drink', 'bar', 'coffee', 'tea', 'whisk', 'wine', 'cocktail', 'smoothie', 'mocktail', 'spirit', 'beer', 'juice', 'cognac', 'vodka', 'gin', 'aperitif', 'champagne', 'soda', 'liquor', 'guinness', 'malt') as $needle) {
+            if (strpos($name, $needle) !== false) {
+                return '7012';
+            }
         }
         if (strpos($name, 'food') !== false || strpos($name, 'restaurant') !== false || strpos($name, 'kitchen') !== false || strpos($name, 'meal') !== false) {
             return '7011';

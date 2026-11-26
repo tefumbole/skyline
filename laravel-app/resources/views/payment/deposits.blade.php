@@ -9,15 +9,18 @@
     .pay-ledger .pay-card { border: 0; border-radius: 18px; box-shadow: 0 12px 32px rgba(12, 24, 48, .08); }
     .pay-ledger .pay-card-head { padding: 18px 22px; background: #0c1830; border: 0; }
     .pay-ledger .pay-card-head h2 { color: #e1b368; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    .pay-ledger .pay-table th { padding: 14px 16px; background: #f7f4ee; color: #8a6a32; border: 0; font-size: 11px; letter-spacing: .08em; }
-    .pay-ledger .pay-table td { padding: 16px; border-bottom: 1px solid #eef1f6; color: #1c2434; }
+    .pay-ledger .pay-table th { padding: 16px 14px; background: #f7f4ee; color: #8a6a32; border: 0; font-size: 11px; letter-spacing: .08em; }
+    .pay-ledger .pay-table td { padding: 20px 14px; border-bottom: 1px solid #eef1f6; color: #1c2434; vertical-align: middle; }
     .pay-ledger .pay-table tbody tr:hover td { background: #f8fafc; }
-    .pay-ledger .pay-time { color: #5c6b82; font-size: 13px; font-weight: 700; line-height: 1.35; }
-    .pay-ledger .pay-client { color: #0c1830; font-weight: 750; letter-spacing: .01em; }
+    .pay-ledger .pay-time { color: #5c6b82; font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+    .pay-ledger .pay-client { width: 1%; color: #0c1830; font-weight: 750; letter-spacing: .01em; }
+    .pay-ledger .pay-client span { display: inline-block; max-width: 12em; line-height: 1.35; vertical-align: middle; }
+    .pay-ledger .pay-phone { white-space: nowrap; }
     .pay-ledger .pay-amt { font-variant-numeric: tabular-nums; font-weight: 750; white-space: nowrap; }
     .pay-ledger .pay-amt-soft { color: #5c6b82; font-weight: 650; }
-    .pay-ledger .pay-method-name { color: #3d4b63; }
-    .pay-ledger .pay-note-cell { max-width: 180px; color: #5c6b82; }
+    .pay-ledger .pay-method-name { color: #3d4b63; white-space: nowrap; }
+    .pay-ledger .pay-note-cell { width: 22%; color: #5c6b82; }
+    .pay-ledger .pay-note-cell span { display: inline-block; max-width: 16em; line-height: 1.45; vertical-align: middle; }
     .pay-ledger .pay-pill { padding: 4px 12px; }
     .pay-ledger .pay-new { border-color: #0c1830; background: #0c1830; color: #fff !important; }
     .pay-ledger .pay-new:hover, .pay-ledger .pay-new.is-on { background: #e1b368; border-color: #e1b368; color: #0c1830 !important; }
@@ -93,9 +96,9 @@
                             @endphp
                             <tr>
                                 <td><input type="checkbox" class="deposits-line" name="ids[]" value="{{ $deposit->id }}"></td>
-                                <td class="pay-time">@if($deposit->created_at){{ $deposit->created_at->format('M j') }}<br>{{ $deposit->created_at->format('H:i') }}@endif</td>
-                                <td class="pay-client">{{ $clientName }}</td>
-                                <td>{{ $clientPhone !== '' ? $clientPhone : '—' }}</td>
+                                <td class="pay-time">@if($deposit->created_at){{ $deposit->created_at->format('M j, H:i') }}@endif</td>
+                                <td class="pay-client"><span>{{ $clientName }}</span></td>
+                                <td class="pay-phone">{{ $clientPhone !== '' ? $clientPhone : '—' }}</td>
                                 <td class="pay-amt">{{ number_format($paid, 0, '.', ' ') }} XAF</td>
                                 <td class="pay-amt">{{ number_format($received, 0, '.', ' ') }} XAF</td>
                                 <td class="pay-amt pay-amt-soft">{{ number_format($charges, 0, '.', ' ') }} XAF</td>
@@ -106,7 +109,7 @@
                                         <div class="pay-note">{{ strpos(strtoupper($deposit->failure_reason), 'LOW_BALANCE') !== false ? 'Not enough money on the phone' : (strpos(strtoupper($deposit->failure_reason), 'CANCEL') !== false || strpos(strtoupper($deposit->failure_reason), 'APPROV') !== false ? 'Not approved' : 'Payment was not completed') }}</div>
                                     @endif
                                 </td>
-                                <td class="pay-note-cell">{{ $deposit->note }}</td>
+                                <td class="pay-note-cell"><span>{{ $deposit->note }}</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="10" class="pay-muted">No deposits yet.</td></tr>

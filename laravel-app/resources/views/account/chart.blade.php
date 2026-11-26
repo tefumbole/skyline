@@ -3,9 +3,9 @@
 <style>
     .coa { background: #f3f6fb; margin: -8px -12px 0; padding: 12px; }
     .coa-card { background: #fff; border-radius: 18px; box-shadow: 0 12px 32px rgba(12, 24, 48, .08); overflow: hidden; }
-    .coa-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: #0c1830; }
-    .coa-head h2 { margin: 0; color: #e1b368; font-size: 14px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .coa-head p { margin: 0; color: #fff; font-size: 13px; }
+    .coa-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px; background: #0c1830; }
+    .coa-head h2 { margin: 0; color: #e1b368; font-size: 14px; font-weight: 800; letter-spacing: .08em; line-height: 1.25; text-transform: uppercase; white-space: nowrap; }
+    .coa-head p { margin: 0; color: #fff; font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; }
     .coa table { width: 100%; border-collapse: collapse; }
     .coa th { padding: 8px 12px; background: #f7f4ee; color: #8a6a32; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; text-align: left; }
     .coa td { padding: 8px 12px; border-bottom: 1px solid #eef1f6; color: #1c2434; font-size: 14px; }
@@ -25,8 +25,8 @@
     </script>
     <div class="coa-card">
         <div class="coa-head">
-            <h2>Chart of Account</h2>
-            <p>Cash and Mobile Money are debited when a sale is paid. Food credits 7011 and drinks credit 7012. Unpaid bills stay on 411. Expenses debit the cost and credit the account that paid. A withdrawal sent through a phone number debits 521 Bank. Debits {{ number_format($proof['debit'], 0) }} · Credits {{ number_format($proof['credit'], 0) }} XAF.</p>
+            <h2>Chart of<br>Account</h2>
+            <p>Debits {{ number_format($proof['debit'], 0) }} · Credits {{ number_format($proof['credit'], 0) }} XAF</p>
         </div>
         <div class="table-responsive">
             <table>
